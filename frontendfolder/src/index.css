@@ -28,6 +28,7 @@
 html, body {
   height: 100%;
   overflow: hidden; 
+  color: var(--text-color);
 }
 
 body {

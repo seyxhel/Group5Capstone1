@@ -134,7 +134,7 @@ export default function EmployeeTicketSubmissionForm() {
 
           {/* File Upload */}
           <fieldset>
-            <label htmlFor="fileUpload">File Upload (PNG, JPG, PDF, Word, Excel, CSV)</label>
+            <label htmlFor="fileUpload">File Upload (PNG, JPG, PDF, Word, Excel, & CSV)</label>
             <div className={styles.fileUploadWrapper}>
               <input
                 type="file"
