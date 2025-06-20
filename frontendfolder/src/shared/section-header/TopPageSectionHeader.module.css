@@ -1,0 +1,50 @@
+.topPageSectionHeader {
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  padding: 0 38px 20px 38px; /* Consistent horizontal padding */
+  border-bottom: 1px solid #d3d3d3;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.breadcrumbNavigation ul {
+  display: flex;
+  width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0;
+  margin: 0;
+}
+
+.breadcrumbNavigation li {
+  list-style: none;
+}
+
+.breadcrumbNavigation li + li::before {
+  padding: 0px 6px 0px 8px;
+  color: var(--secondary-text-color);
+  content: "/\00a0";
+}
+
+.breadcrumbNavigation a {
+  color: var(--secondary-text-color);
+  cursor: pointer;
+}
+
+.breadcrumbNavigation a:hover {
+  color: var(--primary-color);
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.title h1 {
+  font-size: 1.5rem;
+  width: 100%;
+  overflow-wrap: anywhere;
+  margin: 0;
+}

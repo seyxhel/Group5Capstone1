@@ -1,0 +1,29 @@
+.navbarWrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.scrollContainer {
+  position: fixed;
+  top: 64px; /* height of navbar */
+  left: 0;
+  width: 100%;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* ✅ Apply spacing here */
+  padding: 24px 38px 38px 38px;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+}
+
+.employee-layout-main {
+  /* Remove padding here */
+  min-height: 100%;
+}

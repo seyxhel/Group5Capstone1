@@ -1,0 +1,98 @@
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 28px 0;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  padding: 8px 16px;
+  border-radius: 40px;
+  border: 1px solid #d3d3d3;
+  font-size: 0.9rem;
+  min-width: 250px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.1);
+}
+
+.middle {
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 28px 28px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin-top: 16px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Cell base styles */
+.table th,
+.table td {
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  text-align: left;
+  color: var(--secondary-text-color);
+  border-bottom: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.table th {
+  background-color: #f7f7f7;
+  font-weight: 600;
+}
+
+/* Action column (last column) */
+.table th:last-child,
+.table td:last-child {
+  width: 40px !important;
+  min-width: 40px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+/* Action group container */
+.actionGroup {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Action button styling */
+.actionBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 -2px;
+  color: var(--secondary-text-color);
+}
+
+.actionBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Hover effects */
+.edit:hover,
+.view:hover {
+  color: var(--primary-color);
+}
+
+.delete:hover {
+  color: #ff0000;
+}

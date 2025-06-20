@@ -1,0 +1,260 @@
+/* Modal Container */
+.chat-modal {
+  position: fixed;
+  top: 50%;
+  left: 75%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 450px;
+  height: 550px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1500;
+  overflow: hidden;
+  border: 1px solid #ccc;
+}
+
+.chat-modal.showing {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Modal Inner Content */
+.chat-modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Header */
+.chat-header {
+  padding: 12px 16px;
+  background-color: #9f0d14;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chatbot-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bot-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: white;
+}
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  padding: 0 5px;
+  cursor: pointer;
+}
+
+/* Messages Container */
+.chat-messages {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #ffffff;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}
+
+/* Timestamp */
+.timestamp-display {
+  text-align: center;
+  font-size: 10px;
+  color: #b5b5b5;
+  margin-top: 2px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+/* Messages */
+.message {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 10px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  position: relative;
+}
+
+.message p {
+  margin-bottom: 8px;
+}
+.message p:last-child {
+  margin-bottom: 0;
+}
+
+.bot-message {
+  align-self: flex-start;
+  background-color: #eeeeee;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 18px 18px 18px 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #b5d2f1;
+  color: #333;
+  border-radius: 18px 18px 4px 18px;
+}
+
+/* Bot Features List */
+.bot-features-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 10px 0 0 0;
+}
+.bot-features-list li {
+  padding: 4px 0;
+}
+
+/* Input Area */
+.chat-input-container {
+  padding: 12px;
+  background-color: white;
+  border-top: 1px solid #eaeaea;
+}
+
+.chat-input-area {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  background-color: #f0f2f5;
+  border-radius: 20px;
+  padding: 6px 12px;
+}
+
+#chatInput {
+  flex-grow: 1;
+  padding: 8px 5px;
+  font-size: 15px;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+/* Upload Button */
+.upload-btn {
+  background-color: navy;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: white;
+}
+
+.upload-btn:hover {
+  background-color: #092645;
+}
+.upload-btn input[type="file"] {
+  display: none;
+}
+
+.upload-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Send Button */
+.send-btn {
+  background-color: navy;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: white;
+}
+
+.send-btn:hover {
+  background-color: #092645;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  background-color: #ffffff;
+  border-radius: 18px 18px 18px 4px;
+  width: fit-content;
+  align-self: flex-start;
+  border: 1px solid #ddd;
+}
+
+.typing-indicator span {
+  height: 8px;
+  width: 8px;
+  background-color: #888;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 2px;
+  opacity: 0.4;
+  animation: blink 1.4s infinite both;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0% { opacity: 0.4; }
+  20% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
