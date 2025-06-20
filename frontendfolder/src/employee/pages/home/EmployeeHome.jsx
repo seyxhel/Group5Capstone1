@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IoAdd, IoList, IoFolderOpen } from 'react-icons/io5';
+import {
+  IoAdd,
+  IoList,
+  IoFolderOpen,
+  IoChevronForward
+} from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import styles from './EmployeeHome.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
@@ -11,9 +16,16 @@ const EmployeeHome = () => {
 
   useEffect(() => {
     const allTickets = getEmployeeTickets();
-    const sorted = allTickets
+
+    const activeTickets = allTickets.filter(ticket => {
+      const status = ticket.status.toLowerCase();
+      return !['closed', 'rejected', 'withdrawn'].includes(status);
+    });
+
+    const sorted = activeTickets
       .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
-      .slice(0, 3);
+      .slice(0, 5);
+
     setRecentTickets(sorted);
   }, []);
 
@@ -34,7 +46,7 @@ const EmployeeHome = () => {
   };
 
   const handleViewDetails = (ticketNumber) => {
-    console.log('View details for ticket:', ticketNumber);
+    navigate(`/employee/ticket-details/${ticketNumber}`);
   };
 
   return (
@@ -83,46 +95,76 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          <button className={styles.trackBtn} onClick={handleTrackTickets}>Track Tickets</button>
+          <button className={styles.trackBtn} onClick={handleTrackTickets}>
+            Track Active Tickets
+          </button>
         </div>
 
-        <div className={styles.ticketHeader}>
-          <div>
-            <strong>TICKET NO.</strong>
-            <div className={styles.ticketHeaderMeta}>
-              Assigned Agent | Subject | Priority | Category • Sub Category
-            </div>
+        {recentTickets.length === 0 ? (
+          <div className={styles.noTickets}>
+            <p>No active tickets to display.</p>
+            <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
+              Submit a Ticket
+            </button>
           </div>
-          <div className={styles.ticketHeaderRight}>
-            <strong>TICKET STATUS</strong>
-            <div className={styles.ticketHeaderMeta}>Last Updated</div>
-          </div>
-        </div>
+        ) : (
+          <div className={styles.ticketList}>
+            {recentTickets.map(ticket => {
+              const statusKey = ticket.status.replace(/\s/g, '').toLowerCase();
+              return (
+                <div key={ticket.ticketNumber} className={styles.ticketItem}>
+                  <div className={styles.ticketInfo}>
+                    <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                    <div className={styles.ticketDetailsGrid}>
+                      <div>
+                        <div className={styles.ticketLabel}>Assigned Agent</div>
+                        <div className={styles.ticketValue}>
+                          {ticket.assignedTo?.name || 'Unassigned'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.ticketLabel}>Subject</div>
+                        <div className={styles.ticketValue}>{ticket.subject}</div>
+                      </div>
+                      <div>
+                        <div className={styles.ticketLabel}>Priority Level</div>
+                        <div className={styles.ticketValue}>{ticket.priorityLevel || 'Not Set'}</div>
+                      </div>
+                      <div>
+                        <div className={styles.ticketLabel}>Category & Sub-category</div>
+                        <div className={styles.ticketValue}>
+                          {ticket.category} &gt; {ticket.subCategory}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-        {recentTickets.map(ticket => (
-          <div key={ticket.ticketNumber} className={styles.ticketItem}>
-            <div className={styles.ticketInfo}>
-              <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
-              <div className={styles.ticketMeta}>
-                Assigned Agent | {ticket.assignedTo?.name || 'Unassigned'} |
+                 <div className={styles.ticketStatus}>
+                  <span
+                    className={styles.statusBadge}
+                    style={{
+                      backgroundColor: `var(--${statusKey}-bg)`,
+                      color: `var(--${statusKey}-text)`
+                    }}
+                  >
+                    {ticket.status.toUpperCase()}
+                  </span>
+                  <div className={styles.lastUpdated}>
+                    Last Updated {new Date(ticket.lastUpdated || ticket.dateCreated).toLocaleDateString()}
+                  </div>
+                  <button
+                    className={styles.viewDetails}
+                    onClick={() => handleViewDetails(ticket.ticketNumber)}
+                  >
+                    View Details <IoChevronForward />
+                  </button>
+                </div>
+
               </div>
-              <div className={styles.ticketMeta}>| {ticket.subject} |</div>
-              <div className={styles.ticketMeta}>| {ticket.priorityLevel || 'Not Set'} |</div>
-              <div className={styles.ticketMeta}>| {ticket.category} • {ticket.subCategory} |</div>
-            </div>
-            <div className={styles.ticketStatus}>
-              <span className={`${styles.statusBadge} ${styles[`status${ticket.status.replace(/\s/g, '')}`]}`}>
-                {ticket.status.toUpperCase()}
-              </span>
-              <div className={styles.lastUpdated}>
-                | Last updated: {ticket.lastUpdated ? new Date(ticket.lastUpdated).toLocaleString() : 'N/A'} |
-              </div>
-              <button className={styles.viewDetails} onClick={() => handleViewDetails(ticket.ticketNumber)}>
-                View Details ›
-              </button>
-            </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
 
       <EmployeeHomeFloatingButtons />

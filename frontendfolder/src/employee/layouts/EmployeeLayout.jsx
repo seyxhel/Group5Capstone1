@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import EmployeeNavBar from '../components/header/EmployeeNavigationBar';
 import TopPageSectionHeader from '../../shared/section-header/TopPageSectionHeader';
-import styles from './EmployeeLayout.module.css';
+import './EmployeeLayout.css';
 
 const EmployeeLayout = () => {
   const location = useLocation();
@@ -10,13 +10,13 @@ const EmployeeLayout = () => {
 
   return (
     <>
-      <div className={styles.navbarWrapper}>
+      <div className="navbarWrapper">
         <EmployeeNavBar />
       </div>
 
       {/* ⬇️ Scrollable container starts below fixed navbar */}
-      <div className={styles.scrollContainer}>
-        <main className={styles.employeeLayoutMain}>
+      <div className="scrollContainer">
+        <main className="employee-layout-main">
           {showTopSection && (
             <TopPageSectionHeader
               root="Home"

@@ -1,5 +1,8 @@
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import styles from './EmployeeTicketSubmissionForm.module.css';
 import { categories, subCategories } from '../../../utilities/ticket-data/ticketStaticData';
 
@@ -7,53 +10,30 @@ export default function EmployeeTicketSubmissionForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     watch,
     formState: { errors },
   } = useForm();
 
+  const navigate = useNavigate();
   const selectedCategory = watch('category');
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [fileError, setFileError] = useState('');
-
-  const ALLOWED_FILE_TYPES = [
-    'image/png',
-    'image/jpeg',
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/msword',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/csv',
-  ];
-
-  const handleFileChange = (e) => {
-    const newFiles = Array.from(e.target.files);
-    setFileError('');
-
-    const validNewFiles = newFiles.filter(file =>
-      ALLOWED_FILE_TYPES.includes(file.type)
-    );
-
-    if (newFiles.length !== validNewFiles.length) {
-      setFileError('Only PNG, JPG, PDF, Word, Excel, and CSV files are allowed.');
-    }
-
-    const updatedFiles = [...selectedFiles, ...validNewFiles];
-    setSelectedFiles(updatedFiles);
-    setValue('fileUpload', updatedFiles);
-
-    e.target.value = '';
-  };
-
-  const removeFile = (index) => {
-    const updatedFiles = selectedFiles.filter((_, i) => i !== index);
-    setSelectedFiles(updatedFiles);
-    setValue('fileUpload', updatedFiles.length > 0 ? updatedFiles : null);
-  };
 
   const onSubmit = async (data) => {
-    console.log('Ticket Submitted:', data);
+    try {
+      if (Object.keys(errors).length > 0) {
+        toast.error('Please fill out the fields correctly.');
+        return;
+      }
+
+      // Simulate ticket submission
+      console.log('Ticket Submitted:', data);
+      toast.success('Ticket successfully submitted.');
+
+      setTimeout(() => {
+        navigate('/employee/active-tickets?filter=submitted');
+      }, 3000);
+    } catch (err) {
+      toast.error('Failed to submit a ticket. Please try again.');
+    }
   };
 
   return (
@@ -130,46 +110,6 @@ export default function EmployeeTicketSubmissionForm() {
             {errors.description && (
               <span className={styles.errorMessage}>{errors.description.message}</span>
             )}
-          </fieldset>
-
-          {/* File Upload */}
-          <fieldset>
-            <label htmlFor="fileUpload">File Upload (PNG, JPG, PDF, Word, Excel, & CSV)</label>
-            <div className={styles.fileUploadWrapper}>
-              <input
-                type="file"
-                id="fileUpload"
-                multiple
-                accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx,.csv"
-                {...register('fileUpload')}
-                onChange={handleFileChange}
-                hidden
-              />
-              <label htmlFor="fileUpload" className={styles.uploadFileBtn}>
-                {selectedFiles.length > 0 ? 'Add More Files' : 'Choose Files'}
-              </label>
-
-              {fileError && (
-                <span className={styles.errorMessage}>{fileError}</span>
-              )}
-
-              {selectedFiles.length > 0 && (
-                <div className={styles.filePreviewList}>
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className={styles.filePreview}>
-                      <p className={styles.fileName}>{file.name}</p>
-                      <button
-                        type="button"
-                        className={styles.removeFileBtn}
-                        onClick={() => removeFile(index)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </fieldset>
 
           {/* Schedule Request */}

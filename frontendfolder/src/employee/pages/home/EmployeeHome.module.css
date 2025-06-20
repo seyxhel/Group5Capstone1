@@ -1,13 +1,10 @@
 .container {
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
-  background-color: transparent;
+  padding: 2rem;
 }
 
+/* === HEADER === */
 .welcomeHeader {
-  font-size: 32px;
+  font-size: 2rem;
   font-weight: bold;
   color: #333;
   margin-bottom: 1.5rem;
@@ -17,9 +14,10 @@
   color: var(--primary-color);
 }
 
+/* === TOP SECTION CARDS === */
 .topSection {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -45,18 +43,27 @@
   color: #2c3e50;
 }
 
+/* === ACTION GROUPS === */
 .actionGroupColumn {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .actionGroupRow {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   flex-wrap: wrap;
 }
 
+.actionGroupRow .button {
+  flex: 1 1 0;
+  min-width: 140px;
+  justify-content: center;
+  text-align: center;
+}
+
+/* === BUTTONS === */
 .button {
   display: inline-flex;
   align-items: center;
@@ -98,10 +105,30 @@
   border-color: var(--primary-color-hover);
 }
 
+.trackBtn {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trackBtn:hover {
+  background-color: var(--primary-color-hover);
+}
+
+/* === NOTICE === */
 .noticeText {
   color: var(--secondary-text-color);
-  margin-bottom: 0.75rem;
-  line-height: 1.6;
+  margin-bottom: 1rem;
+  line-height: 1.7;
 }
 
 .workingHours {
@@ -117,7 +144,7 @@
 
 .noticeItem {
   color: var(--secondary-text-color);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   padding-left: 1rem;
   position: relative;
 }
@@ -135,6 +162,7 @@
   font-weight: 600;
 }
 
+/* === TICKET SECTION === */
 .recentTickets {
   background: white;
   border-radius: 20px;
@@ -156,51 +184,19 @@
   color: #2c3e50;
 }
 
-.trackBtn {
-  background: var(--primary-color);
-  color: white;
-  padding: 0.6rem 1.25rem;
-  font-size: 0.9rem;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.trackBtn:hover {
-  background: var(--primary-color-hover);
-}
-
-.ticketHeader {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-  background: #f8f9fa;
-  padding: 1rem 1.25rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  color: #495057;
-  margin-bottom: 1rem;
-}
-
-.ticketHeaderRight {
-  text-align: right;
-}
-
-.ticketHeaderMeta {
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin-top: 4px;
+.ticketList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .ticketItem {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
   padding: 1rem 1.25rem;
   border: 1px solid #e9ecef;
   border-radius: 10px;
-  margin-bottom: 1rem;
   transition: all 0.2s ease;
 }
 
@@ -209,10 +205,11 @@
   border-color: #dee2e6;
 }
 
+/* === TICKET INFO GROUP === */
 .ticketInfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .ticketNumber {
@@ -221,16 +218,41 @@
   font-size: 0.95rem;
 }
 
-.ticketMeta {
-  font-size: 0.85rem;
-  color: #6c757d;
+/* Align labels and values */
+.ticketDetailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 2rem;
 }
 
+.ticketLabel {
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.ticketValue {
+  font-size: 0.85rem;
+  color: #343a40;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* === STATUS BLOCK === */
 .ticketStatus {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  justify-content: space-between;
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .statusBadge {
@@ -242,19 +264,11 @@
   letter-spacing: 0.5px;
 }
 
-.statusOpen {
-  background: #d4edda;
-  color: #155724;
-}
-
-.statusPending {
-  background: #fff3cd;
-  color: #856404;
-}
-
 .lastUpdated {
   font-size: 0.75rem;
   color: #6c757d;
+  transform: translateY(-25px);
+  margin-bottom: 8px;
 }
 
 .viewDetails {
@@ -264,6 +278,9 @@
   font-size: 0.85rem;
   cursor: pointer;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 0;
 }
 
@@ -272,22 +289,29 @@
   text-decoration: underline;
 }
 
+/* === EMPTY STATE === */
+.noTickets {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* === RESPONSIVE === */
 @media (max-width: 992px) {
   .topSection {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
   }
 
-  .ticketHeader,
   .ticketItem {
     grid-template-columns: 1fr;
-    gap: 1rem;
   }
 
-  .ticketHeaderRight,
+  .ticketDetailsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .ticketStatus {
-    text-align: left;
     align-items: flex-start;
+    margin-top: 1rem;
   }
 
   .sectionHeader {
@@ -298,5 +322,11 @@
 
   .actionGroupRow {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 1rem;
   }
 }
