@@ -26,6 +26,7 @@ const EmployeeNavBar = () => {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
   const dropdowns = {
     active: {
@@ -174,9 +175,15 @@ const EmployeeNavBar = () => {
             }}
           >
             <NotificationIcon />
-            <span className={styles['notification-badge']}>3</span>
+            {notifCount > 0 && (
+              <span className={styles['notification-badge']}>{notifCount}</span>
+            )}
           </div>
-          <EmployeeNotification show={showNotification} onClose={() => setShowNotification(false)} />
+          <EmployeeNotification
+            show={showNotification}
+            onClose={() => setShowNotification(false)}
+            onCountChange={setNotifCount}
+          />
         </div>
 
         <div className={styles['profile-container']}>
