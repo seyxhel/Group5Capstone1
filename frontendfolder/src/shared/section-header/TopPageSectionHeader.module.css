@@ -47,4 +47,5 @@
   width: 100%;
   overflow-wrap: anywhere;
   margin: 0;
+  color: var(--secondary-text-color);
 }
