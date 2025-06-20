@@ -1,0 +1,358 @@
+.main-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  width: 100%;
+  background-color: var(--bg-color);
+  box-shadow: 0 0 10px #d3d3d3;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+}
+
+/* Right Section: Notification + Profile */
+.main-nav-bar > section:last-child {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-right: 30px;
+  position: relative;
+}
+
+/* Logo + Brand */
+.logo-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 30px;
+}
+
+.logo-box {
+  width: 40px;
+  height: 40px;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.brand-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* Navigation List */
+.nav-list {
+  display: flex;
+  list-style: none;
+  gap: 28px;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--text-color);
+  font-size: 1rem;
+  padding: 10px;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--primary-color);
+}
+
+/* Dropdown Base */
+.dropdown-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-color);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 10px;
+  transition: color 0.2s ease;
+}
+
+.dropdown-trigger:hover,
+.dropdown-container.open .dropdown-trigger {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.dropdown-text {
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+/* Dropdown Menu */
+.custom-dropdown {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #eee;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.dropdown-menu {
+  padding: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.dropdown-menu button {
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.dropdown-menu button:last-child {
+  margin-bottom: 0;
+}
+
+.dropdown-menu button:hover {
+  background-color: rgba(0, 123, 255, 0.1);
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* Notification */
+.notification-icon-container {
+  position: relative;
+  margin-right: 10px;
+}
+
+.notification-icon-wrapper {
+  cursor: pointer;
+  position: relative;
+}
+
+.notif-icon {
+  width: 35px;
+  height: 35px;
+  padding: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  transition: background-color 0.3s ease;
+}
+
+.notif-icon:hover {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 45px;
+  right: 0;
+  width: 300px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #eee;
+  z-index: 1000;
+}
+
+.notification-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.notification-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.notification-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.notification-item:hover {
+  background-color: #f8f9fa;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item p {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.notification-item span {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Profile */
+.profile-container {
+  position: relative;
+}
+
+.profile-avatar {
+  cursor: pointer;
+}
+
+.avatar-placeholder {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.profile-avatar-large .avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 45px;
+  right: 0;
+  width: 250px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #eee;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.profile-info h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.profile-menu {
+  padding: 10px;
+}
+
+.profile-menu button {
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.profile-menu button:last-child {
+  margin-bottom: 0;
+}
+
+.profile-menu button:hover {
+  background-color: rgba(0, 123, 255, 0.1);
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.logout-btn {
+  color: #dc3545;
+}
+
+.logout-btn:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  font-weight: 500;
+}
+
+/* Specific Dropdown Widths */
+.active-dropdown {
+  min-width: 200px;
+}
+
+.records-dropdown {
+  min-width: 180px;
+}

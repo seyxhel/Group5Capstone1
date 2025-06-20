@@ -1,0 +1,302 @@
+.container {
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  background-color: transparent;
+}
+
+.welcomeHeader {
+  font-size: 32px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.welcomeName {
+  color: var(--primary-color);
+}
+
+.topSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.cardTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #2c3e50;
+}
+
+.actionGroupColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.actionGroupRow {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+  text-transform: capitalize;
+}
+
+.button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.primary {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+}
+
+.primary:hover {
+  background-color: var(--primary-color-hover);
+}
+
+.outline {
+  background-color: transparent;
+  border: 1px solid #d3d3d3;
+  color: var(--text-color);
+}
+
+.outline:hover {
+  background-color: var(--primary-color-hover);
+  color: var(--bg-color);
+  border-color: var(--primary-color-hover);
+}
+
+.noticeText {
+  color: var(--secondary-text-color);
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.workingHours {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.noticeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.noticeItem {
+  color: var(--secondary-text-color);
+  margin-bottom: 0.5rem;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.noticeItem::before {
+  content: "•";
+  color: var(--primary-color);
+  position: absolute;
+  left: 0;
+  font-weight: bold;
+}
+
+.phoneNumber {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.recentTickets {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.sectionTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.trackBtn {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.trackBtn:hover {
+  background: var(--primary-color-hover);
+}
+
+.ticketHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  background: #f8f9fa;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #495057;
+  margin-bottom: 1rem;
+}
+
+.ticketHeaderRight {
+  text-align: right;
+}
+
+.ticketHeaderMeta {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+.ticketItem {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  transition: all 0.2s ease;
+}
+
+.ticketItem:hover {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.ticketInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ticketNumber {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.ticketMeta {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.ticketStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.statusBadge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusOpen {
+  background: #d4edda;
+  color: #155724;
+}
+
+.statusPending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.lastUpdated {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.viewDetails {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0;
+}
+
+.viewDetails:hover {
+  color: var(--primary-color-hover);
+  text-decoration: underline;
+}
+
+@media (max-width: 992px) {
+  .topSection {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .ticketHeader,
+  .ticketItem {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .ticketHeaderRight,
+  .ticketStatus {
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .actionGroupRow {
+    flex-direction: column;
+  }
+}
