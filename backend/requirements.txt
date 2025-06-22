@@ -4,7 +4,3 @@ psycopg2-binary
 django-cors-headers
 Pillow
 djangorestframework-simplejwt
-PyJWT
-gunicorn
-dj-database-url
-whitenoise
