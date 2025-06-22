@@ -12,6 +12,7 @@ const EmployeeRoutes = () => (
       <Route path="active-tickets/:filter" element={<EmployeeActiveTickets />} />
       <Route path="ticket-records/:filter" element={<EmployeeTicketRecords />} />
       <Route path="submit-ticket" element={<EmployeeTicketSubmissionForm/>} />
+      
     </Route>
   </Routes>
 );

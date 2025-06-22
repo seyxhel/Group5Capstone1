@@ -3,7 +3,7 @@
 :root {
   --bg-color: #fcfcfc;
   --primary-color: #007bff;
-  --primary-color-hover: rgba(59, 74, 90, 0.8);
+  --primary-color-hover: rgba(0, 123, 255, 0.8);
   --text-color: #242424;
   --secondary-text-color: #545f71;
 
@@ -12,22 +12,51 @@
   --success-bg: #e8f9df;
   --success-text: #71dd37;
 
-  /* Status colors */
-  --archived: #e7e8ec;
-  --archiveda-text: #132144;
-  --deployed: #007bff33;
-  --deployed-text: #007bff;
-  --undeployable: #ff3b3033;
-  --undeployable-text: #cc2f26;
-  --pending: #ff950033;
-  --pending-text: #ff9500;
-  --deployable: #34c75933;
-  --deployable-text: #34c759;  
+  /* Ticket Status Colors */
+  --submitted-text: #64748B;
+  --submitted-bg: rgba(100, 116, 139, 0.25);
+
+  --pending-text: #64748B; /* updated */
+  --pending-bg: rgba(250, 204, 21, 0.25);
+
+  --open-text: #0EA5E9;
+  --open-bg: rgba(14, 165, 233, 0.25);
+
+  --onprogress-text: #6366F1;
+  --onprogress-bg: rgba(99, 102, 241, 0.25);
+
+  --onhold-text: #FB923C;
+  --onhold-bg: rgba(251, 146, 60, 0.25);
+
+  --resolved-text: #10B981;
+  --resolved-bg: rgba(16, 185, 129, 0.25);
+
+  --closed-text: #6B7280;
+  --closed-bg: rgba(107, 114, 128, 0.25);
+
+  --rejected-text: #AC0000;
+  --rejected-bg: rgba(172, 0, 0, 0.25);
+
+  --withdrawn-text: #F43F5E;
+  --withdrawn-bg: rgba(244, 63, 94, 0.25);
+
+  /* Ticket Priority Levels */
+  --priority-critical-text: #DC2626;
+  --priority-critical-bg: rgba(220, 38, 38, 0.25);
+
+  --priority-high-text: #F97316;
+  --priority-high-bg: rgba(249, 115, 22, 0.25);
+
+  --priority-medium-text: #64748B;
+  --priority-medium-bg: rgba(234, 179, 8, 0.25);
+
+  --priority-low-text: #3B82F6;
+  --priority-low-bg: rgba(59, 130, 246, 0.25);
 }
 
 html, body {
   height: 100%;
-  overflow: hidden; 
+  overflow: hidden;
   color: var(--text-color);
 }
 
@@ -48,16 +77,3 @@ label span.required {
   color: red;
   margin-left: 2px;
 }
-
-/* Global checkbox styling to remove the three dots */
-/* input[type="checkbox"] {
-  appearance: auto;
-  -webkit-appearance: checkbox;
-  -moz-appearance: checkbox;
-  width: 16px;
-  height: 16px;
-  border: 1px solid #E5E7EB;
-  border-radius: 0;
-  cursor: pointer;
-  margin: 0;
-} */
