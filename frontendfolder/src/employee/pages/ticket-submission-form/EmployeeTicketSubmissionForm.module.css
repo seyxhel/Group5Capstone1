@@ -40,7 +40,7 @@ label {
 
 /* ✅ Inputs */
 input[type="text"],
-input[type="datetime-local"],
+input[type="date"],
 select,
 textarea {
   width: 100%;
