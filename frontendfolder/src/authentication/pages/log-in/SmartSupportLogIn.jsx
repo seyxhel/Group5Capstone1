@@ -36,7 +36,7 @@ const SmartSupportLogIn = () => {
 
       if (user) {
         const role = user.role;
-        if (role === "User") navigate("/employee");
+        if (role === "User") navigate("/employee/home");
         else if (role === "Ticket Coordinator") navigate("/coordinator");
         else if (role === "System Admin") navigate("/admin");
         else navigate("/dashboard"); // fallback
