@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
+import authService from '../../../utilities/service/authService'; // Add this import
 
 const NotificationIcon = () => (
   <svg
@@ -131,6 +132,16 @@ const EmployeeNavBar = () => {
     );
   };
 
+  const firstName = localStorage.getItem("employee_first_name") || "";
+  const lastName = localStorage.getItem("employee_last_name") || "";
+
+  const imagePath = localStorage.getItem("employee_image");
+  const imageUrl = imagePath
+    ? imagePath.startsWith("http")
+      ? imagePath
+      : `http://localhost:8000${imagePath.startsWith("/") ? imagePath : "/" + imagePath}`
+    : null;
+
   return (
     <nav className={styles['main-nav-bar']}>
       <section>
@@ -199,16 +210,24 @@ const EmployeeNavBar = () => {
               }
             }}
           >
-            <div className={styles['avatar-placeholder']}>JD</div>
+            {imageUrl ? (
+              <img src={imageUrl} alt="Profile" className={styles['avatar-image']} />
+            ) : (
+              <div className={styles['avatar-placeholder']}>JD</div>
+            )}
           </div>
           {showProfileMenu && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <div className={styles['avatar-placeholder']}>JD</div>
+                  {imageUrl ? (
+                    <img src={imageUrl} alt="Profile" className={styles['avatar-image-large']} />
+                  ) : (
+                    <div className={styles['avatar-placeholder']}>JD</div>
+                  )}
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>Juan Dela Cruz</h3>
+                  <h3>{firstName} {lastName}</h3>
                   <span className={styles['admin-badge']}>Employee</span>
                 </div>
               </div>
@@ -225,6 +244,7 @@ const EmployeeNavBar = () => {
                   className={styles['logout-btn']}
                   onClick={() => {
                     setShowProfileMenu(false);
+                    authService.logout(); // <-- Remove all tokens
                     navigate('/');
                   }}
                 >

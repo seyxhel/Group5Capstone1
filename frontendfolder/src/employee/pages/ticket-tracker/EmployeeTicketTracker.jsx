@@ -1,6 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
 const STATUS_COMPLETION = {
   1: ['Submitted', 'Pending', 'Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -28,29 +28,45 @@ const formatDate = (date) =>
 
 export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
-  const tickets = getEmployeeTickets();
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const ticket = ticketNumber
-    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
-    : tickets.at(-1);
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setLoading(true);
+      const token = localStorage.getItem("employee_access_token");
+      const res = await fetch(`http://localhost:8000/api/tickets/${ticketNumber}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTicket(data);
+      }
+      setLoading(false);
+    };
+    if (ticketNumber) fetchTicket();
+  }, [ticketNumber]);
 
+  if (loading) return <p>Loading...</p>;
   if (!ticket) return <p className={styles.notFound}>No ticket data available.</p>;
 
   const {
-    ticketNumber: number,
+    ticket_number: number,
     subject,
     category,
-    subCategory,
+    sub_category,
     status,
-    dateCreated,
-    lastUpdated,
+    submit_date,
+    update_date,
     description,
-    fileUploaded,
-    priorityLevel,
+    attachments,
+    priority,
     department,
-    assignedTo,
-    scheduledRequest,
+    assigned_to,
+    scheduled_date,
   } = ticket;
+
+  const fileUploaded = attachments && attachments.length > 0 ? attachments[0] : null;
 
   const statusSteps = getStatusSteps(status);
   const isClosable = status === 'Resolved';
@@ -68,18 +84,18 @@ export default function EmployeeTicketTracker() {
             </div>
           </header>
 
-          <div className={styles.timestamp}>Created at: {formatDate(dateCreated)}</div>
+          <div className={styles.timestamp}>Created at: {formatDate(submit_date)}</div>
 
           <div className={styles.ticketDetails}>
-            <DetailField label="Priority" value={priorityLevel} />
+            <DetailField label="Priority" value={priority} />
             <DetailField label="Department" value={department} />
-            <DetailField label="Assigned Agent" value={assignedTo?.name} />
-            <DetailField label="Scheduled Request" value={scheduledRequest} />
-            <DetailField label="Date Created" value={formatDate(dateCreated)} />
-            <DetailField label="Last Updated" value={formatDate(lastUpdated)} />
+            <DetailField label="Assigned Agent" value={assigned_to || 'N/A'} />
+            <DetailField label="Scheduled Request" value={scheduled_date} />
+            <DetailField label="Date Created" value={formatDate(submit_date)} />
+            <DetailField label="Last Updated" value={formatDate(update_date)} />
             <DetailField label="Subject" value={subject} />
             <DetailField label="Category" value={category} />
-            <DetailField label="Sub-Category" value={subCategory} />
+            <DetailField label="Sub-Category" value={sub_category} />
           </div>
 
           <section className={styles.description}>
@@ -94,7 +110,17 @@ export default function EmployeeTicketTracker() {
             <div className={styles.attachmentContent}>
               <span className={styles.attachmentIcon}>📎</span>
               <span className={styles.attachmentText}>
-                {fileUploaded?.name || 'No file attached.'}
+                {attachments && attachments.length > 0 ? (
+                  attachments.map((file, idx) => (
+                    <span key={idx} style={{ display: 'block' }}>
+                      <a href={file.file} target="_blank" rel="noopener noreferrer">
+                        {file.file_name}
+                      </a>
+                    </span>
+                  ))
+                ) : (
+                  'No file attached.'
+                )}
               </span>
             </div>
           </section>

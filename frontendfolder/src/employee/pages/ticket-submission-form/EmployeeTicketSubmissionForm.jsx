@@ -5,7 +5,6 @@ import { toast } from 'react-toastify';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
 import styles from './EmployeeTicketSubmissionForm.module.css';
 import { categories, subCategories } from '../../../utilities/ticket-data/ticketStaticData';
-import { addNewEmployeeTicket } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -17,13 +16,6 @@ const ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/csv',
 ];
-
-const mockEmployee = {
-  userId: 'U001',
-  role: 'User',
-  name: 'Bonjing San Jose',
-  department: 'IT Department',
-};
 
 export default function EmployeeTicketSubmissionForm() {
   const {
@@ -60,6 +52,20 @@ export default function EmployeeTicketSubmissionForm() {
     setValue('fileUpload', updated.length > 0 ? updated : null);
   };
 
+  const refreshAccessToken = async () => {
+    const refresh = localStorage.getItem("employee_refresh_token");
+    if (!refresh) throw new Error("Session expired. Please log in again.");
+    const res = await fetch("http://localhost:8000/api/token/refresh/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!res.ok) throw new Error("Session expired. Please log in again.");
+    const data = await res.json();
+    localStorage.setItem("employee_access_token", data.access);
+    return data.access;
+  };
+
   const onSubmit = async (data) => {
     setIsSubmitting(true);
 
@@ -72,23 +78,45 @@ export default function EmployeeTicketSubmissionForm() {
       return;
     }
 
-    try {
-      const newTicket = addNewEmployeeTicket({
-        subject: data.subject,
-        category: data.category,
-        subCategory: data.subCategory,
-        description: data.description,
-        createdBy: mockEmployee,
-        fileUploaded: data.fileUpload || null,
-        scheduledRequest: data.schedule || null,
+    const submitTicket = async (accessToken) => {
+      const formData = new FormData();
+      formData.append("subject", data.subject);
+      formData.append("category", data.category);
+      formData.append("sub_category", data.subCategory);
+      formData.append("description", data.description);
+      if (data.schedule) formData.append("scheduled_date", data.schedule);
+      (selectedFiles || []).forEach(file => {
+        formData.append("files[]", file);
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await fetch("http://localhost:8000/api/tickets/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      return res;
+    };
 
+    try {
+      let token = localStorage.getItem("employee_access_token");
+      let res = await submitTicket(token);
+
+      // If token expired, try to refresh and retry once
+      if (res.status === 401) {
+        token = await refreshAccessToken();
+        res = await submitTicket(token);
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to submit ticket.");
+      }
+
+      const ticket = await res.json();
       toast.success('Ticket successfully submitted.');
-      setTimeout(() => navigate(`/employee/ticket-tracker/${newTicket.ticketNumber}`), 1500);
-    } catch {
-      toast.error('Failed to submit a ticket. Please try again.');
+      setTimeout(() => navigate(`/employee/ticket-tracker/${ticket.ticket_number || ticket.id}`), 1500);
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit a ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -200,7 +228,19 @@ export default function EmployeeTicketSubmissionForm() {
           <FormField
             id="schedule"
             label="Schedule Request"
-            render={() => <input type="date" {...register('schedule')} />}
+            render={() => {
+              const today = new Date();
+              const localDate = today.getFullYear() + '-' +
+                String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                String(today.getDate()).padStart(2, '0');
+              return (
+                <input
+                  type="date"
+                  min={localDate}
+                  {...register('schedule')}
+                />
+              );
+            }}
           />
 
           <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>

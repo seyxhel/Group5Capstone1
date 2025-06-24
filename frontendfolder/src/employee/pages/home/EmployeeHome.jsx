@@ -8,25 +8,32 @@ import {
 } from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import styles from './EmployeeHome.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
 
   useEffect(() => {
-    const allTickets = getEmployeeTickets();
-
-    const activeTickets = allTickets.filter(ticket => {
-      const status = ticket.status.toLowerCase();
-      return !['closed', 'rejected', 'withdrawn'].includes(status);
-    });
-
-    const sorted = activeTickets
-      .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
-      .slice(0, 5);
-
-    setRecentTickets(sorted);
+    const fetchTickets = async () => {
+      const token = localStorage.getItem("employee_access_token");
+      const res = await fetch("http://localhost:8000/api/tickets/", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const allTickets = await res.json();
+        // Only active tickets
+        const activeTickets = allTickets.filter(ticket => {
+          const status = ticket.status.toLowerCase();
+          return !['closed', 'rejected', 'withdrawn'].includes(status);
+        });
+        // Sort and slice for recent
+        const sorted = activeTickets
+          .sort((a, b) => new Date(b.submit_date) - new Date(a.submit_date))
+          .slice(0, 5);
+        setRecentTickets(sorted);
+      }
+    };
+    fetchTickets();
   }, []);
 
   const handleSubmitTicket = () => {
@@ -49,10 +56,12 @@ const EmployeeHome = () => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
   };
 
+  const firstName = localStorage.getItem("employee_first_name") || "Employee";
+
   return (
     <div className={styles.container}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>Bogart</span>,
+        Welcome <span className={styles.welcomeName}>{firstName}</span>,
       </h1>
 
       <div className={styles.topSection}>
@@ -110,16 +119,22 @@ const EmployeeHome = () => {
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {
-              const statusKey = ticket.status.replace(/\s/g, '').toLowerCase();
+              // Map "New" to "submitted" for color and display
+              const statusKey = ticket.status.toLowerCase() === "new"
+                ? "submitted"
+                : ticket.status.replace(/\s/g, '').toLowerCase();
+
               return (
-                <div key={ticket.ticketNumber} className={styles.ticketItem}>
+                <div key={ticket.ticket_number} className={styles.ticketItem}>
                   <div className={styles.ticketInfo}>
-                    <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                    <div className={styles.ticketNumber}>#{ticket.ticket_number}</div>
                     <div className={styles.ticketDetailsGrid}>
                       <div>
                         <div className={styles.ticketLabel}>Assigned Agent</div>
                         <div className={styles.ticketValue}>
-                          {ticket.assignedTo?.name || 'Unassigned'}
+                          {ticket.assigned_to
+                            ? `${ticket.assigned_to.first_name} ${ticket.assigned_to.last_name}`
+                            : 'Unassigned'}
                         </div>
                       </div>
                       <div>
@@ -128,39 +143,40 @@ const EmployeeHome = () => {
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Priority Level</div>
-                        <div className={styles.ticketValue}>{ticket.priorityLevel || 'Not Set'}</div>
+                        <div className={styles.ticketValue}>{ticket.priority || 'Not Set'}</div>
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Category & Sub-category</div>
                         <div className={styles.ticketValue}>
-                          {ticket.category} &gt; {ticket.subCategory}
+                          {ticket.category} &gt; {ticket.sub_category}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                 <div className={styles.ticketStatus}>
-                  <span
-                    className={styles.statusBadge}
-                    style={{
-                      backgroundColor: `var(--${statusKey}-bg)`,
-                      color: `var(--${statusKey}-text)`
-                    }}
-                  >
-                    {ticket.status.toUpperCase()}
-                  </span>
-                  <div className={styles.lastUpdated}>
-                    Last Updated {new Date(ticket.lastUpdated || ticket.dateCreated).toLocaleDateString()}
+                  <div className={styles.ticketStatus}>
+                    <span
+                      className={styles.statusBadge}
+                      style={{
+                        backgroundColor: `var(--${statusKey}-bg)`,
+                        color: `var(--${statusKey}-text)`
+                      }}
+                    >
+                      {ticket.status.toLowerCase() === "new"
+                        ? "SUBMITTED"
+                        : ticket.status.toUpperCase()}
+                    </span>
+                    <div className={styles.lastUpdated}>
+                      Last Updated {new Date(ticket.update_date || ticket.submit_date).toLocaleDateString()}
+                    </div>
+                    <button
+                      className={styles.viewDetails}
+                      onClick={() => handleViewDetails(ticket.ticket_number)}
+                    >
+                      View Details <IoChevronForward />
+                    </button>
                   </div>
-                  <button
-                    className={styles.viewDetails}
-                    onClick={() => handleViewDetails(ticket.ticketNumber)}
-                  >
-                    View Details <IoChevronForward />
-                  </button>
                 </div>
-
-              </div>
               );
             })}
           </div>

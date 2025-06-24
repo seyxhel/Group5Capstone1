@@ -92,3 +92,21 @@ input[disabled] {
 .saveButton:hover {
   background-color: var(--primary-color-hover);
 }
+
+.imagePreview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.currentFileName {
+  font-size: 0.95em;
+  color: #555;
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
