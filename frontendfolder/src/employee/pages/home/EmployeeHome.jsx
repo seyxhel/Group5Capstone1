@@ -46,7 +46,7 @@ const EmployeeHome = () => {
   };
 
   const handleViewDetails = (ticketNumber) => {
-    navigate(`/employee/ticket-details/${ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticketNumber}`);
   };
 
   return (

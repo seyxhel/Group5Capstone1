@@ -8,12 +8,12 @@ import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketSt
 const EmployeeActiveTickets = () => {
   const { filter = "all-active-tickets" } = useParams();
   const navigate = useNavigate();
-  const normalizedFilter = filter.replace("-tickets", "");
+  const normalizedFilter = filter.replace("-tickets", "").toLowerCase();
 
   const [filteredTickets, setFilteredTickets] = useState([]);
 
   const headingMap = {
-    "all-active": "All Active Tickets",  // <-- This is the key change
+    "all-active": "All Active Tickets",
     submitted: "Submitted Tickets",
     open: "Open Tickets",
     "on-progress": "On Progress Tickets",
@@ -37,11 +37,9 @@ const EmployeeActiveTickets = () => {
       activeStatuses.includes(ticket.status)
     );
 
-    if (normalizedFilter === "all-active") {  // <-- Changed from "all" to "all-active"
-      // Show ALL active tickets
+    if (normalizedFilter === "all-active") {
       setFilteredTickets(activeTickets);
     } else {
-      // Filter by specific status
       const statusMatch = normalizedFilter.replace(/-/g, " ").toLowerCase();
       setFilteredTickets(
         activeTickets.filter(
@@ -77,45 +75,53 @@ const EmployeeActiveTickets = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredTickets.map((ticket) => (
-              <tr
-                key={ticket.ticketNumber}
-                className={styles.clickableRow}
-                onClick={() =>
-                  navigate(`/employee/ticket/${ticket.ticketNumber}`)
-                }
-              >
-                <td>{ticket.ticketNumber}</td>
-                <td>{ticket.subject}</td>
-                <td>{ticket.status}</td>
-                <td>{ticket.priorityLevel}</td>
-                <td>{ticket.category}</td>
-                <td>{ticket.subCategory}</td>
-                <td>{ticket.dateCreated?.slice(0, 10)}</td>
-                <td>
-                  <div
-                    className={styles.actionGroup}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {ticket.status === "Resolved" ? (
-                      <button
-                        className={`${styles.actionBtn} ${styles.delete}`}
-                        title="Close"
-                      >
-                        <FiXCircle />
-                      </button>
-                    ) : (
-                      <button
-                        className={`${styles.actionBtn} ${styles.edit}`}
-                        title="Withdraw"
-                      >
-                        <HiOutlineRefresh />
-                      </button>
-                    )}
-                  </div>
+            {filteredTickets.length > 0 ? (
+              filteredTickets.map((ticket) => (
+                <tr
+                  key={ticket.ticketNumber}
+                  className={styles.clickableRow}
+                  onClick={() =>
+                    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`)
+                  }
+                >
+                  <td>{ticket.ticketNumber}</td>
+                  <td>{ticket.subject}</td>
+                  <td>{ticket.status}</td>
+                  <td>{ticket.priorityLevel}</td>
+                  <td>{ticket.category}</td>
+                  <td>{ticket.subCategory}</td>
+                  <td>{ticket.dateCreated?.slice(0, 10)}</td>
+                  <td>
+                    <div
+                      className={styles.actionGroup}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {ticket.status === "Resolved" ? (
+                        <button
+                          className={`${styles.actionBtn} ${styles.delete}`}
+                          title="Close"
+                        >
+                          <FiXCircle />
+                        </button>
+                      ) : (
+                        <button
+                          className={`${styles.actionBtn} ${styles.edit}`}
+                          title="Withdraw"
+                        >
+                          <HiOutlineRefresh />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="8" className={styles.noData}>
+                  No tickets found for this filter.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </section>

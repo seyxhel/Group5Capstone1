@@ -1,17 +1,17 @@
 .topPageSectionHeader {
   display: flex;
   flex-direction: column;
-  height: fit-content;
-  padding: 0 38px 20px 38px; /* Consistent horizontal padding */
-  border-bottom: 1px solid #d3d3d3;
-  gap: 10px;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
   box-sizing: border-box;
+  border-bottom: 1px solid #d3d3d3;
+  padding-top: 28px; /* subtle top padding */
 }
 
 .breadcrumbNavigation ul {
   display: flex;
-  width: 100%;
-  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   padding: 0;
   margin: 0;
 }
@@ -21,7 +21,7 @@
 }
 
 .breadcrumbNavigation li + li::before {
-  padding: 0px 6px 0px 8px;
+  padding: 0 6px;
   color: var(--secondary-text-color);
   content: "/\00a0";
 }
@@ -29,6 +29,7 @@
 .breadcrumbNavigation a {
   color: var(--secondary-text-color);
   cursor: pointer;
+  text-decoration: none;
 }
 
 .breadcrumbNavigation a:hover {
@@ -39,13 +40,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  flex-wrap: wrap;
 }
 
 .title h1 {
   font-size: 1.5rem;
-  width: 100%;
-  overflow-wrap: anywhere;
   margin: 0;
   color: var(--secondary-text-color);
+  overflow-wrap: anywhere;
 }

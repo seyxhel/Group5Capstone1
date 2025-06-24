@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import styles from "./TopPageSectionHeader.module.css";
+import "./TopPageSectionHeader.css";
 import MediumButtons from "../buttons/MediumButtons";
 
 export default function TopPageSectionHeader({
@@ -14,8 +14,8 @@ export default function TopPageSectionHeader({
   const navigate = useNavigate();
 
   return (
-    <main className={styles.topPageSectionHeader}>
-      <section className={styles.breadcrumbNavigation}>
+    <div className="topPageSectionHeader">
+      <section className="breadcrumbNavigation">
         <ul>
           <li>
             <a onClick={() => navigate(rootNavigatePage)}>{root}</a>
@@ -23,7 +23,8 @@ export default function TopPageSectionHeader({
           <li>{currentPage}</li>
         </ul>
       </section>
-      <section className={styles.title}>
+
+      <section className="title">
         <h1>{title}</h1>
         {buttonType && (
           <MediumButtons
@@ -33,7 +34,6 @@ export default function TopPageSectionHeader({
           />
         )}
       </section>
-    </main>
+    </div>
   );
 }
-  
