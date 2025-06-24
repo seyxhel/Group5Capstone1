@@ -111,6 +111,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]  # For handling file uploads
+    lookup_field = 'ticket_number'  # <-- ADD THIS LINE
     
     def get_queryset(self):
         user = self.request.user

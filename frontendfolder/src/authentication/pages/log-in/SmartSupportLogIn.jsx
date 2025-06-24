@@ -31,24 +31,52 @@ const SmartSupportLogIn = () => {
     setSubmitting(true);
     setErrorMessage("");
 
-    try {
-      const user = await authService.login(email, password);
+    let tokenData = null;
+    let loginType = null;
 
-      if (user) {
-        const role = user.role;
-        if (role === "User") navigate("/employee");
-        else if (role === "Ticket Coordinator") navigate("/coordinator");
-        else if (role === "System Admin") navigate("/admin");
-        else navigate("/dashboard"); // fallback
-      } else {
-        setErrorMessage("Invalid credentials.");
-      }
+    try {
+      // Try employee endpoint first
+      tokenData = await authService.loginEmployee(email, password);
+      loginType = "employee";
     } catch (err) {
-      console.error("Login failed:", err);
-      setErrorMessage("Something went wrong.");
-    } finally {
-      setSubmitting(false);
+      // If employee login fails, try admin endpoint
+      try {
+        tokenData = await authService.loginAdmin(email, password);
+        loginType = "admin";
+      } catch (err2) {
+        setErrorMessage("Invalid credentials.");
+        setSubmitting(false);
+        return;
+      }
     }
+
+    // Use tokenData fields directly
+    const status = tokenData.status || "Approved"; // Default to Approved if not present
+
+    if (["pending", "denied"].includes(status.toLowerCase())) {
+      setErrorMessage("Your account is not approved yet. Please contact your administrator.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Store tokens with different keys
+    if (loginType === "admin") {
+      localStorage.setItem("admin_access_token", tokenData.access);
+      localStorage.setItem("admin_refresh_token", tokenData.refresh);
+      localStorage.setItem("user_role", tokenData.role);
+      navigate("/coordinator");
+    } else {
+      localStorage.setItem("employee_access_token", tokenData.access);
+      localStorage.setItem("employee_refresh_token", tokenData.refresh);
+      localStorage.setItem("user_role", tokenData.role);
+      // Store first name and last name
+      localStorage.setItem("employee_first_name", tokenData.first_name || "");
+      localStorage.setItem("employee_last_name", tokenData.last_name || "");
+      localStorage.setItem("employee_image", tokenData.image || "");
+      navigate("/employee/home");
+    }
+
+    setSubmitting(false);
   };
 
   useEffect(() => {

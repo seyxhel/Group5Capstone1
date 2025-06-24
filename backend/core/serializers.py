@@ -54,7 +54,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['email'] = user.email
         data['role'] = user.role if hasattr(user, 'role') else 'Unknown'
         data['first_name'] = user.first_name
+        data['last_name'] = user.last_name
         data['dateCreated'] = user.date_created
+        data['image'] = user.image.url if user.image else ""   # <-- ADD THIS LINE
 
         return data
 
