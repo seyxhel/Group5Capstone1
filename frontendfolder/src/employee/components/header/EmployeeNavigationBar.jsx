@@ -155,7 +155,7 @@ const EmployeeNavBar = () => {
               Home
             </NavLink>
           </li>
-          {renderDropdownMenu('active')}
+          {renderDropdownMenu('active')} 
           {renderDropdownMenu('records')}
         </ul>
       </section>

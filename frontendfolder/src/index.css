@@ -16,7 +16,7 @@
   --submitted-text: #64748B;
   --submitted-bg: rgba(100, 116, 139, 0.25);
 
-  --pending-text: #64748B; /* updated */
+  --pending-text: #64748B; 
   --pending-bg: rgba(250, 204, 21, 0.25);
 
   --open-text: #0EA5E9;
