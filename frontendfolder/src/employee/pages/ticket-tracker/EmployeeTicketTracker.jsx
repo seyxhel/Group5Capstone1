@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import styles from './EmployeeTicketTracker.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
-const statusCompletion = {
+const STATUS_COMPLETION = {
   1: ['Submitted', 'Pending', 'Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   2: ['Pending', 'Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   3: ['Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -11,27 +11,30 @@ const statusCompletion = {
 };
 
 const getStatusSteps = (status) =>
-  [1, 2, 3, 4, 5].map(id => ({
+  [1, 2, 3, 4, 5].map((id) => ({
     id,
-    completed: statusCompletion[id].includes(status),
+    completed: STATUS_COMPLETION[id].includes(status),
   }));
 
-const DetailRow = ({ label, value }) => (
-  <div className={styles.detailRow}>
-    <span className={styles.label}>{label}:</span>
-    <span className={styles.value}>{value}</span>
-  </div>
+const DetailField = ({ label, value }) => (
+  <fieldset>
+    <label>{label}</label>
+    <p>{value || 'N/A'}</p>
+  </fieldset>
 );
 
-const EmployeeTicketTracker = () => {
+const formatDate = (date) =>
+  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+
+export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
   const tickets = getEmployeeTickets();
 
   const ticket = ticketNumber
-    ? tickets.find(t => String(t.ticketNumber) === String(ticketNumber))
-    : tickets[tickets.length - 1];
+    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
+    : tickets.at(-1);
 
-  if (!ticket) return <p>No ticket data available.</p>;
+  if (!ticket) return <p className={styles.notFound}>No ticket data available.</p>;
 
   const {
     ticketNumber: number,
@@ -40,57 +43,75 @@ const EmployeeTicketTracker = () => {
     subCategory,
     status,
     dateCreated,
+    lastUpdated,
     description,
     fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+    scheduledRequest,
   } = ticket;
 
-  const formattedDate = new Date(dateCreated).toLocaleString('en-US', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
-
   const statusSteps = getStatusSteps(status);
+  const isClosable = status === 'Resolved';
 
   return (
-    <div className={styles.container}>
-      <div className={styles.ticketCard}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>#{number}</h2>
-          <div className={styles.statusBadge}>
-            <span className={styles.statusDot}></span>
-            <span className={styles.statusText}>{status}</span>
+    <main className={styles.employeeTicketTrackerPage}>
+      {/* Left Column */}
+      <div className={styles.mainContent}>
+        <section className={styles.ticketCard}>
+          <header className={styles.header}>
+            <h2 className={styles.title}>#{number}</h2>
+            <div className={styles.statusBadge}>
+              <span className={styles.statusDot}></span>
+              <span className={styles.statusText}>{status}</span>
+            </div>
+          </header>
+
+          <div className={styles.timestamp}>Created at: {formatDate(dateCreated)}</div>
+
+          <div className={styles.ticketDetails}>
+            <DetailField label="Priority" value={priorityLevel} />
+            <DetailField label="Department" value={department} />
+            <DetailField label="Assigned Agent" value={assignedTo?.name} />
+            <DetailField label="Scheduled Request" value={scheduledRequest} />
+            <DetailField label="Date Created" value={formatDate(dateCreated)} />
+            <DetailField label="Last Updated" value={formatDate(lastUpdated)} />
+            <DetailField label="Subject" value={subject} />
+            <DetailField label="Category" value={category} />
+            <DetailField label="Sub-Category" value={subCategory} />
           </div>
-        </div>
 
-        <div className={styles.timestamp}>Created at: {formattedDate}</div>
+          <section className={styles.description}>
+            <h3 className={styles.descriptionTitle}>Description</h3>
+            <p className={styles.descriptionText}>
+              {description || 'No description provided.'}
+            </p>
+          </section>
 
-        <div className={styles.ticketDetails}>
-          <DetailRow label="Subject" value={subject} />
-          <DetailRow label="Category" value={category} />
-          <DetailRow label="Sub-Category" value={subCategory} />
-        </div>
-
-        <div className={styles.description}>
-          <h3 className={styles.descriptionTitle}>Description:</h3>
-          <p className={styles.descriptionText}>{description}</p>
-        </div>
-
-        <div className={styles.attachment}>
-          <h3 className={styles.attachmentTitle}>Attachment</h3>
-          <div className={styles.attachmentContent}>
-            <span className={styles.attachmentIcon}>📎</span>
-            <span className={styles.attachmentText}>
-              {fileUploaded ? fileUploaded.name : 'No file attached.'}
-            </span>
-          </div>
-        </div>
+          <section className={styles.attachment}>
+            <h3 className={styles.attachmentTitle}>Attachment</h3>
+            <div className={styles.attachmentContent}>
+              <span className={styles.attachmentIcon}>📎</span>
+              <span className={styles.attachmentText}>
+                {fileUploaded?.name || 'No file attached.'}
+              </span>
+            </div>
+          </section>
+        </section>
       </div>
 
-      <div className={styles.sidebar}>
-        <button className={styles.withdrawButton}>Withdraw Ticket</button>
-
+      {/* Right Column (Sidebar) */}
+      <aside className={styles.sidebar}>
+        
         <div className={styles.statusSection}>
+          {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
+            <button className={styles.withdrawButton}>
+              {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
+            </button>
+          )}
           <h3 className={styles.statusTitle}>Status</h3>
+
           <div className={styles.statusTimeline}>
             {statusSteps.map((step, index) => (
               <div key={step.id} className={styles.statusStep}>
@@ -103,14 +124,15 @@ const EmployeeTicketTracker = () => {
               </div>
             ))}
           </div>
+
           <div className={styles.currentStatus}>
             <h4 className={styles.currentStatusTitle}>Current Status</h4>
             <p className={styles.currentStatusText}>{status}</p>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
-export default EmployeeTicketTracker;
+          
+        </div>
+      </aside>
+    </main>
+  );
+}

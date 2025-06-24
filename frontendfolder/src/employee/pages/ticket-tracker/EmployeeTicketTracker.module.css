@@ -1,18 +1,21 @@
-.container {
+.employeeTicketTrackerPage {
   display: flex;
-  gap: 1.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  gap: 20px;
+  background-color: var(--bg-color);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* === Left Column === */
+.mainContent {
+  flex: 1 1 65%;
+}
+
 .ticketCard {
-  flex: 1;
-  background: white;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #d3d3d3;
   border-radius: 40px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -21,6 +24,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
+/* === Ticket Header === */
 .header {
   display: flex;
   justify-content: space-between;
@@ -32,7 +36,6 @@
   font-size: 1.3rem;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0;
 }
 
 .statusBadge {
@@ -62,32 +65,31 @@
 .timestamp {
   font-size: 0.75rem;
   color: #6c757d;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
-.ticketDetails {
-  margin-bottom: 1.25rem;
-}
-
-.detailRow {
+/* === Ticket Details === */
+.ticketDetails fieldset {
   display: flex;
-  margin-bottom: 0.75rem;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 1rem;
 }
 
-.label {
-  font-size: 0.75rem;
-  color: #6c757d;
-  font-weight: 500;
-  min-width: 120px;
-  margin-bottom: 0.25rem;
+.ticketDetails fieldset label {
+  font-weight: 600;
+  color: var(--secondary-text-color);
 }
 
-.value {
-  font-size: 0.85rem;
-  color: #343a40;
-  font-weight: 500;
+.ticketDetails fieldset p {
+  padding: 13px 16px;
+  border: 1px solid #d3d3d3;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--secondary-text-color);
 }
 
+/* === Description === */
 .description {
   margin-bottom: 1.25rem;
 }
@@ -96,16 +98,16 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0 0 1rem 0;
+  margin-bottom: 1rem;
 }
 
 .descriptionText {
   color: #343a40;
-  line-height: 1.7;
-  margin: 0;
   font-size: 0.9rem;
+  line-height: 1.7;
 }
 
+/* === Attachment === */
 .attachment {
   margin-bottom: 1.25rem;
 }
@@ -114,7 +116,7 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0 0 1rem 0;
+  margin-bottom: 1rem;
 }
 
 .attachmentContent {
@@ -132,14 +134,35 @@
   font-size: 0.85rem;
 }
 
+/* === Right Column / Sidebar === */
 .sidebar {
-  width: 300px;
+  flex: 0 0 35%;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
+/* === Status Section === */
+.statusSection {
+  background: #fff;
+  padding: 24px;
+  border: 1px solid #d3d3d3;
+  border-radius: 40px;
+  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.statusSection:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* === Button at the Top of Status Section === */
 .withdrawButton {
+  align-self: flex-start;
   background-color: #f97316;
   color: white;
   border: none;
@@ -148,10 +171,10 @@
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .withdrawButton:hover {
@@ -159,31 +182,16 @@
   transform: translateY(-1px);
 }
 
-.statusSection {
-  background: white;
-  border-radius: 40px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.statusSection:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
 .statusTitle {
   font-size: 1.2rem;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0 0 1.25rem 0;
 }
 
 .statusTimeline {
   display: flex;
   flex-direction: column;
-  margin-bottom: 1.25rem;
+  gap: 8px;
 }
 
 .statusStep {
@@ -201,8 +209,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  z-index: 2;
   transition: all 0.3s ease;
 }
 
@@ -221,8 +227,6 @@
   width: 2px;
   height: 40px;
   background: #d1d5db;
-  margin: 4px 0;
-  transition: background-color 0.3s ease;
 }
 
 .statusLine.completedLine {
@@ -238,41 +242,47 @@
   font-size: 1rem;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0;
 }
 
-/* Responsive design */
+.currentStatusText {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+/* === Not Found Message === */
+.notFound {
+  text-align: center;
+  color: #6c757d;
+  font-size: 1.1rem;
+  margin: 2rem 0;
+}
+
+/* === Responsive Design === */
 @media (max-width: 992px) {
-  .container {
+  .employeeTicketTrackerPage {
     flex-direction: column;
   }
-  
+
+  .mainContent,
   .sidebar {
-    width: 100%;
+    flex-basis: auto;
   }
-  
+
   .header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
   }
-  
-  .detailRow {
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  
-  .label {
-    min-width: unset;
-  }
 }
 
 @media (max-width: 576px) {
-  .ticketCard {
-    padding: 1rem;
-  }
-  
+  .ticketCard,
   .statusSection {
-    padding: 1rem;
+    padding: 16px;
+  }
+
+  .ticketDetails fieldset p {
+    font-size: 0.8rem;
   }
 }

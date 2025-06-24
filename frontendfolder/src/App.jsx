@@ -1,25 +1,17 @@
 import { BrowserRouter } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-import ScrollToTop from './shared/ScrollToTop';
+import './App.css';
+import AuthRoutes from './routes/AuthRoutes';
 import EmployeeRoutes from './routes/EmployeeRoutes';
+import ScrollToTop from './shared/ScrollToTop';
+import GlobalToast from './shared/toast-notification/GlobalToast';
 
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AuthRoutes />
       <EmployeeRoutes />
-      <ToastContainer 
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="colored"
-      />
+      <GlobalToast />
     </BrowserRouter>
   );
 }

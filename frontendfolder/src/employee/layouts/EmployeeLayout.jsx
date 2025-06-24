@@ -21,7 +21,7 @@ const getHeaderConfig = (path) => {
       rootNavigatePage: isActive
         ? '/employee/active-tickets/all-active-tickets'
         : '/employee/ticket-records/all-ticket-records',
-      title: 'Ticket Tracker',
+      title: `${ticketNumber}`,
     };
   }
 
