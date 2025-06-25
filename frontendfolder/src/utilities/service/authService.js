@@ -11,14 +11,17 @@ const mockUsers = [
 ];
 
 const authService = {
-  login: async (email, _password) => {
-    // Simulated login (ignores password for now)
+  login: async (email, password) => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        const matchedUser = mockUsers.find((user) => user.email === email);
+        const matchedUser = mockUsers.find(
+          (user) => user.email === email && user.password === password
+        );
+
         if (matchedUser) {
-          localStorage.setItem(USER_KEY, JSON.stringify(matchedUser));
-          resolve(matchedUser);
+          const { password, ...userWithoutPassword } = matchedUser;
+          localStorage.setItem(USER_KEY, JSON.stringify(userWithoutPassword));
+          resolve(userWithoutPassword);
         } else {
           resolve(null);
         }
