@@ -34,6 +34,7 @@ const SmartSupportForgotPassword = () => {
         setErrorMessage("Email not found. Please try again.");
       } else {
         setSuccessMessage("Password reset link has been sent to your email.");
+        setTimeout(() => navigate("/"), 3000); // Navigate to login after 3 seconds
       }
     } catch (err) {
       console.error("Reset error:", err);
