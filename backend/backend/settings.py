@@ -170,3 +170,8 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://smartsupport-hdts-backend.up.railway.app",
+    # Add more origins here if needed
+]
