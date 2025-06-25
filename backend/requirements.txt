@@ -7,3 +7,4 @@ djangorestframework-simplejwt
 gunicorn
 dj-database-url
 celery
+whitenoise
