@@ -64,7 +64,7 @@ const SmartSupportLogIn = () => {
       localStorage.setItem("admin_access_token", tokenData.access);
       localStorage.setItem("admin_refresh_token", tokenData.refresh);
       localStorage.setItem("user_role", tokenData.role);
-      navigate("/coordinator");
+      navigate("admin/dashboard");
     } else {
       localStorage.setItem("employee_access_token", tokenData.access);
       localStorage.setItem("employee_refresh_token", tokenData.refresh);

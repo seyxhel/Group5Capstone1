@@ -188,6 +188,8 @@
   align-items: center;
   gap: 10px;
   font-size: 0.875rem;
+  flex-wrap: nowrap;      /* Prevent wrapping */
+  white-space: nowrap;    /* Prevent text wrapping */
 }
 
 .link {
@@ -235,4 +237,22 @@
 
 .backToLogin span:hover {
   color: var(--primary-color-hover);
+}
+
+/* ========== Password Field ========== */
+.passwordContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.showPassword {
+  position: absolute;
+  right: 18px;
+  top: calc(50% + 3px); /* Move the icon a bit lower */
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #888;
+  font-size: 1.2rem;
+  z-index: 2;
 }

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from '../../../utilities/service/authService';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 
 const CoordinatorAdminNavBar = () => {
@@ -7,6 +9,12 @@ const CoordinatorAdminNavBar = () => {
   const [showReportsMenu, setShowReportsMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/');
+  };
 
   const ArrowDownIcon = () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,7 +143,7 @@ const CoordinatorAdminNavBar = () => {
               <div className={styles['profile-menu']}>
                 <button>Settings</button>
                 <button>User Management</button>
-                <button className={styles['logout-btn']}>Log Out</button>
+                <button className={styles['logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>
           )}

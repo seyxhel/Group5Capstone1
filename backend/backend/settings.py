@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 """
 Django settings for backend project.
@@ -27,7 +28,7 @@ SECRET_KEY = 'django-insecure-q2(fx!vo0@(tbkky-_qdeo=%f)5xub45y+&cyx$5!$uo=*ta+v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -169,3 +170,11 @@ CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks2'  # Only if you plan to run worker here
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": False,
+}

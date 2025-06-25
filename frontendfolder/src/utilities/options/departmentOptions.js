@@ -1,7 +1,7 @@
 const departmentOptions = [
-  { label: "IT Department", value: "IT" },
-  { label: "Asset Department", value: "Asset" },
-  { label: "Budget Department", value: "Budget" },
+  { label: "IT Department", value: "IT Department" },
+  { label: "Asset Department", value: "Asset Department" },
+  { label: "Budget Department", value: "Budget Department" },
 ];
 
 export default departmentOptions;
