@@ -34,18 +34,25 @@ const SmartSupportLogIn = () => {
     try {
       const user = await authService.login(email, password);
 
-      if (user) {
-        const role = user.role;
-        if (role === "User") navigate("/employee/home");
-        else if (role === "Ticket Coordinator") navigate("/coordinator");
-        else if (role === "System Admin") navigate("/admin");
-        else navigate("/dashboard"); // fallback
-      } else {
-        setErrorMessage("Invalid credentials.");
+      if (!user) {
+        setErrorMessage("Invalid credentials. Please try again.");
+        return;
+      }
+
+      switch (user.role) {
+        case "User":
+          navigate("/employee/home");
+          break;
+        case "Ticket Coordinator":
+        case "System Admin":
+          navigate("/admin/dashboard");
+          break;
+        default:
+          navigate("/dashboard");
       }
     } catch (err) {
       console.error("Login failed:", err);
-      setErrorMessage("Something went wrong.");
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -83,7 +90,9 @@ const SmartSupportLogIn = () => {
           <form onSubmit={handleSubmit(handleLogin)}>
             <fieldset>
               <label>Email:</label>
-              {errors.email && <span>{errors.email.message || "Please fill in the required field"}</span>}
+              {errors.email && (
+                <span>{errors.email.message || "Please fill in the required field"}</span>
+              )}
               <input
                 type="text"
                 placeholder="Enter your email"
