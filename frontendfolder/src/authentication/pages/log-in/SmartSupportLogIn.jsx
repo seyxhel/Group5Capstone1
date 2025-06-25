@@ -12,6 +12,8 @@ import SmartSupportImage from "../../assets/SmartSupportImage.jpg";
 
 import "./SmartSupportLogIn.css";
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const SmartSupportLogIn = () => {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
@@ -35,13 +37,13 @@ const SmartSupportLogIn = () => {
     let loginType = null;
 
     try {
-      // Try employee endpoint first
-      tokenData = await authService.loginEmployee(email, password);
+      // Pass API_URL to loginEmployee
+      tokenData = await authService.loginEmployee(email, password, API_URL);
       loginType = "employee";
     } catch (err) {
-      // If employee login fails, try admin endpoint
       try {
-        tokenData = await authService.loginAdmin(email, password);
+        // Pass API_URL to loginAdmin
+        tokenData = await authService.loginAdmin(email, password, API_URL);
         loginType = "admin";
       } catch (err2) {
         setErrorMessage("Invalid credentials.");

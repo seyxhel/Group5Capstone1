@@ -1,10 +1,10 @@
 const USER_KEY = "loggedInUser";
-const API_BASE = "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const authService = {
   // Real admin login
   loginAdmin: async (email, password) => {
-    const res = await fetch(`${API_BASE}/token/admin/`, {
+    const res = await fetch(`${API_URL}token/admin/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -16,13 +16,13 @@ const authService = {
 
   // Real employee login
   loginEmployee: async (email, password) => {
-    const res = await fetch(`${API_BASE}/token/employee/`, {
+    const response = await fetch(`${API_URL}token/employee/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error("Employee login failed");
-    const data = await res.json();
+    if (!response.ok) throw new Error("Employee login failed");
+    const data = await response.json();
     return data;
   },
 
