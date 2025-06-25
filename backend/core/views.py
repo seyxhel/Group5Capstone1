@@ -570,6 +570,10 @@ def custom_api_root(request, format=None):
         'admin_token_obtain_pair': reverse('admin_token_obtain_pair', request=request, format=format),
         'token_refresh': reverse('token_refresh', request=request, format=format),
         'employee_profile': reverse('employee_profile', request=request, format=format),
+        'change_password': reverse('change_password', request=request, format=format),
+        'upload_profile_image': reverse('upload_profile_image', request=request, format=format),
+        'list_employees': reverse('list_employees', request=request, format=format),
+        'approve_employee': reverse('approve_employee', args=[1], request=request, format=format),  # Example pk
         'get_ticket_detail': reverse('get_ticket_detail', args=[1], request=request, format=format),  # Example ID
         'approve_ticket': reverse('approve_ticket', args=[1], request=request, format=format),
         'reject_ticket': reverse('reject_ticket', args=[1], request=request, format=format),
@@ -578,6 +582,7 @@ def custom_api_root(request, format=None):
         'get_new_tickets': reverse('get_new_tickets', request=request, format=format),
         'get_open_tickets': reverse('get_open_tickets', request=request, format=format),
         'get_my_tickets': reverse('get_my_tickets', request=request, format=format),
+        'finalize_ticket': reverse('finalize_ticket', args=[1], request=request, format=format),
         'tickets': reverse('ticket-list', request=request, format=format),
     })
 
