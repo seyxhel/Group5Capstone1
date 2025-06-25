@@ -29,7 +29,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'unsafe-default')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [os.environ.get("RAILWAY_PUBLIC_DOMAIN", "*")]  # Or use your Railway domain for more security
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
