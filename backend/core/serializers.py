@@ -3,6 +3,7 @@ from .models import Employee, Ticket, TicketAttachment
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from django.conf import settings
 
 class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -88,10 +89,21 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 class TicketAttachmentSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+
     class Meta:
         model = TicketAttachment
         fields = ['id', 'file', 'file_name', 'file_type', 'file_size', 'upload_date']
         read_only_fields = ['id', 'upload_date', 'file_size']
+
+    def get_file(self, obj):
+        request = self.context.get('request')
+        if obj.file:
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            # fallback if no request in context
+            return f"http://192.168.100.105:8000{obj.file.url}"
+        return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):
     class Meta:

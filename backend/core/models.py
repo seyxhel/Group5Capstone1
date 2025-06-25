@@ -15,13 +15,8 @@ SUFFIX_CHOICES = [
 
 DEPARTMENT_CHOICES = [
     ('IT Department', 'IT Department'),
-    ('Asset Management', 'Asset Management'),
-    ('Document Control', 'Document Control'),
-    ('Finance & Budgeting', 'Finance & Budgeting'),
-    ('Operations', 'Operations'),
-    ('Facilities & Maintenance', 'Facilities & Maintenance'),
-    ('Human Resources', 'Human Resources'),
-    ('Administration', 'Administration'),
+    ('Asset Department', 'Asset Department'),
+    ('Budget Department', 'Budget Department'),
 ]
 
 ROLE_CHOICES = [
