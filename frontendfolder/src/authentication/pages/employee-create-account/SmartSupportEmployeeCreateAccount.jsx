@@ -68,6 +68,8 @@ const getPasswordErrorMessage = (password) => {
   }
 };
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 export default function SmartSupportEmployeeCreateAccount() {
   const navigate = useNavigate();
   const [isSubmitting, setSubmitting] = useState(false);
@@ -119,7 +121,7 @@ export default function SmartSupportEmployeeCreateAccount() {
     formData.append("image", profileImage);
 
     try {
-      const res = await fetch("http://localhost:8000/api/create_employee/", {
+      const res = await fetch(`${API_URL}create_employee/`, {
         method: "POST",
         body: formData,
       });
@@ -201,6 +203,8 @@ export default function SmartSupportEmployeeCreateAccount() {
         {errors[name] && <span className={styles.errorMsg}>{errors[name].message}</span>}
       </>
     );
+
+  console.log("API_URL:", API_URL);
 
   return (
     <main className={styles.container}>
