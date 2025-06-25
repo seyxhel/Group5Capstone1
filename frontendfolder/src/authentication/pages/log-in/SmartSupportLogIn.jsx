@@ -111,7 +111,9 @@ const SmartSupportLogIn = () => {
           <form onSubmit={handleSubmit(handleLogin)}>
             <fieldset>
               <label>Email:</label>
-              {errors.email && <span>{errors.email.message || "Please fill in the required field"}</span>}
+              {errors.email && (
+                <span>{errors.email.message || "Please fill in the required field"}</span>
+              )}
               <input
                 type="text"
                 placeholder="Enter your email"
