@@ -9,7 +9,4 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-RUN python manage.py migrate --noinput
-RUN python manage.py collectstatic --noinput
-
 CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000"]
