@@ -22,7 +22,15 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from django.views.static import serve
+from django.http import FileResponse, Http404
+from django.views.static import serve as static_serve
+
+def media_serve_with_cors(request, path, document_root=None):
+    response = static_serve(request, path, document_root=document_root)
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Headers"] = "Range"
+    response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
+    return response
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,7 +42,6 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
-    # Serve media files in production (not recommended for large files)
     urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+        re_path(r'^media/(?P<path>.*)$', media_serve_with_cors, {'document_root': settings.MEDIA_ROOT}),
     ]

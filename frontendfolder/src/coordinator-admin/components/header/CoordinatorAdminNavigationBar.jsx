@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
@@ -8,6 +8,35 @@ import authService from '../../../utilities/service/authService';
 const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [adminInfo, setAdminInfo] = useState({
+    first_name: '',
+    last_name: '',
+    role: '',
+    image: ''
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem('admin_access_token');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/profile/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminInfo({
+            first_name: data.first_name || '',
+            last_name: data.last_name || '',
+            role: data.role || '',
+            image: data.image || '' // Make sure this is the correct field name
+          });
+        }
+      } catch (e) {
+        // fallback: do nothing or show error
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const toggleDropdown = (key) => {
     setOpenDropdown(prev => (prev === key ? null : key));
@@ -32,6 +61,13 @@ const CoordinatorAdminNavBar = () => {
       />
     </svg>
   );
+
+  const mediaUrl = import.meta.env.VITE_MEDIA_URL;
+  const getProfileImageUrl = (img) => {
+    if (!img) return "";
+    if (img.startsWith("http")) return img;
+    return `${mediaUrl}${img.startsWith("/") ? img.slice(1) : img}`;
+  };
 
   const navSections = [
     {
@@ -73,13 +109,21 @@ const CoordinatorAdminNavBar = () => {
     }
   ];
 
+  // Helper for initials
+  const getInitials = (first, last) => {
+    if (!first && !last) return "U";
+    return `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
+  };
+
   return (
     <nav className={styles['main-nav-bar']}>
       <section className={styles['logo-placeholder']}>
         <img src={MapLogo} alt="Map Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>MAP Support</span>
-          <span className={styles['admin-badge']}>Admin</span>
+          <span className={styles['admin-badge']}>
+            {adminInfo.role ? adminInfo.role : "Admin"}
+          </span>
         </div>
       </section>
 
@@ -144,17 +188,33 @@ const CoordinatorAdminNavBar = () => {
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            <div className={styles['avatar-placeholder']}>MP</div>
+            {adminInfo.image ? (
+              <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-img']} />
+            ) : (
+              <div className={styles['avatar-placeholder']}>
+                {getInitials(adminInfo.first_name, adminInfo.last_name)}
+              </div>
+            )}
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <div className={styles['avatar-placeholder']}>MP</div>
+                  {adminInfo.image ? (
+                    <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-img-large']} />
+                  ) : (
+                    <div className={styles['avatar-placeholder']}>
+                      {getInitials(adminInfo.first_name, adminInfo.last_name)}
+                    </div>
+                  )}
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>Mary Grace Piattos</h3>
-                  <span className={styles['admin-badge']}>Admin</span>
+                  <h3>
+                    {adminInfo.first_name} {adminInfo.last_name}
+                  </h3>
+                  <span className={styles['admin-badge']}>
+                    {adminInfo.role ? adminInfo.role : "Admin"}
+                  </span>
                 </div>
               </div>
               <div className={styles['profile-menu']}>
