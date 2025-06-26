@@ -1,15 +1,23 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
+import MapLogo from '../../../shared/assets/MapLogo.png';
 
 const CoordinatorAdminNavBar = () => {
-  const [showTicketMenu, setShowTicketMenu] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showReportsMenu, setShowReportsMenu] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const navigate = useNavigate();
+  const [openDropdown, setOpenDropdown] = useState(null);
 
-  const ArrowDownIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  const toggleDropdown = (key) => {
+    setOpenDropdown(prev => (prev === key ? null : key));
+  };
+
+  const ArrowDownIcon = ({ flipped }) => (
+    <svg
+      className={`${styles['arrow-icon']} ${flipped ? styles['arrow-flipped'] : ''}`}
+      width="14" height="14" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2"
+    >
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
@@ -24,104 +32,120 @@ const CoordinatorAdminNavBar = () => {
     </svg>
   );
 
+  const navSections = [
+    {
+      key: 'tickets',
+      label: 'Ticket Management',
+      links: [
+        { label: "All Tickets", path: "/admin/ticket-management/all-tickets" },
+        { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
+        { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
+        { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
+        { label: "On Progress Tickets", path: "/admin/ticket-management/on-progress-tickets" },
+        { label: "On Hold Tickets", path: "/admin/ticket-management/on-hold-tickets" },
+        { label: "Resolved Tickets", path: "/admin/ticket-management/resolved-tickets" },
+        { label: "Closed Tickets", path: "/admin/ticket-management/closed-tickets" },
+        { label: "Rejected Tickets", path: "/admin/ticket-management/rejected-tickets" },
+        { label: "Withdrawn Tickets", path: "/admin/ticket-management/withdrawn-tickets" },
+      ]
+    },
+    {
+      key: 'users',
+      label: 'User Access',
+      links: [
+        { label: "All Users", path: "/admin/users/all-users" },
+        { label: "Employees", path: "/admin/users/employees" },
+        { label: "Ticket Coordinators", path: "/admin/users/ticket-coordinators" },
+        { label: "System Admins", path: "/admin/users/system-admins" },
+        { label: "Pending Users", path: "/admin/users/pending-users" },
+        { label: "Rejected Users", path: "/admin/users/rejected-users" },
+      ]
+    },
+    {
+      key: 'reports',
+      label: 'Reports',
+      links: [
+        { label: "Department Reports", path: "/admin/reports/departments" },
+        { label: "Coordinator Reports", path: "/admin/reports/coordinators" },
+        { label: "Ticket Statistics", path: "/admin/reports/statistics" },
+      ]
+    }
+  ];
+
   return (
     <nav className={styles['main-nav-bar']}>
-      <section>
-        <div className={styles['logo-placeholder']}>
-          <div className={styles['logo-box']}>LOGO</div>
-          <div className={styles['brand-name']}>Brand Name</div>
+      <section className={styles['logo-placeholder']}>
+        <img src={MapLogo} alt="Map Logo" className={styles['logo-image']} />
+        <div className={styles['brand-wrapper']}>
+          <span className={styles['brand-name']}>MAP Support</span>
+          <span className={styles['admin-badge']}>Admin</span>
         </div>
       </section>
 
       <section>
         <ul className={styles['nav-list']}>
           <li className={styles['nav-item']}>
-            <a href="#" className={styles['nav-link']}>Dashboard</a>
+            <button className={styles['nav-link']} onClick={() => navigate('/admin/dashboard')}>
+              Dashboard
+            </button>
           </li>
 
-          <li className={`${styles['dropdown-container']} ${styles['tickets-dropdown-container']} ${showTicketMenu ? styles['open'] : ''}`}>
-            <div className={styles['dropdown-trigger']} onClick={() => setShowTicketMenu(!showTicketMenu)}>
-              <span className={styles['dropdown-text']}>Ticket Management</span>
-              <ArrowDownIcon />
-            </div>
-            {showTicketMenu && (
-              <div className={`${styles['custom-dropdown']} ${styles['tickets-dropdown']}`}>
-                <div className={styles['dropdown-menu']}>
-                  <button>All Tickets</button>
-                  <button>New Tickets</button>
-                  <button>Pending Tickets</button>
-                  <button>Open Tickets</button>
-                  <button>On Progress Tickets</button>
-                  <button>On Hold Tickets</button>
-                  <button>Resolved Tickets</button>
-                  <button>Closed Tickets</button>
-                  <button>Rejected Tickets</button>
-                  <button>Withdrawn Tickets</button>
-                </div>
+          {navSections.map(({ key, label, links }) => (
+            <li key={key} className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}>
+              <div className={styles['dropdown-trigger']} onClick={() => toggleDropdown(key)}>
+                <span className={styles['dropdown-text']}>{label}</span>
+                <ArrowDownIcon flipped={openDropdown === key} />
               </div>
-            )}
-          </li>
-
-          <li className={`${styles['dropdown-container']} ${styles['users-dropdown-container']} ${showUserMenu ? styles['open'] : ''}`}>
-            <div className={styles['dropdown-trigger']} onClick={() => setShowUserMenu(!showUserMenu)}>
-              <span className={styles['dropdown-text']}>User Management</span>
-              <ArrowDownIcon />
-            </div>
-            {showUserMenu && (
-              <div className={`${styles['custom-dropdown']} ${styles['users-dropdown']}`}>
-                <div className={styles['dropdown-menu']}>
-                  <button>All Users</button>
-                  <button>Employees</button>
-                  <button>Ticket Coordinators</button>
-                  <button>System Admins</button>
-                  <button>Pending Users</button>
-                  <button>Rejected Users</button>
+              {openDropdown === key && (
+                <div className={styles['custom-dropdown']}>
+                  <div className={styles['dropdown-menu']}>
+                    <ul className={styles['dropdown-list']}>
+                      {links.map(({ label, path }, i) => (
+                        <li key={i}>
+                          <button onClick={() => navigate(path)}>{label}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-              </div>
-            )}
-          </li>
-
-          <li className={`${styles['dropdown-container']} ${styles['reports-dropdown-container']} ${showReportsMenu ? styles['open'] : ''}`}>
-            <div className={styles['dropdown-trigger']} onClick={() => setShowReportsMenu(!showReportsMenu)}>
-              <span className={styles['dropdown-text']}>Reports</span>
-              <ArrowDownIcon />
-            </div>
-            {showReportsMenu && (
-              <div className={`${styles['custom-dropdown']} ${styles['reports-dropdown']}`}>
-                <div className={styles['dropdown-menu']}>
-                  <button>Department Reports</button>
-                  <button>Coordinator Reports</button>
-                  <button>Ticket Statistics</button>
-                </div>
-              </div>
-            )}
-          </li>
+              )}
+            </li>
+          ))}
         </ul>
       </section>
 
-      <section>
+      <section className={styles['nav-right-section']}>
         <div className={styles['notification-icon-container']}>
-          <div className={styles['notification-icon-wrapper']} onClick={() => setShowNotifications(!showNotifications)}>
+          <div
+            className={styles['notification-icon-wrapper']}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDropdown('notifications');
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') toggleDropdown('notifications');
+            }}
+          >
             <NotificationIcon />
-            <span className={styles['notification-badge']}>4</span>
+            {notificationCount > 0 && (
+              <span className={styles['notification-badge']}>{notificationCount}</span>
+            )}
           </div>
-          {showNotifications && (
-            <div className={styles['notification-dropdown']}>
-              <div className={styles['notification-header']}><h4>Notifications</h4></div>
-              <div className={styles['notification-list']}>
-                <div className={styles['notification-item']}><p>New ticket submitted</p><span>2 minutes ago</span></div>
-                <div className={styles['notification-item']}><p>User approval pending</p><span>1 hour ago</span></div>
-                <div className={styles['notification-item']}><p>System maintenance scheduled</p><span>3 hours ago</span></div>
-              </div>
+
+          {openDropdown === 'notifications' && (
+            <div className={styles['notification-popup-wrapper']}>
+              <CoordinatorAdminNotifications />
             </div>
           )}
         </div>
 
         <div className={styles['profile-container']}>
-          <div className={styles['profile-avatar']} onClick={() => setShowProfileMenu(!showProfileMenu)}>
+          <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
             <div className={styles['avatar-placeholder']}>MP</div>
           </div>
-          {showProfileMenu && (
+          {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
@@ -133,9 +157,8 @@ const CoordinatorAdminNavBar = () => {
                 </div>
               </div>
               <div className={styles['profile-menu']}>
-                <button>Settings</button>
-                <button>User Management</button>
-                <button className={styles['logout-btn']}>Log Out</button>
+                <button onClick={() => navigate('/admin/settings')}>Settings</button>
+                <button className={styles['logout-btn']} onClick={() => navigate('/')}>Log Out</button>
               </div>
             </div>
           )}

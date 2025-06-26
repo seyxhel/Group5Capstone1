@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
+import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 
 const NotificationIcon = () => (
   <svg
@@ -138,7 +139,7 @@ const EmployeeNavBar = () => {
           <img src={MapLogo} alt="Logo" className={styles['logo-image']} />
           <div className={styles['brand-wrapper']}>
             <span className={styles['brand-name']}>SmartSupport</span>
-            <span className={styles['role-badge']}>Employee</span>
+            <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
           </div>
         </div>
       </section>
@@ -155,7 +156,7 @@ const EmployeeNavBar = () => {
               Home
             </NavLink>
           </li>
-          {renderDropdownMenu('active')} 
+          {renderDropdownMenu('active')}
           {renderDropdownMenu('records')}
         </ul>
       </section>
@@ -199,17 +200,25 @@ const EmployeeNavBar = () => {
               }
             }}
           >
-            <div className={styles['avatar-placeholder']}>JD</div>
+            <img
+              src={employeeBonjingData.profileImage}
+              alt="Profile"
+              className={styles['avatar-placeholder']}
+            />
           </div>
           {showProfileMenu && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <div className={styles['avatar-placeholder']}>JD</div>
+                  <img
+                    src={employeeBonjingData.profileImage}
+                    alt="Profile"
+                    className={styles['avatar-image']}
+                  />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>Juan Dela Cruz</h3>
-                  <span className={styles['admin-badge']}>Employee</span>
+                  <h3>{`${employeeBonjingData.firstName} ${employeeBonjingData.lastName}`}</h3>
+                  <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
                 </div>
               </div>
               <div className={styles['profile-menu']}>

@@ -39,16 +39,18 @@ const SmartSupportLogIn = () => {
         return;
       }
 
-      switch (user.role) {
-        case "User":
+      const role = user.role?.trim().toLowerCase(); // normalize role
+
+      switch (role) {
+        case "employee":
           navigate("/employee/home");
           break;
-        case "Ticket Coordinator":
-        case "System Admin":
+        case "ticket coordinator":
+        case "system admin":
           navigate("/admin/dashboard");
           break;
         default:
-          navigate("/dashboard");
+          navigate("/unauthorized");
       }
     } catch (err) {
       console.error("Login failed:", err);
