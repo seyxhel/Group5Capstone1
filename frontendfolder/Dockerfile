@@ -16,7 +16,7 @@ ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Debug: Print the environment variable
-RUN echo "🔧 Building with API URL: $VITE_API_BASE_URL"
+RUN echo "🔧 Building with API URL: $VITE_REACT_APP_API_URL"
 
 # Build the app
 RUN npm run build
