@@ -1,8 +1,8 @@
 const priorityLevelOptions = [
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-  { label: "Critical", value: "critical" },
+  { label: "Low", value: "Low" },
+  { label: "Medium", value: "Medium" },
+  { label: "High", value: "High" },
+  { label: "Critical", value: "Critical" },
 ];
 
 export default priorityLevelOptions;
