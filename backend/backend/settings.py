@@ -136,6 +136,7 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://smartsupport-hdts-backend.up.railway.app',
+    'https://smartsupport-hdts-frontend.up.railway.app',  # <-- add this
 ]
 
 MEDIA_URL = '/media/'
@@ -179,5 +180,5 @@ SIMPLE_JWT = {
 CSRF_TRUSTED_ORIGINS = [
     "https://smartsupport-hdts-backend.up.railway.app",
     "http://localhost:5173",
-    # Add your deployed frontend domain here when you have one
+    "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
 ]
