@@ -190,7 +190,7 @@
 
 /* Status Badges */
 .statusBadge {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;

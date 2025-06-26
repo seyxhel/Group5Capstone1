@@ -239,14 +239,20 @@ const CoordinatorAdminDashboard = () => {
               title="Tickets to Review"
               buttonText="Manage Tickets"
               headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-              data={reviewTickets.map(ticket => ({
-                ticketNumber: ticket.ticket_number,
-                subject: ticket.subject,
-                category: ticket.category,
-                subCategory: ticket.sub_category,
-                status: { text: ticket.status, statusClass: `status${ticket.status}` },
-                dateCreated: ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : '',
-              }))}
+              data={reviewTickets.map(ticket => {
+                const dateObj = ticket.submit_date ? new Date(ticket.submit_date) : null;
+                return {
+                  ticketNumber: ticket.ticket_number,
+                  subject: ticket.subject,
+                  category: ticket.category,
+                  subCategory: ticket.sub_category,
+                  status: {
+                    text: ticket.status === "New" ? "Submitted" : ticket.status,
+                    statusClass: `status${ticket.status === "New" ? "Submitted" : ticket.status}`
+                  },
+                  dateCreated: ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : '',
+                };
+              })}
               onButtonClick={() => navigate('/admin/ticket-management/all-tickets')}
             />
 
