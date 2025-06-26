@@ -9,6 +9,7 @@ import {
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import styles from './EmployeeHome.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ const EmployeeHome = () => {
   return (
     <div className={styles.container}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>Bogart</span>,
+        Welcome <span className={styles.welcomeName}>{employeeBonjingData.firstName}</span>,
       </h1>
 
       <div className={styles.topSection}>

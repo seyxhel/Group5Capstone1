@@ -1,0 +1,99 @@
+/* === Layout === */
+.ticket-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* === Typography === */
+.ticket-title {
+  font-size: var(--h2-font-size);
+  color: var(--heading-color);
+  margin: 0;
+}
+
+/* === Search === */
+.ticket-search {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  font-size: var(--base-font-size);
+  width: 100%;
+  max-width: 300px;
+}
+
+/* === Table === */
+.ticket-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.ticket-table th,
+.ticket-table td {
+  padding: 0.75rem 1rem;
+  font-size: var(--base-font-size);
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.ticket-table th {
+  background-color: #f9fafb;
+  color: var(--heading-color);
+  font-weight: 500;
+}
+
+/* === Empty / Error States === */
+.ticket-empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--muted-text-color);
+  font-style: italic;
+}
+
+.ticket-error {
+  padding: 1rem;
+  background-color: #ffe5e5;
+  color: #c00;
+  border-radius: 0.375rem;
+}
+
+/* === Actions === */
+.ticket-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ticket-btn {
+  padding: 0.375rem 0.625rem;
+  font-size: var(--small-font-size);
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  color: #fff;
+  background-color: #0d6efd;
+  transition: background-color 0.2s ease;
+}
+
+.ticket-btn:hover {
+  background-color: #0b5ed7;
+}
+
+.ticket-btn.reject {
+  background-color: #dc3545;
+}
+
+.ticket-btn.reject:hover {
+  background-color: #bb2d3b;
+}
