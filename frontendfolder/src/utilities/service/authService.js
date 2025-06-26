@@ -26,17 +26,23 @@ const authService = {
     return data;
   },
 
-  logout: () => {
+  logoutEmployee: () => {
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem("admin_access_token");
-    localStorage.removeItem("admin_refresh_token");
     localStorage.removeItem("employee_access_token");
     localStorage.removeItem("employee_refresh_token");
-    localStorage.removeItem("user_role");
     localStorage.removeItem("employee_first_name");
     localStorage.removeItem("employee_last_name");
     localStorage.removeItem("employee_image");
-    localStorage.removeItem("chatbotMessages"); // <-- Add this line
+    localStorage.removeItem("chatbotMessages");
+    // Do NOT remove admin tokens or user_role
+  },
+
+  logoutAdmin: () => {
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem("admin_access_token");
+    localStorage.removeItem("admin_refresh_token");
+    localStorage.removeItem("user_role");
+    // Do NOT remove employee tokens or info
   },
 
   getCurrentUser: () => {

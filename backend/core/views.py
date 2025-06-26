@@ -473,10 +473,12 @@ def get_new_tickets(request):
                 'ticket_number': ticket.ticket_number,
                 'subject': ticket.subject,
                 'category': ticket.category,
+                'sub_category': ticket.sub_category,  # <-- ADD THIS
+                'status': ticket.status,              # <-- ADD THIS
                 'submit_date': ticket.submit_date,
                 'employee_name': f"{ticket.employee.first_name} {ticket.employee.last_name}",
                 'employee_department': ticket.employee.department,
-                'has_attachment': bool(ticket.attachments.exists())  # Updated to check TicketAttachment
+                'has_attachment': bool(ticket.attachments.exists())
             })
         
         return Response(tickets_data, status=status.HTTP_200_OK)

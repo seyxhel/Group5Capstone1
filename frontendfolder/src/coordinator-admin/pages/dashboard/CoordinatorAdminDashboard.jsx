@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import styles from './CoordinatorAdminDashboard.module.css';
 
@@ -15,11 +16,11 @@ const StatCard = ({ label, count, isHighlight = false }) => (
 );
 
 // Reusable Table Component
-const DataTable = ({ title, headers, data, buttonText }) => (
+const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
   <div className={styles.tableContainer}>
     <div className={styles.tableHeader}>
       <h3 className={styles.tableTitle}>{title}</h3>
-      <button className={styles.button}>
+      <button className={styles.button} onClick={onButtonClick}>
         {buttonText}
       </button>
     </div>
@@ -102,8 +103,32 @@ const TrendLineChart = ({ data, title }) => (
 );
 
 // Main Dashboard Component
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
+  const [reviewTickets, setReviewTickets] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchReviewTickets = async () => {
+      try {
+        const token = localStorage.getItem("admin_access_token");
+        const res = await fetch(`${API_URL}tickets/new/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setReviewTickets(data);
+        } else {
+          setReviewTickets([]);
+        }
+      } catch (err) {
+        setReviewTickets([]);
+      }
+    };
+    fetchReviewTickets();
+  }, []);
 
   // Sample Data
   const ticketData = {
@@ -214,7 +239,15 @@ const CoordinatorAdminDashboard = () => {
               title="Tickets to Review"
               buttonText="Manage Tickets"
               headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-              data={ticketData.tableData}
+              data={reviewTickets.map(ticket => ({
+                ticketNumber: ticket.ticket_number,
+                subject: ticket.subject,
+                category: ticket.category,
+                subCategory: ticket.sub_category,
+                status: { text: ticket.status, statusClass: `status${ticket.status}` },
+                dateCreated: ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : '',
+              }))}
+              onButtonClick={() => navigate('/admin/ticket-management/all-tickets')}
             />
 
             {/* Charts */}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
+import authService from '../../../utilities/service/authService';
 
 const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
@@ -158,7 +159,10 @@ const CoordinatorAdminNavBar = () => {
               </div>
               <div className={styles['profile-menu']}>
                 <button onClick={() => navigate('/admin/settings')}>Settings</button>
-                <button className={styles['logout-btn']} onClick={() => navigate('/')}>Log Out</button>
+                <button className={styles['logout-btn']} onClick={() => {
+                  authService.logoutAdmin();
+                  navigate('/');
+                }}>Log Out</button>
               </div>
             </div>
           )}

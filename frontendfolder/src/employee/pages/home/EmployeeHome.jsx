@@ -17,22 +17,30 @@ const EmployeeHome = () => {
 
   useEffect(() => {
     const fetchTickets = async () => {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(`${API_URL}tickets/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const allTickets = await res.json();
-        // Only active tickets
-        const activeTickets = allTickets.filter(ticket => {
-          const status = ticket.status.toLowerCase();
-          return !['closed', 'rejected', 'withdrawn'].includes(status);
+      try {
+        const token = localStorage.getItem("employee_access_token");
+        const res = await fetch(`${API_URL}tickets/`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
-        // Sort and slice for recent
-        const sorted = activeTickets
-          .sort((a, b) => new Date(b.submit_date) - new Date(a.submit_date))
-          .slice(0, 5);
-        setRecentTickets(sorted);
+        if (res.ok) {
+          const allTickets = await res.json();
+          // Only active tickets
+          const activeTickets = allTickets.filter(ticket => {
+            const status = ticket.status.toLowerCase();
+            return !['closed', 'rejected', 'withdrawn'].includes(status);
+          });
+          // Sort and slice for recent
+          const sorted = activeTickets
+            .sort((a, b) => new Date(b.submit_date) - new Date(a.submit_date))
+            .slice(0, 5);
+          setRecentTickets(sorted);
+        } else {
+          // Optionally handle unauthorized or error responses
+          setRecentTickets([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tickets:", err);
+        setRecentTickets([]);
       }
     };
     fetchTickets();
