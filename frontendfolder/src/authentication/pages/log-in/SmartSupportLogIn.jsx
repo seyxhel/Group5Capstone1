@@ -1,3 +1,5 @@
+console.log("API_URL:", import.meta.env.VITE_REACT_APP_API_URL);
+
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
