@@ -92,9 +92,10 @@
 .show-password {
   height: 20px;
   width: 20px;
-
   position: absolute;
   right: 16px;
+  top: 53%;
+  transform: translateY(-50%);
   cursor: pointer;
 }
 

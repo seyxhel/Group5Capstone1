@@ -17,6 +17,8 @@ const ALLOWED_FILE_TYPES = [
   'text/csv',
 ];
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 export default function EmployeeTicketSubmissionForm() {
   const {
     register,
@@ -55,7 +57,7 @@ export default function EmployeeTicketSubmissionForm() {
   const refreshAccessToken = async () => {
     const refresh = localStorage.getItem("employee_refresh_token");
     if (!refresh) throw new Error("Session expired. Please log in again.");
-    const res = await fetch("http://localhost:8000/api/token/refresh/", {
+    const res = await fetch(`${API_URL}token/refresh/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
@@ -89,7 +91,7 @@ export default function EmployeeTicketSubmissionForm() {
         formData.append("files[]", file);
       });
 
-      const res = await fetch("http://localhost:8000/api/tickets/", {
+      const res = await fetch(`${API_URL}tickets/`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
         body: formData,

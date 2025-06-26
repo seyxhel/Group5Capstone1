@@ -96,6 +96,9 @@ export default function SmartSupportEmployeeCreateAccount() {
     },
   });
 
+  const passwordValue = watch("password", "");
+  const confirmPasswordValue = watch("confirmPassword", "");
+
   const onSubmit = async (data) => {
     setSubmitting(true);
 
@@ -378,12 +381,17 @@ export default function SmartSupportEmployeeCreateAccount() {
                       validate: (v) => getPasswordErrorMessage(v),
                     })}
                   />
-                  <span
-                    className={styles.showPassword}
-                    onClick={() => setShowPassword((prev) => !prev)}
-                  >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </span>
+                  {passwordValue && (
+                    <span
+                      className={styles.showPassword}
+                      onClick={() => {
+                        console.log("Eye icon clicked!");
+                        setShowPassword((prev) => !prev);
+                      }}
+                    >
+                      {showPassword ? <FaEye /> : <FaEyeSlash />}
+                    </span>
+                  )}
                 </div>
                 {errors.password && <span className={styles.errorMsg}>{errors.password.message}</span>}
               </>
@@ -400,18 +408,24 @@ export default function SmartSupportEmployeeCreateAccount() {
                     className={styles.input}
                     autoComplete="off"
                     {...register("confirmPassword", {
-                      validate: (val) => val === watch("password") || "Password did not match.",
+                      required: "Please fill in the required field.",
+                      validate: (val) =>
+                        val === watch("password") || "Password did not match.",
                     })}
                     onPaste={e => e.preventDefault()}
                   />
-                  <span
-                    className={styles.showPassword}
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  >
-                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                  </span>
+                  {confirmPasswordValue && (
+                    <span
+                      className={styles.showPassword}
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    >
+                      {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
+                    </span>
+                  )}
                 </div>
-                {errors.confirmPassword && <span className={styles.errorMsg}>{errors.confirmPassword.message}</span>}
+                {errors.confirmPassword && (
+                  <span className={styles.errorMsg}>{errors.confirmPassword.message}</span>
+                )}
               </>
             )}
 

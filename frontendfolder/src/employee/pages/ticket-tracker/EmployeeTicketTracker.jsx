@@ -26,6 +26,14 @@ const DetailField = ({ label, value }) => (
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
+const getDisplayStatus = (status) => {
+  if (!status) return '';
+  if (status === "New") return "Submitted";
+  return status;
+};
+
 export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
   const [ticket, setTicket] = useState(null);
@@ -35,7 +43,7 @@ export default function EmployeeTicketTracker() {
     const fetchTicket = async () => {
       setLoading(true);
       const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticketNumber}/`, {
+      const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -80,7 +88,7 @@ export default function EmployeeTicketTracker() {
             <h2 className={styles.title}>#{number}</h2>
             <div className={styles.statusBadge}>
               <span className={styles.statusDot}></span>
-              <span className={styles.statusText}>{status}</span>
+              <span className={styles.statusText}>{getDisplayStatus(status)}</span>
             </div>
           </header>
 
@@ -153,7 +161,7 @@ export default function EmployeeTicketTracker() {
 
           <div className={styles.currentStatus}>
             <h4 className={styles.currentStatusTitle}>Current Status</h4>
-            <p className={styles.currentStatusText}>{status}</p>
+            <p className={styles.currentStatusText}>{getDisplayStatus(status)}</p>
           </div>
 
           
