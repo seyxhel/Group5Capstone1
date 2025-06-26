@@ -192,6 +192,14 @@
   white-space: nowrap;    /* Prevent text wrapping */
 }
 
+.checkboxWrapper input[type="checkbox"] {
+  pointer-events: none;      /* Prevent interaction */
+}
+
+.checkboxWrapper input[type="checkbox"]:hover {
+  cursor: not-allowed;       /* Show disabled cursor on hover */
+}
+
 .link {
   color: var(--primary-color);
   text-decoration: underline;
