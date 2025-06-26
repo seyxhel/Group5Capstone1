@@ -27,11 +27,14 @@ const EmployeeHome = () => {
           // Only active tickets
           const activeTickets = allTickets.filter(ticket => {
             const status = ticket.status.toLowerCase();
-            return !['closed', 'rejected', 'withdrawn'].includes(status);
+            return !['closed', 'withdrawn'].includes(status); // "rejected" removed
           });
           // Sort and slice for recent
           const sorted = activeTickets
-            .sort((a, b) => new Date(b.submit_date) - new Date(a.submit_date))
+            .sort((a, b) =>
+              new Date(b.last_updated || b.update_date || b.submit_date) -
+              new Date(a.last_updated || a.update_date || a.submit_date)
+            )
             .slice(0, 5);
           setRecentTickets(sorted);
         } else {

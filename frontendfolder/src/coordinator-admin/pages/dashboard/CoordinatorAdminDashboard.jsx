@@ -109,6 +109,7 @@ const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [reviewTickets, setReviewTickets] = useState([]);
   const [allTickets, setAllTickets] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -149,6 +150,27 @@ const CoordinatorAdminDashboard = () => {
       }
     };
     fetchAllTickets();
+  }, []);
+
+  // Add this useEffect to fetch users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem("admin_access_token");
+        const res = await fetch(`${API_URL}employees/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const users = await res.json();
+          setAllUsers(users);
+        } else {
+          setAllUsers([]);
+        }
+      } catch {
+        setAllUsers([]);
+      }
+    };
+    fetchUsers();
   }, []);
 
   // Define the colors for each status
@@ -256,6 +278,21 @@ const CoordinatorAdminDashboard = () => {
     ]
   };
 
+  // Compute stats from allUsers
+  const employees = allUsers.filter(u => u.role === "Employee");
+  const coordinators = allUsers.filter(u => u.role === "Ticket Coordinator");
+  const admins = allUsers.filter(u => u.role === "System Admin");
+  const pendingAccounts = allUsers.filter(u => u.status === "Pending");
+  const rejectedAccounts = allUsers.filter(u => u.status === "Denied");
+
+  const accountsPieData = [
+    { name: 'Employees', value: employees.length, fill: '#3B82F6' },
+    { name: 'Coordinator', value: coordinators.length, fill: '#F59E0B' },
+    { name: 'Admin', value: admins.length, fill: '#10B981' },
+    { name: 'Pending', value: pendingAccounts.length, fill: '#EF4444' },
+    { name: 'Rejected', value: rejectedAccounts.length, fill: '#8B5CF6' }
+  ];
+
   // Build pieData dynamically, mapping "Submitted" to "New" if needed (but your backend uses "New")
   const pieStatusCounts = allTickets.reduce((acc, ticket) => {
     const displayStatus = ticket.status === "Submitted" ? "New" : ticket.status;
@@ -268,6 +305,15 @@ const CoordinatorAdminDashboard = () => {
     value: pieStatusCounts[status] || 0,
     fill: statusColors[status]
   }));
+
+  const userStats = [
+    { label: 'Employees', count: employees.length },
+    { label: 'Ticket Coordinator', count: coordinators.length },
+    { label: 'System Administrators', count: admins.length },
+    { label: 'Pending Accounts', count: pendingAccounts.length },
+    { label: 'Rejected Accounts', count: rejectedAccounts.length, isHighlight: true },
+    { label: 'Total Users', count: allUsers.length, isHighlight: true }
+  ];
 
   return (
     <div className={styles.container}>
@@ -330,7 +376,7 @@ const CoordinatorAdminDashboard = () => {
           <div className={styles.tabContent}>
             {/* User Stats Grid */}
             <div className={styles.userGrid}>
-              {userData.stats.map((stat, i) => (
+              {userStats.map((stat, i) => (
                 <StatCard key={i} {...stat} />
               ))}
             </div>
@@ -340,12 +386,23 @@ const CoordinatorAdminDashboard = () => {
               title="Account Approval"
               buttonText="Manage Accounts"
               headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
-              data={userData.tableData}
+              data={allUsers
+                .filter(u => u.status === "Pending")
+                .map(user => ({
+                  companyId: user.company_id,
+                  lastName: user.last_name,
+                  firstName: user.first_name,
+                  department: user.department,
+                  role: user.role,
+                  status: { text: user.status, statusClass: `status${user.status}` }
+                }))
+              }
+              onButtonClick={() => window.location.href = "http://localhost:5173/admin/users/all-users"}
             />
 
             {/* User Charts */}
             <div className={styles.chartsGrid}>
-              <StatusPieChart data={userData.pieData} title="Accounts" />
+              <StatusPieChart data={accountsPieData} title="Accounts" />
               <TrendLineChart data={ticketData.lineData} title="Accounts per month" />
             </div>
           </div>
