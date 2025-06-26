@@ -2,6 +2,9 @@ import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
+import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
+import departmentOptions from "../../../utilities/options/departmentOptions";
+
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
   const {
     register,
@@ -12,7 +15,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     defaultValues: {
       priorityLevel: ticket.priorityLevel || "",
       department: ticket.department || "",
-      comment: "", // new comment field, optional
+      comment: "", // optional admin comment
     },
   });
 
@@ -29,8 +32,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
   const onSubmit = (data) => {
     setIsSubmitting(true);
 
-    // Here you would handle the update with priority, department, and comment
-    // For example, send data to API or update state
+    // Simulate API call or state update
     setTimeout(() => {
       setIsSubmitting(false);
       alert(
@@ -45,7 +47,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     <ModalWrapper onClose={onClose}>
       <h2>Open Ticket - {ticket.ticketNumber}</h2>
 
-      {/* Ticket details display - same as before */}
+      {/* Ticket details */}
       <div style={{ marginBottom: 16 }}>
         <strong>Created By:</strong> {ticket.createdBy?.name || "Unknown"} <br />
         <strong>Company ID:</strong> {ticket.createdBy?.companyId || "N/A"} <br />
@@ -63,7 +65,6 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
         )}
       </div>
 
-      {/* Other ticket info */}
       <div style={{ marginBottom: 16 }}>
         <strong>Priority:</strong> {ticket.priorityLevel || "—"} <br />
         <strong>Department:</strong> {ticket.department || "—"} <br />
@@ -84,18 +85,24 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
         )}
       </div>
 
-      {/* Editable Form */}
+      {/* Editable form */}
       <form onSubmit={handleSubmit(onSubmit)}>
         {/* Priority Level (Required) */}
         <fieldset style={{ marginBottom: 12 }}>
           <label>
             Priority Level <span style={{ color: "red" }}>*</span>
           </label>
-          <input
-            type="text"
+          <select
             {...register("priorityLevel", { required: "Priority Level is required" })}
             style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
+          >
+            <option value="">Select Priority Level</option>
+            {priorityLevelOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           {errors.priorityLevel && (
             <p style={{ color: "red", marginTop: 4 }}>{errors.priorityLevel.message}</p>
           )}
@@ -106,11 +113,17 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
           <label>
             Department <span style={{ color: "red" }}>*</span>
           </label>
-          <input
-            type="text"
+          <select
             {...register("department", { required: "Department is required" })}
             style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
+          >
+            <option value="">Select Department</option>
+            {departmentOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           {errors.department && (
             <p style={{ color: "red", marginTop: 4 }}>{errors.department.message}</p>
           )}
