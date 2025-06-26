@@ -39,16 +39,26 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose }) => {
           value={comment}
           onChange={e => setComment(e.target.value)}
           rows={4}
-          style={{ width: "100%", resize: "none", marginTop: "0.25rem" }}
+          style={{ width: "100%", resize: "none", marginTop: "0.25rem", padding: "8px" }}
           placeholder="Add a comment for rejection (optional)"
         />
       </div>
 
       {/* Action buttons */}
       <div style={{ marginTop: "1.5rem", display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-        <button onClick={onClose} type="button">Cancel</button>
-        <button onClick={handleReject} type="button" style={{ backgroundColor: "red", color: "white" }}>
-          Reject
+        <button
+          onClick={onClose}
+          type="button"
+          style={{ padding: "8px 16px", cursor: "pointer" }}
+        >
+          Cancel Ticket
+        </button>
+        <button
+          onClick={handleReject}
+          type="button"
+          style={{ backgroundColor: "red", color: "white", padding: "8px 16px", cursor: "pointer" }}
+        >
+          Reject Ticket
         </button>
       </div>
     </ModalWrapper>
