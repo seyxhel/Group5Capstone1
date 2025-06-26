@@ -436,12 +436,11 @@ export default function SmartSupportEmployeeCreateAccount() {
                     type="checkbox"
                     checked={watch("terms")}
                     tabIndex={-1}
-                    readOnly
                     {...register("terms", {
                       required: "Please fill in the required field.",
                     })}
                   />
-                  &nbsp; I agree to the{" "}
+                  &nbsp; Read and agree to the{" "}
                   <span className={styles.link} onClick={() => setShowModal(true)} role="button" tabIndex={0}>
                     Privacy Policy
                   </span>
