@@ -108,6 +108,7 @@ const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [reviewTickets, setReviewTickets] = useState([]);
+  const [allTickets, setAllTickets] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -129,6 +130,63 @@ const CoordinatorAdminDashboard = () => {
     };
     fetchReviewTickets();
   }, []);
+
+  useEffect(() => {
+    const fetchAllTickets = async () => {
+      try {
+        const token = localStorage.getItem("admin_access_token");
+        const res = await fetch(`${API_URL}tickets/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAllTickets(data);
+        } else {
+          setAllTickets([]);
+        }
+      } catch (err) {
+        setAllTickets([]);
+      }
+    };
+    fetchAllTickets();
+  }, []);
+
+  // Define the colors for each status
+  const statusColors = {
+    Submitted: '#6B7280',
+    Open: '#3B82F6',
+    Pending: '#F59E0B',
+    Resolved: '#10B981',
+    Closed: '#8B5CF6'
+  };
+
+  // Count tickets by status
+  const statusCounts = allTickets.reduce((acc, ticket) => {
+    // Map "New" to "Submitted" for display
+    const displayStatus = ticket.status === "New" ? "Submitted" : ticket.status;
+    acc[displayStatus] = (acc[displayStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Build pieData dynamically
+  const pieData = Object.keys(statusColors).map(status => ({
+    name: status,
+    value: statusCounts[status] || 0,
+    fill: statusColors[status]
+  }));
+
+  const ticketStats = [
+    { label: 'New Tickets', count: statusCounts['New'] || 0 },
+    { label: 'Open Tickets', count: statusCounts['Open'] || 0 },
+    { label: 'On Process Tickets', count: statusCounts['On Process'] || 0 },
+    { label: 'On hold Tickets', count: statusCounts['On hold'] || 0 },
+    { label: 'Pending Tickets', count: statusCounts['Pending'] || 0 },
+    { label: 'Resolved Tickets', count: statusCounts['Resolved'] || 0 },
+    { label: 'Closed Tickets', count: statusCounts['Closed'] || 0 },
+    { label: 'Rejected Tickets', count: statusCounts['Rejected'] || 0, isHighlight: true },
+    { label: 'Withdrawn Tickets', count: statusCounts['Withdrawn'] || 0, isHighlight: true },
+    { label: 'Total Tickets', count: allTickets.length, isHighlight: true }
+  ];
 
   // Sample Data
   const ticketData = {
@@ -229,7 +287,7 @@ const CoordinatorAdminDashboard = () => {
           <div className={styles.tabContent}>
             {/* Stats Grid */}
             <div className={styles.statsGrid}>
-              {ticketData.stats.map((stat, i) => (
+              {ticketStats.map((stat, i) => (
                 <StatCard key={i} {...stat} />
               ))}
             </div>
@@ -250,7 +308,9 @@ const CoordinatorAdminDashboard = () => {
                     text: ticket.status === "New" ? "Submitted" : ticket.status,
                     statusClass: `status${ticket.status === "New" ? "Submitted" : ticket.status}`
                   },
-                  dateCreated: ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : '',
+                  dateCreated: dateObj
+                    ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
+                    : '',
                 };
               })}
               onButtonClick={() => navigate('/admin/ticket-management/all-tickets')}
@@ -258,7 +318,7 @@ const CoordinatorAdminDashboard = () => {
 
             {/* Charts */}
             <div className={styles.chartsGrid}>
-              <StatusPieChart data={ticketData.pieData} title="Ticket Status" />
+              <StatusPieChart data={pieData} title="Ticket Status" />
               <TrendLineChart data={ticketData.lineData} title="Status per month" />
             </div>
           </div>
