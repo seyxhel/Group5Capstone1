@@ -161,7 +161,7 @@ const EmployeeNavBar = () => {
           <img src={MapLogo} alt="Logo" className={styles['logo-image']} />
           <div className={styles['brand-wrapper']}>
             <span className={styles['brand-name']}>SmartSupport</span>
-            <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
+            <span className={styles['role-badge']}>Employee</span>
           </div>
         </div>
       </section>
@@ -256,7 +256,7 @@ const EmployeeNavBar = () => {
                   className={styles['logout-btn']}
                   onClick={() => {
                     setShowProfileMenu(false);
-                    authService.logout(); // <-- Remove all tokens
+                    authService.logoutEmployee();
                     navigate('/');
                   }}
                 >
