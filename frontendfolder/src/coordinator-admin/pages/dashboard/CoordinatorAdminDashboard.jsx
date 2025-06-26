@@ -162,18 +162,9 @@ const CoordinatorAdminDashboard = () => {
 
   // Count tickets by status
   const statusCounts = allTickets.reduce((acc, ticket) => {
-    // Map "New" to "Submitted" for display
-    const displayStatus = ticket.status === "New" ? "Submitted" : ticket.status;
-    acc[displayStatus] = (acc[displayStatus] || 0) + 1;
+    acc[ticket.status] = (acc[ticket.status] || 0) + 1;
     return acc;
   }, {});
-
-  // Build pieData dynamically
-  const pieData = Object.keys(statusColors).map(status => ({
-    name: status,
-    value: statusCounts[status] || 0,
-    fill: statusColors[status]
-  }));
 
   const ticketStats = [
     { label: 'New Tickets', count: statusCounts['New'] || 0 },
@@ -264,6 +255,19 @@ const CoordinatorAdminDashboard = () => {
       { name: 'Rejected', value: 10, fill: '#8B5CF6' }
     ]
   };
+
+  // Build pieData dynamically, mapping "New" to "Submitted"
+  const pieStatusCounts = allTickets.reduce((acc, ticket) => {
+    const displayStatus = ticket.status === "New" ? "Submitted" : ticket.status;
+    acc[displayStatus] = (acc[displayStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  const pieData = Object.keys(statusColors).map(status => ({
+    name: status,
+    value: pieStatusCounts[status] || 0,
+    fill: statusColors[status]
+  }));
 
   return (
     <div className={styles.container}>
