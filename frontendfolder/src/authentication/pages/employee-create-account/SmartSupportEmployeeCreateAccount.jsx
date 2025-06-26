@@ -134,10 +134,10 @@ export default function SmartSupportEmployeeCreateAccount() {
 
         // Field-specific error handling
         if (err.company_id) {
-          setError("companyId", { type: "manual", message: err.company_id });
+          setError("companyId", { type: "manual", message: "Invalid Company ID." });
         }
         if (err.email) {
-          setError("email", { type: "manual", message: err.email });
+          setError("email", { type: "manual", message: "Invalid Email." });
         }
 
         // Show a toast for general errors or if no field-specific error
