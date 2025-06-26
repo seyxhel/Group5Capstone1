@@ -34,7 +34,8 @@ const CoordinatorAdminTicketManagement = () => {
   const [modalType, setModalType] = useState(null); // 'open' | 'reject'
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
-  const statusFilter = normalizedStatus.replace(/-/g, " ");
+  // Map "new" to "submitted" for filtering tickets
+  const statusFilter = normalizedStatus === "new" ? "submitted" : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
     const fetchedTickets = [...getEmployeeTickets(), ...getEmployeeTicketsByRumi()];
@@ -42,15 +43,16 @@ const CoordinatorAdminTicketManagement = () => {
   }, []);
 
   const filteredTickets = useMemo(() => {
-    let result = normalizedStatus === "all"
-      ? allTickets
-      : allTickets.filter(ticket => ticket.status.toLowerCase() === statusFilter);
+    let result =
+      normalizedStatus === "all"
+        ? allTickets
+        : allTickets.filter(ticket => ticket.status.toLowerCase() === statusFilter);
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(({ ticketNumber, subject }) =>
-        ticketNumber.toLowerCase().includes(term) ||
-        subject.toLowerCase().includes(term)
+      result = result.filter(
+        ({ ticketNumber, subject }) =>
+          ticketNumber.toLowerCase().includes(term) || subject.toLowerCase().includes(term)
       );
     }
 
@@ -89,8 +91,12 @@ const CoordinatorAdminTicketManagement = () => {
           columns={[
             { key: "ticketNumber", label: "Ticket Number" },
             { key: "subject", label: "Subject" },
-            { key: "status", label: "Status" },
-            { key: "priorityLevel", label: "Priority Level", render: val => val || "—" },
+            {
+              key: "status",
+              label: "Status",
+              render: (val) => (val.toLowerCase() === "submitted" ? "New" : val),
+            },
+            { key: "priorityLevel", label: "Priority Level", render: (val) => val || "—" },
             { key: "category", label: "Category" },
             {
               key: "createdBy",
@@ -100,7 +106,7 @@ const CoordinatorAdminTicketManagement = () => {
             {
               key: "dateCreated",
               label: "Date Created",
-              render: val => val?.slice(0, 10),
+              render: (val) => val?.slice(0, 10),
             },
             {
               key: "open",
