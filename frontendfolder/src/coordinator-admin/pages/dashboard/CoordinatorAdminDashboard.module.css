@@ -211,6 +211,11 @@
   color: #92400e;
 }
 
+.statusNew {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
 /* Chart Styles */
 .chartContainer {
   background-color: white;

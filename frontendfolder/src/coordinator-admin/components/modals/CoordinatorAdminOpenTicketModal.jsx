@@ -5,6 +5,8 @@ import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
 import departmentOptions from "../../../utilities/options/departmentOptions";
 
+const MEDIA_URL = import.meta.env.VITE_MEDIA_URL;
+
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
   const {
     register,
@@ -13,15 +15,15 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      priorityLevel: ticket.priorityLevel || "",
+      priority: ticket.priority || "",
       department: ticket.department || "",
-      comment: "", // optional admin comment
+      comment: "",
     },
   });
 
   useEffect(() => {
     reset({
-      priorityLevel: ticket.priorityLevel || "",
+      priority: ticket.priority || "",
       department: ticket.department || "",
       comment: "",
     });
@@ -32,7 +34,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
   const onSubmit = (data) => {
     setIsSubmitting(true);
 
-    // Simulate API call or state update
+    // TODO: Replace with real API call to update ticket
     setTimeout(() => {
       setIsSubmitting(false);
       alert(
@@ -43,46 +45,60 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     }, 1000);
   };
 
+  // Only allow for New and Pending tickets
+  if (!["New", "Pending"].includes(ticket.status)) {
+    return (
+      <ModalWrapper onClose={onClose}>
+        <h2>Open Ticket</h2>
+        <p>This action is only available for tickets with status "New" or "Pending".</p>
+        <button onClick={onClose}>Close</button>
+      </ModalWrapper>
+    );
+  }
+
   return (
     <ModalWrapper onClose={onClose}>
-      <h2>Open Ticket - {ticket.ticketNumber}</h2>
+      <h2>
+        {ticket.status} Ticket - {ticket.ticket_number}
+      </h2>
 
       {/* Ticket details */}
       <div style={{ marginBottom: 16 }}>
-        <strong>Created By:</strong> {ticket.createdBy?.name || "Unknown"} <br />
-        <strong>Company ID:</strong> {ticket.createdBy?.companyId || "N/A"} <br />
-        <strong>Department ID:</strong> {ticket.createdBy?.departmentId || "N/A"} <br />
-        {ticket.createdBy?.profilePicture && (
-          <>
-            <strong>Profile Picture:</strong>
-            <br />
-            <img
-              src={ticket.createdBy.profilePicture}
-              alt="Profile"
-              style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
-            />
-          </>
-        )}
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <strong>Priority:</strong> {ticket.priorityLevel || "—"} <br />
-        <strong>Department:</strong> {ticket.department || "—"} <br />
-        <strong>Assigned Agent:</strong> {ticket.assignedAgent || "—"} <br />
-        <strong>Scheduled Request:</strong> {ticket.scheduledRequest || "—"} <br />
-        <strong>Date Created:</strong> {ticket.dateCreated?.slice(0, 10) || "—"} <br />
-        <strong>Last Updated:</strong> {ticket.lastUpdated?.slice(0, 10) || "—"} <br />
+        <strong>Created By:</strong>{" "}
+        {ticket.employee
+          ? `${ticket.employee.first_name} ${ticket.employee.last_name}`
+          : "Unknown"} <br />
+        <strong>Company ID:</strong> {ticket.employee?.company_id || "N/A"} <br />
+        <strong>Department:</strong> {ticket.employee?.department || "—"} <br />
+        <strong>Scheduled Request:</strong> {ticket.scheduled_request || "—"} <br />
+        <strong>Date Created:</strong> {ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : "—"} <br />
+        <strong>Last Updated:</strong> {ticket.last_updated
+          ? new Date(ticket.last_updated).toLocaleString()
+          : (ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : "—")} <br />
         <strong>Subject:</strong> {ticket.subject || "—"} <br />
         <strong>Category:</strong> {ticket.category || "—"} <br />
-        <strong>Sub Category:</strong> {ticket.subCategory || "—"} <br />
+        <strong>Sub Category:</strong> {ticket.sub_category || "—"} <br />
         <strong>File Uploaded:</strong>{" "}
-        {ticket.fileUploaded ? (
-          <a href={ticket.fileUploaded} target="_blank" rel="noreferrer">
-            View File
-          </a>
-        ) : (
-          "—"
-        )}
+        {Array.isArray(ticket.attachments) && ticket.attachments.length > 0
+          ? ticket.attachments.map((file, idx) => (
+              <span key={file.id || idx}>
+                <a
+                  href={
+                    file.file.startsWith("http")
+                      ? file.file
+                      : `${MEDIA_URL}${file.file.startsWith("/") ? file.file.slice(1) : file.file}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={file.file_name}
+                  style={{ marginRight: 8 }}
+                >
+                  {file.file_name}
+                </a>
+                {idx < ticket.attachments.length - 1 ? ", " : ""}
+              </span>
+            ))
+          : "—"}
       </div>
 
       {/* Editable form */}
@@ -93,7 +109,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
             Priority Level <span style={{ color: "red" }}>*</span>
           </label>
           <select
-            {...register("priorityLevel", { required: "Priority Level is required" })}
+            {...register("priority", { required: "Priority Level is required" })}
             style={{ width: "100%", padding: 8, marginTop: 4 }}
           >
             <option value="">Select Priority Level</option>
@@ -103,8 +119,8 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
               </option>
             ))}
           </select>
-          {errors.priorityLevel && (
-            <p style={{ color: "red", marginTop: 4 }}>{errors.priorityLevel.message}</p>
+          {errors.priority && (
+            <p style={{ color: "red", marginTop: 4 }}>{errors.priority.message}</p>
           )}
         </fieldset>
 
@@ -148,7 +164,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
             style={{ padding: "8px 16px", cursor: "pointer" }}
             disabled={isSubmitting}
           >
-            Cancel Ticket
+            Cancel
           </button>
           <button
             type="submit"

@@ -153,7 +153,7 @@ const CoordinatorAdminDashboard = () => {
 
   // Define the colors for each status
   const statusColors = {
-    Submitted: '#6B7280',
+    New: '#6B7280',
     Open: '#3B82F6',
     Pending: '#F59E0B',
     Resolved: '#10B981',
@@ -256,9 +256,9 @@ const CoordinatorAdminDashboard = () => {
     ]
   };
 
-  // Build pieData dynamically, mapping "New" to "Submitted"
+  // Build pieData dynamically, mapping "Submitted" to "New" if needed (but your backend uses "New")
   const pieStatusCounts = allTickets.reduce((acc, ticket) => {
-    const displayStatus = ticket.status === "New" ? "Submitted" : ticket.status;
+    const displayStatus = ticket.status === "Submitted" ? "New" : ticket.status;
     acc[displayStatus] = (acc[displayStatus] || 0) + 1;
     return acc;
   }, {});
@@ -309,8 +309,8 @@ const CoordinatorAdminDashboard = () => {
                   category: ticket.category,
                   subCategory: ticket.sub_category,
                   status: {
-                    text: ticket.status === "New" ? "Submitted" : ticket.status,
-                    statusClass: `status${ticket.status === "New" ? "Submitted" : ticket.status}`
+                    text: ticket.status === "Submitted" ? "New" : ticket.status,
+                    statusClass: `status${ticket.status === "Submitted" ? "New" : ticket.status}`
                   },
                   dateCreated: dateObj
                     ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
