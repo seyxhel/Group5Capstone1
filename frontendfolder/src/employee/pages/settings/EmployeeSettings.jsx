@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import styles from './EmployeeSettings.module.css';
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app"; // For image preview
+
 const EmployeeSettings = () => {
   const [profile, setProfile] = useState(null);
   const [imageFile, setImageFile] = useState(null);
@@ -12,13 +15,13 @@ const EmployeeSettings = () => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("employee_access_token");
       if (!token) return;
-      const res = await fetch("http://localhost:8000/api/employee/profile/", {
+      const res = await fetch(`${API_URL}employee/profile/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
-        setImagePreview(data.image ? `http://localhost:8000${data.image}` : null);
+        setImagePreview(data.image ? `${MEDIA_URL}${data.image}` : null);
       }
     };
     fetchProfile();
@@ -38,22 +41,22 @@ const EmployeeSettings = () => {
     const token = localStorage.getItem("employee_access_token");
     const formData = new FormData();
     formData.append("image", imageFile);
-    const res = await fetch("http://localhost:8000/api/employee/upload-image/", {
+    const res = await fetch(`${API_URL}employee/upload-image/`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` }, // Only this header!
+      headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
     if (res.ok) {
       setMessage("Profile image updated!");
       // Fetch the updated profile to get the new image filename
-      const profileRes = await fetch("http://localhost:8000/api/employee/profile/", {
+      const profileRes = await fetch(`${API_URL}employee/profile/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (profileRes.ok) {
         const data = await profileRes.json();
         setProfile(data);
-        setImagePreview(data.image ? `http://localhost:8000${data.image}` : null);
-        setImageFile(null); // Reset file input
+        setImagePreview(data.image ? `${MEDIA_URL}${data.image}` : null);
+        setImageFile(null);
       }
     } else {
       setMessage("Failed to upload image.");
@@ -68,7 +71,7 @@ const EmployeeSettings = () => {
       return;
     }
     const token = localStorage.getItem("employee_access_token");
-    const res = await fetch("http://localhost:8000/api/employee/change-password/", {
+    const res = await fetch(`${API_URL}employee/change-password/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

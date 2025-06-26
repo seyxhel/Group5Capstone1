@@ -5,6 +5,8 @@ import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import authService from '../../../utilities/service/authService'; // Add this import
 
+const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app/media/";
+
 const NotificationIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -136,11 +138,21 @@ const EmployeeNavBar = () => {
   const lastName = localStorage.getItem("employee_last_name") || "";
 
   const imagePath = localStorage.getItem("employee_image");
-  const imageUrl = imagePath
-    ? imagePath.startsWith("http")
-      ? imagePath
-      : `http://localhost:8000${imagePath.startsWith("/") ? imagePath : "/" + imagePath}`
-    : null;
+  let imageUrl = null;
+
+  if (imagePath) {
+    if (imagePath.startsWith("http")) {
+      imageUrl = imagePath;
+    } else if (imagePath.startsWith("/media/")) {
+      imageUrl = `https://smartsupport-hdts-backend.up.railway.app${imagePath}`;
+    } else if (imagePath.startsWith("employee_images/")) {
+      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`;
+    } else {
+      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`;
+    }
+  }
+
+  console.log("employee_image from localStorage:", imagePath);
 
   return (
     <nav className={styles['main-nav-bar']}>

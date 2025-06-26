@@ -143,7 +143,7 @@ const SmartSupportLogIn = () => {
                     className="show-password"
                     onClick={() => setShowPassword((prev) => !prev)}
                   >
-                    {isShowPassword ? <FaEyeSlash /> : <FaEye />}
+                    {isShowPassword ? <FaEye /> : <FaEyeSlash />}
                   </span>
                 )}
               </div>

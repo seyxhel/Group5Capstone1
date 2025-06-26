@@ -9,6 +9,8 @@ import {
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import styles from './EmployeeHome.module.css';
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
@@ -16,7 +18,7 @@ const EmployeeHome = () => {
   useEffect(() => {
     const fetchTickets = async () => {
       const token = localStorage.getItem("employee_access_token");
-      const res = await fetch("http://localhost:8000/api/tickets/", {
+      const res = await fetch(`${API_URL}tickets/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

@@ -153,7 +153,7 @@ const EmployeeChatbot = ({ closeModal }) => {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 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",
+          "Authorization": "Bearer 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",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
