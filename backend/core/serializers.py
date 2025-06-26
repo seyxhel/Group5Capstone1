@@ -102,7 +102,7 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.file.url)
             # fallback if no request in context
-            return f"http://192.168.100.105:8000{obj.file.url}"
+            return f"https://smartsupport-hdts-backend.up.railway.app{obj.file.url}"
         return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):
