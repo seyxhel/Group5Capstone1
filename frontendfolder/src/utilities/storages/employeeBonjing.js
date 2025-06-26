@@ -6,7 +6,7 @@ const employeeBonjingData = {
   middleName: 'Peralta',
   suffix: 'Jr.',
   department: 'Budget Department',
-  role: 'User',
+  role: 'Employee',
   status: 'Active',
   dateCreated: '2025-05-23',
   email: 'bonjing.sanjose@gmail.com',

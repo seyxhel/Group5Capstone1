@@ -32,7 +32,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: null, name: null },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-002',
@@ -49,7 +49,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A001', name: 'Joseph Dela Cruz' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-003',
@@ -66,7 +66,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A001', name: 'Joseph Dela Cruz' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-004',
@@ -83,7 +83,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A001', name: 'Joseph Dela Cruz' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-005',
@@ -100,7 +100,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A001', name: 'Joseph Dela Cruz' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-006',
@@ -117,7 +117,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A002', name: 'Ariel Santiago' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-007',
@@ -134,7 +134,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: 'A003', name: 'Karlo Ramirez' },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
     ticketNumber: 'TCK-008',
@@ -151,7 +151,7 @@ const sampleEmployeeTickets = [
     scheduledRequest: null,
     assignedTo: { id: null, name: null },
     handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-    createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+    createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   },
   {
   ticketNumber: 'TCK-009',
@@ -168,7 +168,7 @@ const sampleEmployeeTickets = [
   scheduledRequest: null,
   assignedTo: { id: null, name: null },
   handledBy: { id: 'U003', role: 'Ticket Coordinator', name: 'Kristine Villanueva' },
-  createdBy: { userId: 'U001', role: 'User', name: 'Bonjing San Jose' }
+  createdBy: { userId: 'U001', role: 'Employee', name: 'Bonjing San Jose' }
   }
 ];
 
@@ -236,5 +236,5 @@ if (!localStorage.getItem(EMPLOYEE_TICKET_STORAGE_KEY)) {
 }
 
 // FORCE RESET — Remove this after verifying initial mock data
-// localStorage.removeItem(EMPLOYEE_TICKET_STORAGE_KEY);
-// saveEmployeeTickets(sampleEmployeeTickets);
+localStorage.removeItem(EMPLOYEE_TICKET_STORAGE_KEY);
+saveEmployeeTickets(sampleEmployeeTickets);
