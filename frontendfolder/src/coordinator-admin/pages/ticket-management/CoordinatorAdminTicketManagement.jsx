@@ -4,8 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import TableWrapper from "../../../shared/table/TableWrapper";
 import TableContent from "../../../shared/table/TableContent";
 import getTicketActions from "../../../shared/table/TicketActions";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
-import { getEmployeeTicketsByRumi } from "../../../utilities/storages/employeeTicketStorageRumi";
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -24,6 +22,8 @@ const headingMap = {
   withdrawn: "Withdrawn Tickets",
 };
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const CoordinatorAdminTicketManagement = () => {
   const { status = "all-tickets" } = useParams();
   const navigate = useNavigate();
@@ -34,25 +34,48 @@ const CoordinatorAdminTicketManagement = () => {
   const [modalType, setModalType] = useState(null); // 'open' | 'reject'
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
-  // Map "new" to "submitted" for filtering tickets
-  const statusFilter = normalizedStatus === "new" ? "submitted" : normalizedStatus.replace(/-/g, " ");
+  // Map "new" to "Submitted" for filtering tickets
+  const statusFilter = normalizedStatus === "new" ? "New" : normalizedStatus.replace(/-/g, " ");
 
+  // Fetch real tickets from backend
   useEffect(() => {
-    const fetchedTickets = [...getEmployeeTickets(), ...getEmployeeTicketsByRumi()];
-    setAllTickets(fetchedTickets);
+    const fetchTickets = async () => {
+      try {
+        const token = localStorage.getItem("admin_access_token");
+        const res = await fetch(`${API_URL}tickets/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAllTickets(data);
+        } else {
+          setAllTickets([]);
+        }
+      } catch (err) {
+        setAllTickets([]);
+      }
+    };
+    fetchTickets();
   }, []);
 
+  // Filter tickets by status and search
   const filteredTickets = useMemo(() => {
     let result =
       normalizedStatus === "all"
         ? allTickets
-        : allTickets.filter(ticket => ticket.status.toLowerCase() === statusFilter);
+        : allTickets.filter(ticket => {
+            // For "new", match backend status "New"
+            if (normalizedStatus === "new") {
+              return ticket.status === "New";
+            }
+            return ticket.status.toLowerCase() === statusFilter;
+          });
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
-        ({ ticketNumber, subject }) =>
-          ticketNumber.toLowerCase().includes(term) || subject.toLowerCase().includes(term)
+        ({ ticket_number, subject }) =>
+          ticket_number?.toLowerCase().includes(term) || subject?.toLowerCase().includes(term)
       );
     }
 
@@ -70,7 +93,7 @@ const CoordinatorAdminTicketManagement = () => {
   };
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracking/${ticket.ticketNumber}`);
+    navigate(`/employee/ticket-tracking/${ticket.ticket_number}`);
   };
 
   const closeModal = () => {
@@ -89,30 +112,30 @@ const CoordinatorAdminTicketManagement = () => {
       >
         <TableContent
           columns={[
-            { key: "ticketNumber", label: "Ticket Number" },
+            { key: "ticket_number", label: "Ticket Number" },
             { key: "subject", label: "Subject" },
             {
               key: "status",
               label: "Status",
-              render: (val) => (val.toLowerCase() === "submitted" ? "New" : val),
+              render: (val) => val,
             },
-            { key: "priorityLevel", label: "Priority Level", render: (val) => val || "—" },
+            { key: "priority", label: "Priority Level", render: (val) => val || "—" },
+            { key: "department", label: "Department", render: (val) => val || "—" },
             { key: "category", label: "Category" },
+            { key: "sub_category", label: "Sub-Category", render: (val) => val || "—" },
             {
-              key: "createdBy",
-              label: "Created By",
-              render: (_, row) => row.createdBy?.name || "Unknown",
-            },
-            {
-              key: "dateCreated",
+              key: "submit_date",
               label: "Date Created",
-              render: (val) => val?.slice(0, 10),
+              render: (val) =>
+                val
+                  ? `${new Date(val).toLocaleDateString()} ${new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
+                  : "",
             },
             {
               key: "open",
               label: "Open",
               render: (_, row) =>
-                ["Submitted", "Pending"].includes(row.status)
+                ["New", "Pending"].includes(row.status)
                   ? getTicketActions("edit", row, { onEdit: handleOpen })
                   : "—",
             },
@@ -120,7 +143,7 @@ const CoordinatorAdminTicketManagement = () => {
               key: "reject",
               label: "Reject",
               render: (_, row) =>
-                ["Submitted", "Pending"].includes(row.status)
+                ["New", "Pending"].includes(row.status)
                   ? getTicketActions("delete", row, { onDelete: handleReject })
                   : "—",
             },
