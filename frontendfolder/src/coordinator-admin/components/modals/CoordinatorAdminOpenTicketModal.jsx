@@ -6,6 +6,7 @@ import priorityLevelOptions from "../../../utilities/options/priorityLevelOption
 import departmentOptions from "../../../utilities/options/departmentOptions";
 
 const MEDIA_URL = import.meta.env.VITE_MEDIA_URL;
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL; // Make sure this is set in your .env
 
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
   const {
@@ -31,18 +32,33 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     setIsSubmitting(true);
-
-    // TODO: Replace with real API call to update ticket
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert(
-        "Ticket updated with:\n" + 
-        JSON.stringify(data, null, 2)
-      );
+    try {
+      const token = localStorage.getItem("admin_access_token");
+      const res = await fetch(`${API_URL}tickets/${ticket.id}/approve/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          priority: data.priority,
+          department: data.department,
+          approval_notes: data.comment,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to approve ticket");
+      }
+      // Optionally: show a success message or refresh ticket list
       onClose();
-    }, 1000);
+    } catch (err) {
+      alert(err.message || "Failed to approve ticket.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Only allow for New and Pending tickets
@@ -68,7 +84,6 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
         {ticket.employee
           ? `${ticket.employee.first_name} ${ticket.employee.last_name}`
           : "Unknown"} <br />
-        <strong>Company ID:</strong> {ticket.employee?.company_id || "N/A"} <br />
         <strong>Department:</strong> {ticket.employee?.department || "—"} <br />
         <strong>Scheduled Request:</strong> {ticket.scheduled_request || "—"} <br />
         <strong>Date Created:</strong> {ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : "—"} <br />
