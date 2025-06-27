@@ -13,7 +13,7 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
   { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
-  { label: "On Process Tickets", path: "/admin/ticket-management/on-progress-tickets" },
+  { label: "In Progress Tickets", path: "/admin/ticket-management/in-progress-tickets" },
   { label: "On hold Tickets", path: "/admin/ticket-management/on-hold-tickets" },
   { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
   { label: "Resolved Tickets", path: "/admin/ticket-management/resolved-tickets" },

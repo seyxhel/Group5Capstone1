@@ -3,12 +3,12 @@ import styles from "./TicketActions.module.css";
 
 const isWithdrawAllowed = (status = "") => {
   const normalized = status.toLowerCase();
-  return ["new", "pending", "submitted", "open", "on progress", "on hold"].includes(normalized);
+  return ["new", "pending", "submitted", "open", "in progress", "on hold"].includes(normalized);
 };
 
 const isCloseAllowed = (status = "") => {
   const normalized = status.toLowerCase();
-  return ["new", "pending", "submitted", "open", "on progress", "on hold", "resolved"].includes(normalized);
+  return ["new", "pending", "submitted", "open", "in progress", "on hold", "resolved"].includes(normalized);
 };
 
 const actionMap = {
