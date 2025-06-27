@@ -5,6 +5,7 @@ import CoordinatorAdminTicketManagement from '../coordinator-admin/pages/ticket-
 import CoordinatorAdminTicketTracker from '../coordinator-admin/pages/ticket-tracker/CoordinatorAdminTicketTracker';
 import CoordinatorAdminUserAccess from '../coordinator-admin/pages/user-management/CoordinatorAdminUserAccess';
 import CoordinatorAdminSettings from '../coordinator-admin/pages/settings/CoordinatorAdminSettings';
+import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const CoordinatorAdminRoutes = () => (
   <Routes>
@@ -23,6 +24,7 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Settings */}
       <Route path="settings" element={<CoordinatorAdminSettings />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
   </Routes>
 );
