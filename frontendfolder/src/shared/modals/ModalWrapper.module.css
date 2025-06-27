@@ -1,39 +1,39 @@
 /* === Modal Overlay === */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0; /* shorthand for top, right, bottom, left = 0 */
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.25); /* slightly darker for contrast */
-  backdrop-filter: blur(6px);            /* stronger blur */
-  -webkit-backdrop-filter: blur(6px);    /* Safari support */
-  z-index: 9999 !important;                         /* higher than most UI layers */
+  background-color: rgba(0, 0, 0, 0.35); /* slightly darker for full block */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999 !important; /* very high to block nav, tables, toasts */
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 2rem;
   overflow-y: auto;
+  pointer-events: auto;
 }
 
 /* === Modal Content Box === */
 .modal-content {
   position: relative;
+  z-index: 10000; /* sits above the overlay */
   width: 100%;
   max-width: 600px;
-  padding: 2rem;
   background-color: #fff;
   border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 2rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.25s ease-in-out;
-  z-index: 10000; /* ensure it's above overlay */
 }
 
-/* === Fade In Animation === */
+/* === Animation === */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-12px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;
