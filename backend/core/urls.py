@@ -23,6 +23,7 @@ from .views import (
     finalize_ticket,  # <-- add this import
     reject_employee,  # <-- add this import
     withdraw_ticket,  # <-- add this import
+    close_ticket,  # <-- add this import
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
@@ -57,6 +58,7 @@ urlpatterns = [
     path('tickets/my-tickets/', get_my_tickets, name='get_my_tickets'),
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
     path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
+    path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST
