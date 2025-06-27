@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PieChart, Pie, Cell,
@@ -47,13 +47,13 @@ const StatCard = ({ label, count, isHighlight, position, onClick }) => (
   </div>
 );
 
-const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
+const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows = 5 }) => (
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
       <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
     </div>
-    <div className={tableStyles.tableOverflow}>
+    <div className={tableStyles.tableOverflowLimited}>
       <table className={tableStyles.table}>
         <thead className={tableStyles.tableHead}>
           <tr>
@@ -65,8 +65,15 @@ const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
         <tbody>
           {data.map((row, i) => (
             <tr key={i} className={tableStyles.tableRow}>
-              {Object.values(row).map((cell, j) => (
-                <td key={j} className={tableStyles.tableCell}>
+              {Object.entries(row).map(([key, cell], j) => (
+                <td
+                  key={j}
+                  className={
+                    key === 'status'
+                      ? `${tableStyles.tableCell} ${tableStyles.statusCellLeft}`
+                      : tableStyles.tableCell
+                  }
+                >
                   {typeof cell === 'object' ? (
                     <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
                       {cell.text}
@@ -121,18 +128,149 @@ const TrendLineChart = ({ data, title }) => (
 );
 
 // === Main Component ===
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
+  const [tickets, setTickets] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const ticketData = {
-    stats: ticketPaths.map((item, i) => ({
+  // Fetch tickets and users from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('admin_access_token');
+        if (!token) {
+          setTickets([]);
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+        const [ticketsRes, usersRes] = await Promise.all([
+          fetch(`${API_URL}tickets/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}employees/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+        const ticketsData = await ticketsRes.json();
+        const usersData = await usersRes.json();
+        setTickets(Array.isArray(ticketsData) ? ticketsData : []);
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } catch (e) {
+        setTickets([]);
+        setUsers([]);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  // Filter tickets for "Tickets to Review" (only New and Pending)
+  const ticketsToReview = tickets.filter(
+    t => t.status === "New" || t.status === "Pending"
+  ).map(ticket => ({
+    ticketNumber: ticket.ticket_number,
+    subject: ticket.subject,
+    category: ticket.category,
+    subCategory: ticket.sub_category,
+    status: { 
+      text: ticket.status, 
+      statusClass: ticket.status === "New" ? "statusNew" : `status${ticket.status.replace(/\s/g, '')}` 
+    },
+    dateCreated: ticket.submit_date
+      ? new Date(ticket.submit_date).toLocaleString().replace(',', '')
+      : ''
+  }));
+
+  // Filter users for "Account Approval" (only Pending)
+  const usersToApprove = users
+    .filter(user => user.status === "Pending")
+    .map(user => ({
+      companyId: user.company_id,
+      lastName: user.last_name,
+      firstName: user.first_name,
+      department: user.department,
+      role: user.role,
+      status: { text: user.status, statusClass: "statusPending" }
+    }));
+
+  // --- Ticket Card Counts ---
+  const ticketCounts = {};
+  tickets.forEach(ticket => {
+    const status = ticket.status || "Unknown";
+    ticketCounts[status] = (ticketCounts[status] || 0) + 1;
+  });
+  ticketCounts["ALL"] = tickets.length;
+
+  // --- User Card Counts ---
+  const userCounts = {};
+  users.forEach(user => {
+    const role = user.role || "Unknown";
+    const status = user.status || "Unknown";
+    userCounts[role] = (userCounts[role] || 0) + 1;
+    userCounts[status] = (userCounts[status] || 0) + 1;
+  });
+  userCounts["ALL"] = users.length;
+
+  // --- Cards Data ---
+  const ticketStats = ticketPaths.map((item, i) => {
+    let count = 0;
+    if (item.label === "Total Tickets") {
+      count = ticketCounts["ALL"];
+    } else if (item.label === "New Tickets") {
+      count = ticketCounts["New"] || 0;
+    } else if (item.label === "On Process Tickets") {
+      count = ticketCounts["On Process"] || 0;
+    } else if (item.label === "On hold Tickets") {
+      count = ticketCounts["On Hold"] || 0;
+    } else if (item.label === "Withdrawn Tickets") {
+      count = ticketCounts["Withdrawn"] || 0;
+    } else {
+      // For other statuses, remove " Tickets" and match the status
+      const status = item.label.replace(" Tickets", "").replace("Open", "Open").replace("Pending", "Pending").replace("Resolved", "Resolved").replace("Closed", "Closed").replace("Rejected", "Rejected");
+      count = ticketCounts[status] || 0;
+    }
+    return {
       label: item.label,
-      count: 5,
+      count,
       isHighlight: i >= 7,
       position: i,
       path: item.path
-    })),
+    };
+  });
+
+  const userStats = userPaths.map((item, i) => {
+    let count = 0;
+    if (item.label === "All Users") {
+      count = userCounts["ALL"];
+    } else if (item.label === "Employees") {
+      count = userCounts["Employee"] || 0;
+    } else if (item.label === "Ticket Coordinators") {
+      count = userCounts["Ticket Coordinator"] || 0;
+    } else if (item.label === "System Administrators") {
+      count = userCounts["System Admin"] || 0;
+    } else if (item.label === "Pending Accounts") {
+      count = userCounts["Pending"] || 0;
+    } else if (item.label === "Rejected Accounts") {
+      count = userCounts["Denied"] || 0;
+    }
+    return {
+      label: item.label,
+      count,
+      isHighlight: i >= 4,
+      position: i,
+      path: item.path
+    };
+  });
+
+  // --- Keep your existing mock data for table and charts ---
+  const ticketData = {
+    stats: ticketStats,
     tableData: [
       {
         ticketNumber: 'TX0001',
@@ -169,16 +307,7 @@ const CoordinatorAdminDashboard = () => {
   };
 
   const userData = {
-    stats: [
-      "All Users", "Employees", "Ticket Coordinators", "System Administrators",
-      "Pending Accounts", "Rejected Accounts"
-    ].map((label, i) => ({
-      label,
-      count: 5,
-      isHighlight: i >= 4,
-      position: i,
-      path: userPaths.find(p => p.label === label)?.path
-    })),
+    stats: userStats,
     tableData: [
       {
         companyId: 'MAP0001',
@@ -198,42 +327,61 @@ const CoordinatorAdminDashboard = () => {
     ]
   };
 
-  // Compute stats from allUsers
-  const employees = allUsers.filter(u => u.role === "Employee");
-  const coordinators = allUsers.filter(u => u.role === "Ticket Coordinator");
-  const admins = allUsers.filter(u => u.role === "System Admin");
-  const pendingAccounts = allUsers.filter(u => u.status === "Pending");
-  const rejectedAccounts = allUsers.filter(u => u.status === "Denied");
-
-  const accountsPieData = [
-    { name: 'Employees', value: employees.length, fill: '#3B82F6' },
-    { name: 'Coordinator', value: coordinators.length, fill: '#F59E0B' },
-    { name: 'Admin', value: admins.length, fill: '#10B981' },
-    { name: 'Pending', value: pendingAccounts.length, fill: '#EF4444' },
-    { name: 'Rejected', value: rejectedAccounts.length, fill: '#8B5CF6' }
+  // Define the statuses and colors you want to show in the pie
+  const pieStatuses = [
+    { name: 'New', key: 'New', fill: '#6B7280' },
+    { name: 'Open', key: 'Open', fill: '#3B82F6' },
+    { name: 'Pending', key: 'Pending', fill: '#F59E0B' },
+    { name: 'Resolved', key: 'Resolved', fill: '#10B981' },
+    { name: 'Closed', key: 'Closed', fill: '#8B5CF6' },
+    { name: 'Rejected', key: 'Rejected', fill: '#EF4444' },
+    { name: 'Withdrawn', key: 'Withdrawn', fill: '#6366F1' }
   ];
 
-  // Build pieData dynamically, mapping "Submitted" to "New" if needed (but your backend uses "New")
-  const pieStatusCounts = allTickets.reduce((acc, ticket) => {
-    const displayStatus = ticket.status === "Submitted" ? "New" : ticket.status;
-    acc[displayStatus] = (acc[displayStatus] || 0) + 1;
-    return acc;
-  }, {});
+  // Count tickets by status
+  const ticketStatusCounts = {};
+  tickets.forEach(ticket => {
+    const status = ticket.status || 'Unknown';
+    ticketStatusCounts[status] = (ticketStatusCounts[status] || 0) + 1;
+  });
 
-  const pieData = Object.keys(statusColors).map(status => ({
-    name: status,
-    value: pieStatusCounts[status] || 0,
-    fill: statusColors[status]
-  }));
+  // Build pie data from actual counts
+  const dynamicPieData = pieStatuses
+    .map(({ name, key, fill }) => ({
+      name,
+      value: ticketStatusCounts[key] || 0,
+      fill
+    }))
+    .filter(item => item.value > 0); // Only show statuses that exist
 
-  const userStats = [
-    { label: 'Employees', count: employees.length },
-    { label: 'Ticket Coordinator', count: coordinators.length },
-    { label: 'System Administrators', count: admins.length },
-    { label: 'Pending Accounts', count: pendingAccounts.length },
-    { label: 'Rejected Accounts', count: rejectedAccounts.length, isHighlight: true },
-    { label: 'Total Users', count: allUsers.length, isHighlight: true }
+  // Define the statuses and colors for the user pie chart
+  const userPieStatuses = [
+    { name: 'Employees', key: 'Employee', fill: '#3B82F6' },
+    { name: 'Ticket Coordinators', key: 'Ticket Coordinator', fill: '#F59E0B' },
+    { name: 'System Admins', key: 'System Admin', fill: '#10B981' },
+    { name: 'Pending', key: 'Pending', fill: '#EF4444' },
+    { name: 'Rejected', key: 'Denied', fill: '#8B5CF6' }
   ];
+
+  // Count users by role and status for pie chart
+  const userStatusCounts = {};
+  users.forEach(user => {
+    const role = user.role || 'Unknown';
+    const status = user.status || 'Unknown';
+    userStatusCounts[role] = (userStatusCounts[role] || 0) + 1;
+    userStatusCounts[status] = (userStatusCounts[status] || 0) + 1;
+  });
+
+  // Build user pie data from actual counts
+  const dynamicUserPieData = userPieStatuses
+    .map(({ name, key, fill }) => ({
+      name,
+      value: userStatusCounts[key] || 0,
+      fill
+    }))
+    .filter(item => item.value > 0); // Only show roles/statuses that exist
+
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className={styles.dashboardContainer}>
@@ -271,7 +419,7 @@ const CoordinatorAdminDashboard = () => {
                 ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
                 : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
             }
-            data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
+            data={activeTab === 'tickets' ? ticketsToReview : usersToApprove}
             onButtonClick={() =>
               navigate(
                 activeTab === 'tickets'
@@ -279,11 +427,12 @@ const CoordinatorAdminDashboard = () => {
                   : '/admin/users/all-users'
               )
             }
+            maxRows={5}
           />
 
           <div className={chartStyles.chartsGrid}>
             <StatusPieChart
-              data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
+              data={activeTab === 'tickets' ? dynamicPieData : dynamicUserPieData}
               title={activeTab === 'tickets' ? 'Ticket Status' : 'Accounts'}
             />
             <TrendLineChart

@@ -85,11 +85,6 @@
   display: inline-block;
 }
 
-.statusOpen {
-  background-color: var(--open-bg);
-  color: var(--open-text);
-}
-
 .statusSubmitted {
   background-color: var(--submitted-bg);
   color: var(--submitted-text);
@@ -98,4 +93,32 @@
 .statusPending {
   background-color: var(--pending-bg);
   color: var(--pending-text);
+}
+
+.statusNew {
+  background-color: var(--submitted-bg);
+  color: var(--submitted-text);
+}
+
+/* Scrollable table body for Tickets to Review */
+.tableOverflowLimited {
+  max-height: 320px; /* Adjust for 5 rows as needed */
+  overflow-y: hidden;
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+
+.tableOverflowLimited:hover {
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.tableOverflowLimited::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+
+.tableOverflowLimited:hover::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
 }
