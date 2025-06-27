@@ -1,0 +1,56 @@
+/* === Charts Grid === */
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr; /* single column on mobile */
+  gap: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .chartsGrid {
+    grid-template-columns: 1fr 1fr; /* 2-column grid on desktop */
+    align-items: start;
+  }
+}
+
+/* === Chart Container === */
+.chartContainer {
+  background-color: var(--bg-color);
+  border-radius: 24px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chartTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.chartContent {
+  flex: 1;
+  min-height: 16rem;
+}
+
+/* === Browse Button === */
+.browseButton {
+  width: 100%;
+  margin-top: 1rem;
+  background-color: var(--primary-color);
+  color: #fff;
+  padding: 0.5rem;
+  border-radius: 40px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.browseButton:hover {
+  background-color: var(--primary-color-hover);
+}
