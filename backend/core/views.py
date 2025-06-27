@@ -292,7 +292,6 @@ def approve_ticket(request, ticket_id):
         ticket.status = 'Open'
         ticket.priority = priority
         ticket.department = department
-        ticket.assigned_to = request.user
         ticket.save()
 
         # Optional: create a comment for audit
@@ -735,3 +734,75 @@ def reject_employee(request, pk):
     # )
 
     return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def withdraw_ticket(request, ticket_id):
+    """
+    Allow the ticket owner to withdraw their ticket if not resolved.
+    """
+    try:
+        ticket = Ticket.objects.get(id=ticket_id)
+        # Only the ticket owner can withdraw
+        if ticket.employee != request.user:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        if ticket.status == "Resolved":
+            return Response({'error': 'Cannot withdraw a resolved ticket.'}, status=status.HTTP_400_BAD_REQUEST)
+        if ticket.status == "Withdrawn":
+            return Response({'error': 'Ticket already withdrawn.'}, status=status.HTTP_400_BAD_REQUEST)
+        ticket.status = "Withdrawn"
+        ticket.save()
+
+        # Save the withdrawal comment if provided
+        comment = request.data.get("comment", "").strip()
+        if comment:
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                comment=f"Ticket withdrawn: {comment}",
+                is_internal=False
+            )
+
+        return Response({'message': 'Ticket withdrawn successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
+    except Ticket.DoesNotExist:
+        return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def close_ticket(request, ticket_id):
+    """
+    Allow the ticket owner (employee) to close their own ticket if it's resolved.
+    """
+    try:
+        ticket = Ticket.objects.get(id=ticket_id)
+        # Only the ticket owner can close
+        if ticket.employee != request.user:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        if ticket.status != "Resolved":
+            return Response({'error': 'Only resolved tickets can be closed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if ticket.status == "Closed":
+            return Response({'error': 'Ticket already closed.'}, status=status.HTTP_400_BAD_REQUEST)
+        ticket.status = "Closed"
+        ticket.time_closed = timezone.now()
+        if ticket.submit_date:
+            ticket.resolution_time = ticket.time_closed - ticket.submit_date
+        ticket.save()
+
+        # Save the closing comment if provided
+        comment = request.data.get("comment", "").strip()
+        if comment:
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                comment=f"Ticket closed: {comment}",
+                is_internal=False
+            )
+
+        return Response({'message': 'Ticket closed successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
+    except Ticket.DoesNotExist:
+        return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)

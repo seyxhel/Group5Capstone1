@@ -132,9 +132,9 @@ const EmployeeHome = () => {
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {
-              // Map "New" to "submitted" for color and display
+              // Map "New" to "pending" for color and display
               const statusKey = ticket.status.toLowerCase() === "new"
-                ? "submitted"
+                ? "pending"
                 : ticket.status.replace(/\s/g, '').toLowerCase();
 
               return (
@@ -176,7 +176,7 @@ const EmployeeHome = () => {
                       }}
                     >
                       {ticket.status.toLowerCase() === "new"
-                        ? "SUBMITTED"
+                        ? "PENDING"
                         : ticket.status.toUpperCase()}
                     </span>
                     <div className={styles.lastUpdated}>

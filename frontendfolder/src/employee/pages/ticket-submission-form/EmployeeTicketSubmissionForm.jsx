@@ -127,11 +127,12 @@ export default function EmployeeTicketSubmissionForm() {
   return (
     <main className={styles.registration}>
       <section className={styles.registrationForm}>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} autoComplete='off'>
           <FormField
             id="subject"
             label="Subject"
             required
+            autoComplete="off"
             error={errors.subject}
             render={() => (
               <input

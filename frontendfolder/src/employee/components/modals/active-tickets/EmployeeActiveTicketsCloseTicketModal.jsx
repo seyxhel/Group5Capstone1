@@ -11,7 +11,23 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
   const handleClose = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      const token = localStorage.getItem("employee_access_token");
+      const res = await fetch(
+        `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/close/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ comment }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to close the ticket.");
+      }
 
       toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
         position: "top-right",
@@ -21,7 +37,7 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
       onSuccess?.(ticket.ticketNumber, "Closed");
       onClose();
     } catch (err) {
-      toast.error("Failed to close the ticket. Please try again.", {
+      toast.error(err.message || "Failed to close the ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });

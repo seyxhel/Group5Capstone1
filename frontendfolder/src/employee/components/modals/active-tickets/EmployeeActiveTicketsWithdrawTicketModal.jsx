@@ -19,7 +19,23 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated API call
+      const token = localStorage.getItem("employee_access_token");
+      const res = await fetch(
+        `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/withdraw/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ comment }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to withdraw ticket.");
+      }
 
       toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
         position: "top-right",
@@ -29,7 +45,7 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
       onSuccess?.(ticket.ticketNumber, "Withdrawn");
       onClose();
     } catch (err) {
-      toast.error("Failed to withdraw ticket. Please try again.", {
+      toast.error(err.message || "Failed to withdraw ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });

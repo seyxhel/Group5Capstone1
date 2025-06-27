@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import styles from './EmployeeTicketTracker.module.css';
 
 const STATUS_COMPLETION = {
-  1: ['Submitted', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  1: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -30,7 +30,7 @@ const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const getDisplayStatus = (status) => {
   if (!status) return '';
-  if (status === "New") return "Submitted";
+  if (status === "New") return "Pending"; // Show "Pending" instead of "Submitted"
   return status;
 };
 
