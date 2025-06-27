@@ -13,7 +13,7 @@ const headingMap = {
   "all-active": "All Active Tickets",
   submitted: "Submitted Tickets",
   open: "Open Tickets",
-  "on-progress": "On Progress Tickets",
+  "in-progress": "In Progress Tickets",
   "on-hold": "On Hold Tickets",
   pending: "Pending Tickets",
   resolved: "Resolved Tickets",
@@ -23,7 +23,7 @@ const activeStatuses = [
   "Submitted",
   "Pending",
   "Open",
-  "On Progress",
+  "In Progress",
   "On Hold",
   "Resolved",
 ];

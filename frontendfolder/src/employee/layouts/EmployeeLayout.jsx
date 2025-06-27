@@ -4,7 +4,7 @@ import TopPageSectionHeader from '../../shared/section-header/TopPageSectionHead
 import { getEmployeeTickets } from '../../utilities/storages/employeeTicketStorageBonjing';
 import './EmployeeLayout.css';
 
-const activeStatuses = ['Submitted', 'Pending', 'Open', 'On Progress', 'On Hold', 'Resolved'];
+const activeStatuses = ['Submitted', 'Pending', 'Open', 'In Progress', 'On Hold', 'Resolved'];
 
 const getHeaderConfig = (path) => {
   const ticketMatch = matchPath({ path: '/employee/ticket-tracker/:ticketNumber', end: true }, path);

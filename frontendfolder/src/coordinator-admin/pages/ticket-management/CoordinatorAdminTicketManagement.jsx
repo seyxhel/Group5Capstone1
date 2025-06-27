@@ -14,7 +14,7 @@ const headingMap = {
   new: "New Tickets",
   pending: "Pending Tickets",
   open: "Open Tickets",
-  "on-progress": "On Progress Tickets",
+  "in-progress": "In Progress Tickets",
   "on-hold": "On Hold Tickets",
   resolved: "Resolved Tickets",
   closed: "Closed Tickets",

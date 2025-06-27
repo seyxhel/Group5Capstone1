@@ -85,7 +85,7 @@ const CoordinatorAdminNavBar = () => {
         { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
         { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
         { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
-        { label: 'On Progress Tickets', path: '/admin/ticket-management/on-progress-tickets' },
+        { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
         { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
         { label: 'Resolved Tickets', path: '/admin/ticket-management/resolved-tickets' },
         { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
