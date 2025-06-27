@@ -374,7 +374,7 @@ def claim_ticket(request, ticket_id):
         if ticket.assigned_to and ticket.status != 'Open':
             return Response({'error': 'Ticket is already claimed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        ticket.status = 'On Process'  # or "In Progress"
+        ticket.status = 'In Progress'  # or "In Progress"
         ticket.assigned_to = request.user
         ticket.save()
 
