@@ -90,12 +90,12 @@ const CoordinatorAdminNavBar = () => {
       key: 'users',
       label: 'User Access',
       links: [
-        { label: "All Users", path: "/admin/users/all-users" },
-        { label: "Employees", path: "/admin/users/employees" },
-        { label: "Ticket Coordinators", path: "/admin/users/ticket-coordinators" },
-        { label: "System Admins", path: "/admin/users/system-admins" },
-        { label: "Pending Users", path: "/admin/users/pending-users" },
-        { label: "Rejected Users", path: "/admin/users/rejected-users" },
+        { label: "All Users", path: "/admin/user-access/all-users" },
+        { label: "Employees", path: "/admin/user-access/employees" },
+        { label: "Ticket Coordinators", path: "/admin/user-access/ticket-coordinators" },
+        { label: "System Admins", path: "/admin/user-access/system-admins" },
+        { label: "Pending Users", path: "/admin/user-access/pending-users" },
+        { label: "Rejected Users", path: "/admin/user-access/rejected-users" },
       ]
     },
     {

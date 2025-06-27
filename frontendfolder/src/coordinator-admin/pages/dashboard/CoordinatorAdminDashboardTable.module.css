@@ -1,0 +1,101 @@
+/* === Table Container === */
+.tableContainer {
+  background-color: var(--bg-color);
+  border-radius: 24px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+/* === Header Section === */
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tableTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.button {
+  background-color: var(--primary-color);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.button:hover {
+  background-color: var(--primary-color-hover);
+}
+
+/* === Table Content === */
+.tableOverflow {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableHead {
+  background-color: var(--bg-color);
+}
+
+.tableHeaderCell {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--secondary-text-color);
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.tableRow {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.2s ease;
+}
+
+.tableRow:hover {
+  background-color: #f3f4f6;
+}
+
+.tableCell {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-color);
+}
+
+/* === Status Badges === */
+.statusBadge {
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.statusOpen {
+  background-color: var(--open-bg);
+  color: var(--open-text);
+}
+
+.statusSubmitted {
+  background-color: var(--submitted-bg);
+  color: var(--submitted-text);
+}
+
+.statusPending {
+  background-color: var(--pending-bg);
+  color: var(--pending-text);
+}
