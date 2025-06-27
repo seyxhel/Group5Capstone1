@@ -1,0 +1,44 @@
+.wrapper {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f5;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon {
+  font-size: 1rem;
+  color: #333;
+}
+
+.edit:hover {
+  background-color: #e6f4ff;
+}
+
+.delete:hover {
+  background-color: #ffe6e6;
+}
+
+.view:hover {
+  background-color: #e8ffe8;
+}
+
+.withdraw:hover {
+  background-color: #fff7e6;
+}

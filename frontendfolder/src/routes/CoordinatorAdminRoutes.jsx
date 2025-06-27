@@ -2,12 +2,27 @@ import { Routes, Route } from 'react-router-dom';
 import CoordinatorAdminLayout from '../coordinator-admin/layouts/CoordinatorAdminLayout';
 import CoordinatorAdminDashboard from '../coordinator-admin/pages/dashboard/CoordinatorAdminDashboard';
 import CoordinatorAdminTicketManagement from '../coordinator-admin/pages/ticket-management/CoordinatorAdminTicketManagement';
+import CoordinatorAdminTicketTracker from '../coordinator-admin/pages/ticket-tracker/CoordinatorAdminTicketTracker';
+import CoordinatorAdminUserAccess from '../coordinator-admin/pages/user-management/CoordinatorAdminUserAccess';
+import CoordinatorAdminSettings from '../coordinator-admin/pages/settings/CoordinatorAdminSettings';
 
 const CoordinatorAdminRoutes = () => (
   <Routes>
     <Route path="/admin" element={<CoordinatorAdminLayout />}>
+      {/* Dashboard */}
       <Route path="dashboard" element={<CoordinatorAdminDashboard />} />
+
+      {/* Ticket Management (Dynamic by Status) */}
       <Route path="ticket-management/:status" element={<CoordinatorAdminTicketManagement />} />
+
+      {/* Ticket Tracker (Dynamic by Ticket ID) */}
+      <Route path="ticket-tracker/:ticketId" element={<CoordinatorAdminTicketTracker />} />
+
+      {/* User Access (Dynamic by Type) */}
+      <Route path="user-access/:type" element={<CoordinatorAdminUserAccess />} />
+
+      {/* Settings */}
+      <Route path="settings" element={<CoordinatorAdminSettings />} />
     </Route>
   </Routes>
 );

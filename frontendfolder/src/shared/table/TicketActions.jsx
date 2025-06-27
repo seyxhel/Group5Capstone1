@@ -1,46 +1,59 @@
-import { FaEdit, FaTimes, FaEye } from "react-icons/fa";
+import { FaEdit, FaTimes, FaEye, FaUndoAlt } from "react-icons/fa";
+import styles from "./TicketActions.module.css";
 
-const isActionAllowed = (status) => ["New", "Pending"].includes(status);
+const isWithdrawAllowed = (status = "") => {
+  const normalized = status.toLowerCase();
+  return ["new", "pending", "submitted", "open", "on progress", "on hold"].includes(normalized);
+};
 
-const getTicketActions = (type, row, { onEdit, onDelete, onView } = {}) => {
-  const isAllowed = isActionAllowed(row.status);
+const isCloseAllowed = (status = "") => {
+  const normalized = status.toLowerCase();
+  return ["new", "pending", "submitted", "open", "on progress", "on hold", "resolved"].includes(normalized);
+};
 
-  switch (type) {
-    case "edit":
-      return (
-        <button
-          className="action-btn action-btn-edit"
-          disabled={!isAllowed}
-          onClick={() => isAllowed && onEdit?.(row)}
-        >
-          <FaEdit className="action-icon" />
-        </button>
-      );
+const actionMap = {
+  edit: {
+    icon: FaEdit,
+    className: styles.edit,
+    handler: "onEdit",
+    isAllowed: (status) => ["new", "pending", "submitted", "open"].includes(status.toLowerCase()),
+  },
+  delete: {
+    icon: FaTimes,
+    className: styles.delete,
+    handler: "onDelete",
+    isAllowed: isCloseAllowed,
+  },
+  view: {
+    icon: FaEye,
+    className: styles.view,
+    handler: "onView",
+    isAllowed: () => true,
+  },
+  withdraw: {
+    icon: FaUndoAlt,
+    className: styles.withdraw,
+    handler: "onWithdraw",
+    isAllowed: isWithdrawAllowed,
+  },
+};
 
-    case "delete":
-      return (
-        <button
-          className="action-btn action-btn-delete"
-          disabled={!isAllowed}
-          onClick={() => isAllowed && onDelete?.(row)}
-        >
-          <FaTimes className="action-icon" />
-        </button>
-      );
+const getTicketActions = (type, row, handlers = {}) => {
+  const config = actionMap[type];
+  if (!config) return null;
 
-    case "view":
-      return (
-        <button
-          className="action-btn action-btn-view"
-          onClick={() => onView?.(row)}
-        >
-          <FaEye className="action-icon" />
-        </button>
-      );
+  const { icon: Icon, className, handler, isAllowed } = config;
+  const disabled = !isAllowed(row.status);
 
-    default:
-      return null;
-  }
+  return (
+    <button
+      className={`${styles.btn} ${className}`}
+      disabled={disabled}
+      onClick={() => !disabled && handlers[handler]?.(row)}
+    >
+      <Icon className={styles.icon} />
+    </button>
+  );
 };
 
 export default getTicketActions;

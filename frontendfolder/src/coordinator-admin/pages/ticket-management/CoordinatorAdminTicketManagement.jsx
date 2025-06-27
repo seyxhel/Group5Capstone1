@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 
 import TableWrapper from "../../../shared/table/TableWrapper";
 import TableContent from "../../../shared/table/TableContent";
@@ -9,7 +10,7 @@ import { getEmployeeTicketsByRumi } from "../../../utilities/storages/employeeTi
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
-import ModalWrapper from "../../../shared/modals/ModalWrapper";
+import "react-toastify/dist/ReactToastify.css";
 
 const headingMap = {
   all: "All Tickets",
@@ -31,46 +32,36 @@ const CoordinatorAdminTicketManagement = () => {
   const [allTickets, setAllTickets] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'open' | 'reject'
+  const [modalType, setModalType] = useState(null);
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
-  // Map "new" to "submitted" for filtering tickets
   const statusFilter = normalizedStatus === "new" ? "submitted" : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    const fetchedTickets = [...getEmployeeTickets(), ...getEmployeeTicketsByRumi()];
-    setAllTickets(fetchedTickets);
+    const fetched = [...getEmployeeTickets(), ...getEmployeeTicketsByRumi()];
+    setAllTickets(fetched);
   }, []);
 
   const filteredTickets = useMemo(() => {
-    let result =
-      normalizedStatus === "all"
-        ? allTickets
-        : allTickets.filter(ticket => ticket.status.toLowerCase() === statusFilter);
+    let result = normalizedStatus === "all"
+      ? allTickets
+      : allTickets.filter(ticket =>
+          ticket.status?.toLowerCase() === statusFilter
+        );
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(
-        ({ ticketNumber, subject }) =>
-          ticketNumber.toLowerCase().includes(term) || subject.toLowerCase().includes(term)
+      result = result.filter(({ ticketNumber, subject }) =>
+        ticketNumber?.toLowerCase().includes(term) || subject?.toLowerCase().includes(term)
       );
     }
 
     return result;
   }, [allTickets, normalizedStatus, statusFilter, searchTerm]);
 
-  const handleOpen = (ticket) => {
+  const openModal = (type, ticket) => {
     setSelectedTicket(ticket);
-    setModalType("open");
-  };
-
-  const handleReject = (ticket) => {
-    setSelectedTicket(ticket);
-    setModalType("reject");
-  };
-
-  const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracking/${ticket.ticketNumber}`);
+    setModalType(type);
   };
 
   const closeModal = () => {
@@ -78,8 +69,23 @@ const CoordinatorAdminTicketManagement = () => {
     setModalType(null);
   };
 
+  const handleSuccess = (ticketNumber, newStatus) => {
+    setAllTickets(prev =>
+      prev.map(ticket =>
+        ticket.ticketNumber === ticketNumber ? { ...ticket, status: newStatus } : ticket
+      )
+    );
+    closeModal();
+  };
+
+  const isActionable = (status) => {
+    const s = (status || "").toLowerCase();
+    return s === "submitted" || s === "pending";
+  };
+
   return (
     <>
+      <ToastContainer />
       <TableWrapper
         title={headingMap[normalizedStatus] || "Ticket Management"}
         searchTerm={searchTerm}
@@ -94,9 +100,18 @@ const CoordinatorAdminTicketManagement = () => {
             {
               key: "status",
               label: "Status",
-              render: (val) => (val.toLowerCase() === "submitted" ? "New" : val),
+              render: (val) => (val?.toLowerCase() === "submitted" ? "New" : val),
             },
-            { key: "priorityLevel", label: "Priority Level", render: (val) => val || "—" },
+            {
+              key: "priorityLevel",
+              label: "Priority Level",
+              render: (val) => val || "—",
+            },
+            {
+              key: "department",
+              label: "Department",
+              render: (val) => val || "—",
+            },
             { key: "category", label: "Category" },
             {
               key: "createdBy",
@@ -112,22 +127,25 @@ const CoordinatorAdminTicketManagement = () => {
               key: "open",
               label: "Open",
               render: (_, row) =>
-                ["Submitted", "Pending"].includes(row.status)
-                  ? getTicketActions("edit", row, { onEdit: handleOpen })
+                isActionable(row.status)
+                  ? getTicketActions("edit", row, { onEdit: () => openModal("open", row) })
                   : "—",
             },
             {
               key: "reject",
               label: "Reject",
               render: (_, row) =>
-                ["Submitted", "Pending"].includes(row.status)
-                  ? getTicketActions("delete", row, { onDelete: handleReject })
+                isActionable(row.status)
+                  ? getTicketActions("delete", row, { onDelete: () => openModal("reject", row) })
                   : "—",
             },
             {
               key: "view",
               label: "View",
-              render: (_, row) => getTicketActions("view", row, { onView: handleView }),
+              render: (_, row) =>
+                getTicketActions("view", row, {
+                  onView: () => navigate(`/admin/ticket-tracker/${row.ticketNumber}`),
+                }),
             },
           ]}
           data={filteredTickets}
@@ -138,15 +156,19 @@ const CoordinatorAdminTicketManagement = () => {
       </TableWrapper>
 
       {modalType === "open" && selectedTicket && (
-        <ModalWrapper onClose={closeModal}>
-          <CoordinatorAdminOpenTicketModal ticket={selectedTicket} onClose={closeModal} />
-        </ModalWrapper>
+        <CoordinatorAdminOpenTicketModal
+          ticket={selectedTicket}
+          onClose={closeModal}
+          onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Open")}
+        />
       )}
 
       {modalType === "reject" && selectedTicket && (
-        <ModalWrapper onClose={closeModal}>
-          <CoordinatorAdminRejectTicketModal ticket={selectedTicket} onClose={closeModal} />
-        </ModalWrapper>
+        <CoordinatorAdminRejectTicketModal
+          ticket={selectedTicket}
+          onClose={closeModal}
+          onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Rejected")}
+        />
       )}
     </>
   );

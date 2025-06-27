@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "./EmployeeTicketRecords.module.css";
+import TableWrapper from "../../../shared/table/TableWrapper";
+import TableContent from "../../../shared/table/TableContent";
 import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
+import getTicketActions from "../../../shared/table/TicketActions";
 
 const headingMap = {
   "all-ticket-records": "All Ticket Records",
@@ -20,73 +22,77 @@ const statusMap = {
 const EmployeeTicketRecords = () => {
   const { filter = "all-ticket-records" } = useParams();
   const navigate = useNavigate();
-  const [filteredTickets, setFilteredTickets] = useState([]);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allTickets, setAllTickets] = useState([]);
 
   useEffect(() => {
-    const allTickets = getEmployeeTickets();
-    const statuses = statusMap[filter] || [];
+    const tickets = getEmployeeTickets();
+    setAllTickets(tickets);
+  }, []);
 
-    const filtered = allTickets.filter((ticket) =>
-      statuses.includes(ticket.status)
+  const filteredTickets = useMemo(() => {
+    const allowedStatuses = statusMap[filter] || [];
+
+    let filtered = allTickets.filter(ticket =>
+      allowedStatuses.includes(ticket.status)
     );
 
-    setFilteredTickets(filtered);
-  }, [filter]);
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        ({ ticketNumber, subject }) =>
+          ticketNumber?.toLowerCase().includes(term) ||
+          subject?.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  }, [allTickets, filter, searchTerm]);
+
+  const handleView = (ticket) => {
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
+  };
 
   return (
-    <>
-      <section className={styles.top}>
-        <h1>{headingMap[filter] || "Ticket Records"}</h1>
-        <input
-          type="text"
-          placeholder="Search by Ticket # or Subject..."
-          className={styles.searchInput}
-        />
-      </section>
-
-      <section className={styles.middle}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Ticket Number</th>
-              <th>Subject</th>
-              <th>Status</th>
-              <th>Priority</th>
-              <th>Category</th>
-              <th>Sub Category</th>
-              <th>Date Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTickets.length > 0 ? (
-              filteredTickets.map((ticket) => (
-                <tr
-                  key={ticket.ticketNumber}
-                  className={styles.clickableRow}
-                  onClick={() =>
-                    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`)
-                  }
-                >
-                  <td>{ticket.ticketNumber}</td>
-                  <td>{ticket.subject}</td>
-                  <td>{ticket.status}</td>
-                  <td>{ticket.priorityLevel || "N/A"}</td>
-                  <td>{ticket.category}</td>
-                  <td>{ticket.subCategory}</td>
-                  <td>{ticket.dateCreated?.slice(0, 10)}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className={styles.noData}>
-                  No ticket records found for this filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-    </>
+    <TableWrapper
+      title={headingMap[filter] || "Ticket Records"}
+      searchTerm={searchTerm}
+      onSearchChange={setSearchTerm}
+      showFilters={false}
+      showActions={false}
+    >
+      <TableContent
+        columns={[
+          { key: "ticketNumber", label: "Ticket Number" },
+          { key: "subject", label: "Subject" },
+          { key: "status", label: "Status" },
+          {
+            key: "priorityLevel",
+            label: "Priority",
+            render: (val) => val || "N/A",
+          },
+          { key: "category", label: "Category" },
+          { key: "subCategory", label: "Sub Category" },
+          {
+            key: "dateCreated",
+            label: "Date Created",
+            render: (val) => val?.slice(0, 10),
+          },
+          {
+            key: "view",
+            label: "View",
+            render: (_, row) =>
+              getTicketActions("view", row, { onView: handleView }),
+          },
+        ]}
+        data={filteredTickets}
+        showSelection={false}
+        showFooter={false}
+        emptyMessage="No ticket records found for this filter."
+        onRowClick={(row) => navigate(`/employee/ticket-tracker/${row.ticketNumber}`)}
+      />
+    </TableWrapper>
   );
 };
 
