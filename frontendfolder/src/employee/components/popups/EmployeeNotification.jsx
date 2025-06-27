@@ -15,7 +15,7 @@ const EmployeeNotification = ({ show, onClose, onCountChange }) => {
     {
       icon: <MdUpdate size={20} />,
       title: 'Ticket updated',
-      message: 'Status changed to "On Progress".',
+      message: 'Status changed to "In Progress".',
       time: '1 hour ago',
     },
   ]);

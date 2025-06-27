@@ -36,7 +36,7 @@ const EmployeeNavBar = () => {
         ['all-active-tickets', 'All Active Tickets'],
         ['submitted-tickets', 'Submitted Tickets'],
         ['open-tickets', 'Open Tickets'],
-        ['on-progress-tickets', 'On Progress Tickets'],
+        ['In-progress-tickets', 'In Progress Tickets'],
         ['on-hold-tickets', 'On Hold Tickets'],
         ['pending-tickets', 'Pending Tickets'],
         ['resolved-tickets', 'Resolved Tickets'],

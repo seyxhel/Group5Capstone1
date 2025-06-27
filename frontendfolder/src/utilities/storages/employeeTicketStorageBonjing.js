@@ -7,7 +7,7 @@ export const employeeTicketStatuses = [
   'Submitted',
   'Pending',
   'Open',
-  'On Progress',
+  'In Progress',
   'Resolved',
   'On Hold',
   'Closed',
@@ -71,7 +71,7 @@ const sampleEmployeeTickets = [
   {
     ticketNumber: 'TCK-004',
     subject: 'Internet disconnection in office',
-    status: 'On Progress',
+    status: 'In Progress',
     priorityLevel: 'High',
     department: 'IT Department',
     category: 'IT Category',

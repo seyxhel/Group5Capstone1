@@ -3,10 +3,10 @@ import styles from './EmployeeTicketTracker.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
 const STATUS_COMPLETION = {
-  1: ['Submitted', 'Pending', 'Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  2: ['Pending', 'Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  3: ['Open', 'On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  4: ['On Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  1: ['Submitted', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   5: ['Resolved', 'Closed', 'Rejected', 'Withdrawn'],
 };
 
