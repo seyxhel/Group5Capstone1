@@ -11,6 +11,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+ARG VITE_REACT_APP_API_URL
+ARG VITE_MEDIA_URL
+
+ENV VITE_REACT_APP_API_URL=$VITE_REACT_APP_API_URL
+ENV VITE_MEDIA_URL=$VITE_MEDIA_URL
+
 # Debug: Print the environment variable (will be empty unless set as ARG)
 RUN echo "🔧 Building with API URL: $VITE_REACT_APP_API_URL"
 
