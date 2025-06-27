@@ -714,9 +714,9 @@ def reject_employee(request, pk):
         employee = Employee.objects.get(pk=pk)
     except Employee.DoesNotExist:
         return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if employee.status == 'Denied':
+    if employee.status == 'Rejected':
         return Response({'detail': 'Already rejected.'}, status=status.HTTP_400_BAD_REQUEST)
-    employee.status = 'Denied'
+    employee.status = 'Rejected'
     employee.save()
 
     # Optionally: send rejection email
