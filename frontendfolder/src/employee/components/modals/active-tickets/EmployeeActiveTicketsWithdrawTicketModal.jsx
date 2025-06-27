@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
-import ModalWrapper from "../../../shared/modals/ModalWrapper";
-import styles from "./CoordinatorAdminRejectTicketModal.module.css";
+import ModalWrapper from "../../../../shared/modals/ModalWrapper";
+import styles from "./EmployeeActiveTicketsWithdrawTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
-const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
+const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleReject = async () => {
+  const handleWithdraw = async () => {
     if (!comment.trim()) {
-      toast.error("Comment is required to reject a ticket.", {
+      toast.error("Please provide a reason for withdrawal.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -19,17 +19,17 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated API call
 
-      toast.success(`Ticket #${ticket.ticketNumber} rejected successfully.`, {
+      toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Rejected"); // ✅ update parent
+      onSuccess?.(ticket.ticketNumber, "Withdrawn");
       onClose();
     } catch (err) {
-      toast.error("Failed to reject ticket. Please try again.", {
+      toast.error("Failed to withdraw ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -42,19 +42,19 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Reject Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+        Withdraw Ticket {ticket.ticketNumber}
       </h2>
 
       <div className={styles.field}>
         <label>
-          Comment <span className={styles.required}>*</span>
+          Reason for Withdrawal <span className={styles.required}>*</span>
         </label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           className={styles.textarea}
-          placeholder="Provide a reason for rejection"
+          placeholder="Provide your reason here..."
         />
       </div>
 
@@ -69,15 +69,15 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
         </button>
         <button
           type="button"
-          onClick={handleReject}
+          onClick={handleWithdraw}
           disabled={isSubmitting}
-          className={styles.reject}
+          className={styles.confirm}
         >
-          {isSubmitting ? "Rejecting..." : "Reject Ticket"}
+          {isSubmitting ? "Withdrawing..." : "Withdraw Ticket"}
         </button>
       </div>
     </ModalWrapper>
   );
 };
 
-export default CoordinatorAdminRejectTicketModal;
+export default EmployeeActiveTicketsWithdrawTicketModal;

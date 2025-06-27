@@ -1,23 +1,15 @@
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
+import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
-
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
 import departmentOptions from "../../../utilities/options/departmentOptions";
+import styles from "./CoordinatorAdminOpenTicketModal.module.css";
+import 'react-toastify/dist/ReactToastify.css';
 
-const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      priorityLevel: ticket.priorityLevel || "",
-      department: ticket.department || "",
-      comment: "", // optional admin comment
-    },
-  });
+const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     reset({
@@ -27,135 +19,74 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     });
   }, [ticket, reset]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     setIsSubmitting(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
 
-    // Simulate API call or state update
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert(
-        "Ticket updated with:\n" + 
-        JSON.stringify(data, null, 2)
-      );
+      toast.success(`Ticket #${ticket.ticketNumber} approved successfully.`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+      });
+
+      onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
       onClose();
-    }, 1000);
+    } catch (err) {
+      toast.error("Failed to approve ticket. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <ModalWrapper onClose={onClose}>
-      <h2>Open Ticket - {ticket.ticketNumber}</h2>
+      <ToastContainer />
+      <h2 className={styles.heading}>
+        Approve Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+      </h2>
 
-      {/* Ticket details */}
-      <div style={{ marginBottom: 16 }}>
-        <strong>Created By:</strong> {ticket.createdBy?.name || "Unknown"} <br />
-        <strong>Company ID:</strong> {ticket.createdBy?.companyId || "N/A"} <br />
-        <strong>Department ID:</strong> {ticket.createdBy?.departmentId || "N/A"} <br />
-        {ticket.createdBy?.profilePicture && (
-          <>
-            <strong>Profile Picture:</strong>
-            <br />
-            <img
-              src={ticket.createdBy.profilePicture}
-              alt="Profile"
-              style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
-            />
-          </>
-        )}
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <strong>Priority:</strong> {ticket.priorityLevel || "—"} <br />
-        <strong>Department:</strong> {ticket.department || "—"} <br />
-        <strong>Assigned Agent:</strong> {ticket.assignedAgent || "—"} <br />
-        <strong>Scheduled Request:</strong> {ticket.scheduledRequest || "—"} <br />
-        <strong>Date Created:</strong> {ticket.dateCreated?.slice(0, 10) || "—"} <br />
-        <strong>Last Updated:</strong> {ticket.lastUpdated?.slice(0, 10) || "—"} <br />
-        <strong>Subject:</strong> {ticket.subject || "—"} <br />
-        <strong>Category:</strong> {ticket.category || "—"} <br />
-        <strong>Sub Category:</strong> {ticket.subCategory || "—"} <br />
-        <strong>File Uploaded:</strong>{" "}
-        {ticket.fileUploaded ? (
-          <a href={ticket.fileUploaded} target="_blank" rel="noreferrer">
-            View File
-          </a>
-        ) : (
-          "—"
-        )}
-      </div>
-
-      {/* Editable form */}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Priority Level (Required) */}
-        <fieldset style={{ marginBottom: 12 }}>
+      <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
+        <div className={styles.field}>
           <label>
-            Priority Level <span style={{ color: "red" }}>*</span>
+            Priority Level <span className={styles.required}>*</span>
           </label>
-          <select
-            {...register("priorityLevel", { required: "Priority Level is required" })}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          >
+          <select {...register("priorityLevel", { required: "Priority Level is required" })} className={styles.input}>
             <option value="">Select Priority Level</option>
             {priorityLevelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.priorityLevel && (
-            <p style={{ color: "red", marginTop: 4 }}>{errors.priorityLevel.message}</p>
-          )}
-        </fieldset>
+          {errors.priorityLevel && <p className={styles.error}>{errors.priorityLevel.message}</p>}
+        </div>
 
-        {/* Department (Required) */}
-        <fieldset style={{ marginBottom: 12 }}>
+        <div className={styles.field}>
           <label>
-            Department <span style={{ color: "red" }}>*</span>
+            Department <span className={styles.required}>*</span>
           </label>
-          <select
-            {...register("department", { required: "Department is required" })}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          >
+          <select {...register("department", { required: "Department is required" })} className={styles.input}>
             <option value="">Select Department</option>
             {departmentOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.department && (
-            <p style={{ color: "red", marginTop: 4 }}>{errors.department.message}</p>
-          )}
-        </fieldset>
+          {errors.department && <p className={styles.error}>{errors.department.message}</p>}
+        </div>
 
-        {/* Comment (Optional) */}
-        <fieldset style={{ marginBottom: 12 }}>
+        <div className={styles.field}>
           <label>Comment (Optional)</label>
-          <textarea
-            {...register("comment")}
-            placeholder="Add your comment or notes here"
-            rows={4}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </fieldset>
+          <textarea {...register("comment")} rows={3} className={styles.textarea} placeholder="Add a note..." />
+        </div>
 
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ padding: "8px 16px", cursor: "pointer" }}
-            disabled={isSubmitting}
-          >
-            Cancel Ticket
-          </button>
-          <button
-            type="submit"
-            style={{ padding: "8px 16px", cursor: "pointer" }}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Opening Ticket..." : "Open Ticket"}
+        <div className={styles.actions}>
+          <button type="button" onClick={onClose} disabled={isSubmitting} className={styles.cancel}>Cancel</button>
+          <button type="submit" disabled={isSubmitting} className={styles.submit}>
+            {isSubmitting ? "Approving..." : "Open Ticket"}
           </button>
         </div>
       </form>
