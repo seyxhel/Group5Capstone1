@@ -7,6 +7,8 @@ import departmentOptions from "../../../utilities/options/departmentOptions";
 import styles from "./CoordinatorAdminOpenTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,9 +24,26 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      const token = localStorage.getItem("admin_access_token");
+      const res = await fetch(`${API_URL}tickets/${ticket.id}/approve/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          priority: data.priority,
+          department: data.department,
+          approval_notes: data.comment,
+        }),
+      });
 
-      toast.success(`Ticket #${ticket.ticketNumber} approved successfully.`, {
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to approve ticket");
+      }
+
+      toast.success(`Ticket #${ticket.ticket_number} approved successfully.`, {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
@@ -32,10 +51,10 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
         pauseOnHover: true,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
+      onSuccess?.(ticket.ticket_number, "Open");
       onClose();
     } catch (err) {
-      toast.error("Failed to approve ticket. Please try again.", {
+      toast.error(err.message || "Failed to approve ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -45,24 +64,23 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
   };
 
   return (
-    <ModalWrapper onClose={onClose}>
+    <>
       <ToastContainer />
       <h2 className={styles.heading}>
         Approve Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
       </h2>
-
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
         <div className={styles.field}>
           <label>
             Priority Level <span className={styles.required}>*</span>
           </label>
-          <select {...register("priorityLevel", { required: "Priority Level is required" })} className={styles.input}>
+          <select {...register("priority", { required: "Priority Level is required" })} className={styles.input}>
             <option value="">Select Priority Level</option>
             {priorityLevelOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.priorityLevel && <p className={styles.error}>{errors.priorityLevel.message}</p>}
+          {errors.priority && <p className={styles.error}>{errors.priority.message}</p>}
         </div>
 
         <div className={styles.field}>
@@ -83,14 +101,26 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
           <textarea {...register("comment")} rows={3} className={styles.textarea} placeholder="Add a note..." />
         </div>
 
-        <div className={styles.actions}>
-          <button type="button" onClick={onClose} disabled={isSubmitting} className={styles.cancel}>Cancel</button>
-          <button type="submit" disabled={isSubmitting} className={styles.submit}>
-            {isSubmitting ? "Approving..." : "Open Ticket"}
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ padding: "8px 16px", cursor: "pointer" }}
+            disabled={isSubmitting}
+          >
+            Cancel Ticket
+          </button>
+          <button
+            type="submit"
+            style={{ padding: "8px 16px", cursor: "pointer" }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Opening Ticket..." : "Open Ticket"}
           </button>
         </div>
       </form>
-    </ModalWrapper>
+    </>
   );
 };
 

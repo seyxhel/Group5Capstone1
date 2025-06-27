@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
-import systemAdminData from '../../../utilities/storages/systemAdminMarites';
+import authService from '../../../utilities/service/authService';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -34,25 +34,46 @@ const CoordinatorAdminNavBar = () => {
   const location = useLocation();
   const navRef = useRef(null);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [adminInfo, setAdminInfo] = useState({
+    first_name: '',
+    last_name: '',
+    role: '',
+    image: ''
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem('admin_access_token');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/profile/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAdminInfo({
+            first_name: data.first_name || '',
+            last_name: data.last_name || '',
+            role: data.role || '',
+            image: data.image || ''
+          });
+        }
+      } catch (e) {
+        // Optionally handle error
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
   };
 
-  const handleNavigate = (path) => {
-    navigate(path);
-    setOpenDropdown(null);
+  const mediaUrl = import.meta.env.VITE_MEDIA_URL;
+  const getProfileImageUrl = (img) => {
+    if (!img) return "";
+    if (img.startsWith("http")) return img;
+    return `${mediaUrl}${img.startsWith("/") ? img.slice(1) : img}`;
   };
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (navRef.current && !navRef.current.contains(e.target)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const navSections = [
     {
@@ -103,6 +124,16 @@ const CoordinatorAdminNavBar = () => {
     return `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
   };
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <nav className={styles['main-nav-bar']} ref={navRef}>
       {/* Logo & Brand */}
@@ -110,7 +141,7 @@ const CoordinatorAdminNavBar = () => {
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+          <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
         </div>
       </section>
 
@@ -120,7 +151,7 @@ const CoordinatorAdminNavBar = () => {
           <li className={styles['nav-item']}>
             <button
               className={`${styles['nav-link']} ${location.pathname === '/admin/dashboard' ? styles.clicked : ''}`}
-              onClick={() => handleNavigate('/admin/dashboard')}
+              onClick={() => navigate('/admin/dashboard')}
             >
               Dashboard
             </button>
@@ -146,7 +177,10 @@ const CoordinatorAdminNavBar = () => {
                       {links.map(({ label, path }) => (
                         <button
                           key={path}
-                          onClick={() => handleNavigate(path)}
+                          onClick={() => {
+                            navigate(path);
+                            setOpenDropdown(null);
+                          }}
                           className={location.pathname === path ? styles.clicked : ''}
                         >
                           {label}
@@ -189,22 +223,37 @@ const CoordinatorAdminNavBar = () => {
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
+            {adminInfo.image ? (
+              <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
+            ) : (
+              <div className={styles['avatar-placeholder']}>
+                {getInitials(adminInfo.first_name, adminInfo.last_name)}
+              </div>
+            )}
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
+                  {adminInfo.image ? (
+                    <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
+                  ) : (
+                    <div className={styles['avatar-placeholder']}>
+                      {getInitials(adminInfo.first_name, adminInfo.last_name)}
+                    </div>
+                  )}
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
-                  <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+                  <h3>{`${adminInfo.first_name} ${adminInfo.last_name}`}</h3>
+                  <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
                 </div>
               </div>
               <div className={styles['profile-menu']}>
-                <button onClick={() => handleNavigate('/admin/settings')}>Settings</button>
-                <button className={styles['logout-btn']} onClick={() => navigate('/')}>Log Out</button>
+                <button onClick={() => navigate('/admin/settings')}>Settings</button>
+                <button className={styles['logout-btn']} onClick={() => {
+                  authService.logoutAdmin();
+                  navigate('/');
+                }}>Log Out</button>
               </div>
             </div>
           )}
