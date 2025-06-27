@@ -224,8 +224,8 @@ const CoordinatorAdminDashboard = () => {
       count = ticketCounts["ALL"];
     } else if (item.label === "New Tickets") {
       count = ticketCounts["New"] || 0;
-    } else if (item.label === "On Process Tickets") {
-      count = ticketCounts["On Process"] || 0;
+    } else if (item.label === "In Progress Tickets") {
+      count = ticketCounts["In Progress"] || 0;
     } else if (item.label === "On hold Tickets") {
       count = ticketCounts["On Hold"] || 0;
     } else if (item.label === "Withdrawn Tickets") {
