@@ -1,55 +1,65 @@
 import { FaEdit, FaTimes, FaEye, FaUndoAlt } from "react-icons/fa";
 import styles from "./TicketActions.module.css";
 
+// === Permission Helpers ===
 const isWithdrawAllowed = (status = "") => {
-  const normalized = status.toLowerCase();
-  return ["new", "pending", "submitted", "open", "in progress", "on hold"].includes(normalized);
+  const allowed = ["new", "pending", "submitted", "open", "in progress", "on hold"];
+  return allowed.includes(status.toLowerCase());
 };
 
 const isCloseAllowed = (status = "") => {
-  const normalized = status.toLowerCase();
-  return ["new", "pending", "submitted", "open", "in progress", "on hold", "resolved"].includes(normalized);
+  const disallowed = ["submitted", "open", "in progress", "on hold", "pending"];
+  return !disallowed.includes(status.toLowerCase());
 };
 
+const isEditAllowed = (status = "") => {
+  const allowed = ["new", "pending", "submitted", "open"];
+  return allowed.includes(status.toLowerCase());
+};
+
+// === Action Configuration ===
 const actionMap = {
   edit: {
     icon: FaEdit,
-    className: styles.edit,
-    handler: "onEdit",
-    isAllowed: (status) => ["new", "pending", "submitted", "open"].includes(status.toLowerCase()),
+    style: styles.edit,
+    handlerKey: "onEdit",
+    isAllowed: isEditAllowed,
   },
   delete: {
     icon: FaTimes,
-    className: styles.delete,
-    handler: "onDelete",
+    style: styles.delete,
+    handlerKey: "onDelete",
     isAllowed: isCloseAllowed,
   },
   view: {
     icon: FaEye,
-    className: styles.view,
-    handler: "onView",
+    style: styles.view,
+    handlerKey: "onView",
     isAllowed: () => true,
   },
   withdraw: {
     icon: FaUndoAlt,
-    className: styles.withdraw,
-    handler: "onWithdraw",
+    style: styles.withdraw,
+    handlerKey: "onWithdraw",
     isAllowed: isWithdrawAllowed,
   },
 };
 
+// === Main Button Generator ===
 const getTicketActions = (type, row, handlers = {}) => {
   const config = actionMap[type];
   if (!config) return null;
 
-  const { icon: Icon, className, handler, isAllowed } = config;
+  const { icon: Icon, style, handlerKey, isAllowed } = config;
   const disabled = !isAllowed(row.status);
 
   return (
     <button
-      className={`${styles.btn} ${className}`}
+      type="button"
+      className={`${styles.btn} ${style}`}
       disabled={disabled}
-      onClick={() => !disabled && handlers[handler]?.(row)}
+      onClick={() => !disabled && handlers[handlerKey]?.(row)}
+      title={type.charAt(0).toUpperCase() + type.slice(1)}
     >
       <Icon className={styles.icon} />
     </button>
