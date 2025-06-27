@@ -49,18 +49,45 @@ const CoordinatorAdminUserAccess = () => {
   const normalizedStatus = status.toLowerCase();
 
   useEffect(() => {
-    setAllUsers(getEmployeeUsers());
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem("admin_access_token");
+        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employees/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAllUsers(data);
+        } else {
+          setAllUsers([]);
+        }
+      } catch (err) {
+        setAllUsers([]);
+      }
+    };
+    fetchUsers();
   }, []);
 
+  const mappedUsers = allUsers.map(u => ({
+    companyId: u.company_id,
+    lastName: u.last_name,
+    firstName: u.first_name,
+    department: u.department,
+    role: u.role,
+    status: u.status,
+    id: u.id,
+    email: u.email,
+  }));
+
   const filteredUsers = useMemo(() => {
-    const filtered = filterByStatusOrRole(allUsers, normalizedStatus);
+    const filtered = filterByStatusOrRole(mappedUsers, normalizedStatus);
 
     if (!searchTerm.trim()) return filtered;
 
     const term = searchTerm.toLowerCase();
     return filtered.filter(({ firstName, lastName, companyId }) =>
       [firstName, lastName, companyId].some(field =>
-        field.toLowerCase().includes(term)
+        field && field.toLowerCase().includes(term)
       )
     );
   }, [allUsers, normalizedStatus, searchTerm]);

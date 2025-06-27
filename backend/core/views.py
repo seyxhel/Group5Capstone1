@@ -671,7 +671,7 @@ def approve_employee(request, pk):
         message=(
             f"Dear {employee.first_name},\n\n"
             "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
-            "http://localhost:3000/login/employee\n\n"
+            "https://smartsupport-hdts-frontend.up.railway.app/\n\n"
             "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
             "Respectfully,\n"
             "SmartSupport Help Desk Team"
@@ -706,3 +706,32 @@ def finalize_ticket(request, ticket_id):
         return Response({'detail': 'Ticket finalized and sent to workflow.'})
     except Ticket.DoesNotExist:
         return Response({'detail': 'Ticket not found.'}, status=404)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsSystemAdmin])
+def reject_employee(request, pk):
+    try:
+        employee = Employee.objects.get(pk=pk)
+    except Employee.DoesNotExist:
+        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if employee.status == 'Denied':
+        return Response({'detail': 'Already rejected.'}, status=status.HTTP_400_BAD_REQUEST)
+    employee.status = 'Denied'
+    employee.save()
+
+    # Optionally: send rejection email
+    # send_mail(
+    #     subject='Account Rejected',
+    #     message=(
+    #         f"Dear {employee.first_name},\n\n"
+    #         "We regret to inform you that your SmartSupport account request has been denied.\n\n"
+    #         "If you have any questions, please contact support.\n\n"
+    #         "Respectfully,\n"
+    #         "SmartSupport Help Desk Team"
+    #     ),
+    #     from_email='sethpelagio20@gmail.com',
+    #     recipient_list=[employee.email],
+    #     fail_silently=False,
+    # )
+
+    return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
