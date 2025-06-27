@@ -25,10 +25,7 @@ const EmployeeHome = () => {
         if (res.ok) {
           const allTickets = await res.json();
           // Only active tickets
-          const activeTickets = allTickets.filter(ticket => {
-            const status = ticket.status.toLowerCase();
-            return !['closed', 'withdrawn'].includes(status); // "rejected" removed
-          });
+          const activeTickets = allTickets; // No filter, show all tickets
           // Sort and slice for recent
           const sorted = activeTickets
             .sort((a, b) =>
