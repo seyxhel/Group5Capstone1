@@ -1,46 +1,74 @@
 import { useState } from 'react';
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import styles from './CoordinatorAdminDashboard.module.css';
+import { useNavigate } from 'react-router-dom';
+import {
+  PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
-// Reusable Stat Card Component
-const StatCard = ({ label, count, isHighlight = false }) => (
-  <div className={styles.statCard}>
-    <div className={styles.statCardContent}>
-      <div className={`${styles.statBadge} ${isHighlight ? styles.statBadgeRed : styles.statBadgeBlue}`}>
+import styles from './CoordinatorAdminDashboard.module.css';
+import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
+import tableStyles from './CoordinatorAdminDashboardTable.module.css';
+import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
+
+const ticketPaths = [
+  { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
+  { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
+  { label: "On Process Tickets", path: "/admin/ticket-management/on-progress-tickets" },
+  { label: "On hold Tickets", path: "/admin/ticket-management/on-hold-tickets" },
+  { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
+  { label: "Resolved Tickets", path: "/admin/ticket-management/resolved-tickets" },
+  { label: "Closed Tickets", path: "/admin/ticket-management/closed-tickets" },
+  { label: "Rejected Tickets", path: "/admin/ticket-management/rejected-tickets" },
+  { label: "Withdrawn Tickets", path: "/admin/ticket-management/withdrawn-tickets" },
+  { label: "Total Tickets", path: "/admin/ticket-management/all-tickets" }
+];
+
+const userPaths = [
+  { label: "All Users", path: "/admin/user-access/all-users" },
+  { label: "Employees", path: "/admin/user-access/employees" },
+  { label: "Ticket Coordinators", path: "/admin/user-access/ticket-coordinators" },
+  { label: "System Administrators", path: "/admin/user-access/system-admins" },
+  { label: "Pending Accounts", path: "/admin/user-access/pending-users" },
+  { label: "Rejected Accounts", path: "/admin/user-access/rejected-users" },
+];
+
+// === Reusable Components ===
+const StatCard = ({ label, count, isHighlight, position, onClick }) => (
+  <div
+    className={`${styles.statusCard} ${statCardStyles.statusCard} ${statCardStyles[`card-position-${position}`]}`}
+    onClick={onClick}
+  >
+    <div className={`${styles.statCardContent} ${statCardStyles.statCardContent}`}>
+      <div className={`${styles.statBadge} ${statCardStyles.statBadge} ${isHighlight ? statCardStyles.statBadgeRed : statCardStyles.statBadgeBlue}`}>
         {count}
       </div>
-      <span className={styles.statLabel}>{label}</span>
+      <span className={`${styles.statLabel} ${statCardStyles.statLabel}`}>{label}</span>
     </div>
   </div>
 );
 
-// Reusable Table Component
-const DataTable = ({ title, headers, data, buttonText }) => (
-  <div className={styles.tableContainer}>
-    <div className={styles.tableHeader}>
-      <h3 className={styles.tableTitle}>{title}</h3>
-      <button className={styles.button}>
-        {buttonText}
-      </button>
+const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
+  <div className={tableStyles.tableContainer}>
+    <div className={tableStyles.tableHeader}>
+      <h3 className={tableStyles.tableTitle}>{title}</h3>
+      <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
     </div>
-    <div className={styles.tableOverflow}>
-      <table className={styles.table}>
-        <thead className={styles.tableHead}>
+    <div className={tableStyles.tableOverflow}>
+      <table className={tableStyles.table}>
+        <thead className={tableStyles.tableHead}>
           <tr>
-            {headers.map((header, i) => (
-              <th key={i} className={styles.tableHeaderCell}>
-                {header}
-              </th>
+            {headers.map((header, idx) => (
+              <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i} className={styles.tableRow}>
+            <tr key={i} className={tableStyles.tableRow}>
               {Object.values(row).map((cell, j) => (
-                <td key={j} className={styles.tableCell}>
+                <td key={j} className={tableStyles.tableCell}>
                   {typeof cell === 'object' ? (
-                    <span className={`${styles.statusBadge} ${styles[cell.statusClass]}`}>
+                    <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
                       {cell.text}
                     </span>
                   ) : cell}
@@ -54,38 +82,29 @@ const DataTable = ({ title, headers, data, buttonText }) => (
   </div>
 );
 
-// Chart Components
 const StatusPieChart = ({ data, title }) => (
-  <div className={styles.chartContainer}>
-    <h3 className={styles.chartTitle}>{title}</h3>
-    <div className={styles.chartContent}>
+  <div className={chartStyles.chartContainer}>
+    <h3 className={chartStyles.chartTitle}>{title}</h3>
+    <div className={chartStyles.chartContent}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            dataKey="value"
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill} />
+          <Pie data={data} dataKey="value" cx="50%" cy="50%" outerRadius={80}>
+            {data.map((entry, i) => (
+              <Cell key={`cell-${i}`} fill={entry.fill} />
             ))}
           </Pie>
           <Tooltip />
         </PieChart>
       </ResponsiveContainer>
     </div>
-    <button className={styles.browseButton}>
-      Browse All
-    </button>
+    <button className={chartStyles.browseButton}>Browse All</button>
   </div>
 );
 
 const TrendLineChart = ({ data, title }) => (
-  <div className={styles.chartContainer}>
-    <h3 className={styles.chartTitle}>{title}</h3>
-    <div className={styles.chartContent}>
+  <div className={chartStyles.chartContainer}>
+    <h3 className={chartStyles.chartTitle}>{title}</h3>
+    <div className={chartStyles.chartContent}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -101,24 +120,19 @@ const TrendLineChart = ({ data, title }) => (
   </div>
 );
 
-// Main Dashboard Component
+// === Main Component ===
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
+  const navigate = useNavigate();
 
-  // Sample Data
   const ticketData = {
-    stats: [
-      { label: 'New Tickets', count: 5 },
-      { label: 'Open Tickets', count: 5 },
-      { label: 'On Process Tickets', count: 5 },
-      { label: 'On hold Tickets', count: 5 },
-      { label: 'Pending Tickets', count: 5 },
-      { label: 'Resolved Tickets', count: 5 },
-      { label: 'Closed Tickets', count: 5 },
-      { label: 'Rejected Tickets', count: 5, isHighlight: true },
-      { label: 'Withdrawn Tickets', count: 5, isHighlight: true },
-      { label: 'Total Tickets', count: 20, isHighlight: true }
-    ],
+    stats: ticketPaths.map((item, i) => ({
+      label: item.label,
+      count: 5,
+      isHighlight: i >= 7,
+      position: i,
+      path: item.path
+    })),
     tableData: [
       {
         ticketNumber: 'TX0001',
@@ -156,13 +170,15 @@ const CoordinatorAdminDashboard = () => {
 
   const userData = {
     stats: [
-      { label: 'Employees', count: 5 },
-      { label: 'Ticket Coordinator', count: 5 },
-      { label: 'System Administrators', count: 5 },
-      { label: 'Pending Accounts', count: 5 },
-      { label: 'Rejected Accounts', count: 5, isHighlight: true },
-      { label: 'Total Users', count: 20, isHighlight: true }
-    ],
+      "All Users", "Employees", "Ticket Coordinators", "System Administrators",
+      "Pending Accounts", "Rejected Accounts"
+    ].map((label, i) => ({
+      label,
+      count: 5,
+      isHighlight: i >= 4,
+      position: i,
+      path: userPaths.find(p => p.label === label)?.path
+    })),
     tableData: [
       {
         companyId: 'MAP0001',
@@ -183,11 +199,10 @@ const CoordinatorAdminDashboard = () => {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.maxWidth}>
-        <h1 className={styles.title}>Dashboard</h1>
-        
-        {/* Tab Navigation */}
+    <div className={styles.dashboardContainer}>
+      <div className={styles.dashboardContent}>
+        <h1>Dashboard</h1>
+
         <div className={styles.tabContainer}>
           {['tickets', 'users'].map((tab) => (
             <button
@@ -200,53 +215,46 @@ const CoordinatorAdminDashboard = () => {
           ))}
         </div>
 
-        {activeTab === 'tickets' ? (
-          <div className={styles.tabContent}>
-            {/* Stats Grid */}
-            <div className={styles.statsGrid}>
-              {ticketData.stats.map((stat, i) => (
-                <StatCard key={i} {...stat} />
-              ))}
-            </div>
-
-            {/* Tickets Table */}
-            <DataTable
-              title="Tickets to Review"
-              buttonText="Manage Tickets"
-              headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-              data={ticketData.tableData}
-            />
-
-            {/* Charts */}
-            <div className={styles.chartsGrid}>
-              <StatusPieChart data={ticketData.pieData} title="Ticket Status" />
-              <TrendLineChart data={ticketData.lineData} title="Status per month" />
-            </div>
+        <div className={styles.tabContent}>
+          <div className={styles.statusCardsGrid}>
+            {(activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
+              <StatCard
+                key={i}
+                {...stat}
+                onClick={() => stat.path && navigate(stat.path)}
+              />
+            ))}
           </div>
-        ) : (
-          <div className={styles.tabContent}>
-            {/* User Stats Grid */}
-            <div className={styles.userGrid}>
-              {userData.stats.map((stat, i) => (
-                <StatCard key={i} {...stat} />
-              ))}
-            </div>
 
-            {/* Account Approval Table */}
-            <DataTable
-              title="Account Approval"
-              buttonText="Manage Accounts"
-              headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
-              data={userData.tableData}
+          <DataTable
+            title={activeTab === 'tickets' ? 'Tickets to Review' : 'Account Approval'}
+            buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Accounts'}
+            headers={
+              activeTab === 'tickets'
+                ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
+                : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+            }
+            data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
+            onButtonClick={() =>
+              navigate(
+                activeTab === 'tickets'
+                  ? '/admin/ticket-management/all-tickets'
+                  : '/admin/users/all-users'
+              )
+            }
+          />
+
+          <div className={chartStyles.chartsGrid}>
+            <StatusPieChart
+              data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
+              title={activeTab === 'tickets' ? 'Ticket Status' : 'Accounts'}
             />
-
-            {/* User Charts */}
-            <div className={styles.chartsGrid}>
-              <StatusPieChart data={userData.pieData} title="Accounts" />
-              <TrendLineChart data={ticketData.lineData} title="Accounts per month" />
-            </div>
+            <TrendLineChart
+              data={ticketData.lineData}
+              title={activeTab === 'tickets' ? 'Status per month' : 'Accounts per month'}
+            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
