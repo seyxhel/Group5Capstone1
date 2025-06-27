@@ -134,31 +134,28 @@ const EmployeeActiveTickets = () => {
               render: (val) => val?.slice(0, 10),
             },
             {
-              key: "actions",
-              label: "Actions",
-              render: (_, row) => (
-                <div className="action-wrapper">
-                  {getTicketActions("withdraw", row, {
-                    onWithdraw: handleWithdraw,
-                    disabled: row.status === "Resolved", // Disable withdraw if Resolved
-                    tooltip:
-                      row.status === "Resolved"
-                        ? "You cannot withdraw a resolved ticket."
-                        : undefined,
-                  })}
-                  {getTicketActions("delete", row, {
-                    onDelete: handleClose,
-                    disabled: row.status !== "Resolved", // Enable close only if Resolved
-                    tooltip:
-                      row.status !== "Resolved"
-                        ? "You can only close resolved tickets."
-                        : undefined,
-                  })}
-                  {getTicketActions("view", row, {
-                    onView: handleView,
-                  })}
-                </div>
-              ),
+              key: "withdraw",
+              label: "Withdraw",
+              render: (_, row) =>
+                getTicketActions("withdraw", row, {
+                  onWithdraw: handleWithdraw,
+                }),
+            },
+            {
+              key: "close",
+              label: "Close",
+              render: (_, row) =>
+                getTicketActions("delete", row, {
+                  onDelete: handleClose,
+                }),
+            },
+            {
+              key: "view",
+              label: "View",
+              render: (_, row) =>
+                getTicketActions("view", row, {
+                  onView: handleView,
+                }),
             },
           ]}
           data={displayedTickets}
