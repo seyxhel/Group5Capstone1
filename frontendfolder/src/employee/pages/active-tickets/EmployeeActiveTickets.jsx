@@ -62,9 +62,12 @@ const EmployeeActiveTickets = () => {
   const displayedTickets = useMemo(() => {
     let result = [...allActiveTickets];
 
-    // Exclude rejected tickets from active tickets
+    // Exclude rejected, withdrawn, and closed tickets from active tickets
     result = result.filter(
-      (ticket) => ticket.status.toLowerCase() !== "rejected"
+      (ticket) => {
+        const status = ticket.status.toLowerCase();
+        return status !== "rejected" && status !== "withdrawn" && status !== "closed";
+      }
     );
 
     if (statusFilter) {
