@@ -1,26 +1,15 @@
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
+import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
-
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
 import departmentOptions from "../../../utilities/options/departmentOptions";
+import styles from "./CoordinatorAdminOpenTicketModal.module.css";
+import 'react-toastify/dist/ReactToastify.css';
 
-const MEDIA_URL = import.meta.env.VITE_MEDIA_URL;
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL; // Make sure this is set in your .env
-
-const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      priority: ticket.priority || "",
-      department: ticket.department || "",
-      comment: "",
-    },
-  });
+const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     reset({
@@ -30,163 +19,74 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose }) => {
     });
   }, [ticket, reset]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("admin_access_token");
-      const res = await fetch(`${API_URL}tickets/${ticket.id}/approve/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          priority: data.priority,
-          department: data.department,
-          approval_notes: data.comment,
-        }),
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+
+      toast.success(`Ticket #${ticket.ticketNumber} approved successfully.`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to approve ticket");
-      }
-      // Optionally: show a success message or refresh ticket list
+
+      onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
       onClose();
     } catch (err) {
-      alert(err.message || "Failed to approve ticket.");
+      toast.error("Failed to approve ticket. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Only allow for New and Pending tickets
-  if (!["New", "Pending"].includes(ticket.status)) {
-    return (
-      <ModalWrapper onClose={onClose}>
-        <h2>Open Ticket</h2>
-        <p>This action is only available for tickets with status "New" or "Pending".</p>
-        <button onClick={onClose}>Close</button>
-      </ModalWrapper>
-    );
-  }
-
   return (
     <ModalWrapper onClose={onClose}>
-      <h2>
-        {ticket.status} Ticket - {ticket.ticket_number}
+      <ToastContainer />
+      <h2 className={styles.heading}>
+        Approve Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
       </h2>
 
-      {/* Ticket details */}
-      <div style={{ marginBottom: 16 }}>
-        <strong>Created By:</strong>{" "}
-        {ticket.employee
-          ? `${ticket.employee.first_name} ${ticket.employee.last_name}`
-          : "Unknown"} <br />
-        <strong>Department:</strong> {ticket.employee?.department || "—"} <br />
-        <strong>Scheduled Request:</strong> {ticket.scheduled_request || "—"} <br />
-        <strong>Date Created:</strong> {ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : "—"} <br />
-        <strong>Last Updated:</strong> {ticket.last_updated
-          ? new Date(ticket.last_updated).toLocaleString()
-          : (ticket.submit_date ? new Date(ticket.submit_date).toLocaleString() : "—")} <br />
-        <strong>Subject:</strong> {ticket.subject || "—"} <br />
-        <strong>Category:</strong> {ticket.category || "—"} <br />
-        <strong>Sub Category:</strong> {ticket.sub_category || "—"} <br />
-        <strong>File Uploaded:</strong>{" "}
-        {Array.isArray(ticket.attachments) && ticket.attachments.length > 0
-          ? ticket.attachments.map((file, idx) => (
-              <span key={file.id || idx}>
-                <a
-                  href={
-                    file.file.startsWith("http")
-                      ? file.file
-                      : `${MEDIA_URL}${file.file.startsWith("/") ? file.file.slice(1) : file.file}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={file.file_name}
-                  style={{ marginRight: 8 }}
-                >
-                  {file.file_name}
-                </a>
-                {idx < ticket.attachments.length - 1 ? ", " : ""}
-              </span>
-            ))
-          : "—"}
-      </div>
-
-      {/* Editable form */}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Priority Level (Required) */}
-        <fieldset style={{ marginBottom: 12 }}>
+      <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
+        <div className={styles.field}>
           <label>
-            Priority Level <span style={{ color: "red" }}>*</span>
+            Priority Level <span className={styles.required}>*</span>
           </label>
-          <select
-            {...register("priority", { required: "Priority Level is required" })}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          >
+          <select {...register("priorityLevel", { required: "Priority Level is required" })} className={styles.input}>
             <option value="">Select Priority Level</option>
             {priorityLevelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.priority && (
-            <p style={{ color: "red", marginTop: 4 }}>{errors.priority.message}</p>
-          )}
-        </fieldset>
+          {errors.priorityLevel && <p className={styles.error}>{errors.priorityLevel.message}</p>}
+        </div>
 
-        {/* Department (Required) */}
-        <fieldset style={{ marginBottom: 12 }}>
+        <div className={styles.field}>
           <label>
-            Department <span style={{ color: "red" }}>*</span>
+            Department <span className={styles.required}>*</span>
           </label>
-          <select
-            {...register("department", { required: "Department is required" })}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          >
+          <select {...register("department", { required: "Department is required" })} className={styles.input}>
             <option value="">Select Department</option>
             {departmentOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {errors.department && (
-            <p style={{ color: "red", marginTop: 4 }}>{errors.department.message}</p>
-          )}
-        </fieldset>
+          {errors.department && <p className={styles.error}>{errors.department.message}</p>}
+        </div>
 
-        {/* Comment (Optional) */}
-        <fieldset style={{ marginBottom: 12 }}>
+        <div className={styles.field}>
           <label>Comment (Optional)</label>
-          <textarea
-            {...register("comment")}
-            placeholder="Add your comment or notes here"
-            rows={4}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </fieldset>
+          <textarea {...register("comment")} rows={3} className={styles.textarea} placeholder="Add a note..." />
+        </div>
 
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ padding: "8px 16px", cursor: "pointer" }}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            style={{ padding: "8px 16px", cursor: "pointer" }}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Opening Ticket..." : "Open Ticket"}
+        <div className={styles.actions}>
+          <button type="button" onClick={onClose} disabled={isSubmitting} className={styles.cancel}>Cancel</button>
+          <button type="submit" disabled={isSubmitting} className={styles.submit}>
+            {isSubmitting ? "Approving..." : "Open Ticket"}
           </button>
         </div>
       </form>

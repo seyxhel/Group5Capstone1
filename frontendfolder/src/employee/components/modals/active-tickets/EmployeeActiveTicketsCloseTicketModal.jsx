@@ -1,35 +1,27 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
-import ModalWrapper from "../../../shared/modals/ModalWrapper";
-import styles from "./CoordinatorAdminRejectTicketModal.module.css";
+import ModalWrapper from "../../../../shared/modals/ModalWrapper";
+import styles from "./EmployeeActiveTicketsCloseTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
-const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
+const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleReject = async () => {
-    if (!comment.trim()) {
-      toast.error("Comment is required to reject a ticket.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
-
+  const handleClose = async () => {
     setIsSubmitting(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
 
-      toast.success(`Ticket #${ticket.ticketNumber} rejected successfully.`, {
+      toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Rejected"); // ✅ update parent
+      onSuccess?.(ticket.ticketNumber, "Closed");
       onClose();
     } catch (err) {
-      toast.error("Failed to reject ticket. Please try again.", {
+      toast.error("Failed to close the ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -42,19 +34,19 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Reject Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+        Close Ticket {ticket.ticketNumber}
       </h2>
 
       <div className={styles.field}>
         <label>
-          Comment <span className={styles.required}>*</span>
+          Optional Comment
         </label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           className={styles.textarea}
-          placeholder="Provide a reason for rejection"
+          placeholder="Add an optional comment"
         />
       </div>
 
@@ -69,15 +61,15 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
         </button>
         <button
           type="button"
-          onClick={handleReject}
+          onClick={handleClose}
           disabled={isSubmitting}
-          className={styles.reject}
+          className={styles.confirm}
         >
-          {isSubmitting ? "Rejecting..." : "Reject Ticket"}
+          {isSubmitting ? "Closing..." : "Close Ticket"}
         </button>
       </div>
     </ModalWrapper>
   );
 };
 
-export default CoordinatorAdminRejectTicketModal;
+export default EmployeeActiveTicketsCloseTicketModal;
