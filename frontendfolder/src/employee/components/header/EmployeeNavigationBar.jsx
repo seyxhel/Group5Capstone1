@@ -36,11 +36,10 @@ const EmployeeNavBar = () => {
       label: 'Active Tickets',
       items: [
         ['all-active-tickets', 'All Active Tickets'],
-        ['submitted-tickets', 'Submitted Tickets'],
+        ['pending-tickets', 'Pending Tickets'],
         ['open-tickets', 'Open Tickets'],
         ['in-progress-tickets', 'In Progress Tickets'],
         ['on-hold-tickets', 'On Hold Tickets'],
-        ['pending-tickets', 'Pending Tickets'],
         ['resolved-tickets', 'Resolved Tickets'],
       ],
       path: '/employee/active-tickets/',

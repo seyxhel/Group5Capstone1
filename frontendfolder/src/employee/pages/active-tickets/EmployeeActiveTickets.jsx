@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
-
 import TableWrapper from "../../../shared/table/TableWrapper";
 import TableContent from "../../../shared/table/TableContent";
 import getTicketActions from "../../../shared/table/TicketActions";
-
 import EmployeeActiveTicketsWithdrawTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal";
 import EmployeeActiveTicketsCloseTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal";
 
 const headingMap = {
   "all-active": "All Active Tickets",
-  submitted: "Submitted Tickets",
   open: "Open Tickets",
   "in-progress": "In Progress Tickets",
   "on-hold": "On Hold Tickets",
@@ -19,22 +15,12 @@ const headingMap = {
   resolved: "Resolved Tickets",
 };
 
-const activeStatuses = [
-  "Submitted",
-  "Pending",
-  "Open",
-  "In Progress",
-  "On Hold",
-  "Resolved",
-];
-
 const EmployeeActiveTickets = () => {
   const { filter = "all-active-tickets" } = useParams();
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allActiveTickets, setAllActiveTickets] = useState([]);
-
   const [selectedWithdraw, setSelectedWithdraw] = useState(null);
   const [selectedClose, setSelectedClose] = useState(null);
 
@@ -45,20 +31,55 @@ const EmployeeActiveTickets = () => {
       : normalizedFilter.replace(/-/g, " ").toLowerCase();
 
   useEffect(() => {
-    const all = getEmployeeTickets();
-    const filtered = all.filter((ticket) =>
-      activeStatuses.includes(ticket.status)
-    );
-    setAllActiveTickets(filtered);
+    const fetchTickets = async () => {
+      try {
+        const token = localStorage.getItem("employee_access_token");
+        const res = await fetch(
+          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setAllActiveTickets(
+            data.map((t) => ({
+              ...t,
+              ticketNumber: t.ticket_number, // for navigation/search
+              subCategory: t.sub_category,   // for table display
+            }))
+          );
+        } else {
+          setAllActiveTickets([]);
+        }
+      } catch {
+        setAllActiveTickets([]);
+      }
+    };
+    fetchTickets();
   }, []);
 
   const displayedTickets = useMemo(() => {
     let result = [...allActiveTickets];
 
+    // Exclude rejected tickets from active tickets
+    result = result.filter(
+      (ticket) => ticket.status.toLowerCase() !== "rejected"
+    );
+
     if (statusFilter) {
-      result = result.filter(
-        (ticket) => ticket.status.toLowerCase() === statusFilter
-      );
+      if (statusFilter === "pending") {
+        // Show both "Pending" and "New" tickets under Pending
+        result = result.filter(
+          (ticket) =>
+            ticket.status.toLowerCase() === "pending" ||
+            ticket.status.toLowerCase() === "new"
+        );
+      } else {
+        result = result.filter(
+          (ticket) => ticket.status.toLowerCase() === statusFilter
+        );
+      }
     }
 
     if (searchTerm.trim()) {
@@ -96,18 +117,19 @@ const EmployeeActiveTickets = () => {
       >
         <TableContent
           columns={[
-            { key: "ticketNumber", label: "Ticket Number" },
+            { key: "ticket_number", label: "Ticket Number" },
             { key: "subject", label: "Subject" },
-            { key: "status", label: "Status" },
             {
-              key: "priorityLevel",
-              label: "Priority",
-              render: (val) => val || "—",
+              key: "status",
+              label: "Status",
+              render: (val) => (val === "New" ? "Pending" : val),
             },
+            { key: "priority", label: "Priority", render: (val) => val || "—" },
+            { key: "department", label: "Department" }, // <-- Add this line
             { key: "category", label: "Category" },
-            { key: "subCategory", label: "Sub Category" },
+            { key: "sub_category", label: "Sub Category" },
             {
-              key: "dateCreated",
+              key: "submit_date",
               label: "Date Created",
               render: (val) => val?.slice(0, 10),
             },
@@ -118,9 +140,19 @@ const EmployeeActiveTickets = () => {
                 <div className="action-wrapper">
                   {getTicketActions("withdraw", row, {
                     onWithdraw: handleWithdraw,
+                    disabled: row.status === "Resolved", // Disable withdraw if Resolved
+                    tooltip:
+                      row.status === "Resolved"
+                        ? "You cannot withdraw a resolved ticket."
+                        : undefined,
                   })}
                   {getTicketActions("delete", row, {
                     onDelete: handleClose,
+                    disabled: row.status !== "Resolved", // Enable close only if Resolved
+                    tooltip:
+                      row.status !== "Resolved"
+                        ? "You can only close resolved tickets."
+                        : undefined,
                   })}
                   {getTicketActions("view", row, {
                     onView: handleView,
@@ -144,7 +176,6 @@ const EmployeeActiveTickets = () => {
           ticket={selectedWithdraw}
           onClose={() => setSelectedWithdraw(null)}
           onSuccess={(ticketNumber) => {
-            // Optionally remove ticket from view
             setAllActiveTickets((prev) =>
               prev.filter((t) => t.ticketNumber !== ticketNumber)
             );

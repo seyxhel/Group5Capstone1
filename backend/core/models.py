@@ -100,6 +100,7 @@ STATUS_CHOICES = [
     ('Resolved', 'Resolved'),
     ('Rejected', 'Rejected'),
     ('Closed', 'Closed'),
+    ('Withdrawn','Withdrawn'),
 ]
 
 CATEGORY_CHOICES = [

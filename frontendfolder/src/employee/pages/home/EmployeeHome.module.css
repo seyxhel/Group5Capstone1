@@ -326,3 +326,8 @@
     padding: 1rem;
   }
 }
+
+:root {
+  --pending-bg: var(--submitted-bg);
+  --pending-text: var(--submitted-text);
+}

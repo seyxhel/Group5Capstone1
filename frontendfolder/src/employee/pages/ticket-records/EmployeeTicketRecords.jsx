@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import TableWrapper from "../../../shared/table/TableWrapper";
 import TableContent from "../../../shared/table/TableContent";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
 import getTicketActions from "../../../shared/table/TicketActions";
 
 const headingMap = {
@@ -27,8 +26,34 @@ const EmployeeTicketRecords = () => {
   const [allTickets, setAllTickets] = useState([]);
 
   useEffect(() => {
-    const tickets = getEmployeeTickets();
-    setAllTickets(tickets);
+    const fetchTickets = async () => {
+      try {
+        const token = localStorage.getItem("employee_access_token");
+        const res = await fetch(
+          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setAllTickets(
+            data.map((t) => ({
+              ...t,
+              ticketNumber: t.ticket_number,
+              subCategory: t.sub_category,
+              priorityLevel: t.priority,
+              dateCreated: t.submit_date,
+            }))
+          );
+        } else {
+          setAllTickets([]);
+        }
+      } catch {
+        setAllTickets([]);
+      }
+    };
+    fetchTickets();
   }, []);
 
   const filteredTickets = useMemo(() => {
@@ -70,8 +95,9 @@ const EmployeeTicketRecords = () => {
           {
             key: "priorityLevel",
             label: "Priority",
-            render: (val) => val || "N/A",
+            render: (val) => val || "-",
           },
+          { key: "department", label: "Department" }, // <-- Added department column
           { key: "category", label: "Category" },
           { key: "subCategory", label: "Sub Category" },
           {
