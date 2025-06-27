@@ -21,6 +21,7 @@ from .views import (
     list_employees,
     approve_employee,
     finalize_ticket,  # <-- add this import
+    reject_employee,  # <-- add this import
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
