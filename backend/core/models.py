@@ -94,7 +94,7 @@ PRIORITY_LEVELS = [
 STATUS_CHOICES = [
     ('New', 'New'),
     ('Open', 'Open'),
-    ('On Process', 'On Process'),
+    ('In Progress', 'In Progress'),
     ('On Hold', 'On Hold'),
     ('Pending', 'Pending'),
     ('Resolved', 'Resolved'),

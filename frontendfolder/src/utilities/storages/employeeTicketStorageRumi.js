@@ -5,7 +5,7 @@ export const employeeTicketStatusesByRumi = [
   'Submitted',
   'Pending',
   'Open',
-  'On Progress',
+  'In Progress',
   'Resolved',
   'On Hold',
   'Closed',
