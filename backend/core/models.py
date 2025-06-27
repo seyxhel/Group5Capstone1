@@ -28,7 +28,7 @@ ROLE_CHOICES = [
 STATUS_CHOICES = [
     ('Pending', 'Pending'),
     ('Approved', 'Approved'),
-    ('Denied', 'Denied'),
+    ('Rejected', 'Rejected'),
 ]
 
 class EmployeeManager(BaseUserManager):
