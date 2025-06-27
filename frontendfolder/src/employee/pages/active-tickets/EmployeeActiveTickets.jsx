@@ -112,21 +112,28 @@ const EmployeeActiveTickets = () => {
               render: (val) => val?.slice(0, 10),
             },
             {
-              key: "actions",
-              label: "Actions",
-              render: (_, row) => (
-                <div className="action-wrapper">
-                  {getTicketActions("withdraw", row, {
-                    onWithdraw: handleWithdraw,
-                  })}
-                  {getTicketActions("delete", row, {
-                    onDelete: handleClose,
-                  })}
-                  {getTicketActions("view", row, {
-                    onView: handleView,
-                  })}
-                </div>
-              ),
+              key: "withdraw",
+              label: "Withdraw",
+              render: (_, row) =>
+                getTicketActions("withdraw", row, {
+                  onWithdraw: handleWithdraw,
+                }),
+            },
+            {
+              key: "close",
+              label: "Close",
+              render: (_, row) =>
+                getTicketActions("delete", row, {
+                  onDelete: handleClose,
+                }),
+            },
+            {
+              key: "view",
+              label: "View",
+              render: (_, row) =>
+                getTicketActions("view", row, {
+                  onView: handleView,
+                }),
             },
           ]}
           data={displayedTickets}
