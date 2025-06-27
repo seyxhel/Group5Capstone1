@@ -11,24 +11,17 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build-time environment variable
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-
-# Debug: Print the environment variable
+# Debug: Print the environment variable (will be empty unless set as ARG)
 RUN echo "🔧 Building with API URL: $VITE_REACT_APP_API_URL"
 
 # Build the app
 RUN npm run build
 
-# Production stage  
+# Production stage
 FROM nginx:alpine
 
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration (if you have one)
-# COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create a simple nginx config for React SPA
 RUN echo 'server { \
