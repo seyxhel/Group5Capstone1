@@ -1,0 +1,33 @@
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.action-btn[data-type="approve"]:hover {
+  background-color: #e6f4ff;
+}
+
+.action-btn[data-type="reject"]:hover {
+  background-color: #ffe6e6;
+}
+
+.action-btn-view:hover {
+  background-color: #e8ffe8;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  font-size: 1rem;
+  color: #333;
+}
