@@ -1,6 +1,5 @@
 import os
 from datetime import timedelta
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 """
 Django settings for backend project.
