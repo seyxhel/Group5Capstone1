@@ -19,8 +19,8 @@ const CoordinatorAdminRoutes = () => (
       {/* Ticket Tracker (Dynamic by Ticket ID) */}
       <Route path="ticket-tracker/:ticketId" element={<CoordinatorAdminTicketTracker />} />
 
-      {/* User Access (Dynamic by Type) */}
-      <Route path="user-access/:type" element={<CoordinatorAdminUserAccess />} />
+      {/* User Access (Dynamic by Status) */}
+      <Route path="user-access/:status" element={<CoordinatorAdminUserAccess />} />
 
       {/* Settings */}
       <Route path="settings" element={<CoordinatorAdminSettings />} />

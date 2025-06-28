@@ -11,31 +11,14 @@ import CoordinatorAdminApproveUserModal from "../../components/modals/Coordinato
 import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
-const headingMap = {
-  "all-users": "All Users",
-  employees: "Employees",
-  "ticket-coordinators": "Ticket Coordinators",
-  "system-admins": "System Admins",
-  "pending-users": "Pending Users",
-  "rejected-users": "Rejected Users",
-};
-
-const filterByStatusOrRole = (users, status) => {
-  switch (status) {
-    case "employees":
-      return users.filter(u => u.role.toLowerCase() === "employee");
-    case "ticket-coordinators":
-      return users.filter(u => u.role.toLowerCase() === "ticket coordinator");
-    case "system-admins":
-      return users.filter(u => u.role.toLowerCase() === "system admin");
-    case "pending-users":
-      return users.filter(u => u.status.toLowerCase() === "pending");
-    case "rejected-users":
-      return users.filter(u => u.status.toLowerCase() === "rejected");
-    default:
-      return users;
-  }
-};
+const userAccessConfig = [
+  { key: "all-users", label: "All Users" },
+  { key: "employees", label: "Employees", filter: (u) => u.role?.toLowerCase() === "employee" },
+  { key: "ticket-coordinators", label: "Ticket Coordinators", filter: (u) => u.role?.toLowerCase() === "ticket coordinator" },
+  { key: "system-admins", label: "System Admins", filter: (u) => u.role?.toLowerCase() === "system admin" },
+  { key: "pending-users", label: "Pending Users", filter: (u) => u.status?.toLowerCase() === "pending" },
+  { key: "rejected-users", label: "Rejected Users", filter: (u) => u.status?.toLowerCase() === "rejected" },
+];
 
 const CoordinatorAdminUserAccess = () => {
   const { status = "all-users" } = useParams();
@@ -44,28 +27,34 @@ const CoordinatorAdminUserAccess = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'approve' | 'reject'
+  const [modalType, setModalType] = useState(null);
 
   const normalizedStatus = status.toLowerCase();
+  const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
+  const title = statusConfig?.label || "User Access";
 
   useEffect(() => {
     setAllUsers(getEmployeeUsers());
   }, []);
 
   const filteredUsers = useMemo(() => {
-    const filtered = filterByStatusOrRole(allUsers, normalizedStatus);
+    let users = [...allUsers];
 
-    if (!searchTerm.trim()) return filtered;
+    if (statusConfig?.filter) {
+      users = users.filter(statusConfig.filter);
+    }
 
-    const term = searchTerm.toLowerCase();
-    return filtered.filter(({ firstName, lastName, companyId }) =>
-      [firstName, lastName, companyId].some(field =>
-        field.toLowerCase().includes(term)
-      )
-    );
-  }, [allUsers, normalizedStatus, searchTerm]);
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      users = users.filter(({ firstName, lastName, companyId }) =>
+        [firstName, lastName, companyId].some((val) => val?.toLowerCase().includes(term))
+      );
+    }
 
-  const handleModal = (type, user) => {
+    return users;
+  }, [allUsers, statusConfig, searchTerm]);
+
+  const openModal = (type, user) => {
     setSelectedUser(user);
     setModalType(type);
   };
@@ -75,45 +64,52 @@ const CoordinatorAdminUserAccess = () => {
     setModalType(null);
   };
 
+  const isActionable = (status) => status?.toLowerCase() === "pending";
+
+  const columns = [
+    { key: "companyId", label: "Company ID" },
+    { key: "lastName", label: "Last Name" },
+    { key: "firstName", label: "First Name" },
+    { key: "department", label: "Department" },
+    { key: "role", label: "Role" },
+    { key: "status", label: "Status" },
+    {
+      key: "approve",
+      label: "Approve",
+      render: (_, row) =>
+        isActionable(row.status)
+          ? getUserActions("approve", row, { onApprove: () => openModal("approve", row) })
+          : "—",
+    },
+    {
+      key: "reject",
+      label: "Reject",
+      render: (_, row) =>
+        isActionable(row.status)
+          ? getUserActions("reject", row, { onReject: () => openModal("reject", row) })
+          : "—",
+    },
+    {
+      key: "view",
+      label: "View",
+      render: (_, row) =>
+        getUserActions("view", row, {
+          onView: () => navigate(`/admin/user-profile/${row.companyId}`),
+        }),
+    },
+  ];
+
   return (
     <>
       <TableWrapper
-        title={headingMap[normalizedStatus] || "User Access"}
+        title={title}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         showFilters={false}
         showActions={false}
       >
         <TableContent
-          columns={[
-            { key: "companyId", label: "Company ID" },
-            { key: "lastName", label: "Last Name" },
-            { key: "firstName", label: "First Name" },
-            { key: "department", label: "Department" },
-            { key: "role", label: "Role" },
-            { key: "status", label: "Status" },
-            {
-              key: "approve",
-              label: "Approve",
-              render: (_, row) =>
-                row.status === "Pending"
-                  ? getUserActions("approve", row, { onApprove: () => handleModal("approve", row) })
-                  : "—",
-            },
-            {
-              key: "reject",
-              label: "Reject",
-              render: (_, row) =>
-                row.status === "Pending"
-                  ? getUserActions("reject", row, { onReject: () => handleModal("reject", row) })
-                  : "—",
-            },
-            {
-              key: "view",
-              label: "View",
-              render: (_, row) => getUserActions("view", row, { onView: () => navigate(`/admin/user-profile/${row.companyId}`) }),
-            },
-          ]}
+          columns={columns}
           data={filteredUsers}
           showSelection={false}
           showFooter={false}
@@ -121,13 +117,15 @@ const CoordinatorAdminUserAccess = () => {
         />
       </TableWrapper>
 
-      {modalType && selectedUser && (
+      {modalType === "approve" && selectedUser && (
         <ModalWrapper onClose={closeModal}>
-          {modalType === "approve" ? (
-            <CoordinatorAdminApproveUserModal user={selectedUser} onClose={closeModal} />
-          ) : (
-            <CoordinatorAdminRejectUserModal user={selectedUser} onClose={closeModal} />
-          )}
+          <CoordinatorAdminApproveUserModal user={selectedUser} onClose={closeModal} />
+        </ModalWrapper>
+      )}
+
+      {modalType === "reject" && selectedUser && (
+        <ModalWrapper onClose={closeModal}>
+          <CoordinatorAdminRejectUserModal user={selectedUser} onClose={closeModal} />
         </ModalWrapper>
       )}
     </>
