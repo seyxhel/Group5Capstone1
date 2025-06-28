@@ -1,3 +1,4 @@
+/* === Page Layout === */
 .coordinatorTicketTrackerPage {
   display: flex;
   gap: 20px;
@@ -5,14 +6,14 @@
   font-family: 'Poppins', sans-serif;
 }
 
-/* === Left Column === */
+/* === Main Section === */
 .mainContent {
   flex: 1 1 65%;
 }
 
 .ticketCard {
+  background-color: #fff;
   padding: 24px;
-  background: #fff;
   border: 1px solid #d3d3d3;
   border-radius: 40px;
   box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
@@ -24,7 +25,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-/* === Ticket Header === */
+/* === Header === */
 .header {
   display: flex;
   justify-content: space-between;
@@ -49,14 +50,14 @@
   margin-bottom: 1.5rem;
 }
 
-/* === Ticket Info === */
+/* === Ticket Information === */
 .ticketInfo fieldset {
   display: flex;
   flex-direction: column;
   gap: 5px;
   margin-bottom: 1rem;
-  border: none;
   padding: 0;
+  border: none;
 }
 
 .ticketInfo fieldset label {
@@ -66,10 +67,10 @@
 
 .ticketInfo fieldset p {
   padding: 13px 16px;
-  border: 1px solid #d3d3d3;
-  border-radius: 10px;
   font-size: 0.875rem;
   color: var(--secondary-text-color);
+  border: 1px solid #d3d3d3;
+  border-radius: 10px;
 }
 
 /* === Description === */
@@ -85,24 +86,24 @@
 }
 
 .descriptionBox {
-  background: var(--bg-color);
+  background-color: var(--bg-color);
   border-left: 4px solid var(--primary-color);
   padding: 12px 16px;
   border-radius: 6px;
-  color: #343a40;
   font-size: 0.9rem;
   line-height: 1.7;
+  color: #343a40;
 }
 
-/* === Not Found Message === */
+/* === Fallback Message === */
 .notFound {
   text-align: center;
-  color: #6c757d;
   font-size: 1.1rem;
+  color: #6c757d;
   margin: 2rem 0;
 }
 
-/* === Responsive Design === */
+/* === Responsive Breakpoints === */
 @media (max-width: 992px) {
   .coordinatorTicketTrackerPage {
     flex-direction: column;
