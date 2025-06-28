@@ -22,9 +22,6 @@ from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
-import requests
-from django.conf import settings
-api_key = settings.OPENROUTER_API_KEY
 
 @csrf_exempt
 def login_view(request):
@@ -738,6 +735,11 @@ def reject_employee(request, pk):
 
     return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def withdraw_ticket(request, ticket_id):
@@ -804,24 +806,3 @@ def close_ticket(request, ticket_id):
         return Response({'message': 'Ticket closed successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
     except Ticket.DoesNotExist:
         return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def ask_openrouter(request):
-    user_message = request.data.get("message")
-    if not user_message:
-        return Response({"error": "No message provided."}, status=400)
-    api_key = settings.OPENROUTER_API_KEY  # Store this in your backend .env and settings.py
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": "mistralai/devstral-small:free",
-        "messages": [
-            {"role": "system", "content": "Your system prompt here."},
-            {"role": "user", "content": user_message},
-        ],
-    }
-    resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-    return Response(resp.json(), status=resp.status_code)
