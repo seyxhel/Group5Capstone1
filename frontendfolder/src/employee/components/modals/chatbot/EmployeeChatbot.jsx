@@ -150,19 +150,13 @@ const EmployeeChatbot = ({ closeModal }) => {
 
   const fetchOpenRouterResponse = async (userMessage) => {
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch(`${API_URL}chatbot/ask/`, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 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",
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "mistralai/devstral-small:free",
-          messages: [
-            { role: "system", content: FAQ_SYSTEM_PROMPT },
-            { role: "user", content: userMessage },
-          ],
-        }),
+        body: JSON.stringify({ message: userMessage }),
       });
 
       const data = await response.json();
