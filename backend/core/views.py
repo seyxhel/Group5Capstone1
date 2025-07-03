@@ -749,7 +749,7 @@ def forgot_password(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({'detail': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'detail': 'Invalid Email.'}, status=status.HTTP_404_NOT_FOUND)
 
     token = default_token_generator.make_token(user)
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))

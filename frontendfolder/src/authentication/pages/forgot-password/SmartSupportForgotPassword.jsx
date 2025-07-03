@@ -42,7 +42,7 @@ const SmartSupportForgotPassword = () => {
         setSuccessMessage("Password reset link has been sent to your email.");
         setTimeout(() => navigate("/"), 3000); // Navigate to login after 3 seconds
       } else {
-        setErrorMessage(data.detail || "Email not found. Please try again.");
+        setErrorMessage(data.detail || "Invalid Email.");
       }
     } catch (err) {
       console.error("Reset error:", err);
@@ -95,7 +95,7 @@ const SmartSupportForgotPassword = () => {
                   required: "Please fill in the required field",
                   pattern: {
                     value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
-                    message: "Invalid email format",
+                    message: "Invalid Email.",
                   },
                 })}
               />
