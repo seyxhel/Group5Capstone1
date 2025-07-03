@@ -22,6 +22,8 @@ from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
 
 @csrf_exempt
 def login_view(request):
@@ -806,3 +808,28 @@ def close_ticket(request, ticket_id):
         return Response({'message': 'Ticket closed successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
     except Ticket.DoesNotExist:
         return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def reset_password(request):
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+    email = request.data.get('email')  # Or get user info from the token
+
+    if not token or not new_password:
+        return Response({'detail': 'Token and new password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # You need to implement how you map token to user (e.g., via a PasswordResetTokenGenerator and user id)
+    # For example, if your reset link is /reset-password/<uidb64>/<token> you can decode uidb64 to get user
+    # Here is a simple example if you store the user email in the token (not secure for production!):
+    User = get_user_model()
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'detail': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({'detail': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+    return Response({'detail': 'Password reset successful.'}, status=status.HTTP_200_OK)

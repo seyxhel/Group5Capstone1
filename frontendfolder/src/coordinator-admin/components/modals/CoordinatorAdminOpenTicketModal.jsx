@@ -109,7 +109,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
             style={{ padding: "8px 16px", cursor: "pointer" }}
             disabled={isSubmitting}
           >
-            Cancel Ticket
+            Cancel
           </button>
           <button
             type="submit"

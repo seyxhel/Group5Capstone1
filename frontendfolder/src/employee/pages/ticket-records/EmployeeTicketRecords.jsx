@@ -76,7 +76,9 @@ const EmployeeTicketRecords = () => {
   }, [allTickets, filter, searchTerm]);
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`, {
+      state: { from: "ticket-records" }
+    });
   };
 
   return (
@@ -116,7 +118,11 @@ const EmployeeTicketRecords = () => {
         showSelection={false}
         showFooter={false}
         emptyMessage="No ticket records found for this filter."
-        onRowClick={(row) => navigate(`/employee/ticket-tracker/${row.ticketNumber}`)}
+        onRowClick={(row) =>
+          navigate(`/employee/ticket-tracker/${row.ticketNumber}`, {
+            state: { from: "ticket-records" }
+          })
+        }
       />
     </TableWrapper>
   );

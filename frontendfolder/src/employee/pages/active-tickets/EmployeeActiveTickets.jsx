@@ -106,7 +106,9 @@ const EmployeeActiveTickets = () => {
   };
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`, {
+      state: { from: "active-tickets" }
+    });
   };
 
   return (
@@ -166,7 +168,9 @@ const EmployeeActiveTickets = () => {
           showFooter={false}
           emptyMessage="No tickets found for this filter."
           onRowClick={(row) =>
-            navigate(`/employee/ticket-tracker/${row.ticketNumber}`)
+            navigate(`/employee/ticket-tracker/${row.ticketNumber}`, {
+              state: { from: "active-tickets" }
+            })
           }
         />
       </TableWrapper>
