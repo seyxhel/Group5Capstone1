@@ -65,7 +65,7 @@ const CoordinatorAdminUserAccess = () => {
   }));
 
   const filteredUsers = useMemo(() => {
-    let users = [...allUsers];
+    let users = [...mappedUsers];
 
     if (statusConfig?.filter) {
       users = users.filter(statusConfig.filter);
@@ -79,7 +79,7 @@ const CoordinatorAdminUserAccess = () => {
     }
 
     return users;
-  }, [allUsers, statusConfig, searchTerm]);
+  }, [mappedUsers, statusConfig, searchTerm]);
 
   const openModal = (type, user) => {
     setSelectedUser(user);

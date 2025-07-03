@@ -423,8 +423,8 @@ const CoordinatorAdminDashboard = () => {
             onButtonClick={() =>
               navigate(
                 activeTab === 'tickets'
-                  ? '/admin/ticket-management/all-tickets'
-                  : '/admin/users/all-users'
+                  ? '/admin/ticket-management/new-tickets'
+                  : '/admin/user-access/pending-users'
               )
             }
             maxRows={5}

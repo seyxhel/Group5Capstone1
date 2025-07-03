@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 
@@ -34,21 +32,42 @@ const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const getDisplayStatus = (status) => {
   if (!status) return '';
-  if (status === "New") return "Pending"; // Show "Pending" instead of "Submitted"
+  if (status === "New") return "Pending";
   return status;
 };
 
 export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
+  const location = useLocation();
+  const from = location.state?.from || "ticket-records"; // fallback
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
 
-  const tickets = getEmployeeTickets();
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("employee_access_token");
+        const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTicket(data);
+        } else {
+          setTicket(null);
+        }
+      } catch {
+        setTicket(null);
+      }
+      setLoading(false);
+    };
+    if (ticketNumber) fetchTicket();
+  }, [ticketNumber]);
 
-  const ticket = ticketNumber
-    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
-    : tickets.at(-1);
-
+  if (loading) return <p>Loading...</p>;
   if (!ticket) return <p className={styles.notFound}>No ticket data available.</p>;
 
   const {
@@ -68,7 +87,6 @@ export default function EmployeeTicketTracker() {
   } = ticket;
 
   const fileUploaded = attachments && attachments.length > 0 ? attachments[0] : null;
-
   const statusSteps = getStatusSteps(status);
   const isClosable = status === 'Resolved';
 
@@ -82,22 +100,22 @@ export default function EmployeeTicketTracker() {
               <h2 className={styles.title}>#{number}</h2>
               <div className={styles.statusBadge}>
                 <span className={styles.statusDot}></span>
-                <span className={styles.statusText}>{status}</span>
+                <span className={styles.statusText}>{getDisplayStatus(status)}</span>
               </div>
             </header>
 
-            <div className={styles.timestamp}>Created at: {formatDate(dateCreated)}</div>
+            <div className={styles.timestamp}>Created at: {formatDate(submit_date)}</div>
 
             <div className={styles.ticketDetails}>
-              <DetailField label="Priority" value={priorityLevel} />
+              <DetailField label="Priority" value={priority} />
               <DetailField label="Department" value={department} />
-              <DetailField label="Assigned Agent" value={assignedTo?.name} />
-              <DetailField label="Scheduled Request" value={scheduledRequest} />
-              <DetailField label="Date Created" value={formatDate(dateCreated)} />
-              <DetailField label="Last Updated" value={formatDate(lastUpdated)} />
+              <DetailField label="Assigned Agent" value={assigned_to?.name} />
+              <DetailField label="Scheduled Request" value={scheduled_date} />
+              <DetailField label="Date Created" value={formatDate(submit_date)} />
+              <DetailField label="Last Updated" value={formatDate(update_date)} />
               <DetailField label="Subject" value={subject} />
               <DetailField label="Category" value={category} />
-              <DetailField label="Sub-Category" value={subCategory} />
+              <DetailField label="Sub-Category" value={sub_category} />
             </div>
 
             <section className={styles.description}>
@@ -150,7 +168,7 @@ export default function EmployeeTicketTracker() {
 
             <div className={styles.currentStatus}>
               <h4 className={styles.currentStatusTitle}>Current Status</h4>
-              <p className={styles.currentStatusText}>{status}</p>
+              <p className={styles.currentStatusText}>{getDisplayStatus(status)}</p>
             </div>
           </div>
         </aside>

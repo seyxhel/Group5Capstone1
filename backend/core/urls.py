@@ -24,6 +24,7 @@ from .views import (
     reject_employee,  # <-- add this import
     withdraw_ticket,  # <-- add this import
     close_ticket,  # <-- add this import
+    reset_password,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
@@ -47,6 +48,7 @@ urlpatterns = [
     path('employees/', list_employees, name='list_employees'),
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
     path('employees/<int:pk>/reject/', reject_employee, name='reject_employee'),  # <-- add this line
+    path('employee/reset-password/', reset_password, name='reset_password'),
 
     path('tickets/<int:ticket_id>/', get_ticket_detail, name='get_ticket_detail'),
     path('tickets/<int:ticket_id>/approve/', approve_ticket, name='approve_ticket'),

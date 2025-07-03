@@ -1,8 +1,40 @@
 import { useEffect, useState } from "react";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import styles from './EmployeeSettings.module.css';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app"; // For image preview
+
+const NIST_COMMON_PASSWORDS = [
+  "password", "123456", "123456789", "qwerty", "abc123", "password1", "111111", "123123"
+];
+
+const getPasswordErrorMessage = (password) => {
+  const requirements = [];
+  if (!password || password.trim() === "") {
+    return "Please fill in the required field.";
+  }
+  if (password.length < 8) {
+    requirements.push("at least 8 characters");
+  }
+  if (!/[A-Z]/.test(password)) {
+    requirements.push("an uppercase letter");
+  }
+  if (!/[0-9]/.test(password)) {
+    requirements.push("a number");
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>_\\[\]\\/~`+=;'-]/.test(password)) {
+    requirements.push("a special character");
+  }
+  if (requirements.length > 0) {
+    if (requirements.length === 1) {
+      return `Password must contain ${requirements[0]}.`;
+    }
+    const last = requirements.pop();
+    return `Password must contain ${requirements.join(", ")}, and ${last}.`;
+  }
+  return "";
+};
 
 const EmployeeSettings = () => {
   const [profile, setProfile] = useState(null);
@@ -10,6 +42,10 @@ const EmployeeSettings = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [message, setMessage] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [newPasswordError, setNewPasswordError] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -66,6 +102,13 @@ const EmployeeSettings = () => {
   // Handle password change
   const handlePasswordChange = async (e) => {
     e.preventDefault();
+    const userContext = `${profile?.first_name || ""}${profile?.last_name || ""}${profile?.email || ""}`;
+    const error = getPasswordErrorMessage(passwords.new, userContext);
+    if (error) {
+      setNewPasswordError(error);
+      return;
+    }
+    setNewPasswordError("");
     if (passwords.new !== passwords.confirm) {
       setMessage("New passwords do not match.");
       return;
@@ -158,29 +201,90 @@ const EmployeeSettings = () => {
       {/* Security Section */}
       <div className={styles.section}>
         <h3>Security</h3>
+        {/* Current Password */}
         <div className={styles.fieldGroup}>
           <label>Current Password</label>
-          <input
-            type="password"
-            value={passwords.current}
-            onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-          />
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showCurrent ? "text" : "password"}
+              value={passwords.current}
+              onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+              style={{ width: "100%", paddingRight: "40px" }}
+            />
+            {passwords.current && (
+              <span
+                style={{
+                  position: "absolute",
+                  right: "18px",
+                  top: "50%",
+                  transform: "translateY(-40%)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowCurrent((prev) => !prev)}
+              >
+                {showCurrent ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            )}
+          </div>
         </div>
+        {/* New Password */}
         <div className={styles.fieldGroup}>
           <label>New Password</label>
-          <input
-            type="password"
-            value={passwords.new}
-            onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-          />
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showNew ? "text" : "password"}
+              value={passwords.new}
+              onChange={(e) => {
+                const value = e.target.value;
+                setPasswords({ ...passwords, new: value });
+                setNewPasswordError(getPasswordErrorMessage(value));
+              }}
+              style={{ width: "100%", paddingRight: "40px" }}
+            />
+            {passwords.new && (
+              <span
+                style={{
+                  position: "absolute",
+                  right: "18px",
+                  top: "50%",
+                  transform: "translateY(-40%)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowNew((prev) => !prev)}
+              >
+                {showNew ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            )}
+          </div>
+          {newPasswordError && (
+            <span className={styles.errorMessage}>{newPasswordError}</span>
+          )}
         </div>
+        {/* Confirm Password */}
         <div className={styles.fieldGroup}>
           <label>Confirm Password</label>
-          <input
-            type="password"
-            value={passwords.confirm}
-            onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-          />
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showConfirm ? "text" : "password"}
+              value={passwords.confirm}
+              onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+              style={{ width: "100%", paddingRight: "40px" }}
+            />
+            {passwords.confirm && (
+              <span
+                style={{
+                  position: "absolute",
+                  right: "18px",
+                  top: "50%",
+                  transform: "translateY(-40%)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowConfirm((prev) => !prev)}
+              >
+                {showConfirm ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            )}
+          </div>
         </div>
         <button className={styles.saveButton} onClick={handlePasswordChange}>Change Password</button>
       </div>

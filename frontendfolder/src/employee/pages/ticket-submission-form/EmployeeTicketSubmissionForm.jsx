@@ -138,7 +138,11 @@ export default function EmployeeTicketSubmissionForm() {
               <input
                 type="text"
                 placeholder="Enter ticket subject"
-                {...register('subject', { required: 'Subject is required' })}
+                {...register('subject', {
+                  required: 'Subject is required',
+                  validate: value =>
+                    value.trim().length > 0 || 'Subject cannot be empty',
+                })}
               />
             )}
           />
@@ -186,7 +190,11 @@ export default function EmployeeTicketSubmissionForm() {
               <textarea
                 rows={5}
                 placeholder="Provide a detailed description..."
-                {...register('description', { required: 'Description is required' })}
+                {...register('description', {
+                  required: 'Description is required',
+                  validate: value =>
+                    value.trim().length > 0 || 'Description cannot be empty',
+                })}
               />
             )}
           />
