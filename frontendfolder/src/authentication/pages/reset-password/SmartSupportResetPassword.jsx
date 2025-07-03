@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import "./SmartSupportResetPassword.module.css";
+import styles from "./SmartSupportResetPassword.module.css";
 
 const getPasswordErrorMessage = (password) => {
   const requirements = [];
@@ -10,7 +10,7 @@ const getPasswordErrorMessage = (password) => {
   if (password.length < 8) requirements.push("at least 8 characters");
   if (!/[A-Z]/.test(password)) requirements.push("an uppercase letter");
   if (!/[0-9]/.test(password)) requirements.push("a number");
-  if (!/[!@#$%^&*(),.?\":{}|<>_\\[\]\\/~`+=;'-]/.test(password)) requirements.push("a special character");
+  if (!/[!@#$%^&*(),.?":{}|<>_\\[\]\\/~`+=;'-]/.test(password)) requirements.push("a special character");
   if (requirements.length > 0) {
     const last = requirements.pop();
     return `Password must contain ${requirements.length ? requirements.join(", ") + ", and " : ""}${last}.`;
