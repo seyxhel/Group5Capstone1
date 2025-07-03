@@ -25,6 +25,7 @@ from .tasks import push_ticket_to_workflow
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_decode
 
 @csrf_exempt
 def login_view(request):
@@ -750,7 +751,7 @@ def forgot_password(request):
         return Response({'detail': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     token = default_token_generator.make_token(user)
-    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{token}"
+    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/<uidb64>/<token>"
 
     send_mail(
         subject="SmartSupport Password Reset",
@@ -835,20 +836,17 @@ def close_ticket(request, ticket_id):
 
 @api_view(['POST'])
 def reset_password(request):
+    uidb64 = request.data.get('uidb64')
     token = request.data.get('token')
     new_password = request.data.get('new_password')
-    email = request.data.get('email')  # Or get user info from the token
 
-    if not token or not new_password:
-        return Response({'detail': 'Token and new password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not uidb64 or not token or not new_password:
+        return Response({'detail': 'Missing data.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # You need to implement how you map token to user (e.g., via a PasswordResetTokenGenerator and user id)
-    # For example, if your reset link is /reset-password/<uidb64>/<token> you can decode uidb64 to get user
-    # Here is a simple example if you store the user email in the token (not secure for production!):
-    User = get_user_model()
     try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = get_user_model().objects.get(pk=uid)
+    except Exception:
         return Response({'detail': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if not default_token_generator.check_token(user, token):
