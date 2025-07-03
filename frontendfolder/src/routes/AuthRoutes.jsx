@@ -10,7 +10,7 @@ const AuthRoutes = () => (
     <Route path="/" element={<SmartSupportLogIn />} />
     <Route path="/create-account" element={<SmartSupportEmployeeCreateAccount />} />
     <Route path="/forgot-password" element={<SmartSupportForgotPassword />} />
-    <Route path="/reset-password/:token" element={<SmartSupportResetPassword />} />
+    <Route path="/reset-password/:uidb64/:token" element={<SmartSupportResetPassword />} />
     <Route path="*" element={<NotFoundPage />} />
   </Routes>
 );

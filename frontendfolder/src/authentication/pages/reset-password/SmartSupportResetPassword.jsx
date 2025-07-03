@@ -10,7 +10,7 @@ const getPasswordErrorMessage = (password) => {
   if (password.length < 8) requirements.push("at least 8 characters");
   if (!/[A-Z]/.test(password)) requirements.push("an uppercase letter");
   if (!/[0-9]/.test(password)) requirements.push("a number");
-  if (!/[!@#$%^&*(),.?":{}|<>_\\[\]\\/~`+=;'-]/.test(password)) requirements.push("a special character");
+  if (!/[!@#$%^&*(),.?":{}|<>_\\[\]\\/\-~`+=;']/ .test(password)) requirements.push("a special character");
   if (requirements.length > 0) {
     const last = requirements.pop();
     return `Password must contain ${requirements.length ? requirements.join(", ") + ", and " : ""}${last}.`;
@@ -19,7 +19,7 @@ const getPasswordErrorMessage = (password) => {
 };
 
 export default function SmartSupportResetPassword() {
-  const { token } = useParams();
+  const { uidb64, token } = useParams(); // <-- use both
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -40,7 +40,7 @@ export default function SmartSupportResetPassword() {
       const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/reset-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, new_password: password }),
+        body: JSON.stringify({ uidb64, token, new_password: password }), // <-- send both
       });
       const data = await res.json();
       if (res.ok) {
