@@ -2,7 +2,7 @@ import { FaSort } from 'react-icons/fa';
 import TablePagination from './TablePagination';
 import styles from './TableContent.module.css';
 
-/* Sortable Header */
+/* === Sortable Header === */
 const SortableHeader = ({ field, children, sortField, sortDirection, onSort }) => {
   const isActive = sortField === field;
   const ariaSort = isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
@@ -27,7 +27,7 @@ const SortableHeader = ({ field, children, sortField, sortDirection, onSort }) =
   );
 };
 
-/* Status Badge */
+/* === Status Badge === */
 const StatusBadge = ({ status, colorMap = {} }) => {
   const defaultColors = {
     upgrade: styles['badge-blue'],
@@ -39,8 +39,7 @@ const StatusBadge = ({ status, colorMap = {} }) => {
     default: styles['badge-gray'],
   };
 
-  const finalColor = { ...defaultColors, ...colorMap };
-  const colorClass = finalColor[status?.toLowerCase()] || finalColor.default;
+  const colorClass = { ...defaultColors, ...colorMap }[status?.toLowerCase()] || defaultColors.default;
 
   return (
     <span className={`${styles['status-badge']} ${colorClass}`} aria-label={`Status: ${status}`}>
@@ -49,7 +48,7 @@ const StatusBadge = ({ status, colorMap = {} }) => {
   );
 };
 
-/* Action Button */
+/* === Action Button === */
 const ActionButton = ({ icon: Icon, onClick, variant = 'default', tooltip, disabled }) => {
   const variantClass = styles[`action-btn-${variant}`] || styles['action-btn-default'];
 
@@ -66,7 +65,7 @@ const ActionButton = ({ icon: Icon, onClick, variant = 'default', tooltip, disab
   );
 };
 
-/* Main TableContent Component */
+/* === TableContent === */
 const TableContent = ({
   columns = [],
   data = [],
@@ -90,9 +89,12 @@ const TableContent = ({
   rowKey = 'id',
   tableTitle = '',
 }) => {
+  const totalItemsCount = totalItems >= 0 ? totalItems : data.length;
+  const isAllSelected = selectedRows.length === data.length && data.length > 0;
+  const isIndeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
+
   const handleSelectAll = (e) => onSelectAll?.(e.target.checked);
   const handleRowSelect = (id) => onRowSelect?.(id);
-  const totalItemsCount = totalItems >= 0 ? totalItems : data.length;
 
   if (loading) {
     return (
@@ -121,12 +123,8 @@ const TableContent = ({
                     type="checkbox"
                     className={styles['table-checkbox']}
                     onChange={handleSelectAll}
-                    checked={selectedRows.length === data.length && data.length > 0}
-                    ref={(el) => {
-                      if (el) {
-                        el.indeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
-                      }
-                    }}
+                    checked={isAllSelected}
+                    ref={(el) => el && (el.indeterminate = isIndeterminate)}
                     aria-label="Select all rows"
                   />
                 </th>

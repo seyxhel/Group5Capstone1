@@ -2,7 +2,7 @@
   display: flex;
   gap: 20px;
   background-color: var(--bg-color);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 /* === Left Column === */
@@ -12,7 +12,7 @@
 
 .ticketCard {
   padding: 24px;
-  background: #fff;
+  background-color: #fff;
   border: 1px solid #d3d3d3;
   border-radius: 40px;
   box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
@@ -35,7 +35,7 @@
 .title {
   font-size: 1.3rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .statusBadge {
@@ -50,14 +50,14 @@
 .statusDot {
   width: 8px;
   height: 8px;
-  background: #6c757d;
   border-radius: 50%;
+  background: #6c757d;
 }
 
 .statusText {
   font-size: 0.75rem;
-  color: #6c757d;
   font-weight: 600;
+  color: #6c757d;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -74,6 +74,8 @@
   flex-direction: column;
   gap: 5px;
   margin-bottom: 1rem;
+  border: none;
+  padding: 0;
 }
 
 .ticketDetails fieldset label {
@@ -97,7 +99,7 @@
 .descriptionTitle {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
   margin-bottom: 1rem;
 }
 
@@ -115,7 +117,7 @@
 .attachmentTitle {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
   margin-bottom: 1rem;
 }
 
@@ -130,8 +132,8 @@
 }
 
 .attachmentText {
-  color: #6c757d;
   font-size: 0.85rem;
+  color: #6c757d;
 }
 
 /* === Right Column / Sidebar === */
@@ -144,7 +146,7 @@
 
 /* === Status Section === */
 .statusSection {
-  background: #fff;
+  background-color: #fff;
   padding: 24px;
   border: 1px solid #d3d3d3;
   border-radius: 40px;
@@ -160,11 +162,10 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-/* === Button at the Top of Status Section === */
 .withdrawButton {
   align-self: flex-start;
-  background-color: #f97316;
-  color: white;
+  background-color: var(--priority-high-text);
+  color: #fff;
   border: none;
   border-radius: 40px;
   padding: 10px 18px;
@@ -185,7 +186,7 @@
 .statusTitle {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .statusTimeline {
@@ -213,8 +214,8 @@
 }
 
 .statusCircle.completed {
-  background: #10b981;
-  border-color: #10b981;
+  background-color: var(--resolved-text);
+  border-color: var(--resolved-text);
 }
 
 .checkmark {
@@ -230,7 +231,7 @@
 }
 
 .statusLine.completedLine {
-  background: #10b981;
+  background-color: var(--resolved-text);
 }
 
 .currentStatus {
@@ -241,12 +242,12 @@
 .currentStatusTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .currentStatusText {
-  color: #6c757d;
   font-size: 0.9rem;
+  color: #6c757d;
   margin-top: 0.5rem;
 }
 

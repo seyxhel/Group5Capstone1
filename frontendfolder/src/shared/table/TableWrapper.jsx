@@ -1,11 +1,8 @@
-import {
-  FaFilter,
-  FaPlus,
-  FaDownload,
-} from 'react-icons/fa';
+import { FaFilter, FaPlus, FaDownload } from 'react-icons/fa';
 import styles from './TableWrapper.module.css';
 import MediumButtons from '../buttons/MediumButtons';
 
+// Search input component
 const SearchInput = ({ value, onChange }) => (
   <div className={styles['search-container']}>
     <input
@@ -18,6 +15,7 @@ const SearchInput = ({ value, onChange }) => (
   </div>
 );
 
+// Filter dropdown
 const FilterDropdown = ({ filters, selected, onChange }) => (
   <div className={styles['filter-container']}>
     <FaFilter className={styles['filter-icon']} />
@@ -35,6 +33,7 @@ const FilterDropdown = ({ filters, selected, onChange }) => (
   </div>
 );
 
+// Filter/Sort buttons
 const FilterSortButtons = ({ onFilterClick, onSortClick, showFilter, showSort }) => (
   <div className={styles['filter-sort-buttons']}>
     {showFilter && (
@@ -54,6 +53,7 @@ const FilterSortButtons = ({ onFilterClick, onSortClick, showFilter, showSort })
   </div>
 );
 
+// Action buttons
 const ActionButtons = ({ onExport, onNew }) => (
   <div className={styles['table-actions']}>
     {onExport && (
@@ -71,12 +71,13 @@ const ActionButtons = ({ onExport, onNew }) => (
   </div>
 );
 
+// Main wrapper component
 const TableWrapper = ({
-  title,
+  title = 'Table',
   children,
   onNew,
   onExport,
-  searchTerm,
+  searchTerm = '',
   onSearchChange,
   filters = [],
   selectedFilter,
@@ -88,13 +89,16 @@ const TableWrapper = ({
   showFilterButton = true,
   onSortClick,
   onFilterClick,
-  className = ''
+  className = '',
 }) => {
+  const hasFilters = showFilters && filters.length > 0;
+
   return (
     <div className={`${styles['table-wrapper']} ${className}`}>
       <div className={styles.container}>
         <div className={styles['table-card']}>
-          {/* Header */}
+
+          {/* === Header === */}
           <div className={styles['table-header']}>
             <div className={styles['table-header-top']}>
               <h1 className={styles['table-title']}>{title}</h1>
@@ -104,7 +108,7 @@ const TableWrapper = ({
                   <SearchInput value={searchTerm} onChange={onSearchChange} />
                 )}
 
-                {showFilters && filters.length > 0 && (
+                {hasFilters && (
                   <FilterDropdown
                     filters={filters}
                     selected={selectedFilter}
@@ -124,7 +128,7 @@ const TableWrapper = ({
             </div>
           </div>
 
-          {/* Table Content */}
+          {/* === Content === */}
           <div className={styles['table-content']}>{children}</div>
         </div>
       </div>
