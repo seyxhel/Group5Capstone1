@@ -24,6 +24,7 @@ from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 
 @csrf_exempt
 def login_view(request):
@@ -736,6 +737,29 @@ def reject_employee(request, pk):
     # )
 
     return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def forgot_password(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({'detail': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    User = get_user_model()
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'detail': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    token = default_token_generator.make_token(user)
+    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{token}"
+
+    send_mail(
+        subject="SmartSupport Password Reset",
+        message=f"Click the link to reset your password: {reset_link}",
+        from_email="sethpelagio20@gmail.com",
+        recipient_list=[email],
+        fail_silently=False,
+    )
+    return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
