@@ -25,7 +25,8 @@ from .tasks import push_ticket_to_workflow
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 
 @csrf_exempt
 def login_view(request):
@@ -751,7 +752,8 @@ def forgot_password(request):
         return Response({'detail': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     token = default_token_generator.make_token(user)
-    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/<uidb64>/<token>"
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
 
     send_mail(
         subject="SmartSupport Password Reset",
