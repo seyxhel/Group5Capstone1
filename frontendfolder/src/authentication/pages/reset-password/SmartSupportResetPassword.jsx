@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import styles from "./SmartSupportResetPassword.module.css";
 
 const getPasswordErrorMessage = (password) => {
@@ -37,21 +38,53 @@ export default function SmartSupportResetPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmError, setConfirmError] = useState("");
+
+  const handlePasswordChange = (value) => {
+    setPassword(value);
+    const error = getPasswordErrorMessage(value);
+    setPasswordError(error);
+    // Also re-validate confirm field if it's not empty
+    if (confirm && value !== confirm) {
+      setConfirmError("Passwords do not match.");
+    } else {
+      setConfirmError("");
+    }
+  };
+
+  const handleConfirmChange = (value) => {
+    setConfirm(value);
+    if (password !== value) {
+      setConfirmError("Passwords do not match.");
+    } else {
+      setConfirmError("");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+
     const pwError = getPasswordErrorMessage(password);
-    if (pwError) return setError(pwError);
-    if (password !== confirm) return setError("Passwords do not match.");
+    setPasswordError(pwError);
+    if (pwError) return;
+
+    if (password !== confirm) {
+      setConfirmError("Passwords do not match.");
+      return;
+    }
+    setConfirmError("");
 
     setSubmitting(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/reset-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uidb64, token, new_password: password }), // <-- send both
+        body: JSON.stringify({ uidb64, token, new_password: password }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -72,24 +105,63 @@ export default function SmartSupportResetPassword() {
         <h2>Set a New Password</h2>
         {error && <span className={styles.errorMsg}>{error}</span>}
         {success && <span className={styles.successMsg}>{success}</span>}
-        <input
-          type="password"
-          placeholder="New password"
-          value={password}
-          onChange={e => {
-            setPassword(e.target.value);
-            setError("");
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Confirm new password"
-          value={confirm}
-          onChange={e => {
-            setConfirm(e.target.value);
-            setError("");
-          }}
-        />
+
+        <div className={styles.fieldGroup}>
+          <label>New Password</label>
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showNew ? "text" : "password"}
+              placeholder="New password"
+              value={password}
+              onChange={e => handlePasswordChange(e.target.value)}
+              style={{ width: "100%", paddingRight: "40px" }}
+            />
+            {password && (
+              <span
+                style={{
+                  position: "absolute",
+                  right: "18px",
+                  top: "50%",
+                  transform: "translateY(-40%)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowNew((prev) => !prev)}
+              >
+                {showNew ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            )}
+          </div>
+          {passwordError && <span className={styles.errorMsg}>{passwordError}</span>}
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <label>Confirm Password</label>
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showConfirm ? "text" : "password"}
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={e => handleConfirmChange(e.target.value)}
+              style={{ width: "100%", paddingRight: "40px" }}
+            />
+            {confirm && (
+              <span
+                style={{
+                  position: "absolute",
+                  right: "18px",
+                  top: "50%",
+                  transform: "translateY(-40%)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowConfirm((prev) => !prev)}
+              >
+                {showConfirm ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            )}
+          </div>
+          {confirmError && <span className={styles.errorMsg}>{confirmError}</span>}
+        </div>
+
         <button type="submit" disabled={submitting}>
           {submitting ? "Changing..." : "Change Password"}
         </button>
