@@ -28,13 +28,21 @@ const SmartSupportForgotPassword = () => {
     setSuccessMessage("");
 
     try {
-      const mockUserExists = email.endsWith("@gmail.com");
+      const res = await fetch(
+        `${import.meta.env.VITE_REACT_APP_API_URL}employee/forgot-password/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }
+      );
+      const data = await res.json();
 
-      if (!mockUserExists) {
-        setErrorMessage("Email not found. Please try again.");
-      } else {
+      if (res.ok) {
         setSuccessMessage("Password reset link has been sent to your email.");
         setTimeout(() => navigate("/"), 3000); // Navigate to login after 3 seconds
+      } else {
+        setErrorMessage(data.detail || "Email not found. Please try again.");
       }
     } catch (err) {
       console.error("Reset error:", err);
