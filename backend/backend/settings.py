@@ -167,7 +167,7 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "rpc://")
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks-prod-capstone'  # Only if you plan to run worker here
+CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks-prod-capstone-seth'  # Only if you plan to run worker here
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),

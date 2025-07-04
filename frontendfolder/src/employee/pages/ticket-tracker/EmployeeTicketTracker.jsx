@@ -129,9 +129,19 @@ export default function EmployeeTicketTracker() {
               <h3 className={styles.attachmentTitle}>Attachment</h3>
               <div className={styles.attachmentContent}>
                 <span className={styles.attachmentIcon}>📎</span>
-                <span className={styles.attachmentText}>
-                  {fileUploaded?.name || 'No file attached.'}
-                </span>
+                {fileUploaded ? (
+                  <a
+                    href={fileUploaded.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.attachmentText}
+                    download={fileUploaded.file_name}
+                  >
+                    {fileUploaded.file_name}
+                  </a>
+                ) : (
+                  <span className={styles.attachmentText}>No file attached.</span>
+                )}
               </div>
             </section>
           </section>
