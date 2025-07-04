@@ -32,7 +32,7 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
     filetype, _ = mimetypes.guess_type(path)
-    # --- Always set Content-Disposition for these types, as the last step ---
+    # --- Always set Content-Disposition for these types, as the VERY LAST STEP ---
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
