@@ -31,7 +31,6 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
-    import mimetypes
     filetype, _ = mimetypes.guess_type(path)
     # Always overwrite Content-Disposition for these types
     if filetype in [
