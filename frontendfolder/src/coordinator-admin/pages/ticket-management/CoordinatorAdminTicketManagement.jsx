@@ -144,7 +144,7 @@ const CoordinatorAdminTicketManagement = () => {
               label: "Reject",
               render: (_, row) =>
                 ["New", "Pending"].includes(row.status)
-                  ? getTicketActions("delete", row, { onDelete: handleReject })
+                  ? getTicketActions("reject", row, { onReject: handleReject })
                   : "—",
             },
             {

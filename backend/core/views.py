@@ -125,20 +125,15 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Ticket.objects.filter(employee=user)  # Regular employees see their own
     
     def create(self, request, *args, **kwargs):
-        # Extract the initial priority based on the category and subcategory
-        # This logic would need to be updated based on your specific rules
-        
         data = request.data.copy()
-            
-        # Handle file uploads separately
         files = request.FILES.getlist('files[]')
-        
+
         serializer = self.get_serializer(data=data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         instance = self.perform_create(serializer)
-        
+
         # Process multiple file attachments
-        for file in request.FILES.getlist('files[]'):
+        for file in files:
             TicketAttachment.objects.create(
                 ticket=instance,
                 file=file,
@@ -147,9 +142,11 @@ class TicketViewSet(viewsets.ModelViewSet):
                 file_size=file.size,
                 uploaded_by=request.user
             )
-        
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+        # Serialize again to include attachments
+        updated_serializer = self.get_serializer(instance, context={'request': request})
+        headers = self.get_success_headers(updated_serializer.data)
+        return Response(updated_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
         return serializer.save()

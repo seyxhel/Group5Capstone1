@@ -8,12 +8,17 @@ const isWithdrawAllowed = (status = "") => {
 };
 
 const isCloseAllowed = (status = "") => {
-  const disallowed = ["submitted", "open", "in progress", "on hold", "pending"];
+  const disallowed = ["submitted", "open", "in progress", "on hold", "pending", "new"];
   return !disallowed.includes(status.toLowerCase());
 };
 
 const isEditAllowed = (status = "") => {
   const allowed = ["new", "pending", "submitted", "open"];
+  return allowed.includes(status.toLowerCase());
+};
+
+const isRejectAllowed = (status = "") => {
+  const allowed = ["new", "pending"];
   return allowed.includes(status.toLowerCase());
 };
 
@@ -29,7 +34,13 @@ const actionMap = {
     icon: FaTimes,
     style: styles.delete,
     handlerKey: "onDelete",
-    isAllowed: isCloseAllowed,
+    isAllowed: isCloseAllowed, // Employee "Close" button
+  },
+  reject: {
+    icon: FaTimes,
+    style: styles.delete,
+    handlerKey: "onReject",
+    isAllowed: isRejectAllowed, // Admin "Reject" button
   },
   view: {
     icon: FaEye,
