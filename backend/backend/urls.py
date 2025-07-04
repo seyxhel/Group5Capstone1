@@ -39,7 +39,10 @@ def media_serve_with_cors(request, path, document_root=None):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
+        # Try both ways to ensure overwrite
         response["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
+        if hasattr(response, "headers"):
+            response.headers["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
     return response
 
 urlpatterns = [
