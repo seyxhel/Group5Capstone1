@@ -40,6 +40,12 @@ def media_serve_with_cors(request, path, document_root=None):
         "text/csv"
     ]:
         cd = f'attachment; filename="{path.split("/")[-1]}"'
+        # Remove any existing Content-Disposition header
+        if "Content-Disposition" in response:
+            del response["Content-Disposition"]
+        if hasattr(response, "headers") and "Content-Disposition" in response.headers:
+            del response.headers["Content-Disposition"]
+        # Now set it
         response["Content-Disposition"] = cd
         if hasattr(response, "headers"):
             response.headers["Content-Disposition"] = cd
