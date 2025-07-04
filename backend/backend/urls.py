@@ -39,6 +39,10 @@ def media_serve_with_cors(request, path, document_root=None):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
+        # Remove any existing Content-Disposition header
+        if "Content-Disposition" in response:
+            del response["Content-Disposition"]
+        # Set as attachment
         response["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
     return response
 
