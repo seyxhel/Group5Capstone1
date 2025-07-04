@@ -130,21 +130,24 @@ export default function EmployeeTicketTracker() {
               <div className={styles.attachmentContent}>
                 <span className={styles.attachmentIcon}>📎</span>
                 {attachments && attachments.length > 0 ? (
-                  attachments.map((file, idx) => (
-                    <a
-                      key={file.id || idx}
-                      href={file.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.attachmentText}
-                      download={file.file_name}
-                      style={{ display: "block" }}
-                    >
-                      {file.file_name}
-                    </a>
-                  ))
+                  attachments.map((file, idx) => {
+                    const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(file.file_name);
+                    return (
+                      <a
+                        key={file.id || idx}
+                        href={file.file}
+                        {...(isDownloadOnly
+                          ? { download: file.file_name }
+                          : { target: "_blank", rel: "noopener noreferrer", download: file.file_name })}
+                        className={styles.attachmentText}
+                        style={{ display: "block" }}
+                      >
+                        {file.file_name}
+                      </a>
+                    );
+                  })
                 ) : (
-                  <span className={styles.attachmentText}>No file attached.</span> //yeah
+                  <span className={styles.attachmentText}>No file attached.</span>
                 )}
               </div>
             </section>
