@@ -31,8 +31,8 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
-    # Force download for certain file types
     filetype, _ = mimetypes.guess_type(path)
+    # Force download for docx, xlsx, csv
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
