@@ -31,6 +31,7 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
+    import mimetypes
     filetype, _ = mimetypes.guess_type(path)
     # Force download for docx, xlsx, csv
     if filetype in [
@@ -38,6 +39,7 @@ def media_serve_with_cors(request, path, document_root=None):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
+        # Overwrite any existing Content-Disposition header
         response["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
     return response
 
