@@ -150,6 +150,8 @@ const EmployeeChatbot = ({ closeModal }) => {
   // Ensure the OpenRouter API key is set in your .env file.
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
+  console.log("OpenRouter API Key:", import.meta.env.VITE_OPENROUTER_API_KEY);
+
   const fetchOpenRouterResponse = async (userMessage) => {
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
