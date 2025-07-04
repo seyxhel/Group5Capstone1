@@ -203,8 +203,8 @@
 
 .link {
   color: var(--primary-color);
-  text-decoration: underline;
-  cursor: pointer;
+  font-weight: 500;
+  /* No text-decoration here, it's inherited from .underlineLinks */
 }
 
 .link:hover {
@@ -266,4 +266,19 @@
   color: #888;
   font-size: 0.95rem;   /* Make the icon smaller, matching login */
   z-index: 2;
+}
+
+.underlineLinks {
+  display: inline;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--primary-color); /* <-- Make underline blue */
+  cursor: pointer;
+}
+
+.andText {
+  color: #222;
+  font-weight: 400;
+  /* No text-decoration here, it's inherited from .underlineLinks */
 }
