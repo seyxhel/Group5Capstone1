@@ -13,12 +13,15 @@ COPY . .
 
 ARG VITE_REACT_APP_API_URL
 ARG VITE_MEDIA_URL
+ARG VITE_OPENROUTER_API_KEY
 
 ENV VITE_REACT_APP_API_URL=$VITE_REACT_APP_API_URL
 ENV VITE_MEDIA_URL=$VITE_MEDIA_URL
+ENV VITE_OPENROUTER_API_KEY=$VITE_OPENROUTER_API_KEY
 
 # Debug: Print the environment variable (will be empty unless set as ARG)
 RUN echo "🔧 Building with API URL: $VITE_REACT_APP_API_URL"
+RUN echo "🔑 Building with OpenRouter Key: $VITE_OPENROUTER_API_KEY"
 
 # Build the app
 RUN npm run build
