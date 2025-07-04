@@ -77,6 +77,11 @@ export default function SmartSupportEmployeeCreateAccount() {
   const [showModal, setShowModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPolicyTermsModal, setShowPolicyTermsModal] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const {
     register,
@@ -162,12 +167,33 @@ export default function SmartSupportEmployeeCreateAccount() {
   };
 
   const handleAgree = () => {
-    setValue("terms", true, { shouldValidate: true });
-    setShowModal(false);
+    setAgreed(true);
+    setShowPolicyTermsModal(false);
   };
   const handleCancel = () => {
-    setValue("terms", false, { shouldValidate: true });
-    setShowModal(false);
+    setAgreed(false);
+    setShowPolicyTermsModal(false);
+  };
+
+  const handleLabelClick = (e) => {
+    e.preventDefault();
+    setShowPolicyTermsModal(true);
+  };
+
+  const handleAgreePrivacy = () => {
+    setShowPrivacyModal(false);
+    setPrivacyAgreed(true);
+    setShowTermsModal(true); // Open Terms next
+  };
+
+  const handleAgreeTerms = () => {
+    setShowTermsModal(false);
+    setTermsAgreed(true);
+  };
+
+  const handleClosePolicyTerms = () => {
+    setTermsAgreed(true);
+    setShowPolicyTermsModal(false);
   };
 
   const renderFieldset = (children, className = styles.fieldset) => (
@@ -429,32 +455,37 @@ export default function SmartSupportEmployeeCreateAccount() {
               </>
             )}
 
-            {renderFieldset(
-              <>
-                <label className={styles.checkboxWrapper}>
-                  <input
-                    type="checkbox"
-                    checked={watch("terms")}
-                    tabIndex={-1}
-                    {...register("terms", {
-                      required: "Please fill in the required field.",
-                    })}
-                  />
-                  &nbsp; Read and agree to the{" "}
-                  <span className={styles.link} onClick={() => setShowModal(true)} role="button" tabIndex={0}>
-                    Privacy Policy
-                  </span>
-                  <span> and </span>
-                  <span className={styles.link} onClick={() => setShowModal(true)} role="button" tabIndex={0}>
-                    Terms and Conditions
-                  </span>
-                  <span className={styles.required}>*</span>
-                </label>
-                {errors.terms && <span className={styles.errorMsg}>{errors.terms.message}</span>}
-              </>
-            )}
+            <div className={styles.checkboxWrapper}>
+              <input
+                type="checkbox"
+                id="privacypolicy_termsandconditions"
+                name="privacypolicy_termsandconditions"
+                checked={agreed}
+                disabled={true}
+                readOnly
+              />
+              <label htmlFor="privacypolicy_termsandconditions" className={styles.checkboxLabel}>
+                Read and agree to the{" "}
+                <span
+                  className={styles.underlineLinks}
+                  onClick={handleLabelClick}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleLabelClick(e); }}
+                >
+                  <span className={styles.link}>Privacy Policy</span>
+                  <span className={styles.andText}> and </span>
+                  <span className={styles.link}>Terms and Conditions</span>
+                </span>
+              </label>
+              {errors.terms && <span className={styles.errorMsg}>{errors.terms}</span>}
+            </div>
 
-            <button type="submit" disabled={!isValid || isSubmitting} className={styles.button}>
+            <button
+              type="submit"
+              disabled={!isValid || isSubmitting || !agreed}
+              className={styles.button}
+            >
               {isSubmitting ? <LoadingButton /> : "Sign Up"}
             </button>
 
@@ -465,9 +496,15 @@ export default function SmartSupportEmployeeCreateAccount() {
         </div>
       </section>
 
-      {showModal && (
-        <PrivacyPolicyTermsAndConditions onAgree={handleAgree} onClose={handleCancel} />
+      {showPolicyTermsModal && (
+        <PrivacyPolicyTermsAndConditions
+          onAgree={handleAgree}
+          onClose={handleCancel}
+          showModal={showPolicyTermsModal}
+        />
       )}
+      {showPrivacyModal && <UserPrivacyPolicy onAgree={handleAgreePrivacy} />}
+      {showTermsModal && <UserTermsAndConditions onAgree={handleAgreeTerms} />}
     </main>
   );
 }
