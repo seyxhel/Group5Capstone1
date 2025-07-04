@@ -22,29 +22,29 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+import os
 from django.http import FileResponse, Http404
 from django.views.static import serve as static_serve
 import mimetypes
 
 def media_serve_with_cors(request, path, document_root=None):
-    response = static_serve(request, path, document_root=document_root)
+    full_path = os.path.join(document_root, path)
+    if not os.path.exists(full_path):
+        raise Http404("File does not exist")
+    filetype, _ = mimetypes.guess_type(full_path)
+    response = FileResponse(open(full_path, 'rb'))
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
     response["X-Served-By"] = "django-media-serve"
-    filetype, _ = mimetypes.guess_type(path)
-    # --- Always set Content-Disposition for these types, as the VERY LAST STEP ---
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
-        cd = f'attachment; filename="{path.split("/")[-1]}"'
-        response["Content-Disposition"] = cd
-        try:
-            response.headers["Content-Disposition"] = cd
-        except Exception:
-            pass
+        response["Content-Disposition"] = f'attachment; filename="{os.path.basename(full_path)}"'
+    else:
+        response["Content-Disposition"] = f'inline; filename="{os.path.basename(full_path)}"'
     return response
 
 urlpatterns = [
