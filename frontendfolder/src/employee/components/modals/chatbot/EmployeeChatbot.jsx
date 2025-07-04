@@ -147,7 +147,7 @@ const EmployeeChatbot = ({ closeModal }) => {
     const weekday = date.toLocaleString("default", { weekday: "long" }).toUpperCase();
     return `${month} ${day}, ${year} | ${weekday}`;
   };
-  // Ensure the OpenRouter API key is set in your .env file
+  // Ensure the OpenRouter API key is set in your .env file.
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
   const fetchOpenRouterResponse = async (userMessage) => {
