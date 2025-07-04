@@ -24,12 +24,21 @@ from rest_framework_simplejwt.views import (
 )
 from django.http import FileResponse, Http404
 from django.views.static import serve as static_serve
+import mimetypes
 
 def media_serve_with_cors(request, path, document_root=None):
     response = static_serve(request, path, document_root=document_root)
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
+    # Force download for certain file types
+    filetype, _ = mimetypes.guess_type(path)
+    if filetype in [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
+        "text/csv"
+    ]:
+        response["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
     return response
 
 urlpatterns = [
