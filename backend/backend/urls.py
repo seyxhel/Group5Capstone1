@@ -33,13 +33,12 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
     import mimetypes
     filetype, _ = mimetypes.guess_type(path)
-    # Force download for docx, xlsx, csv
+    # Always overwrite Content-Disposition for these types
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
-        # Overwrite any existing Content-Disposition header
         response["Content-Disposition"] = f'attachment; filename="{path.split("/")[-1]}"'
     return response
 
