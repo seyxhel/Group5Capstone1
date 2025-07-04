@@ -31,6 +31,7 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
+    response["X-Served-By"] = "django-media-serve"
     filetype, _ = mimetypes.guess_type(path)
     # --- Always set Content-Disposition for these types, as the VERY LAST STEP ---
     if filetype in [
