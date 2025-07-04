@@ -144,7 +144,7 @@ export default function EmployeeTicketTracker() {
                     </a>
                   ))
                 ) : (
-                  <span className={styles.attachmentText}>No file attached.</span>
+                  <span className={styles.attachmentText}>No file attached.</span> //yeah
                 )}
               </div>
             </section>
