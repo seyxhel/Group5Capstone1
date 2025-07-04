@@ -126,19 +126,23 @@ export default function EmployeeTicketTracker() {
             </section>
 
             <section className={styles.attachment}>
-              <h3 className={styles.attachmentTitle}>Attachment</h3>
+              <h3 className={styles.attachmentTitle}>Attachment{attachments && attachments.length > 1 ? 's' : ''}</h3>
               <div className={styles.attachmentContent}>
                 <span className={styles.attachmentIcon}>📎</span>
-                {fileUploaded ? (
-                  <a
-                    href={fileUploaded.file}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.attachmentText}
-                    download={fileUploaded.file_name}
-                  >
-                    {fileUploaded.file_name}
-                  </a>
+                {attachments && attachments.length > 0 ? (
+                  attachments.map((file, idx) => (
+                    <a
+                      key={file.id || idx}
+                      href={file.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.attachmentText}
+                      download={file.file_name}
+                      style={{ display: "block" }}
+                    >
+                      {file.file_name}
+                    </a>
+                  ))
                 ) : (
                   <span className={styles.attachmentText}>No file attached.</span>
                 )}
