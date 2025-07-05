@@ -5,7 +5,7 @@ import CoordinatorAdminOpenTicketModal from '../../components/modals/Coordinator
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 
 const STATUS_COMPLETION = {
-  1: ['New', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  1: ['Submitted', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -34,7 +34,7 @@ const formatDate = (date) =>
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 export default function CoordinatorAdminTicketTracker() {
-  const { ticketId } = useParams();
+  const { ticketNumber } = useParams();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -48,8 +48,7 @@ export default function CoordinatorAdminTicketTracker() {
           localStorage.getItem('admin_access_token') ||
           localStorage.getItem('coordinator_access_token');
         const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
-          headers:
-            { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
@@ -62,11 +61,11 @@ export default function CoordinatorAdminTicketTracker() {
       }
       setLoading(false);
     };
-    if (ticketId) fetchTicket();
-  }, [ticketId]);
+    if (ticketNumber) fetchTicket();
+  }, [ticketNumber]);
 
   if (loading) return <p>Loading...</p>;
-  if (!ticket) return <p className={styles.notFound}>Ticket #{ticketId} not found.</p>;
+  if (!ticket) return <p className={styles.notFound}>Ticket #{ticketNumber} not found.</p>;
 
   const {
     ticket_number,
@@ -94,7 +93,7 @@ export default function CoordinatorAdminTicketTracker() {
           <section className={styles.ticketCard}>
             <header className={styles.header}>
               <div>
-                <h2 className={styles.heading}>#{ticket_number || ticketId}</h2>
+                <h2 className={styles.heading}>#{ticket_number || ticketNumber}</h2>
                 <p className={styles.subheading}>{subject || 'No subject provided'}</p>
               </div>
               <div className={styles.statusBadge}>
@@ -131,22 +130,18 @@ export default function CoordinatorAdminTicketTracker() {
               <div className={styles.attachmentContent}>
                 <span className={styles.attachmentIcon}>📎</span>
                 {attachments && attachments.length > 0 ? (
-                  attachments.map((file, idx) => {
-                    const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(file.file_name);
-                    return (
-                      <a
-                        key={file.id || idx}
-                        href={file.file}
-                        {...(isDownloadOnly
-                          ? { download: file.file_name }
-                          : { target: "_blank", rel: "noopener noreferrer", download: file.file_name })}
-                        className={styles.attachmentText}
-                        style={{ display: "block" }}
-                      >
-                        {file.file_name}
-                      </a>
-                    );
-                  })
+                  attachments.map((file, idx) => (
+                    <a
+                      key={file.id || idx}
+                      href={file.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.attachmentText}
+                      style={{ display: "block" }}
+                    >
+                      {file.file_name}
+                    </a>
+                  ))
                 ) : (
                   <span className={styles.attachmentText}>No file attached.</span>
                 )}
