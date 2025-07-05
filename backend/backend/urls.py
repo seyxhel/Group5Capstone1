@@ -37,14 +37,16 @@ def media_serve_with_cors(request, path, document_root=None):
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
     response["X-Served-By"] = "django-media-serve"
+    # --- Always set Content-Disposition for these types, as the VERY LAST STEP ---
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
-        response["Content-Disposition"] = f'attachment; filename="{os.path.basename(full_path)}"'
-    else:
-        response["Content-Disposition"] = f'inline; filename="{os.path.basename(full_path)}"'
+        cd = f'attachment; filename="{os.path.basename(full_path)}"'
+        response["Content-Disposition"] = cd
+        if hasattr(response, "headers"):
+            response.headers["Content-Disposition"] = cd
     return response
 
 urlpatterns = [
