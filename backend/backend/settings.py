@@ -182,3 +182,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
 ]
+
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
