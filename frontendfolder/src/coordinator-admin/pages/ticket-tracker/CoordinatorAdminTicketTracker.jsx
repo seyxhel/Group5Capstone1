@@ -1,12 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
 import styles from './CoordinatorAdminTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 
 const STATUS_COMPLETION = {
-  1: ['Submitted', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
+  1: ['New', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
   4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -29,34 +28,61 @@ const DetailField = ({ label, value }) => (
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 export default function CoordinatorAdminTicketTracker() {
   const { ticketId } = useParams();
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  const tickets = getEmployeeTickets();
-  const ticket = tickets.find((t) => String(t.id) === String(ticketId));
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setLoading(true);
+      try {
+        const token =
+          localStorage.getItem('admin_access_token') ||
+          localStorage.getItem('coordinator_access_token');
+        const res = await fetch(`${API_URL}tickets/${ticketId}/`, {
+          headers:
+            { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTicket(data);
+        } else {
+          setTicket(null);
+        }
+      } catch {
+        setTicket(null);
+      }
+      setLoading(false);
+    };
+    if (ticketId) fetchTicket();
+  }, [ticketId]);
 
+  if (loading) return <p>Loading...</p>;
   if (!ticket) return <p className={styles.notFound}>Ticket #{ticketId} not found.</p>;
 
   const {
-    ticketNumber,
+    ticket_number,
     subject,
     category,
-    subCategory,
-    status: originalStatus,
-    dateCreated,
-    lastUpdated,
+    sub_category,
+    status,
+    submit_date,
+    update_date,
     description,
-    fileUploaded,
-    priorityLevel,
+    attachments,
+    priority,
     department,
-    assignedTo,
-    scheduledRequest,
+    assigned_to,
+    scheduled_date,
+    employee,
   } = ticket;
 
-  const status = originalStatus === 'Submitted' ? 'New' : originalStatus;
-  const statusSteps = getStatusSteps(originalStatus);
+  const statusSteps = getStatusSteps(status);
 
   return (
     <>
@@ -65,7 +91,7 @@ export default function CoordinatorAdminTicketTracker() {
           <section className={styles.ticketCard}>
             <header className={styles.header}>
               <div>
-                <h2 className={styles.heading}>#{ticketNumber || ticketId}</h2>
+                <h2 className={styles.heading}>#{ticket_number || ticketId}</h2>
                 <p className={styles.subheading}>{subject || 'No subject provided'}</p>
               </div>
               <div className={styles.statusBadge}>
@@ -74,17 +100,20 @@ export default function CoordinatorAdminTicketTracker() {
               </div>
             </header>
 
-            <div className={styles.timestamp}>Created at: {formatDate(dateCreated)}</div>
+            <div className={styles.timestamp}>Created at: {formatDate(submit_date)}</div>
 
             <div className={styles.ticketInfo}>
-              <DetailField label="Priority" value={priorityLevel} />
+              <DetailField label="Priority" value={priority} />
               <DetailField label="Department" value={department} />
-              <DetailField label="Assigned Agent" value={assignedTo?.name} />
-              <DetailField label="Scheduled Request" value={scheduledRequest} />
-              <DetailField label="Date Created" value={formatDate(dateCreated)} />
-              <DetailField label="Last Updated" value={formatDate(lastUpdated)} />
+              <DetailField label="Assigned Agent" value={assigned_to?.first_name ? `${assigned_to.first_name} ${assigned_to.last_name}` : assigned_to || "Unassigned"} />
+              <DetailField label="Scheduled Request" value={scheduled_date} />
+              <DetailField label="Date Created" value={formatDate(submit_date)} />
+              <DetailField label="Last Updated" value={formatDate(update_date)} />
               <DetailField label="Category" value={category} />
-              <DetailField label="Sub-Category" value={subCategory} />
+              <DetailField label="Sub-Category" value={sub_category} />
+              <DetailField label="Employee" value={employee ? `${employee.first_name} ${employee.last_name}` : "N/A"} />
+              <DetailField label="Employee Department" value={employee?.department} />
+              <DetailField label="Employee Email" value={employee?.email} />
             </div>
 
             <section className={styles.descriptionBlock}>
@@ -93,12 +122,31 @@ export default function CoordinatorAdminTicketTracker() {
             </section>
 
             <section className={styles.attachment}>
-              <h3 className={styles.descriptionTitle}>Attachment</h3>
+              <h3 className={styles.descriptionTitle}>
+                Attachment{attachments && attachments.length > 1 ? 's' : ''}
+              </h3>
               <div className={styles.attachmentContent}>
                 <span className={styles.attachmentIcon}>📎</span>
-                <span className={styles.attachmentText}>
-                  {fileUploaded?.name || 'No file attached.'}
-                </span>
+                {attachments && attachments.length > 0 ? (
+                  attachments.map((file, idx) => {
+                    const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(file.file_name);
+                    return (
+                      <a
+                        key={file.id || idx}
+                        href={file.file}
+                        {...(isDownloadOnly
+                          ? { download: file.file_name }
+                          : { target: "_blank", rel: "noopener noreferrer", download: file.file_name })}
+                        className={styles.attachmentText}
+                        style={{ display: "block" }}
+                      >
+                        {file.file_name}
+                      </a>
+                    );
+                  })
+                ) : (
+                  <span className={styles.attachmentText}>No file attached.</span>
+                )}
               </div>
             </section>
           </section>
@@ -106,7 +154,7 @@ export default function CoordinatorAdminTicketTracker() {
 
         <aside className={styles.sidebar}>
           <div className={styles.statusSection}>
-            {['New', 'Pending'].includes(status) && (
+            {status === 'New' && (
               <div className={styles.actionButtons}>
                 <button
                   className={styles.rejectButton}
@@ -124,7 +172,6 @@ export default function CoordinatorAdminTicketTracker() {
             )}
 
             <h3 className={styles.statusTitle}>Status</h3>
-
             <div className={styles.statusTimeline}>
               {statusSteps.map((step, index) => (
                 <div key={step.id} className={styles.statusStep}>
@@ -141,7 +188,6 @@ export default function CoordinatorAdminTicketTracker() {
                 </div>
               ))}
             </div>
-
             <div className={styles.currentStatus}>
               <h4 className={styles.currentStatusTitle}>Current Status</h4>
               <p className={styles.currentStatusText}>{status}</p>
