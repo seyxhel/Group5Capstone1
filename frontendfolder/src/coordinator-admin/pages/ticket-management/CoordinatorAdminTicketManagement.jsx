@@ -101,6 +101,52 @@ const CoordinatorAdminTicketManagement = () => {
     setModalType(null);
   };
 
+  // Get user role from localStorage (or context)
+  const userRole = localStorage.getItem("user_role"); // e.g., "System Admin" or "Ticket Coordinator"
+
+  const columns = [
+    { key: "ticket_number", label: "Ticket Number" },
+    { key: "subject", label: "Subject" },
+    {
+      key: "status",
+      label: "Status",
+      render: (val) => val,
+    },
+    { key: "priority", label: "Priority Level", render: (val) => val || "—" },
+    { key: "department", label: "Department", render: (val) => val || "—" },
+    { key: "category", label: "Category" },
+    { key: "sub_category", label: "Sub-Category", render: (val) => val || "—" },
+    {
+      key: "submit_date",
+      label: "Date Created",
+      render: (val) =>
+        val
+          ? `${new Date(val).toLocaleDateString()} ${new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
+          : "",
+    },
+    {
+      key: "open",
+      label: "Open",
+      render: (_, row) =>
+        userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
+          ? getTicketActions("edit", row, { onEdit: handleOpen })
+          : "—",
+    },
+    {
+      key: "reject",
+      label: "Reject",
+      render: (_, row) =>
+        userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
+          ? getTicketActions("reject", row, { onReject: handleReject })
+          : "—",
+    },
+    {
+      key: "view",
+      label: "View",
+      render: (_, row) => getTicketActions("view", row, { onView: handleView }),
+    },
+  ];
+
   return (
     <>
       <TableWrapper
@@ -111,48 +157,7 @@ const CoordinatorAdminTicketManagement = () => {
         showActions={false}
       >
         <TableContent
-          columns={[
-            { key: "ticket_number", label: "Ticket Number" },
-            { key: "subject", label: "Subject" },
-            {
-              key: "status",
-              label: "Status",
-              render: (val) => val,
-            },
-            { key: "priority", label: "Priority Level", render: (val) => val || "—" },
-            { key: "department", label: "Department", render: (val) => val || "—" },
-            { key: "category", label: "Category" },
-            { key: "sub_category", label: "Sub-Category", render: (val) => val || "—" },
-            {
-              key: "submit_date",
-              label: "Date Created",
-              render: (val) =>
-                val
-                  ? `${new Date(val).toLocaleDateString()} ${new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
-                  : "",
-            },
-            {
-              key: "open",
-              label: "Open",
-              render: (_, row) =>
-                ["New", "Pending"].includes(row.status)
-                  ? getTicketActions("edit", row, { onEdit: handleOpen })
-                  : "—",
-            },
-            {
-              key: "reject",
-              label: "Reject",
-              render: (_, row) =>
-                ["New", "Pending"].includes(row.status)
-                  ? getTicketActions("reject", row, { onReject: handleReject })
-                  : "—",
-            },
-            {
-              key: "view",
-              label: "View",
-              render: (_, row) => getTicketActions("view", row, { onView: handleView }),
-            },
-          ]}
+          columns={columns}
           data={filteredTickets}
           showSelection={false}
           showFooter={false}

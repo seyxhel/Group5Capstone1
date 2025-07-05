@@ -5,10 +5,6 @@ import styles from './EmployeeSettings.module.css';
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app"; // For image preview
 
-const NIST_COMMON_PASSWORDS = [
-  "password", "123456", "123456789", "qwerty", "abc123", "password1", "111111", "123123"
-];
-
 const getPasswordErrorMessage = (password) => {
   const requirements = [];
   if (!password || password.trim() === "") {
@@ -23,7 +19,7 @@ const getPasswordErrorMessage = (password) => {
   if (!/[0-9]/.test(password)) {
     requirements.push("a number");
   }
-  if (!/[!@#$%^&*(),.?":{}|<>_\\[\]\\/~`+=;'-]/.test(password)) {
+  if (!/[!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'-]/.test(password)) {
     requirements.push("a special character");
   }
   if (requirements.length > 0) {
@@ -45,7 +41,18 @@ const EmployeeSettings = () => {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Error states for each field
+  const [currentPasswordError, setCurrentPasswordError] = useState("");
   const [newPasswordError, setNewPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  // Track if user has touched (focused and blurred) each field
+  const [touched, setTouched] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -99,20 +106,39 @@ const EmployeeSettings = () => {
     }
   };
 
+  // Validate fields on change
+  useEffect(() => {
+    // Current password
+    setCurrentPasswordError(
+      !passwords.current ? "Please fill in the required field." : ""
+    );
+    // New password
+    setNewPasswordError(getPasswordErrorMessage(passwords.new));
+    // Confirm password
+    setConfirmPasswordError(
+      !passwords.confirm
+        ? "Please fill in the required field."
+        : passwords.new && passwords.confirm !== passwords.new
+        ? "New passwords do not match."
+        : ""
+    );
+  }, [passwords]);
+
   // Handle password change
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    const userContext = `${profile?.first_name || ""}${profile?.last_name || ""}${profile?.email || ""}`;
-    const error = getPasswordErrorMessage(passwords.new, userContext);
-    if (error) {
-      setNewPasswordError(error);
+    // Validate again before submit
+    if (
+      currentPasswordError ||
+      newPasswordError ||
+      confirmPasswordError ||
+      !passwords.current ||
+      !passwords.new ||
+      !passwords.confirm
+    ) {
       return;
     }
-    setNewPasswordError("");
-    if (passwords.new !== passwords.confirm) {
-      setMessage("New passwords do not match.");
-      return;
-    }
+    setMessage("");
     const token = localStorage.getItem("employee_access_token");
     const res = await fetch(`${API_URL}employee/change-password/`, {
       method: "POST",
@@ -134,12 +160,22 @@ const EmployeeSettings = () => {
     }
   };
 
+  const isChangePasswordDisabled =
+    !passwords.current ||
+    !passwords.new ||
+    !passwords.confirm ||
+    !!currentPasswordError ||
+    !!newPasswordError ||
+    !!confirmPasswordError;
+
   if (!profile) return <div>Loading...</div>;
 
   return (
     <div className={styles.container}>
       <h2 className={styles.heading}>Settings</h2>
-      {message && <div className={styles.message}>{message}</div>}
+      {message && message !== "Current password is incorrect." && (
+  <div className={styles.message}>{message}</div>
+)}
 
       {/* Personal Information Section */}
       <div className={styles.section}>
@@ -203,12 +239,17 @@ const EmployeeSettings = () => {
         <h3>Security</h3>
         {/* Current Password */}
         <div className={styles.fieldGroup}>
-          <label>Current Password</label>
+          <label>
+            Current Password <span className={styles.required}>*</span>
+          </label>
           <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showCurrent ? "text" : "password"}
               value={passwords.current}
-              onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+              onChange={(e) =>
+                setPasswords({ ...passwords, current: e.target.value })
+              }
+              onBlur={() => setTouched((prev) => ({ ...prev, current: true }))}
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.current && (
@@ -226,10 +267,19 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
+          {touched.current && currentPasswordError && (
+            <span className={styles.errorMessage}>{currentPasswordError}</span>
+          )}
+          {/* Show backend error for current password */}
+          {message === "Current password is incorrect." && (
+            <span className={styles.errorMessage}>{message}</span>
+          )}
         </div>
         {/* New Password */}
         <div className={styles.fieldGroup}>
-          <label>New Password</label>
+          <label>
+            New Password <span className={styles.required}>*</span>
+          </label>
           <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showNew ? "text" : "password"}
@@ -237,8 +287,8 @@ const EmployeeSettings = () => {
               onChange={(e) => {
                 const value = e.target.value;
                 setPasswords({ ...passwords, new: value });
-                setNewPasswordError(getPasswordErrorMessage(value));
               }}
+              onBlur={() => setTouched((prev) => ({ ...prev, new: true }))}
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.new && (
@@ -256,18 +306,23 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
-          {newPasswordError && (
+          {touched.new && newPasswordError && (
             <span className={styles.errorMessage}>{newPasswordError}</span>
           )}
         </div>
         {/* Confirm Password */}
         <div className={styles.fieldGroup}>
-          <label>Confirm Password</label>
+          <label>
+            Confirm Password <span className={styles.required}>*</span>
+          </label>
           <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showConfirm ? "text" : "password"}
               value={passwords.confirm}
-              onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+              onChange={(e) =>
+                setPasswords({ ...passwords, confirm: e.target.value })
+              }
+              onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.confirm && (
@@ -285,8 +340,21 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
+          {touched.confirm && confirmPasswordError && (
+            <span className={styles.errorMessage}>{confirmPasswordError}</span>
+          )}
         </div>
-        <button className={styles.saveButton} onClick={handlePasswordChange}>Change Password</button>
+        <button
+          className={styles.saveButton}
+          onClick={handlePasswordChange}
+          disabled={
+            !passwords.current ||
+            !passwords.new ||
+            !passwords.confirm
+          }
+        >
+          Change Password
+        </button>
       </div>
     </div>
   );

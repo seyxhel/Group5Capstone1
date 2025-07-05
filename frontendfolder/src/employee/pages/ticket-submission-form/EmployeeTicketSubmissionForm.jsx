@@ -141,7 +141,11 @@ export default function EmployeeTicketSubmissionForm() {
                 {...register('subject', {
                   required: 'Subject is required',
                   validate: value =>
-                    value.trim().length > 0 || 'Subject cannot be empty',
+                    value.trim().length > 0
+                      ? /[a-zA-Z0-9]/.test(value)
+                        ? true
+                        : 'Subject must contain at least one letter or number'
+                      : 'Subject cannot be empty',
                 })}
               />
             )}
@@ -193,7 +197,11 @@ export default function EmployeeTicketSubmissionForm() {
                 {...register('description', {
                   required: 'Description is required',
                   validate: value =>
-                    value.trim().length > 0 || 'Description cannot be empty',
+                    value.trim().length > 0
+                      ? /[a-zA-Z0-9]/.test(value)
+                        ? true
+                        : 'Description must contain at least one letter or number'
+                      : 'Description cannot be empty',
                 })}
               />
             )}
