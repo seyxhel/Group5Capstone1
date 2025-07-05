@@ -185,4 +185,4 @@ CSRF_TRUSTED_ORIGINS = [
 
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# it worked!! Thank you, Lord!!!
+# it worked!! Thank you, Lord!!!!
