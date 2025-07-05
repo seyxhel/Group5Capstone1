@@ -194,7 +194,15 @@
 }
 
 .checkboxWrapper input[type="checkbox"] {
-  pointer-events: none;      /* Prevent interaction */
+  accent-color: var(--primary-color);
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Fallback for browsers that don't support accent-color */
+.checkboxWrapper input[type="checkbox"]:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .checkboxWrapper input[type="checkbox"]:hover {

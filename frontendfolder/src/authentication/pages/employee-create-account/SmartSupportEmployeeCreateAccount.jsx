@@ -461,7 +461,6 @@ export default function SmartSupportEmployeeCreateAccount() {
                 id="privacypolicy_termsandconditions"
                 name="privacypolicy_termsandconditions"
                 checked={agreed}
-                disabled={true}
                 readOnly
               />
               <label htmlFor="privacypolicy_termsandconditions" className={styles.checkboxLabel}>
