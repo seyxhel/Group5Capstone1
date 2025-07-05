@@ -323,6 +323,7 @@ const EmployeeSettings = () => {
                 setPasswords({ ...passwords, confirm: e.target.value })
               }
               onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
+              onPaste={e => e.preventDefault()} // <-- Prevent paste
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.confirm && (
