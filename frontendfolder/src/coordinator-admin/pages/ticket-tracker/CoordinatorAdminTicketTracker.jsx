@@ -44,7 +44,7 @@ export default function CoordinatorAdminTicketTracker() {
         const token =
           localStorage.getItem('admin_access_token') ||
           localStorage.getItem('coordinator_access_token');
-        const res = await fetch(`${API_URL}tickets/${ticketId}/`, {
+        const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
           headers:
             { Authorization: `Bearer ${token}` },
         });
