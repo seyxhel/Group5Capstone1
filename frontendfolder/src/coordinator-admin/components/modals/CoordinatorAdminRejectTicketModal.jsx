@@ -17,6 +17,14 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
       });
       return;
     }
+    // Restrict to not just punctuation
+    if (!/[a-zA-Z0-9]/.test(comment)) {
+      toast.error("Comment must contain at least one letter or number.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
