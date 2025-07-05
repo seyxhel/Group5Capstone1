@@ -3,16 +3,6 @@ URL configuration for backend project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
 from django.urls import path, include, re_path
@@ -23,30 +13,37 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 import os
-from django.http import FileResponse, Http404
-from django.views.static import serve as static_serve
 import mimetypes
+from django.http import Http404, HttpResponse
 
 def media_serve_with_cors(request, path, document_root=None):
     full_path = os.path.join(document_root, path)
     if not os.path.exists(full_path):
         raise Http404("File does not exist")
+
     filetype, _ = mimetypes.guess_type(full_path)
-    response = FileResponse(open(full_path, 'rb'))
+    filename = os.path.basename(full_path)
+    # Read file in binary mode
+    with open(full_path, 'rb') as f:
+        file_data = f.read()
+
+    response = HttpResponse(file_data, content_type=filetype or 'application/octet-stream')
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Headers"] = "Range"
     response["Access-Control-Expose-Headers"] = "Content-Range, Content-Length"
     response["X-Served-By"] = "django-media-serve"
-    # --- Always set Content-Disposition for these types, as the VERY LAST STEP ---
+    response["Content-Length"] = os.path.getsize(full_path)
+
+    # Set Content-Disposition
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
     ]:
-        cd = f'attachment; filename="{os.path.basename(full_path)}"'
-        response["Content-Disposition"] = cd
-        if hasattr(response, "headers"):
-            response.headers["Content-Disposition"] = cd
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    else:
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+
     return response
 
 urlpatterns = [
