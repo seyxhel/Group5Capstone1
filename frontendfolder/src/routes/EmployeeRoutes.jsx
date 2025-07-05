@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Route } from "react-router-dom";
 import ProtectedRoute from "../shared/protected/ProtectedRoute";
 import EmployeeLayout from "../employee/layouts/EmployeeLayout";
 import EmployeeHome from "../employee/pages/home/EmployeeHome";
@@ -11,7 +11,7 @@ import EmployeeFAQs from "../employee/pages/frequently-asked-questions/EmployeeF
 import NotFoundPage from "../shared/not-found-page/NotFoundPage";
 
 const EmployeeRoutes = () => (
-  <Routes>
+  <>
     <Route element={<ProtectedRoute role="employee" />}>
       <Route path="/employee" element={<EmployeeLayout />}>
         <Route path="home" element={<EmployeeHome />} />
@@ -24,7 +24,7 @@ const EmployeeRoutes = () => (
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Route>
-  </Routes>
+  </>
 );
 
 export default EmployeeRoutes;

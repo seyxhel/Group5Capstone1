@@ -1,4 +1,4 @@
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Routes } from 'react-router-dom';
 import './App.css';
 import AuthRoutes from './routes/AuthRoutes';
 import EmployeeRoutes from './routes/EmployeeRoutes';
@@ -10,9 +10,11 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <AuthRoutes />
-      <EmployeeRoutes />
-      <CoordinatorAdminRoutes />
+      <Routes>
+        {AuthRoutes()}
+        {EmployeeRoutes()}
+        {CoordinatorAdminRoutes()}
+      </Routes>
       <GlobalToast />
     </BrowserRouter>
   );
