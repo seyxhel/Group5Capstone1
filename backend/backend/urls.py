@@ -23,6 +23,7 @@ def media_serve_with_cors(request, path, document_root=None):
 
     filetype, _ = mimetypes.guess_type(full_path)
     filename = os.path.basename(full_path)
+    ext = os.path.splitext(filename)[1].lower()
     # Read file in binary mode
     with open(full_path, 'rb') as f:
         file_data = f.read()
@@ -34,12 +35,12 @@ def media_serve_with_cors(request, path, document_root=None):
     response["X-Served-By"] = "django-media-serve"
     response["Content-Length"] = os.path.getsize(full_path)
 
-    # Set Content-Disposition
+    # Set Content-Disposition (by MIME type or extension)
     if filetype in [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
         "text/csv"
-    ]:
+    ] or ext in [".docx", ".xlsx", ".csv"]:
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
     else:
         response["Content-Disposition"] = f'inline; filename="{filename}"'
