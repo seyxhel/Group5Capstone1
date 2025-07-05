@@ -18,12 +18,15 @@ const getStatusSteps = (status) =>
     completed: STATUS_COMPLETION[id].includes(status),
   }));
 
-const DetailField = ({ label, value }) => (
-  <fieldset>
-    <label>{label}</label>
-    <p>{value || 'N/A'}</p>
-  </fieldset>
-);
+const DetailField = ({ label, value }) => {
+  const id = `detail-${label.replace(/\s+/g, '-').toLowerCase()}`;
+  return (
+    <fieldset>
+      <label htmlFor={id}>{label}</label>
+      <p id={id}>{value || 'N/A'}</p>
+    </fieldset>
+  );
+};
 
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
