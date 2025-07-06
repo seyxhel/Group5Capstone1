@@ -33,6 +33,7 @@ export default function EmployeeTicketSubmissionForm() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [subjectLengthError, setSubjectLengthError] = useState("");
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files);
@@ -69,8 +70,9 @@ export default function EmployeeTicketSubmissionForm() {
   };
 
   const onSubmit = async (data) => {
+    setSubjectLengthError("");
     if (data.subject && data.subject.length > 70) {
-      toast.error('Subject should be 70 characters or less.');
+      setSubjectLengthError("Subject should be 70 characters or less.");
       return;
     }
     setIsSubmitting(true);
@@ -137,7 +139,7 @@ export default function EmployeeTicketSubmissionForm() {
             label="Subject"
             required
             autoComplete="off"
-            error={errors.subject}
+            error={errors.subject || (subjectLengthError ? { message: subjectLengthError } : undefined)}
             render={() => (
               <input
                 type="text"
@@ -149,7 +151,7 @@ export default function EmployeeTicketSubmissionForm() {
                     if (/^[ .]+$/.test(value)) return 'Subject cannot be only spaces, dots, or special characters';
                     if (/^\d+$/.test(value.trim())) return 'Subject must contain at least one letter if it has a number';
                     if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Subject must contain at least one letter if it has a number';
-                    if (/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(value)) return 'Subject cannot contain emojis';
+                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Subject cannot contain emojis';
                     return true;
                   },
                 })}
@@ -200,7 +202,7 @@ export default function EmployeeTicketSubmissionForm() {
               <textarea
                 rows={5}
                 placeholder="Provide a detailed description..."
-                maxLength={1500}
+                maxLength={500}
                 {...register('description', {
                   required: 'Description is required',
                   validate: value => {
@@ -208,9 +210,8 @@ export default function EmployeeTicketSubmissionForm() {
                     if (/^[ .]+$/.test(value)) return 'Description cannot be only spaces, dots, or special characters';
                     if (/^\d+$/.test(value.trim())) return 'Description must contain at least one letter if it has a number';
                     if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Description must contain at least one letter if it has a number';
-                    if (/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(value)) return 'Description cannot contain emojis';
-                    if (value.length < 1000) return 'Description must be at least 1,000 characters.';
-                    if (value.length > 1500) return 'Description must not exceed 1,500 characters.';
+                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Description cannot contain emojis';
+                    if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
                 })}
