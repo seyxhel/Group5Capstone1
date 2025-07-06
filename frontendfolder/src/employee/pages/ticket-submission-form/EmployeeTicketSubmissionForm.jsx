@@ -69,6 +69,10 @@ export default function EmployeeTicketSubmissionForm() {
   };
 
   const onSubmit = async (data) => {
+    if (data.subject && data.subject.length > 70) {
+      toast.error('Subject should be 70 characters or less.');
+      return;
+    }
     setIsSubmitting(true);
 
     const requiredFields = ['subject', 'category', 'subCategory', 'description'];
@@ -140,12 +144,14 @@ export default function EmployeeTicketSubmissionForm() {
                 placeholder="Enter ticket subject"
                 {...register('subject', {
                   required: 'Subject is required',
-                  validate: value =>
-                    value.trim().length > 0
-                      ? /[a-zA-Z0-9]/.test(value)
-                        ? true
-                        : 'Subject must contain at least one letter or number'
-                      : 'Subject cannot be empty',
+                  validate: value => {
+                    if (!value.trim()) return 'Subject cannot be empty';
+                    if (/^[ .]+$/.test(value)) return 'Subject cannot be only spaces, dots, or special characters';
+                    if (/^\d+$/.test(value.trim())) return 'Subject must contain at least one letter if it has a number';
+                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Subject must contain at least one letter if it has a number';
+                    if (/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(value)) return 'Subject cannot contain emojis';
+                    return true;
+                  },
                 })}
               />
             )}
@@ -194,14 +200,19 @@ export default function EmployeeTicketSubmissionForm() {
               <textarea
                 rows={5}
                 placeholder="Provide a detailed description..."
+                maxLength={1500}
                 {...register('description', {
                   required: 'Description is required',
-                  validate: value =>
-                    value.trim().length > 0
-                      ? /[a-zA-Z0-9]/.test(value)
-                        ? true
-                        : 'Description must contain at least one letter or number'
-                      : 'Description cannot be empty',
+                  validate: value => {
+                    if (!value.trim()) return 'Description cannot be empty';
+                    if (/^[ .]+$/.test(value)) return 'Description cannot be only spaces, dots, or special characters';
+                    if (/^\d+$/.test(value.trim())) return 'Description must contain at least one letter if it has a number';
+                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Description must contain at least one letter if it has a number';
+                    if (/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(value)) return 'Description cannot contain emojis';
+                    if (value.length < 1000) return 'Description must be at least 1,000 characters.';
+                    if (value.length > 1500) return 'Description must not exceed 1,500 characters.';
+                    return true;
+                  },
                 })}
               />
             )}
