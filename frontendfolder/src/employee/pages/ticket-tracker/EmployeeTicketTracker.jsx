@@ -104,15 +104,7 @@ export default function EmployeeTicketTracker() {
               </div>
             </header>
 
-            <div className={styles.timestamp}>Created at: {formatDate(submit_date)}</div>
-
             <div className={styles.ticketDetails}>
-              <DetailField label="Priority" value={priority} />
-              <DetailField label="Department" value={department} />
-              <DetailField label="Assigned Agent" value={assigned_to?.name} />
-              <DetailField label="Scheduled Request" value={scheduled_date} />
-              <DetailField label="Date Created" value={formatDate(submit_date)} />
-              <DetailField label="Last Updated" value={formatDate(update_date)} />
               <DetailField label="Subject" value={subject} />
               <DetailField label="Category" value={category} />
               <DetailField label="Sub-Category" value={sub_category} />
@@ -151,6 +143,15 @@ export default function EmployeeTicketTracker() {
                 )}
               </div>
             </section>
+
+            <div className={styles.ticketDetails}>
+              <DetailField label="Priority" value={priority} />
+              <DetailField label="Department" value={department} />
+              <DetailField label="Assigned Agent" value={assigned_to?.name} />
+              <DetailField label="Scheduled Request" value={scheduled_date} />
+              <DetailField label="Date Created" value={formatDate(submit_date)} />
+              <DetailField label="Last Updated" value={formatDate(update_date)} />
+            </div>
           </section>
         </div>
 

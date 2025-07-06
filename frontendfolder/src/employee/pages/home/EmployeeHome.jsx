@@ -14,6 +14,7 @@ const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
+  const [hasCreatedTicket, setHasCreatedTicket] = useState(false);
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -24,6 +25,7 @@ const EmployeeHome = () => {
         });
         if (res.ok) {
           const allTickets = await res.json();
+          setHasCreatedTicket(Array.isArray(allTickets) && allTickets.length > 0);
           // Only active tickets
           const activeTickets = allTickets; // No filter, show all tickets
           // Sort and slice for recent
@@ -35,11 +37,11 @@ const EmployeeHome = () => {
             .slice(0, 5);
           setRecentTickets(sorted);
         } else {
-          // Optionally handle unauthorized or error responses
+          setHasCreatedTicket(false);
           setRecentTickets([]);
         }
       } catch (err) {
-        console.error("Failed to fetch tickets:", err);
+        setHasCreatedTicket(false);
         setRecentTickets([]);
       }
     };
@@ -114,17 +116,22 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          <button className={styles.trackBtn} onClick={handleTrackTickets}>
-            Track Active Tickets
-          </button>
+          {hasCreatedTicket && (
+            <button className={styles.trackBtn} onClick={handleTrackTickets}>
+              Track Active Tickets
+            </button>
+          )}
         </div>
 
         {recentTickets.length === 0 ? (
           <div className={styles.noTickets}>
             <p>No active tickets to display.</p>
-            <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
-              Submit a Ticket
-            </button>
+            {/* Only show Submit a Ticket if user has ever created a ticket */}
+            {hasCreatedTicket && (
+              <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
+                Submit a Ticket
+              </button>
+            )}
           </div>
         ) : (
           <div className={styles.ticketList}>
