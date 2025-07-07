@@ -203,13 +203,7 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
                 <li>Do not upload or transmit harmful, offensive, or malicious content.</li>
                 <li>Do not attempt to access restricted or administrative areas of the System.</li>
               </ul>
-              <h3>7. Data Collection and Privacy</h3>
-              <ul>
-                <li>The System collects data such as your name, contact details, and ticket history to facilitate support.</li>
-                <li>All data will be treated confidentially and used only for internal support purposes.</li>
-                <li>Your data will not be shared externally without your consent, in compliance with applicable data privacy laws.</li>
-              </ul>
-              <h3>8. System Availability and Maintenance</h3>
+              <h3>7. System Availability and Maintenance</h3>
               <p>
                 The System is provided on an "as-is" and "as-available" basis.
                 While we strive to maintain accessible and functional systems, we
@@ -221,28 +215,28 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
                 system availability. We will make reasonable efforts to notify
                 users in advance of any planned outages.
               </p>
-              <h3>9. Limitation of Liability</h3>
+              <h3>8. Limitation of Liability</h3>
               <p>
                 To the fullest extent permitted by law, the organization and its
                 affiliates are not liable for any indirect, incidental, special,
                 or consequential damages arising out of or in connection with
                 your use of the System.
               </p>
-              <h3>10. Changes to Terms and Conditions</h3>
+              <h3>9. Changes to Terms and Conditions</h3>
               <p>
                 We may update these Terms and Conditions from time to time. You
                 will be notified of any significant changes, and continued use of
                 the System after updates constitutes acceptance of the revised
                 terms.
               </p>
-              <h3>11. Governing Law</h3>
+              <h3>10. Governing Law</h3>
               <p>
                 These Terms and Conditions are governed by and construed in
                 accordance with the laws of the jurisdiction in which the
                 organization is located, without regard to its conflict of law
                 principles.
               </p>
-              <h3>12. Contact Information</h3>
+              <h3>11. Contact Information</h3>
               <p>
                 For any questions or concerns regarding these Terms and
                 Conditions, please contact: SmartSupport operators
