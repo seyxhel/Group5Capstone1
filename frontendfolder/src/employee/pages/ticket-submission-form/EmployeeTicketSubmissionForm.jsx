@@ -26,7 +26,10 @@ export default function EmployeeTicketSubmissionForm() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm();
+  } = useForm({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+  });
 
   const navigate = useNavigate();
   const selectedCategory = watch('category');
@@ -144,17 +147,23 @@ export default function EmployeeTicketSubmissionForm() {
               <input
                 type="text"
                 placeholder="Enter ticket subject"
+                maxLength={70}
                 {...register('subject', {
-                  required: 'Subject is required',
+                  required: 'Subject is required.',
                   validate: value => {
-                    if (!value.trim()) return 'Subject cannot be empty';
-                    if (/^[ .]+$/.test(value)) return 'Subject cannot be only spaces, dots, or special characters';
-                    if (/^\d+$/.test(value.trim())) return 'Subject must contain at least one letter if it has a number';
-                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Subject must contain at least one letter if it has a number';
-                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Subject cannot contain emojis';
+                    if (!value.trim()) return 'Subject is required.';
+                    if (/^[ .]+$/.test(value)) return 'Subject must contain letter/s.';
+                    if (/^\d+$/.test(value.trim())) return 'Subject must contain letter/s.';
+                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Subject must contain letter/s.';
+                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
+                    if (/[\u0600-\u06FF]/.test(value)) return 'Invalid character.'; // Arabic Unicode block
                     return true;
                   },
                 })}
+                onInput={e => {
+                  // Trigger validation on every input
+                  e.target.form && e.target.form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }}
               />
             )}
           />
@@ -204,17 +213,22 @@ export default function EmployeeTicketSubmissionForm() {
                 placeholder="Provide a detailed description..."
                 maxLength={500}
                 {...register('description', {
-                  required: 'Description is required',
+                  required: 'Description is required.',
                   validate: value => {
-                    if (!value.trim()) return 'Description cannot be empty';
-                    if (/^[ .]+$/.test(value)) return 'Description cannot be only spaces, dots, or special characters';
-                    if (/^\d+$/.test(value.trim())) return 'Description must contain at least one letter if it has a number';
-                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Description must contain at least one letter if it has a number';
-                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Description cannot contain emojis';
+                    if (!value.trim()) return 'Description is required.';
+                    if (/^[ .]+$/.test(value)) return 'Description must contain letter/s.';
+                    if (/^\d+$/.test(value.trim())) return 'Description must contain letter/s.';
+                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Description must contain letter/s.';
+                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
+                    if (/[\u0600-\u06FF]/.test(value)) return 'Invalid character.'; // Arabic Unicode block
                     if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
                 })}
+                onInput={e => {
+                  // Trigger validation on every input
+                  e.target.form && e.target.form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }}
               />
             )}
           />
