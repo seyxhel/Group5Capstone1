@@ -470,9 +470,8 @@ export default function SmartSupportEmployeeCreateAccount() {
                     type={showConfirmPassword ? "text" : "password"}
                     className={styles.input}
                     autoComplete="off"
-                    onPaste={e => {
-                      if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
-                    }}
+                    // Prevent pasting in confirm password field
+                    onPaste={e => e.preventDefault()}
                     onInput={e => {
                       if (emojiRegex.test(e.target.value)) {
                         e.target.value = e.target.value.replace(emojiRegex, '');
@@ -522,6 +521,7 @@ export default function SmartSupportEmployeeCreateAccount() {
                   <span className={styles.andText}> and </span>
                   <span className={styles.link}>Terms and Conditions</span>
                 </span>
+                <span className={styles.required}> *</span> {/* <-- Add this for red asterisk */}
               </label>
               {errors.terms && <span className={styles.errorMsg}>{errors.terms}</span>}
             </div>
