@@ -180,6 +180,24 @@
   box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
 }
 
+/* === CLOSE BUTTON === */
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  font-size: 2rem;
+  color: #888;
+  cursor: pointer;
+  z-index: 10;
+  transition: color 0.2s;
+}
+
+.closeButton:hover {
+  color: #d32f2f;
+}
+
 /* === ANIMATION === */
 @keyframes fadeIn {
   from {

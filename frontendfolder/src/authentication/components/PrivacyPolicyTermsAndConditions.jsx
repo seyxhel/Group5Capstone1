@@ -22,7 +22,27 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
 
   return (
     <div className={styles.modalOverlay}>
-      <div className={styles.container}>
+      <div className={styles.container} style={{ position: "relative" }}>
+        {/* Close (X) button in the upper right */}
+        <button
+          type="button"
+          className={styles.closeButton}
+          onClick={handleCancel}
+          aria-label="Close"
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 20,
+            background: "transparent",
+            border: "none",
+            fontSize: "2rem",
+            color: "#888",
+            cursor: "pointer",
+            zIndex: 10,
+          }}
+        >
+          &times;
+        </button>
         <h2 className={styles.header}>
           {step === "privacy" ? "Privacy Policy" : "Terms and Conditions"}
         </h2>
@@ -242,10 +262,10 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
           ) : (
             <>
               <button
-                onClick={handleCancel}
+                onClick={handleBack}
                 className={`${styles.button} ${styles.buttonOutline}`}
               >
-                Cancel
+                Back
               </button>
               <button
                 onClick={handleAgree}
