@@ -14,6 +14,7 @@ import UploadProfilePicture from "../../../shared/buttons/UploadProfilePicture";
 
 const namePattern = /^[a-zA-Z.\-'\s]+$/;
 const letterPresencePattern = /[a-zA-Z]/;
+const emojiRegex = /([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u;
 
 const getPasswordErrorMessage = (password) => {
   if (!password || password.trim() === "") {
@@ -206,16 +207,32 @@ export default function SmartSupportEmployeeCreateAccount() {
       <>
         <label>
           {label}
-          {name !== "middleName" && <span className={styles.required}>*</span>}
+          {name !== "middleName" && <span className={styles.required}> *</span>}
         </label>
         <input
           type={type}
           className={styles.input}
           placeholder={placeholder}
           autoComplete="off"
+          onPaste={e => {
+            if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
+          }}
+          onInput={e => {
+            if (emojiRegex.test(e.target.value)) {
+              e.target.value = e.target.value.replace(emojiRegex, '');
+            }
+          }}
           {...register(name, {
             required: name !== "middleName" && "Please fill in the required field.",
             ...rules,
+            validate: v => {
+              if (emojiRegex.test(v)) return "Invalid character.";
+              if (rules.validate) {
+                const res = rules.validate(v);
+                if (res !== true) return res;
+              }
+              return true;
+            },
             ...(name !== "email" && {
               onChange: (e) => {
                 const value = e.target.value;
@@ -280,6 +297,14 @@ export default function SmartSupportEmployeeCreateAccount() {
                   type="text"
                   className={styles.input}
                   autoComplete="off"
+                  onPaste={e => {
+                    if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
+                  }}
+                  onInput={e => {
+                    if (emojiRegex.test(e.target.value)) {
+                      e.target.value = e.target.value.replace(emojiRegex, '');
+                    }
+                  }}
                   {...register("middleName", {
                     validate: (v) =>
                       !v ||
@@ -289,14 +314,6 @@ export default function SmartSupportEmployeeCreateAccount() {
                         : !letterPresencePattern.test(v)
                         ? "Invalid Middle Name."
                         : true),
-                    onChange: (e) => {
-                      const value = e.target.value;
-                      const capitalized = value
-                        ? value.charAt(0).toUpperCase() + value.slice(1)
-                        : "";
-                      e.target.value = capitalized;
-                      return capitalized;
-                    },
                   })}
                 />
                 {errors.middleName && <span className={styles.errorMsg}>{errors.middleName.message}</span>}
@@ -320,7 +337,7 @@ export default function SmartSupportEmployeeCreateAccount() {
             {renderFieldset(
               <>
                 <label>
-                  Company ID <span className={styles.required}>*</span>
+                  Company ID <span className={styles.required}> *</span>
                 </label>
                 <div className={styles.companyIdGroup}>
                   <div className={styles.prefixWrapper}>
@@ -333,6 +350,16 @@ export default function SmartSupportEmployeeCreateAccount() {
                       maxLength={4}
                       placeholder="0000"
                       autoComplete="off"
+                      pattern="[0-9]*"
+                      onKeyDown={e => {
+                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={e => {
+                        const pasted = e.clipboardData.getData('text');
+                        if (!/^\d+$/.test(pasted)) e.preventDefault();
+                      }}
                       {...register("companyId", {
                         required: "Please fill in the required field.",
                         pattern: {
@@ -403,15 +430,25 @@ export default function SmartSupportEmployeeCreateAccount() {
                   <input
                     type={showPassword ? "text" : "password"}
                     className={styles.input}
+                    onPaste={e => {
+                      if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
+                    }}
+                    onInput={e => {
+                      if (emojiRegex.test(e.target.value)) {
+                        e.target.value = e.target.value.replace(emojiRegex, '');
+                      }
+                    }}
                     {...register("password", {
-                      validate: (v) => getPasswordErrorMessage(v),
+                      validate: (v) => {
+                        if (emojiRegex.test(v)) return "Invalid character.";
+                        return getPasswordErrorMessage(v);
+                      },
                     })}
                   />
                   {passwordValue && (
                     <span
                       className={styles.showPassword}
                       onClick={() => {
-                        console.log("Eye icon clicked!");
                         setShowPassword((prev) => !prev);
                       }}
                     >
@@ -433,12 +470,21 @@ export default function SmartSupportEmployeeCreateAccount() {
                     type={showConfirmPassword ? "text" : "password"}
                     className={styles.input}
                     autoComplete="off"
+                    onPaste={e => {
+                      if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
+                    }}
+                    onInput={e => {
+                      if (emojiRegex.test(e.target.value)) {
+                        e.target.value = e.target.value.replace(emojiRegex, '');
+                      }
+                    }}
                     {...register("confirmPassword", {
                       required: "Please fill in the required field.",
-                      validate: (val) =>
-                        val === watch("password") || "Password did not match.",
+                      validate: (val) => {
+                        if (emojiRegex.test(val)) return "Invalid character.";
+                        return val === watch("password") || "Password did not match.";
+                      },
                     })}
-                    onPaste={e => e.preventDefault()}
                   />
                   {confirmPasswordValue && (
                     <span
