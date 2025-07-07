@@ -19,6 +19,9 @@ const ALLOWED_FILE_TYPES = [
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
+const namePattern = /^[a-zA-Z.\-'\s]+$/;
+const letterPresencePattern = /[a-zA-Z]/;
+
 export default function EmployeeTicketSubmissionForm() {
   const {
     register,
@@ -152,11 +155,10 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Subject is required.',
                   validate: value => {
                     if (!value.trim()) return 'Subject is required.';
-                    if (/^[ .]+$/.test(value)) return 'Subject must contain letter/s.';
+                    if (!namePattern.test(value)) return 'Invalid character.';
+                    if (!letterPresencePattern.test(value)) return 'Subject must contain letter/s.';
                     if (/^\d+$/.test(value.trim())) return 'Subject must contain letter/s.';
-                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Subject must contain letter/s.';
                     if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
-                    if (/[\u0600-\u06FF]/.test(value)) return 'Invalid character.'; // Arabic Unicode block
                     return true;
                   },
                 })}
@@ -174,7 +176,7 @@ export default function EmployeeTicketSubmissionForm() {
             required
             error={errors.category}
             render={() => (
-              <select {...register('category', { required: 'Category is required' })}>
+              <select {...register('category', { required: 'Category is required.' })}>
                 <option value="">Select Category</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -191,7 +193,7 @@ export default function EmployeeTicketSubmissionForm() {
             render={() => (
               <select
                 disabled={!selectedCategory}
-                {...register('subCategory', { required: 'Sub-Category is required' })}
+                {...register('subCategory', { required: 'Sub-Category is required.' })}
               >
                 <option value="">Select Sub-Category</option>
                 {selectedCategory &&
@@ -216,11 +218,10 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Description is required.',
                   validate: value => {
                     if (!value.trim()) return 'Description is required.';
-                    if (/^[ .]+$/.test(value)) return 'Description must contain letter/s.';
+                    if (!namePattern.test(value)) return 'Invalid character.';
+                    if (!letterPresencePattern.test(value)) return 'Description must contain letter/s.';
                     if (/^\d+$/.test(value.trim())) return 'Description must contain letter/s.';
-                    if (!/[a-zA-Z]/.test(value) && /\d/.test(value)) return 'Description must contain letter/s.';
                     if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
-                    if (/[\u0600-\u06FF]/.test(value)) return 'Invalid character.'; // Arabic Unicode block
                     if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
