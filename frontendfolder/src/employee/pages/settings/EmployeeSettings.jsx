@@ -5,6 +5,13 @@ import styles from './EmployeeSettings.module.css';
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app"; // For image preview
 
+const ALLOWED_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+];
+const MAX_IMAGE_SIZE_MB = 2;
+
 const getPasswordErrorMessage = (password) => {
   const requirements = [];
   if (!password || password.trim() === "") {
@@ -46,6 +53,7 @@ const EmployeeSettings = () => {
   const [currentPasswordError, setCurrentPasswordError] = useState("");
   const [newPasswordError, setNewPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [imageError, setImageError] = useState("");
 
   // Track if user has touched (focused and blurred) each field
   const [touched, setTouched] = useState({
@@ -73,8 +81,27 @@ const EmployeeSettings = () => {
   // Handle image file selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    setImageFile(file);
-    setImagePreview(file ? URL.createObjectURL(file) : null);
+    if (file) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setImageError("Only PNG, JPG, and JPEG images are allowed.");
+        setImageFile(null);
+        setImagePreview(null);
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+        setImageError(`Image must be less than ${MAX_IMAGE_SIZE_MB}MB.`);
+        setImageFile(null);
+        setImagePreview(null);
+        return;
+      }
+      setImageError("");
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    } else {
+      setImageError("");
+      setImageFile(null);
+      setImagePreview(null);
+    }
   };
 
   // Upload profile image
@@ -218,7 +245,7 @@ const EmployeeSettings = () => {
             <input
               id="profile-image"
               type="file"
-              accept="image/*"
+              accept={ALLOWED_IMAGE_TYPES.join(",")}
               onChange={handleImageChange}
               style={{ flex: "none" }}
             />
@@ -230,6 +257,7 @@ const EmployeeSettings = () => {
                   : "No file chosen"}
             </span>
           </div>
+          {imageError && <span className={styles.errorMessage}>{imageError}</span>}
         </div>
         <button className={styles.saveButton} onClick={handleImageUpload}>Save Changes</button>
       </div>

@@ -125,7 +125,7 @@ const SmartSupportLogIn = () => {
                   required: true,
                   pattern: {
                     value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
-                    message: "Invalid email format",
+                    message: "Invalid email format.",
                   },
                 })}
               />

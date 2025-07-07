@@ -74,7 +74,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
           <label>
             Priority Level <span className={styles.required}>*</span>
           </label>
-          <select {...register("priority", { required: "Priority Level is required" })} className={styles.input}>
+          <select {...register("priority", { required: "Priority Level is required." })} className={styles.input}>
             <option value="">Select Priority Level</option>
             {priorityLevelOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -87,7 +87,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
           <label>
             Department <span className={styles.required}>*</span>
           </label>
-          <select {...register("department", { required: "Department is required" })} className={styles.input}>
+          <select {...register("department", { required: "Department is required." })} className={styles.input}>
             <option value="">Select Department</option>
             {departmentOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>

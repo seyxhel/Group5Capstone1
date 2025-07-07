@@ -92,7 +92,7 @@ const SmartSupportForgotPassword = () => {
                 type="text"
                 placeholder="Enter email"
                 {...register("email", {
-                  required: "Please fill in the required field",
+                  required: "Please fill in the required field.",
                   pattern: {
                     value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
                     message: "Invalid Email.",
