@@ -185,16 +185,7 @@ export default function SmartSupportResetPassword() {
                 value={confirm}
                 onChange={e => handleConfirmChange(e.target.value)}
                 style={{ width: "100%", paddingRight: "40px" }}
-                onPaste={e => {
-                  e.preventDefault();
-                  const text = removeEmojis(e.clipboardData.getData("text"));
-                  setConfirm(text);
-                  if (password !== text) {
-                    setConfirmError("Passwords do not match.");
-                  } else {
-                    setConfirmError("");
-                  }
-                }}
+                onPaste={e => e.preventDefault()} // Prevent pasting anything
               />
               {confirm && (
                 <span
