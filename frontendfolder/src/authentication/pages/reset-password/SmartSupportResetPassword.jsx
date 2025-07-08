@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 import Alert from "../../../shared/alert/Alert";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
 import Logo from "../../../shared/assets/MapLogo.png";
@@ -12,6 +12,7 @@ function removeEmojis(str) {
 }
 
 export default function SmartSupportResetPassword() {
+  const { uidb64, token } = useParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -81,11 +82,37 @@ export default function SmartSupportResetPassword() {
     setSuccess("");
     setSubmitting(true);
 
-    setTimeout(() => {
-      setSuccess("Password has been reset successfully!");
+    // Validate before sending
+    if (!password || !confirm || passwordError || confirmError) {
+      setError("Please fix the errors above.");
       setSubmitting(false);
-      setTimeout(() => navigate("/"), 2000);
-    }, 1500);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "https://smartsupport-hdts-backend.up.railway.app/api/employee/reset-password/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uidb64,
+            token,
+            new_password: password,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess("Password has been reset successfully!");
+        setTimeout(() => navigate("/"), 2000);
+      } else {
+        setError(data.detail || "Failed to reset password.");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    }
+    setSubmitting(false);
   };
 
   return (
@@ -201,12 +228,6 @@ export default function SmartSupportResetPassword() {
             {submitting ? <LoadingButton /> : "Change Password"}
           </button>
         </form>
-
-        <p className={styles.backToLogin}>
-          <span className={styles.createAccountLink} onClick={() => navigate("/")}>
-            Login
-          </span>
-        </p>
       </section>
     </main>
   );
