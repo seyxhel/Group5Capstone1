@@ -138,6 +138,7 @@ const SmartSupportLogIn = () => {
                 <input
                   type={isShowPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  autoComplete="new-password" // Prevent browser autofill
                   {...register("password", { required: true })}
                 />
                 {password && (

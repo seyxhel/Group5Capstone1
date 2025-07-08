@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { toast } from "react-toastify";
 import styles from './EmployeeSettings.module.css';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
@@ -117,7 +118,7 @@ const EmployeeSettings = () => {
       body: formData,
     });
     if (res.ok) {
-      setMessage("Profile image updated!");
+      toast.success("Profile image updated!");
       // Fetch the updated profile to get the new image filename
       const profileRes = await fetch(`${API_URL}employee/profile/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -127,6 +128,10 @@ const EmployeeSettings = () => {
         setProfile(data);
         setImagePreview(data.image ? `${MEDIA_URL}${data.image}` : null);
         setImageFile(null);
+        // Update localStorage so nav/profile uses the new image immediately
+        if (data.image) {
+          localStorage.setItem("employee_image", data.image);
+        }
       }
     } else {
       setMessage("Failed to upload image.");
