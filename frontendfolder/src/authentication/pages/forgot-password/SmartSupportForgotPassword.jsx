@@ -86,7 +86,7 @@ const SmartSupportForgotPassword = () => {
 
           <form onSubmit={handleSubmit(handleForgotPassword)} className={styles.form}>
             <fieldset className={styles.fieldset}>
-              <label htmlFor="email">Enter:</label>
+              <label htmlFor="email">Email:</label>
               <input
                 id="email"
                 type="text"
