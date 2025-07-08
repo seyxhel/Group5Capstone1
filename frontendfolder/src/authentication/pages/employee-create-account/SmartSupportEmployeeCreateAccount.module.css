@@ -286,7 +286,6 @@
 }
 
 .andText {
-  color: #222;
-  font-weight: 400;
-  /* No text-decoration here, it's inherited from .underlineLinks */
+  color: inherit;      /* Inherit color from parent */
+  font-weight: 600;    /* Normal font weight */
 }
