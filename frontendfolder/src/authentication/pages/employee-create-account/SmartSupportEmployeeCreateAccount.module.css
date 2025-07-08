@@ -191,6 +191,8 @@
   font-size: 0.875rem;
   flex-wrap: nowrap;      /* Prevent wrapping */
   white-space: nowrap;    /* Prevent text wrapping */
+  margin-top: -0.5rem;
+  margin-bottom: -0.5rem;
 }
 
 .checkboxWrapper input[type="checkbox"] {
