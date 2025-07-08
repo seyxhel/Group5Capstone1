@@ -417,7 +417,7 @@ export default function SmartSupportEmployeeCreateAccount() {
               required: "Please fill in the required field.",
               pattern: {
                 value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
-                message: "Invalid Email.",
+                message: "Invalid email format.",
               },
             }, "@gmail.com")}
 
