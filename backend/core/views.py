@@ -19,7 +19,7 @@ import os
 from PIL import Image
 from io import BytesIO
 from django.core.files.base import ContentFile
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
 from django.contrib.auth.tokens import default_token_generator
@@ -752,13 +752,41 @@ def forgot_password(request):
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
     reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
 
-    send_mail(
-        subject="SmartSupport Password Reset",
-        message=f"Click the link to reset your password: {reset_link}",
-        from_email="sethpelagio20@gmail.com",
-        recipient_list=[email],
-        fail_silently=False,
+    subject = "SmartSupport Password Reset"
+    from_email = "sethpelagio20@gmail.com"
+    to = [email]
+    text_content = (
+        f"Hello {user.first_name},\n\n"
+        "We received a request to reset your SmartSupport account password.\n\n"
+        "To set a new password, please click the link below:\n"
+        f"{reset_link}\n\n"
+        "If you did not request this, you can safely ignore this email.\n\n"
+        "Thank you,\n"
+        "SmartSupport Help Desk Team"
     )
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #222;">
+        <div style="max-width: 480px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px;">
+          <h2 style="color: #3b82f6; margin-bottom: 16px;">SmartSupport Password Reset</h2>
+          <p>Hello {user.first_name},</p>
+          <p>We received a request to reset your <b>SmartSupport</b> account password.</p>
+          <p>
+            <a href="{reset_link}" style="display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 40px; text-decoration: none; font-weight: bold;">
+              Reset Password
+            </a>
+          </p>
+          <p style="margin-top: 24px;">If you did not request this, you can safely ignore this email.</p>
+          <p style="margin-top: 32px; color: #888;">Thank you,<br>SmartSupport Help Desk Team</p>
+        </div>
+      </body>
+    </html>
+    """
+
+    msg = EmailMultiAlternatives(subject, text_content, from_email, to)
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
     return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
 
 from rest_framework.decorators import api_view, permission_classes
