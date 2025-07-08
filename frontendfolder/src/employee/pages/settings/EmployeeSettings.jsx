@@ -105,7 +105,7 @@ const EmployeeSettings = () => {
     }
   };
 
-  // Upload profile image
+  // Upload profile image, woah it works
   const handleImageUpload = async (e) => {
     e.preventDefault();
     if (!imageFile) return;
