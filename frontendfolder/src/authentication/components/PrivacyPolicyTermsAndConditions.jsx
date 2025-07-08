@@ -31,7 +31,7 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
           aria-label="Close"
           style={{
             position: "absolute",
-            top: 16,
+            top: 18,
             right: 20,
             background: "transparent",
             border: "none",

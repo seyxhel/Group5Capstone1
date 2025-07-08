@@ -43,6 +43,10 @@
   text-align: center;
   border-bottom: 2px solid #004879;
   padding-bottom: 0.5rem;
+  /* Move the text up inside the header */
+  line-height: 1.4;
+  padding-top: 0.2rem;
+  padding-bottom: 3.5%;   /* Add this line */
 }
 
 /* === CONTENT BOX === */
@@ -122,9 +126,9 @@
   justify-content: center;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-top: 1.2rem;
-  padding-top: 1rem;
-  border-top: 1px solid #ecf0f1;
+  margin-top: 0rem;
+  padding-top: 0rem;
+  border-top: 0px solid #ecf0f1;
 }
 
 /* === BUTTONS === */
@@ -178,6 +182,12 @@
 .buttonOutline:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+.buttonPrimary,
+.buttonOutline {
+  min-width: 140px; /* or use width: 140px; for fixed width */
+  padding: 10px 36px;
 }
 
 /* === CLOSE BUTTON === */
