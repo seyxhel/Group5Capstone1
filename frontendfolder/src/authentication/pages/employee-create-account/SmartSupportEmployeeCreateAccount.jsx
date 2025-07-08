@@ -351,10 +351,9 @@ export default function SmartSupportEmployeeCreateAccount() {
                       placeholder="0000"
                       autoComplete="off"
                       pattern="[0-9]*"
-                      onKeyDown={e => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
-                          e.preventDefault();
-                        }
+                      onInput={e => {
+                        // Remove any non-digit character, even on mobile
+                        e.target.value = e.target.value.replace(/\D/g, "");
                       }}
                       onPaste={e => {
                         const pasted = e.clipboardData.getData('text');

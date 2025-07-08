@@ -154,7 +154,7 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
               <h3>9. Contact Us</h3>
               <p>
                 If you have any questions or concerns regarding this Privacy
-                Policy, please contact: SmartSupport operators
+                Policy, please contact: SmartSupport operators.
               </p>
             </>
           ) : (
@@ -239,7 +239,7 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
               <h3>11. Contact Information</h3>
               <p>
                 For any questions or concerns regarding these Terms and
-                Conditions, please contact: SmartSupport operators
+                Conditions, please contact: SmartSupport operators.
               </p>
             </>
           )}
