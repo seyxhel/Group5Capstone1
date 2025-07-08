@@ -8,6 +8,10 @@ const getPasswordErrorMessage = (password) => {
   if (!password || password.trim() === "") {
     return "Please fill in the required field.";
   }
+  // Emoji regex (covers most emojis)
+  if (/[\p{Emoji_Presentation}\u200d]/u.test(password)) {
+    return "Invalid character.";
+  }
   if (password.length < 8) {
     requirements.push("at least 8 characters");
   }
@@ -30,6 +34,11 @@ const getPasswordErrorMessage = (password) => {
   return "";
 };
 
+function removeEmojis(str) {
+  // Removes most emojis and zero-width joiners
+  return str.replace(/[\p{Emoji_Presentation}\u200d]/gu, "");
+}
+
 export default function SmartSupportResetPassword() {
   const { uidb64, token } = useParams(); // <-- use both
   const navigate = useNavigate();
@@ -44,11 +53,11 @@ export default function SmartSupportResetPassword() {
   const [confirmError, setConfirmError] = useState("");
 
   const handlePasswordChange = (value) => {
-    setPassword(value);
-    const error = getPasswordErrorMessage(value);
+    const filtered = removeEmojis(value);
+    setPassword(filtered);
+    const error = getPasswordErrorMessage(filtered);
     setPasswordError(error);
-    // Also re-validate confirm field if it's not empty
-    if (confirm && value !== confirm) {
+    if (confirm && filtered !== confirm) {
       setConfirmError("Passwords do not match.");
     } else {
       setConfirmError("");
@@ -56,8 +65,9 @@ export default function SmartSupportResetPassword() {
   };
 
   const handleConfirmChange = (value) => {
-    setConfirm(value);
-    if (password !== value) {
+    const filtered = removeEmojis(value);
+    setConfirm(filtered);
+    if (password !== filtered) {
       setConfirmError("Passwords do not match.");
     } else {
       setConfirmError("");
@@ -102,7 +112,7 @@ export default function SmartSupportResetPassword() {
   return (
     <main className={styles.resetPage}>
       <form className={styles.form} onSubmit={handleSubmit}>
-        <h2>Set a New Password</h2>
+        <h2>Set a New Password:</h2>
         {error && <span className={styles.errorMsg}>{error}</span>}
         {success && <span className={styles.successMsg}>{success}</span>}
 
@@ -115,6 +125,13 @@ export default function SmartSupportResetPassword() {
               value={password}
               onChange={e => handlePasswordChange(e.target.value)}
               style={{ width: "100%", paddingRight: "40px" }}
+              onPaste={e => {
+                e.preventDefault();
+                const text = removeEmojis(e.clipboardData.getData("text"));
+                setPassword(text);
+                const error = getPasswordErrorMessage(text);
+                setPasswordError(error);
+              }}
             />
             {password && (
               <span
@@ -135,7 +152,7 @@ export default function SmartSupportResetPassword() {
         </div>
 
         <div className={styles.fieldGroup}>
-          <label>Confirm Password</label>
+          <label>Confirm Password:</label>
           <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showConfirm ? "text" : "password"}
@@ -143,6 +160,16 @@ export default function SmartSupportResetPassword() {
               value={confirm}
               onChange={e => handleConfirmChange(e.target.value)}
               style={{ width: "100%", paddingRight: "40px" }}
+              onPaste={e => {
+                e.preventDefault();
+                const text = removeEmojis(e.clipboardData.getData("text"));
+                setConfirm(text);
+                if (password !== text) {
+                  setConfirmError("Passwords do not match.");
+                } else {
+                  setConfirmError("");
+                }
+              }}
             />
             {confirm && (
               <span
