@@ -155,9 +155,7 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Subject is required.',
                   validate: value => {
                     if (!value.trim()) return 'Subject is required.';
-                    if (!namePattern.test(value)) return 'Invalid character.';
-                    if (!letterPresencePattern.test(value)) return 'Subject must contain letter/s.';
-                    if (/^\d+$/.test(value.trim())) return 'Subject must contain letter/s.';
+                    if (!/[a-zA-Z]/.test(value)) return 'Subject must contain at least one letter.';
                     if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
                     return true;
                   },
@@ -218,9 +216,7 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Description is required.',
                   validate: value => {
                     if (!value.trim()) return 'Description is required.';
-                    if (!namePattern.test(value)) return 'Invalid character.';
-                    if (!letterPresencePattern.test(value)) return 'Description must contain letter/s.';
-                    if (/^\d+$/.test(value.trim())) return 'Description must contain letter/s.';
+                    if (!/[a-zA-Z]/.test(value)) return 'Description must contain at least one letter.';
                     if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
                     if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
