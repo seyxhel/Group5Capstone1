@@ -104,7 +104,7 @@ const CoordinatorAdminTicketManagement = () => {
   // Get user role from localStorage (or context)
   const userRole = localStorage.getItem("user_role"); // e.g., "System Admin" or "Ticket Coordinator"
 
-  const columns = [
+  const baseColumns = [
     { key: "ticket_number", label: "Ticket Number" },
     { key: "subject", label: "Subject" },
     {
@@ -125,27 +125,40 @@ const CoordinatorAdminTicketManagement = () => {
           : "",
     },
     {
-      key: "open",
-      label: "Open",
-      render: (_, row) =>
-        userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
-          ? getTicketActions("edit", row, { onEdit: handleOpen })
-          : "—",
-    },
-    {
-      key: "reject",
-      label: "Reject",
-      render: (_, row) =>
-        userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
-          ? getTicketActions("reject", row, { onReject: handleReject })
-          : "—",
-    },
-    {
       key: "view",
       label: "View",
       render: (_, row) => getTicketActions("view", row, { onView: handleView }),
     },
   ];
+
+  // Only Ticket Coordinator can see Open/Reject columns, but NOT in Rejected Tickets table
+  const coordinatorColumns = [
+    ...baseColumns.slice(0, 8),
+    // Only show Open/Reject columns if NOT in "rejected" status table
+    ...(normalizedStatus !== "rejected"
+      ? [
+          {
+            key: "open",
+            label: "Open",
+            render: (_, row) =>
+              userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
+                ? getTicketActions("edit", row, { onEdit: handleOpen })
+                : "—",
+          },
+          {
+            key: "reject",
+            label: "Reject",
+            render: (_, row) =>
+              userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
+                ? getTicketActions("reject", row, { onReject: handleReject })
+                : "—",
+          },
+        ]
+      : []),
+    baseColumns[8], // view column
+  ];
+
+  const columns = userRole === "Ticket Coordinator" ? coordinatorColumns : baseColumns;
 
   return (
     <>
@@ -161,7 +174,7 @@ const CoordinatorAdminTicketManagement = () => {
           data={filteredTickets}
           showSelection={false}
           showFooter={false}
-          emptyMessage="No tickets found for this status or search."
+          emptyMessage="No tickets found."
         />
       </TableWrapper>
 

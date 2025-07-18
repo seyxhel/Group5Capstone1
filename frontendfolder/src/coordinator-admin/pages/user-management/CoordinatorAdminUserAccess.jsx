@@ -100,31 +100,38 @@ const CoordinatorAdminUserAccess = () => {
     { key: "department", label: "Department" },
     { key: "role", label: "Role" },
     { key: "status", label: "Status" },
-    {
-      key: "approve",
-      label: "Approve",
-      render: (_, row) =>
-        isActionable(row.status)
-          ? getUserActions("approve", row, { onApprove: () => openModal("approve", row) })
-          : "—",
-    },
-    {
-      key: "reject",
-      label: "Reject",
-      render: (_, row) =>
-        isActionable(row.status)
-          ? getUserActions("reject", row, { onReject: () => openModal("reject", row) })
-          : "—",
-    },
-    {
-      key: "view",
-      label: "View",
-      render: (_, row) =>
-        getUserActions("view", row, {
-          onView: () => navigate(`/admin/user-profile/${row.companyId}`),
-        }),
-    },
   ];
+
+  // Add Approve/Reject columns only if not on Rejected Users
+  if (normalizedStatus !== "rejected-users") {
+    columns.push(
+      {
+        key: "approve",
+        label: "Approve",
+        render: (_, row) =>
+          isActionable(row.status)
+            ? getUserActions("approve", row, { onApprove: () => openModal("approve", row) })
+            : "—",
+      },
+      {
+        key: "reject",
+        label: "Reject",
+        render: (_, row) =>
+          isActionable(row.status)
+            ? getUserActions("reject", row, { onReject: () => openModal("reject", row) })
+            : "—",
+      }
+    );
+  }
+
+  columns.push({
+    key: "view",
+    label: "View",
+    render: (_, row) =>
+      getUserActions("view", row, {
+        onView: () => navigate(`/admin/user-profile/${row.companyId}`),
+      }),
+  });
 
   return (
     <>
