@@ -104,7 +104,7 @@ const EmployeeHome = () => {
           </p>
           <ul className={styles.noticeList}>
             <li className={styles.noticeItem}>
-              Tickets will be processed within <strong>1 business day</strong>
+              Tickets should be processed within <strong>1 business day</strong>
             </li>
             <li className={styles.noticeItem}>
               Urgent requests? Call <span className={styles.phoneNumber}>+63 912 345 6789</span>

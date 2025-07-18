@@ -155,14 +155,22 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Subject is required.',
                   validate: value => {
                     if (!value.trim()) return 'Subject is required.';
-                    if (!/[a-zA-Z]/.test(value)) return 'Subject must contain at least one letter.';
-                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
+                    // Only allow English letters, numbers, spaces, and common punctuation
+                    if (!/^[a-zA-Z0-9\s.,?!'"()\-_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
+                      return 'Only English letters, numbers, and common punctuation are allowed.';
                     return true;
                   },
                 })}
                 onInput={e => {
-                  // Trigger validation on every input
-                  e.target.form && e.target.form.dispatchEvent(new Event('submit', { cancelable: true }));
+                  // Remove disallowed characters on input
+                  e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                }}
+                onPaste={e => {
+                  // Remove disallowed characters on paste
+                  e.preventDefault();
+                  const pasted = (e.clipboardData || window.clipboardData).getData('text');
+                  const filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  document.execCommand('insertText', false, filtered);
                 }}
               />
             )}
@@ -216,15 +224,20 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Description is required.',
                   validate: value => {
                     if (!value.trim()) return 'Description is required.';
-                    if (!/[a-zA-Z]/.test(value)) return 'Description must contain at least one letter.';
-                    if (/([\p{Emoji_Presentation}\p{Extended_Pictographic}])/u.test(value)) return 'Invalid character.';
+                    if (!/^[a-zA-Z0-9\s.,?!'"()\-_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
+                      return 'Only English letters, numbers, and common punctuation are allowed.';
                     if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
                 })}
                 onInput={e => {
-                  // Trigger validation on every input
-                  e.target.form && e.target.form.dispatchEvent(new Event('submit', { cancelable: true }));
+                  e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                }}
+                onPaste={e => {
+                  e.preventDefault();
+                  const pasted = (e.clipboardData || window.clipboardData).getData('text');
+                  const filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  document.execCommand('insertText', false, filtered);
                 }}
               />
             )}
