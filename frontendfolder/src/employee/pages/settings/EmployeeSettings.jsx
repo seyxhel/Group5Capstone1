@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import styles from './EmployeeSettings.module.css';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app"; // For image preview
+const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app";
 
 const ALLOWED_IMAGE_TYPES = [
   'image/png',
@@ -62,6 +62,8 @@ const EmployeeSettings = () => {
     new: false,
     confirm: false,
   });
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [currentPasswordValid, setCurrentPasswordValid] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -140,6 +142,9 @@ const EmployeeSettings = () => {
 
   // Validate fields on change
   useEffect(() => {
+    // Reset passwordChanged if user types in any field
+    setPasswordChanged(false);
+
     // Current password
     setCurrentPasswordError(
       !passwords.current ? "Please fill in the required field." : ""
@@ -154,12 +159,42 @@ const EmployeeSettings = () => {
         ? "New passwords do not match."
         : ""
     );
+  // eslint-disable-next-line
   }, [passwords]);
+
+  // Debounced current password check
+  useEffect(() => {
+    if (!passwords.current) {
+      setCurrentPasswordValid(false);
+      setMessage("");
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const token = localStorage.getItem("employee_access_token");
+      const res = await fetch(`${API_URL}employee/check-password/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ current_password: passwords.current }),
+      });
+      if (res.ok) {
+        setCurrentPasswordValid(true);
+        setMessage("");
+      } else {
+        setCurrentPasswordValid(false);
+        setMessage("Current password is incorrect.");
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line
+  }, [passwords.current]);
 
   // Handle password change
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    // Validate again before submit
     if (
       currentPasswordError ||
       newPasswordError ||
@@ -184,8 +219,10 @@ const EmployeeSettings = () => {
       }),
     });
     if (res.ok) {
-      setMessage("Password changed successfully.");
+      toast.success("Password changed successfully.");
       setPasswords({ current: "", new: "", confirm: "" });
+      setPasswordChanged(true);
+      setCurrentPasswordValid(false);
     } else {
       const data = await res.json();
       setMessage(data.detail || "Failed to change password.");
@@ -279,10 +316,12 @@ const EmployeeSettings = () => {
             <input
               type={showCurrent ? "text" : "password"}
               value={passwords.current}
-              onChange={(e) =>
-                setPasswords({ ...passwords, current: e.target.value })
-              }
-              onBlur={() => setTouched((prev) => ({ ...prev, current: true }))}
+              onChange={(e) => {
+                setPasswords({ ...passwords, current: e.target.value });
+                setPasswordChanged(false);
+                setCurrentPasswordValid(false);
+                setTouched((prev) => ({ ...prev, current: true }));
+              }}
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.current && (
@@ -300,10 +339,9 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
-          {touched.current && currentPasswordError && (
+          {touched.current && currentPasswordError && !passwordChanged && (
             <span className={styles.errorMessage}>{currentPasswordError}</span>
           )}
-          {/* Show backend error for current password */}
           {message === "Current password is incorrect." && (
             <span className={styles.errorMessage}>{message}</span>
           )}
@@ -320,9 +358,11 @@ const EmployeeSettings = () => {
               onChange={(e) => {
                 const value = e.target.value;
                 setPasswords({ ...passwords, new: value });
+                setPasswordChanged(false);
               }}
               onBlur={() => setTouched((prev) => ({ ...prev, new: true }))}
               style={{ width: "100%", paddingRight: "40px" }}
+              disabled={!currentPasswordValid}
             />
             {passwords.new && (
               <span
@@ -339,7 +379,7 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
-          {touched.new && newPasswordError && (
+          {touched.new && newPasswordError && !passwordChanged && (
             <span className={styles.errorMessage}>{newPasswordError}</span>
           )}
         </div>
@@ -352,12 +392,14 @@ const EmployeeSettings = () => {
             <input
               type={showConfirm ? "text" : "password"}
               value={passwords.confirm}
-              onChange={(e) =>
-                setPasswords({ ...passwords, confirm: e.target.value })
-              }
+              onChange={(e) => {
+                setPasswords({ ...passwords, confirm: e.target.value });
+                setPasswordChanged(false);
+              }}
               onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
-              onPaste={e => e.preventDefault()} // <-- Prevent paste
+              onPaste={e => e.preventDefault()}
               style={{ width: "100%", paddingRight: "40px" }}
+              disabled={!!newPasswordError || !passwords.new}
             />
             {passwords.confirm && (
               <span
@@ -374,7 +416,7 @@ const EmployeeSettings = () => {
               </span>
             )}
           </div>
-          {touched.confirm && confirmPasswordError && (
+          {touched.confirm && confirmPasswordError && !passwordChanged && (
             <span className={styles.errorMessage}>{confirmPasswordError}</span>
           )}
         </div>

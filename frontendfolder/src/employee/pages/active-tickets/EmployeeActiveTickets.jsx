@@ -111,6 +111,68 @@ const EmployeeActiveTickets = () => {
     });
   };
 
+  const columns = useMemo(() => {
+    // Always included columns
+    const baseCols = [
+      { key: "ticket_number", label: "Ticket Number" },
+      { key: "subject", label: "Subject" },
+      {
+        key: "status",
+        label: "Status",
+        render: (val) => (val === "New" ? "Pending" : val),
+      },
+      { key: "priority", label: "Priority", render: (val) => val || "—" },
+      { key: "department", label: "Department" },
+      { key: "category", label: "Category" },
+      { key: "sub_category", label: "Sub Category" },
+      {
+        key: "submit_date",
+        label: "Date Created",
+        render: (val) => val?.slice(0, 10),
+      },
+    ];
+
+    // Action columns
+    const withdrawCol = {
+      key: "withdraw",
+      label: "Withdraw",
+      render: (_, row) =>
+        getTicketActions("withdraw", row, {
+          onWithdraw: handleWithdraw,
+        }),
+    };
+    const closeCol = {
+      key: "close",
+      label: "Close",
+      render: (_, row) =>
+        getTicketActions("delete", row, {
+          onDelete: handleClose,
+        }),
+    };
+    const viewCol = {
+      key: "view",
+      label: "View",
+      render: (_, row) =>
+        getTicketActions("view", row, {
+          onView: handleView,
+        }),
+    };
+
+    // Determine which columns to show based on filter
+    if (
+      ["pending", "open", "in-progress", "on-hold"].includes(normalizedFilter)
+    ) {
+      // Remove Close column
+      return [...baseCols, withdrawCol, viewCol];
+    }
+    if (normalizedFilter === "resolved") {
+      // Remove Withdraw column
+      return [...baseCols, closeCol, viewCol];
+    }
+    // Default: show both Withdraw and Close
+    return [...baseCols, withdrawCol, closeCol, viewCol];
+  }, [normalizedFilter, handleWithdraw, handleClose, handleView]);
+
   return (
     <>
       <TableWrapper
@@ -121,48 +183,7 @@ const EmployeeActiveTickets = () => {
         showActions={false}
       >
         <TableContent
-          columns={[
-            { key: "ticket_number", label: "Ticket Number" },
-            { key: "subject", label: "Subject" },
-            {
-              key: "status",
-              label: "Status",
-              render: (val) => (val === "New" ? "Pending" : val),
-            },
-            { key: "priority", label: "Priority", render: (val) => val || "—" },
-            { key: "department", label: "Department" }, // <-- Add this line
-            { key: "category", label: "Category" },
-            { key: "sub_category", label: "Sub Category" },
-            {
-              key: "submit_date",
-              label: "Date Created",
-              render: (val) => val?.slice(0, 10),
-            },
-            {
-              key: "withdraw",
-              label: "Withdraw",
-              render: (_, row) =>
-                getTicketActions("withdraw", row, {
-                  onWithdraw: handleWithdraw,
-                }),
-            },
-            {
-              key: "close",
-              label: "Close",
-              render: (_, row) =>
-                getTicketActions("delete", row, {
-                  onDelete: handleClose,
-                }),
-            },
-            {
-              key: "view",
-              label: "View",
-              render: (_, row) =>
-                getTicketActions("view", row, {
-                  onView: handleView,
-                }),
-            },
-          ]}
+          columns={columns}
           data={displayedTickets}
           showSelection={false}
           showFooter={false}
