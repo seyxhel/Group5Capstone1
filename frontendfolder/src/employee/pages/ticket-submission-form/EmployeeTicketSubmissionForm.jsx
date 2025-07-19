@@ -30,7 +30,7 @@ export default function EmployeeTicketSubmissionForm() {
     watch,
     formState: { errors },
   } = useForm({
-    mode: 'onChange',
+    mode: 'all', // Validate onChange, onBlur, and onSubmit
     reValidateMode: 'onChange',
   });
 
@@ -155,18 +155,17 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Subject is required.',
                   validate: value => {
                     if (!value.trim()) return 'Subject is required.';
-                    // Only allow English letters, numbers, spaces, and common punctuation
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
+                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
                       return 'Only English letters, numbers, and common punctuation are allowed.';
+                    if (!/[a-zA-Z]/.test(value))
+                      return 'Subject must contain letter.';
                     return true;
                   },
                 })}
                 onInput={e => {
-                  // Remove disallowed characters on input
                   e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
                 }}
                 onPaste={e => {
-                  // Remove disallowed characters on paste
                   e.preventDefault();
                   const pasted = (e.clipboardData || window.clipboardData).getData('text');
                   const filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
@@ -224,8 +223,10 @@ export default function EmployeeTicketSubmissionForm() {
                   required: 'Description is required.',
                   validate: value => {
                     if (!value.trim()) return 'Description is required.';
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
+                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
                       return 'Only English letters, numbers, and common punctuation are allowed.';
+                    if (!/[a-zA-Z]/.test(value))
+                      return 'Description must contain letter.';
                     if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
