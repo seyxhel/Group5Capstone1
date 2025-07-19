@@ -156,7 +156,7 @@ const EmployeeSettings = () => {
       !passwords.confirm
         ? "Please fill in the required field."
         : passwords.new && passwords.confirm !== passwords.new
-        ? "New passwords do not match."
+        ? "Password did not match."
         : ""
     );
   // eslint-disable-next-line
@@ -223,6 +223,7 @@ const EmployeeSettings = () => {
       setPasswords({ current: "", new: "", confirm: "" });
       setPasswordChanged(true);
       setCurrentPasswordValid(false);
+      setTouched({ current: false, new: false, confirm: false }); // <-- Add this line
     } else {
       const data = await res.json();
       setMessage(data.detail || "Failed to change password.");
@@ -342,7 +343,7 @@ const EmployeeSettings = () => {
           {touched.current && currentPasswordError && !passwordChanged && (
             <span className={styles.errorMessage}>{currentPasswordError}</span>
           )}
-          {message === "Current password is incorrect." && (
+          {message === "Current password is incorrect." && !passwordChanged && (
             <span className={styles.errorMessage}>{message}</span>
           )}
         </div>
