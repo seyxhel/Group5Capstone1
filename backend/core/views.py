@@ -882,3 +882,14 @@ def reset_password(request):
     user.set_password(new_password)
     user.save()
     return Response({'detail': 'Password reset successful.'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_password(request):
+    user = request.user
+    current_password = request.data.get('current_password')
+    if not current_password:
+        return Response({'detail': 'Current password is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if user.check_password(current_password):
+        return Response({'detail': 'Password correct.'}, status=status.HTTP_200_OK)
+    return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
