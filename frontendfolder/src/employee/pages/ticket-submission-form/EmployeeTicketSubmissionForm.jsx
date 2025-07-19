@@ -163,12 +163,16 @@ export default function EmployeeTicketSubmissionForm() {
                   },
                 })}
                 onInput={e => {
-                  e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  // Remove disallowed characters and trim to 70 chars
+                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  if (filtered.length > 70) filtered = filtered.slice(0, 70);
+                  e.target.value = filtered;
                 }}
                 onPaste={e => {
                   e.preventDefault();
-                  const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  const filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
+                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  filtered = filtered.slice(0, 70 - e.target.value.length);
                   document.execCommand('insertText', false, filtered);
                 }}
               />
@@ -227,17 +231,20 @@ export default function EmployeeTicketSubmissionForm() {
                       return 'Only English letters, numbers, and common punctuation are allowed.';
                     if (!/[a-zA-Z]/.test(value))
                       return 'Description must contain letter.';
-                    if (value.length > 500) return 'Description must not exceed 500 characters.';
                     return true;
                   },
                 })}
                 onInput={e => {
-                  e.target.value = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  // Remove disallowed characters and trim to 500 chars
+                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  if (filtered.length > 500) filtered = filtered.slice(0, 500);
+                  e.target.value = filtered;
                 }}
                 onPaste={e => {
                   e.preventDefault();
-                  const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  const filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
+                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
+                  filtered = filtered.slice(0, 500 - e.target.value.length);
                   document.execCommand('insertText', false, filtered);
                 }}
               />
