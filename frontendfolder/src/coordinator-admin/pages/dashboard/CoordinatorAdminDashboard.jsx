@@ -4,6 +4,7 @@ import {
   PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { FaSpinner } from "react-icons/fa";
 
 import styles from './CoordinatorAdminDashboard.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
@@ -170,22 +171,42 @@ const CoordinatorAdminDashboard = () => {
     fetchData();
   }, []);
 
-  // Filter tickets for "Tickets to Review" (only New and Pending)
-  const ticketsToReview = tickets.filter(
-    t => t.status === "New" || t.status === "Pending"
-  ).map(ticket => ({
-    ticketNumber: ticket.ticket_number,
-    subject: ticket.subject,
-    category: ticket.category,
-    subCategory: ticket.sub_category,
-    status: { 
-      text: ticket.status, 
-      statusClass: ticket.status === "New" ? "statusNew" : `status${ticket.status.replace(/\s/g, '')}` 
-    },
-    dateCreated: ticket.submit_date
-      ? new Date(ticket.submit_date).toLocaleString().replace(',', '')
-      : ''
-  }));
+  // Helper: check if ticket is "New" and overdue (change 1 to 24 for 24 hours)
+  function isOverdueNew(ticket) {
+    if (ticket.status !== "New" || !ticket.submit_date) return false;
+    const submitDate = new Date(ticket.submit_date);
+    const now = new Date();
+    const diffMs = now - submitDate;
+    return diffMs > 24 * 60 * 60 * 1000;
+  }
+
+  // Map tickets for dashboard: show as "Pending" if overdue
+  const mappedTickets = tickets.map(ticket =>
+    isOverdueNew(ticket)
+      ? { ...ticket, status: "Pending", _wasNewOverdue: true }
+      : ticket
+  );
+
+  // Filter tickets for "Tickets to Review" (only New and Pending, including mapped)
+  const ticketsToReview = mappedTickets
+    .filter(t => t.status === "New" || t.status === "Pending")
+    .map(ticket => ({
+      ticketNumber: ticket.ticket_number,
+      subject: ticket.subject,
+      category: ticket.category,
+      subCategory: ticket.sub_category,
+      status: {
+        text: ticket.status,
+        statusClass: ticket.status === "New"
+          ? "statusNew"
+          : ticket._wasNewOverdue
+            ? "statusPending" // visually show as pending if mapped
+            : `status${ticket.status.replace(/\s/g, '')}`
+      },
+      dateCreated: ticket.submit_date
+        ? new Date(ticket.submit_date).toLocaleString().replace(',', '')
+        : ''
+    }));
 
   // Filter users for "Account Approval" (only Pending)
   const usersToApprove = users
@@ -199,13 +220,13 @@ const CoordinatorAdminDashboard = () => {
       status: { text: user.status, statusClass: "statusPending" }
     }));
 
-  // --- Ticket Card Counts ---
+  // --- Ticket Card Counts (use mappedTickets for overdue logic) ---
   const ticketCounts = {};
-  tickets.forEach(ticket => {
+  mappedTickets.forEach(ticket => {
     const status = ticket.status || "Unknown";
     ticketCounts[status] = (ticketCounts[status] || 0) + 1;
   });
-  ticketCounts["ALL"] = tickets.length;
+  ticketCounts["ALL"] = mappedTickets.length;
 
   // --- User Card Counts ---
   const userCounts = {};
@@ -338,9 +359,9 @@ const CoordinatorAdminDashboard = () => {
     { name: 'Withdrawn', key: 'Withdrawn', fill: '#6366F1' }
   ];
 
-  // Count tickets by status
+  // Count tickets by status (use mappedTickets for overdue logic)
   const ticketStatusCounts = {};
-  tickets.forEach(ticket => {
+  mappedTickets.forEach(ticket => {
     const status = ticket.status || 'Unknown';
     ticketStatusCounts[status] = (ticketStatusCounts[status] || 0) + 1;
   });
@@ -381,7 +402,46 @@ const CoordinatorAdminDashboard = () => {
     }))
     .filter(item => item.value > 0); // Only show roles/statuses that exist
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className={styles.dashboardContainer}>
+        <div className={styles.dashboardContent}>
+          <h1>Dashboard</h1>
+          <div
+            style={{
+              minHeight: "60vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#2563eb22",
+              borderRadius: "1rem",
+              marginTop: "2rem"
+            }}
+          >
+            <FaSpinner
+              style={{
+                color: "#2563eb",
+                fontSize: "3rem",
+                marginRight: "1rem",
+                animation: "spin 1s linear infinite"
+              }}
+            />
+            <span style={{ color: "#2563eb", fontSize: "1.5rem", fontWeight: 600 }}>
+              Loading...
+            </span>
+            <style>
+              {`
+                @keyframes spin {
+                  0% { transform: rotate(0deg);}
+                  100% { transform: rotate(360deg);}
+                }
+              `}
+            </style>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.dashboardContainer}>

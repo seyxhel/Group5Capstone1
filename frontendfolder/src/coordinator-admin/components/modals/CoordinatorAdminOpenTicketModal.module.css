@@ -57,8 +57,8 @@
 }
 
 .submit {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: #22c55e !important;
+  color: #fff !important;
 }
 
 .submit:disabled,

@@ -323,6 +323,13 @@ const EmployeeSettings = () => {
                 setCurrentPasswordValid(false);
                 setTouched((prev) => ({ ...prev, current: true }));
               }}
+              onPaste={e => {
+                e.preventDefault();
+                const pasted = (e.clipboardData || window.clipboardData).getData('text');
+                // Only allow English letters, numbers, and common password symbols
+                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
+                document.execCommand('insertText', false, filtered);
+              }}
               style={{ width: "100%", paddingRight: "40px" }}
             />
             {passwords.current && (
@@ -362,6 +369,13 @@ const EmployeeSettings = () => {
                 setPasswordChanged(false);
               }}
               onBlur={() => setTouched((prev) => ({ ...prev, new: true }))}
+              onPaste={e => {
+                e.preventDefault();
+                const pasted = (e.clipboardData || window.clipboardData).getData('text');
+                // Only allow English letters, numbers, and common password symbols
+                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
+                document.execCommand('insertText', false, filtered);
+              }}
               style={{ width: "100%", paddingRight: "40px" }}
               disabled={!currentPasswordValid}
             />

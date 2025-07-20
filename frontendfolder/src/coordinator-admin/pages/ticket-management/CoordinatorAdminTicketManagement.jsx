@@ -58,15 +58,36 @@ const CoordinatorAdminTicketManagement = () => {
     fetchTickets();
   }, []);
 
+  // Helper to check if ticket is "New" and over 24 hours old
+  function isOverdueNew(ticket) {
+    if (ticket.status !== "New" || !ticket.submit_date) return false;
+    const submitDate = new Date(ticket.submit_date);
+    const now = new Date();
+    const diffMs = now - submitDate;
+    return diffMs > 24 * 60 * 60 * 1000; // 24 hours in ms
+  }
+
+  // Map tickets for admin/coordinator view: show as "Pending" if overdue
+  const mappedTickets = allTickets.map(ticket => {
+    if (isOverdueNew(ticket)) {
+      return { ...ticket, status: "Pending", _wasNewOverdue: true };
+    }
+    return ticket;
+  });
+
   // Filter tickets by status and search
   const filteredTickets = useMemo(() => {
     let result =
       normalizedStatus === "all"
-        ? allTickets
-        : allTickets.filter(ticket => {
-            // For "new", match backend status "New"
+        ? mappedTickets
+        : mappedTickets.filter(ticket => {
             if (normalizedStatus === "new") {
+              // Only show tickets that are truly "New" and NOT overdue
               return ticket.status === "New";
+            }
+            if (normalizedStatus === "pending") {
+              // Show tickets that are actually "Pending" or overdue "New"
+              return ticket.status === "Pending";
             }
             return ticket.status && ticket.status.toLowerCase() === statusFilter;
           });
@@ -80,7 +101,7 @@ const CoordinatorAdminTicketManagement = () => {
     }
 
     return result;
-  }, [allTickets, normalizedStatus, statusFilter, searchTerm]);
+  }, [mappedTickets, normalizedStatus, statusFilter, searchTerm]);
 
   const handleOpen = (ticket) => {
     setSelectedTicket(ticket);
@@ -131,15 +152,26 @@ const CoordinatorAdminTicketManagement = () => {
     },
   ];
 
-  // Only Ticket Coordinator can see Open/Reject columns, but NOT in Rejected Tickets table
+  // Statuses where Approve/Reject columns should NOT appear
+  const hideApproveRejectStatuses = [
+    "open",
+    "in-progress",
+    "on-hold",
+    "resolved",
+    "closed",
+    "withdrawn",
+    "rejected"
+  ];
+
+  // Only Ticket Coordinator can see Approve/Reject columns, but NOT in specified statuses
   const coordinatorColumns = [
     ...baseColumns.slice(0, 8),
-    // Only show Open/Reject columns if NOT in "rejected" status table
-    ...(normalizedStatus !== "rejected"
+    // Only show Approve/Reject columns if NOT in the excluded statuses
+    ...(!hideApproveRejectStatuses.includes(normalizedStatus)
       ? [
           {
-            key: "open",
-            label: "Open",
+            key: "approve",
+            label: "Approve",
             render: (_, row) =>
               userRole === "Ticket Coordinator" && ["New", "Pending"].includes(row.status)
                 ? getTicketActions("edit", row, { onEdit: handleOpen })
