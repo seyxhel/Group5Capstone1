@@ -27,6 +27,7 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
+from django.conf import settings
 
 @csrf_exempt
 def login_view(request):
@@ -666,23 +667,50 @@ def approve_employee(request, pk):
     employee.status = 'Approved'
     employee.save()
 
-    # Send approval email
-    send_mail(
-        subject='Account Approved',
-        message=(
-            f"Dear {employee.first_name},\n\n"
-            "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
-            "https://smartsupport-hdts-frontend.up.railway.app/\n\n"
-            "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
-            "Respectfully,\n"
-            "SmartSupport Help Desk Team"
-        ),
-        from_email='sethpelagio20@gmail.com',
-        recipient_list=[employee.email],
-        fail_silently=False,
+    # Send approval email (HTML only)
+    html_content = send_account_approved_email(employee)
+    msg = EmailMultiAlternatives(
+        subject="Your Account is Ready!",
+        body="Your account has been approved! You can now log in using the credentials you signed up with.",
+        from_email="mapactivephsmartsupport@gmail.com",
+        to=[employee.email],
     )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
 
     return Response({'detail': 'Employee approved and email sent.'}, status=status.HTTP_200_OK)
+
+def send_account_approved_email(employee):
+    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
+    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+    html_content = f"""
+    <html>
+      <body style="background:#f6f8fa;padding:32px 0;">
+        <div style="max-width:420px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;overflow:hidden;">
+          <div style="padding:32px 32px 24px 32px;text-align:center;">
+            <img src="{logo_url}" alt="SmartSupport Logo" style="width:120px;margin-bottom:18px;" />
+            <h2 style="color:#2563eb;margin-bottom:8px;font-family:sans-serif;">Account Approved</h2>
+            <p style="font-size:16px;color:#222;margin:0 0 24px 0;font-family:sans-serif;">
+              Hi {employee.first_name},<br>
+              Your account has been approved! You can now log in using the credentials you signed up with.
+            </p>
+            <p style="font-size:15px;color:#444;margin-bottom:24px;font-family:sans-serif;">
+              If you need help, contact us at:<br>
+              <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
+            </p>
+            <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:sans-serif;">
+              Visit site
+            </a>
+          </div>
+          <div style="height:18px;background:#2563eb;"></div>
+        </div>
+        <div style="text-align:center;color:#aaa;font-size:12px;margin-top:18px;font-family:sans-serif;">
+          MAP Active PH SmartSupport
+        </div>
+      </body>
+    </html>
+    """
+    return html_content
 
 class ApproveEmployeeView(APIView):
     def post(self, request):

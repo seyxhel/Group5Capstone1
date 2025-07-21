@@ -429,6 +429,7 @@ export default function SmartSupportEmployeeCreateAccount() {
                   <input
                     type={showPassword ? "text" : "password"}
                     className={styles.input}
+                    autoComplete="new-password" // <-- Add this line to prevent autofill
                     onPaste={e => {
                       if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
                     }}
@@ -468,8 +469,9 @@ export default function SmartSupportEmployeeCreateAccount() {
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     className={styles.input}
-                    autoComplete="off"
-                    // Prevent pasting in confirm password field
+                    autoComplete="new-password" // <-- Add this line to prevent autofill
+                    autoCorrect="off"
+                    spellCheck="false"
                     onPaste={e => e.preventDefault()}
                     onInput={e => {
                       if (emojiRegex.test(e.target.value)) {
