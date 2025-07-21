@@ -281,7 +281,7 @@ const CoordinatorAdminDashboard = () => {
     } else if (item.label === "Pending Accounts") {
       count = userCounts["Pending"] || 0;
     } else if (item.label === "Rejected Accounts") {
-      count = userCounts["Denied"] || 0;
+      count = userCounts["Rejected"] || 0;
     }
     return {
       label: item.label,
@@ -384,7 +384,7 @@ const CoordinatorAdminDashboard = () => {
     { name: 'Ticket Coordinators', key: 'Ticket Coordinator', fill: '#F59E0B' },
     { name: 'System Admins', key: 'System Admin', fill: '#10B981' },
     { name: 'Pending', key: 'Pending', fill: '#EF4444' },
-    { name: 'Rejected', key: 'Denied', fill: '#8B5CF6' }
+    { name: 'Rejected', key: 'Rejected', fill: '#8B5CF6' } // <-- fixed here
   ];
 
   // Count users by role and status for pie chart
@@ -404,6 +404,10 @@ const CoordinatorAdminDashboard = () => {
       fill
     }))
     .filter(item => item.value > 0); // Only show roles/statuses that exist
+
+  console.log('users:', users);
+  console.log('userStatusCounts:', userStatusCounts);
+  console.log('userCounts:', userCounts);
 
   if (loading) {
     return (
