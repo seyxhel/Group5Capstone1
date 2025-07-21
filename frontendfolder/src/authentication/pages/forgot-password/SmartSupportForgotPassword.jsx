@@ -42,11 +42,12 @@ const SmartSupportForgotPassword = () => {
         setSuccessMessage("Password reset link has been sent to your email.");
         setTimeout(() => navigate("/"), 3000); // Navigate to login after 3 seconds
       } else {
-        setErrorMessage(data.detail || "Invalid Email.");
+        // Always show "Invalid Email." for any error, including rejected accounts
+        setErrorMessage("Invalid Email.");
       }
     } catch (err) {
       console.error("Reset error:", err);
-      setErrorMessage("Something went wrong. Please try again.");
+      setErrorMessage("Invalid Email.");
     } finally {
       setSubmitting(false);
     }
