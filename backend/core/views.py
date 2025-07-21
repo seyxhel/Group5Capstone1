@@ -751,13 +751,14 @@ def finalize_ticket(request, ticket_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsSystemAdmin])
 def reject_employee(request, pk):
+    import uuid
     try:
         employee = Employee.objects.get(pk=pk)
-        # No check for already rejected status
         old_email = employee.email
         old_company_id = employee.company_id
-        employee.email = f"rejected_{employee.id}_{old_email}"
-        employee.company_id = f"REJ{employee.company_id}"
+        # Guarantee uniqueness by adding a UUID
+        employee.email = f"rejected_{employee.id}_{uuid.uuid4().hex}_{old_email}"
+        employee.company_id = f"REJ{employee.company_id}_{uuid.uuid4().hex}"
         employee.status = 'Rejected'
         employee.save()
         # ...send email...
