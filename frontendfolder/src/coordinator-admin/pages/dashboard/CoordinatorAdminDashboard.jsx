@@ -405,10 +405,6 @@ const CoordinatorAdminDashboard = () => {
     }))
     .filter(item => item.value > 0); // Only show roles/statuses that exist
 
-  console.log('users:', users);
-  console.log('userStatusCounts:', userStatusCounts);
-  console.log('userCounts:', userCounts);
-
   if (loading) {
     return (
       <div className={styles.dashboardContainer}>
