@@ -757,6 +757,12 @@ def reject_employee(request, pk):
         return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
     if employee.status == 'Rejected':
         return Response({'detail': 'Already rejected.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Save old email and company_id for audit if needed
+    old_email = employee.email
+    old_company_id = employee.company_id
+    # Anonymize email and company_id to allow reuse
+    employee.email = f"rejected_{employee.id}_{old_email}"
+    employee.company_id = f"REJ{employee.company_id}"
     employee.status = 'Rejected'
     employee.save()
 
@@ -766,7 +772,7 @@ def reject_employee(request, pk):
         subject="Account Creation Unsuccessful",
         body="We couldn’t create your account. If you need help, feel free to reach out at: mapactivephsmartsupport@gmail.com",
         from_email="mapactivephsmartsupport@gmail.com",
-        to=[employee.email],
+        to=[old_email],  # Send to original email
     )
     msg.attach_alternative(html_content, "text/html")
     msg.send()
@@ -789,7 +795,10 @@ def send_account_rejected_email(employee):
                 Hi {employee.first_name},
               </p>
               <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                We couldn’t create your account. If you need help, feel free to reach out at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
+                We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.
+              </p>
+              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                If you need any assistance or have questions, reach out to us at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
               </p>
               <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
                 Best regards,<br>
@@ -814,57 +823,77 @@ def forgot_password(request):
     email = request.data.get('email')
     if not email:
         return Response({'detail': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    User = get_user_model()
     try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({'detail': 'Invalid Email.'}, status=status.HTTP_404_NOT_FOUND)
+        user = Employee.objects.get(email=email)
+        if user.status == "Rejected":
+            return Response({'detail': 'This email is associated with a rejected account and cannot reset password.'}, status=status.HTTP_400_BAD_REQUEST)
+        token = default_token_generator.make_token(user)
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
 
-    token = default_token_generator.make_token(user)
-    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-    reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
+        subject = "Reset Your Password"
+        from_email = "sethpelagio20@gmail.com"
+        to = [email]
+        text_content = (
+            f"Hi {user.first_name},\n\n"
+            "We received a request to reset your password. You can create a new one using the link below:\n"
+            f"{reset_link}\n\n"
+            "If you didn’t request a password reset, please ignore this message or contact us if you have any concerns.\n\n"
+            "If you need further assistance, reach out to us at: mapactivephsmartsupport@gmail.com\n\n"
+            "Best regards,\n"
+            "MAP Active PH SmartSupport"
+        )
+        html_content = f"""
+        <html>
+          <body style="background:#f6f8fa;padding:32px 0;">
+            <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
+              <div style="padding:40px 32px 32px 32px;text-align:center;">
+                <img src="https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
+                <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
+                  Password Reset Request
+                </div>
+                <div style="text-align:left;margin:0 auto 24px auto;">
+                  <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                    Hi {user.first_name},
+                  </p>
+                  <p style="font-size:16px;color:#222;margin:0 0 18px 0;font-family:Verdana, Geneva, sans-serif;">
+                    We received a request to reset your password. You can create a new one using the link below:
+                  </p>
+                  <div style="text-align:center;margin:24px 0;">
+                    <a href="{reset_link}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;">
+                      Reset Password
+                    </a>
+                  </div>
+                  <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                    If you didn’t request a password reset, please ignore this message or contact us if you have any concerns.
+                  </p>
+                  <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                    If you need further assistance, reach out to us at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
+                  </p>
+                  <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
+                    Best regards,<br>
+                    MAP Active PH SmartSupport
+                  </p>
+                </div>
+                <div style="margin-top:18px;text-align:left;">
+                  <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
+                    SmartSupport
+                  </span>
+                </div>
+              </div>
+              <div style="height:5px;background:#2563eb;"></div>
+            </div>
+          </body>
+        </html>
+        """
 
-    subject = "SmartSupport Password Reset"
-    from_email = "sethpelagio20@gmail.com"
-    to = [email]
-    text_content = (
-        f"Hello {user.first_name},\n\n"
-        "We received a request to reset your SmartSupport account password.\n\n"
-        "To set a new password, please click the link below:\n"
-        f"{reset_link}\n\n"
-        "If you did not request this, you can safely ignore this email.\n\n"
-        "Thank you,\n"
-        "SmartSupport Help Desk Team"
-    )
-    html_content = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #222;">
-        <div style="max-width: 480px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px;">
-          <h2 style="color: #3b82f6; margin-bottom: 16px;">SmartSupport Password Reset</h2>
-          <p>Hello {user.first_name},</p>
-          <p>We received a request to reset your <b>SmartSupport</b> account password.</p>
-          <p>
-            <a href="{reset_link}" style="display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 40px; text-decoration: none; font-weight: bold;">
-              Reset Password
-            </a>
-          </p>
-          <p style="margin-top: 24px;">If you did not request this, you can safely ignore this email.</p>
-          <p style="margin-top: 32px; color: #888;">Thank you,<br>SmartSupport Help Desk Team</p>
-        </div>
-      </body>
-    </html>
-    """
+        msg = EmailMultiAlternatives(subject, text_content, from_email, to)
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
 
-    msg = EmailMultiAlternatives(subject, text_content, from_email, to)
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
-
-    return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
+        return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
+    except Employee.DoesNotExist:
+        return Response({'detail': 'Invalid Email.'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
