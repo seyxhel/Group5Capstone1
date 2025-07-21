@@ -161,7 +161,7 @@ const EmployeeChatbot = ({ closeModal }) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "mistralai/devstral-small:free",
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: FAQ_SYSTEM_PROMPT },
             { role: "user", content: userMessage },
