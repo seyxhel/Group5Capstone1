@@ -753,7 +753,7 @@ def finalize_ticket(request, ticket_id):
 def reject_employee(request, pk):
     try:
         employee = Employee.objects.get(pk=pk)
-        # Removed: if employee.status == 'Rejected': ...
+        # No check for already rejected status
         old_email = employee.email
         old_company_id = employee.company_id
         employee.email = f"rejected_{employee.id}_{old_email}"
