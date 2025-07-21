@@ -52,7 +52,7 @@ const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows = 
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
-      <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
+      {/* Removed Manage Accounts and Manage Tickets button */}
     </div>
     <div className={tableStyles.tableOverflowLimited}>
       <table className={tableStyles.table}>
@@ -137,6 +137,9 @@ const CoordinatorAdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Get user role from localStorage (or context)
+  const userRole = localStorage.getItem("user_role"); // "System Admin" or "Ticket Coordinator"
 
   // Fetch tickets and users from backend
   useEffect(() => {
@@ -449,15 +452,22 @@ const CoordinatorAdminDashboard = () => {
         <h1>Dashboard</h1>
 
         <div className={styles.tabContainer}>
-          {['tickets', 'users'].map((tab) => (
+          <button
+            key="tickets"
+            onClick={() => setActiveTab('tickets')}
+            className={`${styles.tab} ${activeTab === 'tickets' ? styles.tabActive : styles.tabInactive}`}
+          >
+            Tickets
+          </button>
+          {userRole === "System Admin" && (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`${styles.tab} ${activeTab === tab ? styles.tabActive : styles.tabInactive}`}
+              key="users"
+              onClick={() => setActiveTab('users')}
+              className={`${styles.tab} ${activeTab === 'users' ? styles.tabActive : styles.tabInactive}`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              Users
             </button>
-          ))}
+          )}
         </div>
 
         <div className={styles.tabContent}>
@@ -472,20 +482,26 @@ const CoordinatorAdminDashboard = () => {
           </div>
 
           <DataTable
-            title={activeTab === 'tickets' ? 'Tickets to Review' : 'Account Approval'}
-            buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Accounts'}
+            title={
+              activeTab === 'tickets'
+                ? 'Tickets to Review'
+                : userRole === "System Admin"
+                  ? 'Account Approval'
+                  : ''
+            }
             headers={
               activeTab === 'tickets'
                 ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
-                : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+                : userRole === "System Admin"
+                  ? ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+                  : []
             }
-            data={activeTab === 'tickets' ? ticketsToReview : usersToApprove}
-            onButtonClick={() =>
-              navigate(
-                activeTab === 'tickets'
-                  ? '/admin/ticket-management/new-tickets'
-                  : '/admin/user-access/pending-users'
-              )
+            data={
+              activeTab === 'tickets'
+                ? ticketsToReview
+                : userRole === "System Admin"
+                  ? usersToApprove
+                  : []
             }
             maxRows={5}
           />
@@ -493,11 +509,11 @@ const CoordinatorAdminDashboard = () => {
           <div className={chartStyles.chartsGrid}>
             <StatusPieChart
               data={activeTab === 'tickets' ? dynamicPieData : dynamicUserPieData}
-              title={activeTab === 'tickets' ? 'Ticket Status' : 'Accounts'}
+              title={activeTab === 'tickets' ? 'Ticket Status' : userRole === "System Admin" ? 'Accounts' : ''}
             />
             <TrendLineChart
               data={ticketData.lineData}
-              title={activeTab === 'tickets' ? 'Status per month' : 'Accounts per month'}
+              title={activeTab === 'tickets' ? 'Status per month' : userRole === "System Admin" ? 'Accounts per month' : ''}
             />
           </div>
         </div>
