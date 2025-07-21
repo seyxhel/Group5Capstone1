@@ -753,70 +753,18 @@ def finalize_ticket(request, ticket_id):
 def reject_employee(request, pk):
     try:
         employee = Employee.objects.get(pk=pk)
-    except Employee.DoesNotExist:
-        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if employee.status == 'Rejected':
-        return Response({'detail': 'Already rejected.'}, status=status.HTTP_400_BAD_REQUEST)
-    # Save old email and company_id for audit if needed
-    old_email = employee.email
-    old_company_id = employee.company_id
-    # Anonymize email and company_id to allow reuse
-    employee.email = f"rejected_{employee.id}_{old_email}"
-    employee.company_id = f"REJ{employee.company_id}"
-    employee.status = 'Rejected'
-    employee.save()
-
-    # Send rejection email (HTML only)
-    html_content = send_account_rejected_email(employee)
-    msg = EmailMultiAlternatives(
-        subject="Account Creation Unsuccessful",
-        body="We couldn’t create your account. If you need help, feel free to reach out at: mapactivephsmartsupport@gmail.com",
-        from_email="mapactivephsmartsupport@gmail.com",
-        to=[old_email],  # Send to original email
-    )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
-
-    return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
-
-def send_account_rejected_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    html_content = f"""
-    <html>
-      <body style="background:#f6f8fa;padding:32px 0;">
-        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
-          <div style="padding:40px 32px 32px 32px;text-align:center;">
-            <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
-            <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-              Account Rejected
-            </div>
-            <div style="text-align:left;margin:0 auto 24px auto;">
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Hi {employee.first_name},
-              </p>
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.
-              </p>
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                If you need any assistance or have questions, reach out to us at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
-                Best regards,<br>
-                MAP Active PH SmartSupport
-              </p>
-            </div>
-            <div style="margin-top:18px;text-align:left;">
-              <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
-                SmartSupport
-              </span>
-            </div>
-          </div>
-          <div style="height:5px;background:#2563eb;"></div>
-        </div>
-      </body>
-    </html>
-    """
-    return html_content
+        # Removed: if employee.status == 'Rejected': ...
+        old_email = employee.email
+        old_company_id = employee.company_id
+        employee.email = f"rejected_{employee.id}_{old_email}"
+        employee.company_id = f"REJ{employee.company_id}"
+        employee.status = 'Rejected'
+        employee.save()
+        # ...send email...
+        return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        print("Reject employee error:", e)
+        return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def forgot_password(request):
