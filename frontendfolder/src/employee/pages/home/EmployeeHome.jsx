@@ -116,11 +116,7 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          {hasCreatedTicket && (
-            <button className={styles.trackBtn} onClick={handleTrackTickets}>
-              Track Active Tickets
-            </button>
-          )}
+          {/* Removed Track Active Tickets button */}
         </div>
 
         {recentTickets.length === 0 ? (

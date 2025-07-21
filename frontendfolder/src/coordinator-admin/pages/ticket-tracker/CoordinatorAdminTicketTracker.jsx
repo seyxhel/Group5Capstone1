@@ -113,9 +113,6 @@ export default function CoordinatorAdminTicketTracker() {
               <DetailField label="Last Updated" value={formatDate(update_date)} />
               <DetailField label="Category" value={category} />
               <DetailField label="Sub-Category" value={sub_category} />
-              <DetailField label="Employee" value={employee ? `${employee.first_name} ${employee.last_name}` : "N/A"} />
-              <DetailField label="Employee Department" value={employee?.department} />
-              <DetailField label="Employee Email" value={employee?.email} />
             </div>
 
             <section className={styles.descriptionBlock}>
@@ -143,10 +140,17 @@ export default function CoordinatorAdminTicketTracker() {
                     </a>
                   ))
                 ) : (
-                  <span className={styles.attachmentText}>No file attached.</span>
+                  <span className={styles.noAttachmentText}>No file attached.</span>
                 )}
               </div>
             </section>
+
+            {/* Move Employee info here */}
+            <div className={styles.ticketInfo}>
+              <DetailField label="Employee" value={employee ? `${employee.first_name} ${employee.last_name}` : "N/A"} />
+              <DetailField label="Employee Department" value={employee?.department} />
+              <DetailField label="Employee Email" value={employee?.email} />
+            </div>
           </section>
         </div>
 

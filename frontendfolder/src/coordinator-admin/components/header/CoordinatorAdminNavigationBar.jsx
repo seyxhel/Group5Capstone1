@@ -134,6 +134,9 @@ const CoordinatorAdminNavBar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Get user role from profile info (already fetched)
+  const isSystemAdmin = adminInfo.role === "System Admin";
+
   return (
     <nav className={styles['main-nav-bar']} ref={navRef}>
       {/* Logo & Brand */}
@@ -157,41 +160,47 @@ const CoordinatorAdminNavBar = () => {
             </button>
           </li>
 
-          {navSections.map(({ key, label, links, basePath }) => {
-            const isActiveSection = location.pathname.startsWith(basePath);
-            return (
-              <li
-                key={key}
-                className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
-              >
-                <div
-                  className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
-                  onClick={() => toggleDropdown(key)}
+          {/* Ticket Management always visible */}
+          {navSections
+            .filter(
+              (section) =>
+                section.key !== 'users' || isSystemAdmin // Only show User Access if System Admin
+            )
+            .map(({ key, label, links, basePath }) => {
+              const isActiveSection = location.pathname.startsWith(basePath);
+              return (
+                <li
+                  key={key}
+                  className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
                 >
-                  <span className={styles['dropdown-text']}>{label}</span>
-                  <ArrowDownIcon flipped={openDropdown === key} />
-                </div>
-                {openDropdown === key && (
-                  <div className={styles['custom-dropdown']}>
-                    <div className={styles['dropdown-menu']}>
-                      {links.map(({ label, path }) => (
-                        <button
-                          key={path}
-                          onClick={() => {
-                            navigate(path);
-                            setOpenDropdown(null);
-                          }}
-                          className={location.pathname === path ? styles.clicked : ''}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                  <div
+                    className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
+                    onClick={() => toggleDropdown(key)}
+                  >
+                    <span className={styles['dropdown-text']}>{label}</span>
+                    <ArrowDownIcon flipped={openDropdown === key} />
                   </div>
-                )}
-              </li>
-            );
-          })}
+                  {openDropdown === key && (
+                    <div className={styles['custom-dropdown']}>
+                      <div className={styles['dropdown-menu']}>
+                        {links.map(({ label, path }) => (
+                          <button
+                            key={path}
+                            onClick={() => {
+                              navigate(path);
+                              setOpenDropdown(null);
+                            }}
+                            className={location.pathname === path ? styles.clicked : ''}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
         </ul>
       </section>
 

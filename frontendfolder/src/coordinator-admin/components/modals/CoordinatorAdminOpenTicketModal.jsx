@@ -10,8 +10,9 @@ import 'react-toastify/dist/ReactToastify.css';
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
-  const { register, handleSubmit, reset, formState: { errors, touchedFields }, trigger } = useForm();
+  const { register, handleSubmit, reset, formState: { errors, touchedFields, isSubmitted }, trigger } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState({ priority: false, department: false });
 
   useEffect(() => {
     reset({
@@ -19,7 +20,11 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
       department: ticket.department || "",
       comment: "",
     });
+    setTouched({ priority: false, department: false });
   }, [ticket, reset]);
+
+  // Helper to show error if touched (local) or submitted
+  const showError = (field) => (touched[field] || isSubmitted) && errors[field];
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
@@ -85,15 +90,15 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
               <select
                 {...register("priority", { required: "Priority Level is required." })}
                 className={styles.input}
-                onBlur={() => trigger("priority")}
                 disabled={isSubmitting}
+                onBlur={() => setTouched(t => ({ ...t, priority: true }))}
               >
                 <option value="">Select Priority Level</option>
                 {priorityLevelOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              {touchedFields.priority && errors.priority && (
+              {showError("priority") && (
                 <p className={styles.error}>{errors.priority.message}</p>
               )}
             </div>
@@ -105,15 +110,15 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
               <select
                 {...register("department", { required: "Department is required." })}
                 className={styles.input}
-                onBlur={() => trigger("department")}
                 disabled={isSubmitting}
+                onBlur={() => setTouched(t => ({ ...t, department: true }))}
               >
                 <option value="">Select Department</option>
                 {departmentOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              {touchedFields.department && errors.department && (
+              {showError("department") && (
                 <p className={styles.error}>{errors.department.message}</p>
               )}
             </div>
@@ -174,13 +179,12 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
               <span className="loader" style={{
                 width: 40,
                 height: 40,
-                border: "4px solid #22c55e",
+                border: "4px solid #2563eb",
                 borderTop: "4px solid #fff",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
                 marginBottom: 12
               }} />
-              <span style={{ color: "#22c55e", fontWeight: 600, fontSize: 18 }}>Approving Ticket...</span>
               <style>
                 {`
                   @keyframes spin {
