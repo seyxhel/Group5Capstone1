@@ -751,18 +751,31 @@ def finalize_ticket(request, ticket_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsSystemAdmin])
 def reject_employee(request, pk):
-    import uuid
     try:
         employee = Employee.objects.get(pk=pk)
-        old_email = employee.email
-        old_company_id = employee.company_id
-        # Guarantee uniqueness by adding a UUID
-        employee.email = f"rejected_{employee.id}_{uuid.uuid4().hex}_{old_email}"
-        employee.company_id = f"REJ{employee.company_id}_{uuid.uuid4().hex}"
-        employee.status = 'Rejected'
-        employee.save()
-        # ...send email...
-        return Response({'detail': 'Employee rejected.'}, status=status.HTTP_200_OK)
+        # 1. Record to audit
+        from .models import RejectedEmployeeAudit
+        RejectedEmployeeAudit.objects.create(
+            first_name=employee.first_name,
+            last_name=employee.last_name,
+            email=employee.email,
+            company_id=employee.company_id,
+            department=employee.department,
+            reason=request.data.get("reason", "")
+        )
+        # 2. Send rejection email
+        html_content = send_account_rejected_email(employee)
+        msg = EmailMultiAlternatives(
+            subject="Account Creation Unsuccessful",
+            body="We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.\n\nIf you need any assistance or have questions, reach out to us at: mapactivephsmartsupport@gmail.com\n\nBest regards,\nMAP Active PH SmartSupport",
+            from_email="mapactivephsmartsupport@gmail.com",
+            to=[employee.email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        # 3. Delete the employee
+        employee.delete()
+        return Response({'detail': 'Employee rejected, audited, and deleted.'}, status=status.HTTP_200_OK)
     except Exception as e:
         print("Reject employee error:", e)
         return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

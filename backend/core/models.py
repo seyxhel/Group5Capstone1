@@ -185,3 +185,13 @@ class TicketComment(models.Model):
     
     def __str__(self):
         return f"Comment on {self.ticket.ticket_number} by {self.user}"
+
+class RejectedEmployeeAudit(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    company_id = models.CharField(max_length=100)
+    department = models.CharField(max_length=100)
+    rejected_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(blank=True, null=True)
+    # Add other fields as needed
