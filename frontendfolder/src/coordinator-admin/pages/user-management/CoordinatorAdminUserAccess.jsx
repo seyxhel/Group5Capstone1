@@ -118,7 +118,11 @@ const CoordinatorAdminUserAccess = () => {
     columns.splice(4, 0, { key: "role", label: "Role" });
   }
 
-  if (normalizedStatus !== "rejected-users") {
+  if (
+    normalizedStatus !== "rejected-users" &&
+    normalizedStatus !== "system-admins" &&
+    normalizedStatus !== "ticket-coordinators"
+  ) {
     columns.push(
       {
         key: "approve",
