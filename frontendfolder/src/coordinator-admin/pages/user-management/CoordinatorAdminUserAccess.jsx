@@ -112,11 +112,10 @@ const CoordinatorAdminUserAccess = () => {
 
   if (normalizedStatus === "rejected-users") {
     columns.push(
-      { key: "timestamp", label: "Rejected At" },
-      { key: "rejectedBy", label: "Rejected By" }
+      { key: "timestamp", label: "Rejected At" }
+      // "Rejected By" column removed
     );
   } else {
-    // Add Approve/Reject columns only if not on Rejected Users
     columns.push(
       {
         key: "approve",
