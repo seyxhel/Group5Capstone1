@@ -761,7 +761,8 @@ def reject_employee(request, pk):
             email=employee.email,
             company_id=employee.company_id,
             department=employee.department,
-            reason=request.data.get("reason", "")
+            reason=request.data.get("reason", ""),
+            rejected_by=f"{request.user.first_name} {request.user.last_name}"  # <-- Add this line
         )
         # 2. Send rejection email
         html_content = send_account_rejected_email(employee)
