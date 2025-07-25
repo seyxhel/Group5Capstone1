@@ -1005,20 +1005,17 @@ def send_account_rejected_email(employee):
 @permission_classes([IsAuthenticated])
 def rejected_employee_audit_list(request):
     from .models import RejectedEmployeeAudit
-    audits = RejectedEmployeeAudit.objects.select_related('employee').order_by('-timestamp')
+    audits = RejectedEmployeeAudit.objects.order_by('-rejected_at')
     data = [
         {
             "id": audit.id,
-            "employee_id": audit.employee.id,
-            "company_id": audit.employee.company_id,
-            "first_name": audit.employee.first_name,
-            "last_name": audit.employee.last_name,
-            "email": audit.employee.email,
-            "department": audit.employee.department,
-            "role": audit.employee.role,
+            "company_id": audit.company_id,
+            "first_name": audit.first_name,
+            "last_name": audit.last_name,
+            "email": audit.email,
+            "department": audit.department,
             "reason": audit.reason,
-            "timestamp": audit.timestamp,
-            "rejected_by": audit.rejected_by.username if audit.rejected_by else None,
+            "timestamp": audit.rejected_at,
         }
         for audit in audits
     ]
