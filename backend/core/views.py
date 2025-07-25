@@ -967,7 +967,7 @@ def send_account_rejected_email(employee):
           <div style="padding:40px 32px 32px 32px;text-align:center;">
             <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
             <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-              Account Creation Unsuccessful
+              Account Rejected
             </div>
             <div style="text-align:left;margin:0 auto 24px auto;">
               <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
