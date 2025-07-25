@@ -762,7 +762,6 @@ def reject_employee(request, pk):
             company_id=employee.company_id,
             department=employee.department,
             reason=request.data.get("reason", ""),
-            rejected_by=f"{request.user.first_name} {request.user.last_name}"  # <-- Add this line
         )
         # 2. Send rejection email
         html_content = send_account_rejected_email(employee)
@@ -1015,9 +1014,10 @@ def rejected_employee_audit_list(request):
             "last_name": audit.last_name,
             "email": audit.email,
             "department": audit.department,
-            "role": getattr(audit, "role", ""),  # <-- Add this line
+            "role": getattr(audit, "role", None),  # if you have role field
+            "reason": audit.reason,
             "timestamp": audit.rejected_at,
-            "rejected_by": getattr(audit, "rejected_by", ""),
+            # "rejected_by": audit.rejected_by if hasattr(audit, "rejected_by") else None,
         }
         for audit in audits
     ]

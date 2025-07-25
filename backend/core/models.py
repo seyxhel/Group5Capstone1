@@ -194,5 +194,3 @@ class RejectedEmployeeAudit(models.Model):
     department = models.CharField(max_length=100)
     rejected_at = models.DateTimeField(auto_now_add=True)
     reason = models.TextField(blank=True, null=True)
-    rejected_by = models.CharField(max_length=200, blank=True, null=True)  # <-- Add this line
-    role = models.CharField(max_length=50, blank=True, null=True)  # <-- Add this line

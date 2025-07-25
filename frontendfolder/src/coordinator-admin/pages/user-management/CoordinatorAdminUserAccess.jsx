@@ -105,7 +105,7 @@ const CoordinatorAdminUserAccess = () => {
     { key: "lastName", label: "Last Name" },
     { key: "firstName", label: "First Name" },
     { key: "department", label: "Department" },
-    { key: "role", label: "Role" }, // <-- Add this back for all views
+    { key: "role", label: "Role" },
     { key: "status", label: "Status" },
   ];
 
@@ -114,13 +114,8 @@ const CoordinatorAdminUserAccess = () => {
       { key: "timestamp", label: "Rejected At" },
       { key: "rejectedBy", label: "Rejected By" }
     );
-  }
-
-  if (
-    normalizedStatus !== "rejected-users" &&
-    normalizedStatus !== "system-admins" &&
-    normalizedStatus !== "ticket-coordinators"
-  ) {
+  } else {
+    // Add Approve/Reject columns only if not on Rejected Users
     columns.push(
       {
         key: "approve",
