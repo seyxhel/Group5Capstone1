@@ -100,7 +100,8 @@ const CoordinatorAdminRejectUserModal = ({ user, onClose, onSuccess }) => {
               type="button"
               onClick={handleReject}
               disabled={isSubmitting}
-              className={styles.reject}
+              className={styles.submit} // Use .submit for a styled button
+              style={{ background: "#ef4444", color: "#fff", border: "none" }} // Optional: force red color if needed
             >
               {isSubmitting ? "Rejecting..." : "Reject User"}
             </button>
