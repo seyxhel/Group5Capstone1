@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
-import styles from "./CoordinatorAdminRejectTicketModal.module.css";
+import styles from "./CoordinatorAdminOpenTicketModal.module.css"; // Use the approve ticket modal styles for consistency
 import 'react-toastify/dist/ReactToastify.css';
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
@@ -60,43 +60,91 @@ const CoordinatorAdminRejectUserModal = ({ user, onClose, onSuccess }) => {
     }
   };
 
+  // Blur effect style for modal content
+  const blurStyle = isSubmitting
+    ? { filter: "blur(3px)", pointerEvents: "none", userSelect: "none" }
+    : {};
+
   return (
     <>
       <ToastContainer />
-      <h2 className={styles.heading}>
-        Reject User {user.firstName} {user.lastName}
-      </h2>
-
-      <div className={styles.field}>
-        <label>
-          Reason <span className={styles.required}>*</span>
-        </label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={4}
-          className={styles.textarea}
-          placeholder="Provide a reason for rejection"
-        />
-      </div>
-
-      <div className={styles.actions}>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={isSubmitting}
-          className={styles.cancel}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleReject}
-          disabled={isSubmitting}
-          className={styles.reject}
-        >
-          {isSubmitting ? "Rejecting..." : "Reject User"}
-        </button>
+      <div style={{ position: "relative" }}>
+        {/* Blur the modal content when submitting */}
+        <div style={blurStyle}>
+          <h2 className={styles.heading}>
+            Reject User {user.firstName} {user.lastName}
+          </h2>
+          <div className={styles.field}>
+            <label>
+              Reason <span className={styles.required}>*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={4}
+              className={styles.textarea}
+              placeholder="Provide a reason for rejection"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className={styles.actions}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className={styles.cancel}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={isSubmitting}
+              className={styles.reject}
+            >
+              {isSubmitting ? "Rejecting..." : "Reject User"}
+            </button>
+          </div>
+        </div>
+        {/* Red loading overlay */}
+        {isSubmitting && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.4)",
+              zIndex: 10,
+              borderRadius: "12px"
+            }}
+          >
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center"
+            }}>
+              <span className="loader" style={{
+                width: 40,
+                height: 40,
+                border: "4px solid #ef4444", // red
+                borderTop: "4px solid #fff",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+                marginBottom: 12
+              }} />
+              <style>
+                {`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg);}
+                    100% { transform: rotate(360deg);}
+                  }
+                `}
+              </style>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
