@@ -105,7 +105,8 @@ const CoordinatorAdminUserAccess = () => {
     { key: "lastName", label: "Last Name" },
     { key: "firstName", label: "First Name" },
     { key: "department", label: "Department" },
-    { key: "role", label: "Role" },
+    // Only show role if not rejected-users
+    ...(normalizedStatus !== "rejected-users" ? [{ key: "role", label: "Role" }] : []),
     { key: "status", label: "Status" },
   ];
 
