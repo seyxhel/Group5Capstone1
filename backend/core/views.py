@@ -761,7 +761,6 @@ def reject_employee(request, pk):
             company_id=employee.company_id,
             department=employee.department,
             reason=request.data.get("reason", ""),
-            rejected_by=f"{request.user.first_name} {request.user.last_name}"  # <-- Save admin name
         )
         # 2. Send rejection email
         html_content = send_account_rejected_email(employee)
@@ -1015,7 +1014,6 @@ def rejected_employee_audit_list(request):
             "email": audit.email,
             "department": audit.department,
             "timestamp": audit.rejected_at,
-            "rejected_by": getattr(audit, "rejected_by", ""),
         }
         for audit in audits
     ]
