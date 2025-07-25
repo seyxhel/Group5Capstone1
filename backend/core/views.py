@@ -1015,10 +1015,9 @@ def rejected_employee_audit_list(request):
             "last_name": audit.last_name,
             "email": audit.email,
             "department": audit.department,
-            "role": getattr(audit, "role", None),  # if you have role field
-            "reason": audit.reason,
             "timestamp": audit.rejected_at,
-            # "rejected_by": audit.rejected_by if hasattr(audit, "rejected_by") else None,
+            "rejected_by": audit.rejected_by,
+            # Remove "role" and "reason" if not needed
         }
         for audit in audits
     ]
