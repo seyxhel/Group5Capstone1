@@ -105,7 +105,6 @@ const CoordinatorAdminUserAccess = () => {
     { key: "lastName", label: "Last Name" },
     { key: "firstName", label: "First Name" },
     { key: "department", label: "Department" },
-    { key: "role", label: "Role" },
     { key: "status", label: "Status" },
   ];
 
@@ -114,8 +113,12 @@ const CoordinatorAdminUserAccess = () => {
       { key: "timestamp", label: "Rejected At" },
       { key: "rejectedBy", label: "Rejected By" }
     );
-  } else {
-    // Add Approve/Reject columns only if not on Rejected Users
+  } else if (normalizedStatus !== "pending-users") {
+    // Only show role for non-pending, non-rejected users
+    columns.splice(4, 0, { key: "role", label: "Role" });
+  }
+
+  if (normalizedStatus !== "rejected-users") {
     columns.push(
       {
         key: "approve",
