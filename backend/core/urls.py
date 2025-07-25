@@ -68,7 +68,7 @@ urlpatterns = [
     path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
 
     # New endpoint for rejected employee audit list
-    path('api/rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),
+    path('rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST
