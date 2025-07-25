@@ -27,6 +27,7 @@ from .views import (
     reset_password,
     forgot_password,  # <-- add this import
     check_password,  # <-- add this
+    rejected_employee_audit_list,  # <-- add this import
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
@@ -65,6 +66,9 @@ urlpatterns = [
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
     path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
     path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
+
+    # New endpoint for rejected employee audit list
+    path('api/rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST

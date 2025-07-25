@@ -1000,3 +1000,26 @@ def send_account_rejected_email(employee):
     </html>
     """
     return html_content
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def rejected_employee_audit_list(request):
+    from .models import RejectedEmployeeAudit
+    audits = RejectedEmployeeAudit.objects.select_related('employee').order_by('-timestamp')
+    data = [
+        {
+            "id": audit.id,
+            "employee_id": audit.employee.id,
+            "company_id": audit.employee.company_id,
+            "first_name": audit.employee.first_name,
+            "last_name": audit.employee.last_name,
+            "email": audit.employee.email,
+            "department": audit.employee.department,
+            "role": audit.employee.role,
+            "reason": audit.reason,
+            "timestamp": audit.timestamp,
+            "rejected_by": audit.rejected_by.username if audit.rejected_by else None,
+        }
+        for audit in audits
+    ]
+    return Response(data)

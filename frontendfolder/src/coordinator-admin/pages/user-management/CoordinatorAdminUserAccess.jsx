@@ -37,7 +37,11 @@ const CoordinatorAdminUserAccess = () => {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem("admin_access_token");
-        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employees/`, {
+        let url = `${import.meta.env.VITE_REACT_APP_API_URL}employees/`;
+        if (normalizedStatus === "rejected-users") {
+          url = `${import.meta.env.VITE_REACT_APP_API_URL}rejected-employees/`;
+        }
+        const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -51,7 +55,7 @@ const CoordinatorAdminUserAccess = () => {
       }
     };
     fetchUsers();
-  }, []);
+  }, [normalizedStatus]);
 
   const mappedUsers = allUsers.map(u => ({
     companyId: u.company_id,
@@ -59,9 +63,12 @@ const CoordinatorAdminUserAccess = () => {
     firstName: u.first_name,
     department: u.department,
     role: u.role,
-    status: u.status,
-    id: u.id,
+    status: normalizedStatus === "rejected-users" ? "Rejected" : u.status,
+    id: u.employee_id || u.id,
     email: u.email,
+    reason: u.reason, // for rejected users
+    timestamp: u.timestamp, // for rejected users
+    rejectedBy: u.rejected_by, // for rejected users
   }));
 
   const filteredUsers = useMemo(() => {
@@ -102,8 +109,14 @@ const CoordinatorAdminUserAccess = () => {
     { key: "status", label: "Status" },
   ];
 
-  // Add Approve/Reject columns only if not on Rejected Users
-  if (normalizedStatus !== "rejected-users") {
+  if (normalizedStatus === "rejected-users") {
+    columns.push(
+      { key: "reason", label: "Reason" },
+      { key: "timestamp", label: "Rejected At" },
+      { key: "rejectedBy", label: "Rejected By" }
+    );
+  } else {
+    // Add Approve/Reject columns only if not on Rejected Users
     columns.push(
       {
         key: "approve",
