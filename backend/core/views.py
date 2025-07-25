@@ -1016,8 +1016,7 @@ def rejected_employee_audit_list(request):
             "email": audit.email,
             "department": audit.department,
             "timestamp": audit.rejected_at,
-            "rejected_by": audit.rejected_by,
-            # Remove "role" and "reason" if not needed
+            "rejected_by": getattr(audit, "rejected_by", ""),  # <-- use here
         }
         for audit in audits
     ]
