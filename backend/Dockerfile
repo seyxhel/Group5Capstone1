@@ -16,4 +16,4 @@ COPY . .
 RUN python manage.py collectstatic --noinput
 
 # Automatically run makemigrations, then migrations, then start Gunicorn
-CMD ["sh", "-c", "python manage.py makemigrations --noinput && python manage.py migrate && python manage.py createinitialsuperuser && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 backend.wsgi"]
+CMD ["sh", "-c", "python manage.py makemigrations --noinput && python manage.py migrate && python manage.py createsuperuser --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 backend.wsgi"]
