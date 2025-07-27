@@ -11,14 +11,14 @@ const CoordinatorAdminRejectUserModal = ({ user, onClose, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleReject = async () => {
-    if (!reason.trim()) {
-      toast.error("Reason is required to reject a user.", {
+    if (reason.length > 50) {
+      toast.error("Reason must be at most 50 characters.", {
         position: "top-right",
         autoClose: 3000,
       });
       return;
     }
-    if (!/[a-zA-Z0-9]/.test(reason)) {
+    if (reason && !/[a-zA-Z0-9]/.test(reason)) {
       toast.error("Reason must contain at least one letter or number.", {
         position: "top-right",
         autoClose: 3000,
@@ -80,12 +80,17 @@ const CoordinatorAdminRejectUserModal = ({ user, onClose, onSuccess }) => {
             </label>
             <textarea
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.length <= 50) setReason(e.target.value);
+              }}
               rows={4}
               className={styles.textarea}
               placeholder="Provide a reason for rejection"
               disabled={isSubmitting}
             />
+            <div style={{ fontSize: 12, color: "#888", marginTop: 4, textAlign: "right" }}>
+              {reason.length}/50
+            </div>
           </div>
           <div className={styles.actions}>
             <button
