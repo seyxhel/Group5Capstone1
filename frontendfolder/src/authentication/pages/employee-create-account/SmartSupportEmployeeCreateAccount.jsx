@@ -239,7 +239,11 @@ export default function SmartSupportEmployeeCreateAccount() {
             ...(name !== "email" && {
               onChange: (e) => {
                 let value = e.target.value;
-                if (name === "firstName" || name === "lastName") {
+                if (
+                  name === "firstName" ||
+                  name === "lastName" ||
+                  name === "middleName"
+                ) {
                   value = capitalizeAfterSpace(value);
                   e.target.value = value;
                 } else {
@@ -251,7 +255,6 @@ export default function SmartSupportEmployeeCreateAccount() {
               },
             }),
           })}
-          // For email, ensure no auto-uppercase handler is attached
           {...(name === "email" ? { onChange: undefined } : {})}
         />
         {errors[name] && <span className={styles.errorMsg}>{errors[name].message}</span>}
@@ -298,35 +301,16 @@ export default function SmartSupportEmployeeCreateAccount() {
               validate: (v) =>
                 letterPresencePattern.test(v) || "Invalid First Name.",
             })}
-            {renderFieldset(
-              <>
-                <label>Middle Name</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  autoComplete="off"
-                  onPaste={e => {
-                    if (emojiRegex.test(e.clipboardData.getData('text'))) e.preventDefault();
-                  }}
-                  onInput={e => {
-                    if (emojiRegex.test(e.target.value)) {
-                      e.target.value = e.target.value.replace(emojiRegex, '');
-                    }
-                  }}
-                  {...register("middleName", {
-                    validate: (v) =>
-                      !v ||
-                      (namePattern.test(v) && letterPresencePattern.test(v)) ||
-                      (!namePattern.test(v)
-                        ? "Invalid character."
-                        : !letterPresencePattern.test(v)
-                        ? "Invalid Middle Name."
-                        : true),
-                  })}
-                />
-                {errors.middleName && <span className={styles.errorMsg}>{errors.middleName.message}</span>}
-              </>
-            )}
+            {renderInput("middleName", "Middle Name", "text", {
+              validate: (v) =>
+                !v ||
+                (namePattern.test(v) && letterPresencePattern.test(v)) ||
+                (!namePattern.test(v)
+                  ? "Invalid character."
+                  : !letterPresencePattern.test(v)
+                  ? "Invalid Middle Name."
+                  : true),
+            })}
 
             {renderFieldset(
               <>
