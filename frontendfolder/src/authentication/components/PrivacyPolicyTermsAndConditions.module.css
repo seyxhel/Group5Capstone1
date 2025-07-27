@@ -267,3 +267,16 @@
     padding: 0.5rem;
   }
 }
+
+/* Disabled button styles */
+.buttonDisabled,
+.button:disabled,
+.buttonPrimary:disabled {
+  background: #bdbdbd !important;
+  color: #fff !important;
+  cursor: not-allowed !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+  transition: none;
+}

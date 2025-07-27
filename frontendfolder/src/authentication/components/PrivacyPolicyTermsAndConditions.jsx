@@ -1,12 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./PrivacyPolicyTermsAndConditions.module.css";
 
 const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
   const [step, setStep] = useState("privacy");
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const contentRef = useRef(null);
 
+  // Reset scroll and button state when tab changes
   useEffect(() => {
     setStep("privacy");
   }, [onClose]);
+
+  useEffect(() => {
+    setScrolledToBottom(false);
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [step]);
+
+  // Check if scrolled to bottom
+  const handleScroll = () => {
+    const el = contentRef.current;
+    if (el) {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 5;
+      setScrolledToBottom(atBottom);
+    }
+  };
 
   const handleNext = () => setStep("terms");
   const handleBack = () => setStep("privacy");
@@ -19,6 +38,10 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
   };
 
   const handleCancel = () => onClose?.();
+
+  // Utility for disabled button style
+  const getButtonClass = (enabled) =>
+    `${styles.button} ${styles.buttonPrimary} ${!enabled ? styles.buttonDisabled : ""}`;
 
   return (
     <div className={styles.modalOverlay}>
@@ -46,7 +69,12 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
         <h2 className={styles.header}>
           {step === "privacy" ? "Privacy Policy" : "Terms and Conditions"}
         </h2>
-        <div className={styles.contentBox}>
+        <div
+          className={styles.contentBox}
+          ref={contentRef}
+          onScroll={handleScroll}
+          style={{ maxHeight: 350, overflowY: "auto" }}
+        >
           {step === "privacy" ? (
             <>
               <p>
@@ -249,7 +277,8 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
           {step === "privacy" ? (
             <button
               onClick={handleNext}
-              className={`${styles.button} ${styles.buttonPrimary}`}
+              className={getButtonClass(scrolledToBottom)}
+              disabled={!scrolledToBottom}
             >
               Next
             </button>
@@ -263,7 +292,8 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
               </button>
               <button
                 onClick={handleAgree}
-                className={`${styles.button} ${styles.buttonPrimary}`}
+                className={getButtonClass(scrolledToBottom)}
+                disabled={!scrolledToBottom}
               >
                 I Agree
               </button>

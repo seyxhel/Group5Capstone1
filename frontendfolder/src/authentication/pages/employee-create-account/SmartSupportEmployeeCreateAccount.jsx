@@ -201,6 +201,9 @@ export default function SmartSupportEmployeeCreateAccount() {
     <fieldset className={className}>{children}</fieldset>
   );
 
+  const capitalizeAfterSpace = (value) =>
+    value.replace(/\b\w/g, (char) => char.toUpperCase());
+
   // Update renderInput to skip auto-uppercase for email
   const renderInput = (name, label, type = "text", rules = {}, placeholder = "") =>
     renderFieldset(
@@ -235,11 +238,16 @@ export default function SmartSupportEmployeeCreateAccount() {
             },
             ...(name !== "email" && {
               onChange: (e) => {
-                const value = e.target.value;
-                const capitalized = value
-                  ? value.charAt(0).toUpperCase() + value.slice(1)
-                  : "";
-                e.target.value = capitalized;
+                let value = e.target.value;
+                if (name === "firstName" || name === "lastName") {
+                  value = capitalizeAfterSpace(value);
+                  e.target.value = value;
+                } else {
+                  value = value
+                    ? value.charAt(0).toUpperCase() + value.slice(1)
+                    : "";
+                  e.target.value = value;
+                }
               },
             }),
           })}
