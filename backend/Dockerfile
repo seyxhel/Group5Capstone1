@@ -12,8 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the Django project
 COPY . .
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Copy and enable entrypoint that waits for DB, runs migrations, creates superuser,
+# collects static files, then execs the container command (e.g. gunicorn).
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Automatically run makemigrations, then migrations, then start Gunicorn
-CMD ["sh", "-c", "python manage.py makemigrations --noinput && python manage.py migrate && python manage.py createsuperuser --noinput --username=$DJANGO_SUPERUSER_USERNAME --email=$DJANGO_SUPERUSER_EMAIL --password=$DJANGO_SUPERUSER_PASSWORD --first_name=Admin --last_name=Admin --company_id=MA0001 || true && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 backend.wsgi"]
+# Use the entrypoint and keep the default command to run gunicorn.
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]
