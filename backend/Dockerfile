@@ -17,6 +17,11 @@ COPY . .
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Also copy to /backend/entrypoint.sh to satisfy runtime scripts that reference
+# the relative path "backend/entrypoint.sh" (some platforms call chmod on this path).
+COPY entrypoint.sh /backend/entrypoint.sh
+RUN chmod +x /backend/entrypoint.sh
+
 # Use the entrypoint and keep the default command to run gunicorn.
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]
