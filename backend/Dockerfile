@@ -14,9 +14,9 @@ COPY . .
 
 # Copy and enable entrypoint that waits for DB, runs migrations, creates superuser,
 # collects static files, then execs the container command (e.g. gunicorn).
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Use the entrypoint and keep the default command to run gunicorn.
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]
