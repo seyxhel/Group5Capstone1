@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Local Development Setup - SQLite + RabbitMQ only
+  # Local Development Setup - SQLite + RabbitMQ + Hot Reload
   rabbitmq:
     image: rabbitmq:3-management
     restart: unless-stopped
@@ -23,7 +23,11 @@ services:
       - rabbitmq
     ports:
       - '8000:8000'
-    command: /entrypoint.sh gunicorn --bind 0.0.0.0:8000 backend.wsgi
+    volumes:
+      # Enable live code editing by mounting source code
+      - ./backend:/app
+      - backend-venv:/app/venv
+    command: /entrypoint.sh python manage.py runserver 0.0.0.0:8000
     environment:
       # No DATABASE_URL = automatically uses SQLite for local development
       - DEBUG=True
@@ -48,12 +52,23 @@ services:
   frontend:
     build:
       context: ./frontendfolder
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       args:
-        - VITE_REACT_APP_API_URL=http://host.docker.internal:8000/api/
-        - VITE_MEDIA_URL=http://host.docker.internal:8000/media/
+        - VITE_REACT_APP_API_URL=http://localhost:8000/api/
+        - VITE_MEDIA_URL=http://localhost:8000/media/
     restart: unless-stopped
     ports:
-      - '5173:80'
+      - '5173:5173'
+    volumes:
+      # Enable live code editing by mounting source code
+      - ./frontendfolder:/app
+      - frontend-modules:/app/node_modules
     depends_on:
       - backend
+    environment:
+      - VITE_REACT_APP_API_URL=http://localhost:8000/api/
+      - VITE_MEDIA_URL=http://localhost:8000/media/
+
+volumes:
+  backend-venv:
+  frontend-modules:
