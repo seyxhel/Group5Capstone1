@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import styles from './EmployeeSettings.module.css';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app";
+const MEDIA_URL = import.meta.env.VITE_MEDIA_URL;
 
 const ALLOWED_IMAGE_TYPES = [
   'image/png',

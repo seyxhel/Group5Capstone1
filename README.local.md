@@ -57,16 +57,40 @@ docker compose down
 ## 📊 Services
 
 - **Backend**: Django + SQLite (no external database needed)
-- **Frontend**: React + Vite served by nginx
+- **Frontend**: React + Vite with hot reload
 - **RabbitMQ**: Message broker for background tasks
 
 ## 💡 Features
 
+- ✅ **No manual setup required** - no npm install, no virtual environments, no requirements.txt installation
 - ✅ **No PostgreSQL setup required** - uses SQLite automatically
 - ✅ **Fast startup** - lightweight containers only
 - ✅ **Debug mode enabled** - for development
 - ✅ **Auto-created admin user** - ready to use
-- ✅ **Hot reload friendly** - rebuild when code changes
+- ✅ **Hot reload enabled** - code changes reflect immediately
+- ✅ **100% local backend** - no external dependencies on Railway or cloud services
+
+## ❌ What You DON'T Need To Do
+
+**Users do NOT need to:**
+- ❌ Create Python virtual environments (`python -m venv env`)
+- ❌ Install Python requirements (`pip install -r requirements.txt`)
+- ❌ Install Node.js dependencies (`npm install`)
+- ❌ Run frontend development server (`npm run dev`)
+- ❌ Set up PostgreSQL database
+- ❌ Create `.env` files manually
+- ❌ Install Python, Node.js, or any programming language locally
+- ❌ Run Django migrations manually
+- ❌ Create Django superuser manually
+
+**Everything is handled automatically by Docker containers!**
+
+## 🔒 Local-Only Assurance
+
+The frontend is configured to connect **ONLY** to your local Docker backend:
+- API calls go to: `http://localhost:8000/api/`
+- Media files from: `http://localhost:8000/media/`
+- No external Railway or cloud dependencies
 
 ## 🔧 Troubleshooting
 

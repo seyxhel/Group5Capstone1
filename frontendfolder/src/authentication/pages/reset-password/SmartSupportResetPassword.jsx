@@ -91,7 +91,7 @@ export default function SmartSupportResetPassword() {
 
     try {
       const response = await fetch(
-        "https://smartsupport-hdts-backend.up.railway.app/api/employee/reset-password/",
+        `${import.meta.env.VITE_REACT_APP_API_URL}employee/reset-password/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

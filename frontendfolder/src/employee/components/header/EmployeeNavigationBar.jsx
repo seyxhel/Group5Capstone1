@@ -5,7 +5,7 @@ import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import authService from '../../../utilities/service/authService'; // Add this import
 
-const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app/media/";
+const MEDIA_URL = import.meta.env.VITE_MEDIA_URL;
 
 const NotificationIcon = () => (
   <svg
@@ -143,11 +143,11 @@ const EmployeeNavBar = () => {
     if (imagePath.startsWith("http")) {
       imageUrl = imagePath;
     } else if (imagePath.startsWith("/media/")) {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app${imagePath}`;
+      imageUrl = `${import.meta.env.VITE_MEDIA_URL.replace('/media/', '')}${imagePath}`;
     } else if (imagePath.startsWith("employee_images/")) {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`;
+      imageUrl = `${import.meta.env.VITE_MEDIA_URL}${imagePath}`;
     } else {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`;
+      imageUrl = `${import.meta.env.VITE_MEDIA_URL}employee_images/${imagePath}`;
     }
   }
 
