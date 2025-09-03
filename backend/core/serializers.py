@@ -101,8 +101,8 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
         if obj.file:
             if request:
                 return request.build_absolute_uri(obj.file.url)
-            # fallback if no request in context
-            return f"https://smartsupport-hdts-backend.up.railway.app{obj.file.url}"
+            # fallback if no request in context - use localhost for local development
+            return f"http://localhost:8000{obj.file.url}"
         return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):

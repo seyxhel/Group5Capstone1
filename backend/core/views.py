@@ -691,8 +691,8 @@ def approve_employee(request, pk):
     return Response({'detail': 'Employee approved and email sent.'}, status=status.HTTP_200_OK)
 
 def send_account_approved_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+    logo_url = os.environ.get('FRONTEND_LOGO_URL', 'http://localhost:5173/MapLogo.png')
+    site_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173/')
     html_content = f"""
     <html>
       <body style="background:#f6f8fa;padding:32px 0;">
@@ -800,7 +800,7 @@ def forgot_password(request):
             return Response({'detail': 'This email is associated with a rejected account and cannot reset password.'}, status=status.HTTP_400_BAD_REQUEST)
         token = default_token_generator.make_token(user)
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-        reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
+        reset_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/reset-password/{uidb64}/{token}"
 
         subject = "Reset Your Password"
         from_email = "sethpelagio20@gmail.com"
@@ -819,7 +819,7 @@ def forgot_password(request):
           <body style="background:#f6f8fa;padding:32px 0;">
             <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
               <div style="padding:40px 32px 32px 32px;text-align:center;">
-                <img src="https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
+                <img src="{os.environ.get('FRONTEND_LOGO_URL', 'http://localhost:5173/MapLogo.png')}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
                 <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
                   Password Reset Request
                 </div>
@@ -967,8 +967,8 @@ def check_password(request):
     return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
 
 def send_account_rejected_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+    logo_url = os.environ.get('FRONTEND_LOGO_URL', 'http://localhost:5173/MapLogo.png')
+    site_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173/')
     html_content = f"""
     <html>
       <body style="background:#f6f8fa;padding:32px 0;">
@@ -1030,8 +1030,8 @@ def rejected_employee_audit_list(request):
     return Response(data)
 
 def send_account_pending_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+    logo_url = os.environ.get('FRONTEND_LOGO_URL', 'http://localhost:5173/MapLogo.png')
+    site_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173/')
     html_content = f"""
     <html>
       <body style="background:#f6f8fa;padding:32px 0;">

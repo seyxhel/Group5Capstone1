@@ -33,6 +33,10 @@ services:
       - DEBUG=True
       - DJANGO_SECRET_KEY=unsafe-local-dev-key
 
+      # Frontend URLs for email templates (local development)
+      - FRONTEND_URL=http://localhost:5173
+      - FRONTEND_LOGO_URL=http://localhost:5173/MapLogo.png
+
       # Superuser to be created by entrypoint (idempotent)
       - DJANGO_SUPERUSER_EMAIL=admin@gmail.com
       - DJANGO_SUPERUSER_USERNAME=admin

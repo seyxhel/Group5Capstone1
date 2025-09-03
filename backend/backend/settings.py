@@ -145,9 +145,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'https://smartsupport-hdts-backend.up.railway.app',
-    'https://smartsupport-hdts-frontend.up.railway.app',  # <-- add this
+    'http://localhost:5173',  # Local frontend
+    'http://localhost:3000',  # Alternative local frontend port
 ]
 
 MEDIA_URL = '/media/'
@@ -189,10 +188,9 @@ SIMPLE_JWT = {
 }
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://smartsupport-hdts-backend.up.railway.app",
-    "http://localhost:5173",
-    "http://localhost:8000",  # Add local backend
-    "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
+    "http://localhost:5173",  # Local frontend
+    "http://localhost:8000",  # Local backend
+    "http://localhost:3000",  # Alternative local frontend port
 ]
 
 # Only enable SSL redirect in production (when DATABASE_URL is set for PostgreSQL)
