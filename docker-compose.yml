@@ -1,18 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: railway
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - '5432:5432'
-
+  # Local Development Setup - SQLite + RabbitMQ only
   rabbitmq:
     image: rabbitmq:3-management
     restart: unless-stopped
@@ -31,17 +20,13 @@ services:
         - PIP_NO_CACHE_DIR=1
     restart: unless-stopped
     depends_on:
-      - postgres
       - rabbitmq
-    # No local volume mount: use the image contents so the stack is self-contained.
-    # If you need live code editing, re-enable a bind mount locally.
     ports:
       - '8000:8000'
     command: /entrypoint.sh gunicorn --bind 0.0.0.0:8000 backend.wsgi
     environment:
-      # Database: point to the postgres service inside compose network
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/railway
-      - DEBUG=False
+      # No DATABASE_URL = automatically uses SQLite for local development
+      - DEBUG=True
       - DJANGO_SECRET_KEY=unsafe-local-dev-key
 
       # Superuser to be created by entrypoint (idempotent)
@@ -72,6 +57,3 @@ services:
       - '5173:80'
     depends_on:
       - backend
-
-volumes:
-  pgdata:
