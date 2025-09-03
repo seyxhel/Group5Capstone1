@@ -1,6 +1,6 @@
 # 🚀 Local Development Setup
 
-This is a simplified Docker Compose setup for local development using SQLite.
+This is a **fully dockerized** setup for local development. **No manual installations required!**
 
 ## 📋 Prerequisites
 
@@ -15,7 +15,7 @@ git clone https://github.com/seyxhel/Group5Capstone1.git
 cd Group5Capstone1
 git checkout hdts-dockerized-system
 
-# Start the development stack
+# Start the development stack (everything will be built automatically)
 docker compose up --build -d
 ```
 
