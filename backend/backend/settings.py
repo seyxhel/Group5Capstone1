@@ -82,11 +82,22 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
-    )
-}
+# Use SQLite for local development, PostgreSQL for Docker/production
+if os.environ.get('DATABASE_URL'):
+    # Docker/Production: Use PostgreSQL
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL')
+        )
+    }
+else:
+    # Local development: Use SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -180,9 +191,11 @@ SIMPLE_JWT = {
 CSRF_TRUSTED_ORIGINS = [
     "https://smartsupport-hdts-backend.up.railway.app",
     "http://localhost:5173",
+    "http://localhost:8000",  # Add local backend
     "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
 ]
 
-SECURE_SSL_REDIRECT = True
+# Only enable SSL redirect in production (when DATABASE_URL is set for PostgreSQL)
+SECURE_SSL_REDIRECT = bool(os.environ.get('DATABASE_URL')) and not DEBUG
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # it worked!! Thank you, Lord!
