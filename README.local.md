@@ -15,6 +15,10 @@ git clone https://github.com/seyxhel/Group5Capstone1.git
 cd Group5Capstone1
 git checkout hdts-dockerized-system
 
+# Create environment files from examples
+copy .env.example .env
+copy frontendfolder\.env.example frontendfolder\.env
+
 # Start the development stack (everything will be built automatically)
 docker compose up --build -d
 ```
@@ -60,6 +64,14 @@ docker compose down
 - **Frontend**: React + Vite with hot reload
 - **RabbitMQ**: Message broker for background tasks
 
+## 🔧 Environment Configuration
+
+The `.env.example` files are already configured for local development:
+- **Backend `.env`**: Uses SQLite database and local RabbitMQ
+- **Frontend `.env`**: Points to `http://localhost:8000` for API and media
+
+Simply copy the example files and the system will work out of the box!
+
 ## 💡 Features
 
 - ✅ **No manual setup required** - no npm install, no virtual environments, no requirements.txt installation
@@ -78,12 +90,15 @@ docker compose down
 - ❌ Install Node.js dependencies (`npm install`)
 - ❌ Run frontend development server (`npm run dev`)
 - ❌ Set up PostgreSQL database
-- ❌ Create `.env` files manually
 - ❌ Install Python, Node.js, or any programming language locally
 - ❌ Run Django migrations manually
 - ❌ Create Django superuser manually
 
-**Everything is handled automatically by Docker containers!**
+**Users only need to:**
+- ✅ Copy `.env.example` files to create `.env` files (as shown in Quick Start)
+- ✅ Run `docker compose up --build -d`
+
+**Everything else is handled automatically by Docker containers!**
 
 ## 🔒 Local-Only Assurance
 
