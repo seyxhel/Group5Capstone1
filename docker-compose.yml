@@ -42,12 +42,14 @@ services:
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_PASSWORD=password
 
-      # Email placeholders (replace with real credentials for outgoing email)
+      # Email configuration 
+      # For local development: use console backend to avoid Gmail auth issues
+      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
       - EMAIL_USE_TLS=True
-      - EMAIL_HOST_USER=noreply@example.com
-      - EMAIL_HOST_PASSWORD=replace-me
+      - EMAIL_HOST_USER=noreply.mapactivephteam@gmail.com
+      - EMAIL_HOST_PASSWORD=ejaasofpixqjjbqq
 
       # Celery placeholders
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672/
