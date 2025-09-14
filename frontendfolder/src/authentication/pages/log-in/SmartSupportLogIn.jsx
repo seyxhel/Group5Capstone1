@@ -82,15 +82,12 @@ const SmartSupportLogIn = () => {
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
-          console.log("Login - Profile data fetched:", profileData); // Debug log
-          console.log("Login - Image URL:", profileData.image); // Debug log
           localStorage.setItem("employee_image", profileData.image || "");
           
           // Clean up any pending employee image data from registration
           localStorage.removeItem("pending_employee_image");
           localStorage.removeItem("pending_employee_email");
         } else {
-          console.log("Login - Profile fetch failed, using token image:", tokenData.image); // Debug log
           localStorage.setItem("employee_image", tokenData.image || "");
         }
       } catch (error) {

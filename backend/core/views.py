@@ -65,16 +65,21 @@ class CreateEmployeeView(APIView):
         if serializer.is_valid():
             try:
                 employee = serializer.save()
-                # Send pending approval email only for self-registration
-                html_content = send_account_pending_email(employee)
-                msg = EmailMultiAlternatives(
-                    subject="Account Creation Pending Approval",
-                    body="Your account has been created and is pending approval.",
-                    from_email="mapactivephsmartsupport@gmail.com",
-                    to=[employee.email],
-                )
-                msg.attach_alternative(html_content, "text/html")
-                msg.send()
+                
+                # Try to send pending approval email, but don't fail if email fails
+                try:
+                    html_content = send_account_pending_email(employee)
+                    msg = EmailMultiAlternatives(
+                        subject="Account Creation Pending Approval",
+                        body="Your account has been created and is pending approval.",
+                        from_email="mapactivephsmartsupport@gmail.com",
+                        to=[employee.email],
+                    )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send()
+                except Exception as e:
+                    # Log email error but don't fail the entire operation
+                    print(f"Failed to send pending approval email: {e}")
                 
                 # Return employee data with secure image URL
                 employee_serializer = EmployeeSerializer(employee, context={'request': request})
@@ -692,21 +697,28 @@ def approve_employee(request, pk):
         return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
     if employee.status == 'Approved':
         return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+    
     employee.status = 'Approved'
     employee.save()
 
-    # Send approval email (HTML only)
-    html_content = send_account_approved_email(employee)
-    msg = EmailMultiAlternatives(
-        subject="Your Account is Ready!",
-        body="Your account has been approved! You can now log in using the credentials you signed up with.",
-        from_email="mapactivephsmartsupport@gmail.com",
-        to=[employee.email],
-    )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
+    # Try to send approval email, but don't fail if email fails
+    try:
+        html_content = send_account_approved_email(employee)
+        msg = EmailMultiAlternatives(
+            subject="Your Account is Ready!",
+            body="Your account has been approved! You can now log in using the credentials you signed up with.",
+            from_email="mapactivephsmartsupport@gmail.com",
+            to=[employee.email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        email_status = "Employee approved and email sent."
+    except Exception as e:
+        # Log email error but don't fail the approval
+        print(f"Failed to send approval email: {e}")
+        email_status = "Employee approved, but email failed to send."
 
-    return Response({'detail': 'Employee approved and email sent.'}, status=status.HTTP_200_OK)
+    return Response({'detail': email_status}, status=status.HTTP_200_OK)
 
 def send_account_approved_email(employee):
     logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
