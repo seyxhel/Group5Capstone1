@@ -125,14 +125,50 @@ def test_email(request):
 
 @csrf_exempt
 def test_simple_email(request):
-    """
-    A minimal test to see if this endpoint can be reached at all.
-    This does NOT send an email.
-    """
-    return JsonResponse({
-        'status': 'success',
-        'message': 'The test_simple_email endpoint was reached successfully.'
-    })
+    """Test actual email sending with maximum error handling"""
+    if request.method == 'POST':
+        try:
+            test_email_address = request.POST.get('email')
+            if not test_email_address:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Email address not provided in POST data.'
+                }, status=400)
+
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            # Check configuration exists
+            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Email credentials not configured on the server.'
+                }, status=500)
+
+            # Try to send the simplest possible email
+            send_mail(
+                subject='Simple Test Email from SmartSupport',
+                message='This is a test to confirm email functionality.',
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[test_email_address],
+                fail_silently=False,
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Email sent successfully to {test_email_address}'
+            })
+            
+        except Exception as send_error:
+            import traceback
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Email sending failed: {str(send_error)}',
+                'error_type': type(send_error).__name__,
+                'traceback': traceback.format_exc()
+            }, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': 'This endpoint only supports POST requests.'}, status=405)
 
 # For employee registration
 class CreateEmployeeView(APIView):
