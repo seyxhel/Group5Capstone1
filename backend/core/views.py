@@ -125,75 +125,14 @@ def test_email(request):
 
 @csrf_exempt
 def test_simple_email(request):
-    """Test actual email sending with maximum error handling"""
-    if request.method == 'POST':
-        try:
-            test_email_address = request.POST.get('email', 'test@example.com')
-            
-            # Import Django mail at the function level
-            try:
-                from django.core.mail import send_mail
-                print("Django mail imported successfully")
-            except Exception as import_error:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': f'Failed to import Django mail: {str(import_error)}'
-                })
-            
-            # Check configuration exists
-            try:
-                email_user = settings.EMAIL_HOST_USER
-                email_password = settings.EMAIL_HOST_PASSWORD
-                
-                if not email_user or not email_password:
-                    return JsonResponse({
-                        'status': 'error',
-                        'message': 'Email credentials not configured',
-                        'email_user_set': bool(email_user),
-                        'email_password_set': bool(email_password)
-                    })
-                    
-                print(f"Email config OK - User: {email_user}")
-                
-            except Exception as config_error:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': f'Email configuration error: {str(config_error)}'
-                })
-            
-            # Try to send the simplest possible email
-            try:
-                print(f"Attempting to send email to: {test_email_address}")
-                
-                send_mail(
-                    subject='Simple Test Email',
-                    message='This is a test.',
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[test_email_address],
-                    fail_silently=False,
-                )
-                
-                return JsonResponse({
-                    'status': 'success',
-                    'message': f'Email sent successfully to {test_email_address}'
-                })
-                
-            except Exception as send_error:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': f'Email sending failed: {str(send_error)}',
-                    'error_type': type(send_error).__name__
-                })
-            
-        except Exception as e:
-            import traceback
-            return JsonResponse({
-                'status': 'error',
-                'message': f'Unexpected error: {str(e)}',
-                'traceback': traceback.format_exc()
-            })
-    
-    return JsonResponse({'status': 'error', 'message': 'Only POST allowed'})
+    """
+    A minimal test to see if this endpoint can be reached at all.
+    This does NOT send an email.
+    """
+    return JsonResponse({
+        'status': 'success',
+        'message': 'The test_simple_email endpoint was reached successfully.'
+    })
 
 # For employee registration
 class CreateEmployeeView(APIView):
