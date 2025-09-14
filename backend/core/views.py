@@ -19,12 +19,11 @@ import os
 from PIL import Image
 from io import BytesIO
 from django.core.files.base import ContentFile
-from django.core.mail import send_mail, EmailMultiAlternatives
+from core.gmail_utils import send_gmail_message
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.conf import settings
@@ -229,14 +228,12 @@ class CreateEmployeeView(APIView):
                     
                     # Create and send email
                     print("Creating and sending email...")
-                    msg = EmailMultiAlternatives(
-                        subject="Account Creation Pending Approval",
-                        body="Your account has been created and is pending approval.",
-                        from_email="mapactivephsmartsupport@gmail.com",
-                        to=[employee.email],
-                    )
-                    msg.attach_alternative(html_content, "text/html")
-                    msg.send()
+                        send_gmail_message(
+                            to=employee.email,
+                            subject="Account Creation Pending Approval",
+                            body=html_content,
+                            is_html=True
+                        )
                     
                     print(f"Email sent successfully to: {employee.email}")
                     return "Email sent successfully"
@@ -893,14 +890,12 @@ def approve_employee(request, pk):
         try:
             print(f"Attempting to send approval email to {employee.email}...")
             html_content = send_account_approved_email(employee)
-            msg = EmailMultiAlternatives(
+            send_gmail_message(
+                to=employee.email,
                 subject="Your Account is Ready!",
-                body="Your account has been approved! You can now log in using the credentials you signed up with.",
-                from_email="mapactivephsmartsupport@gmail.com",
-                to=[employee.email],
+                body=html_content,
+                is_html=True
             )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send()
             email_status = "Employee approved and email sent."
             print(f"Approval email sent successfully to: {employee.email}")
         except Exception as e:
@@ -1006,14 +1001,12 @@ def reject_employee(request, pk):
         )
         # 2. Send rejection email
         html_content = send_account_rejected_email(employee)
-        msg = EmailMultiAlternatives(
+        send_gmail_message(
+            to=employee.email,
             subject="Account Creation Unsuccessful",
-            body="We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.\n\nIf you need any assistance or have questions, reach out to us at: mapactivephsmartsupport@gmail.com\n\nBest regards,\nMAP Active PH SmartSupport",
-            from_email="mapactivephsmartsupport@gmail.com",
-            to=[employee.email],
+            body=html_content,
+            is_html=True
         )
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
         # 3. Delete the employee
         employee.delete()
         return Response({'detail': 'Employee rejected, audited, and deleted.'}, status=status.HTTP_200_OK)
@@ -1090,9 +1083,12 @@ def forgot_password(request):
         </html>
         """
 
-        msg = EmailMultiAlternatives(subject, text_content, from_email, to)
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
+        send_gmail_message(
+            to=email,
+            subject=subject,
+            body=html_content,
+            is_html=True
+        )
 
         return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
     except Employee.DoesNotExist:
