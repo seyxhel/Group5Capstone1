@@ -73,8 +73,14 @@ class CreateEmployeeView(APIView):
                 )
                 msg.attach_alternative(html_content, "text/html")
                 msg.send()
+                
+                # Return employee data with secure image URL
+                employee_serializer = EmployeeSerializer(employee, context={'request': request})
                 return Response(
-                    {"message": "Account created successfully. Pending approval."},
+                    {
+                        "message": "Account created successfully. Pending approval.",
+                        "employee": employee_serializer.data
+                    },
                     status=status.HTTP_201_CREATED
                 )
             except Exception as e:

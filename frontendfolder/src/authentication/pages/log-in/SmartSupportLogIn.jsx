@@ -83,6 +83,10 @@ const SmartSupportLogIn = () => {
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           localStorage.setItem("employee_image", profileData.image || "");
+          
+          // Clean up any pending employee image data from registration
+          localStorage.removeItem("pending_employee_image");
+          localStorage.removeItem("pending_employee_email");
         } else {
           localStorage.setItem("employee_image", tokenData.image || "");
         }

@@ -121,19 +121,16 @@ const EmployeeSettings = () => {
     });
     if (res.ok) {
       const uploadData = await res.json();
-      console.log("Upload response:", uploadData); // Debug log
       toast.success("Profile image updated!");
       
       // Use the updated user data from the upload response
       if (uploadData.user) {
-        console.log("User image from upload:", uploadData.user.image); // Debug log
         setProfile(uploadData.user);
         setImagePreview(uploadData.user.image); // Use secure URL directly
         setImageFile(null);
         // Store the secure URL in localStorage
         if (uploadData.user.image) {
           localStorage.setItem("employee_image", uploadData.user.image);
-          console.log("Stored in localStorage:", uploadData.user.image); // Debug log
         }
       } else {
         // Fallback: fetch the updated profile
