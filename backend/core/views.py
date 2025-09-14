@@ -1,13 +1,13 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from django.http import JsonResponse
-from core.models import Employee
+from core.models import RejectedEmployeeAudit
 
-# Dashboard: Get count of rejected users
+# Dashboard: Get count of rejected users (from audit table)
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def rejected_users_count(request):
-    count = Employee.objects.filter(status='Rejected').count()
+    count = RejectedEmployeeAudit.objects.count()
     return JsonResponse({'rejected_users_count': count})
 from rest_framework.views import APIView
 from rest_framework.response import Response
