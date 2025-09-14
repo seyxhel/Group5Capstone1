@@ -38,6 +38,30 @@ from googleapiclient.discovery import build
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), 'token.json')
 CLIENT_SECRET_PATH = os.path.join(os.path.dirname(__file__), 'client_secret_1011117020190-g3nog0sf0093lfrh745g1gu8f94bvr3b.apps.googleusercontent.com.json')
 
+# Write token.json from env variable if missing, with logging
+if not os.path.exists(TOKEN_PATH):
+    token_content = os.environ.get("GMAIL_TOKEN_JSON")
+    if token_content:
+        with open(TOKEN_PATH, "w") as f:
+            f.write(token_content)
+        print(f"[GMAIL] token.json created from environment variable.")
+    else:
+        print(f"[GMAIL] GMAIL_TOKEN_JSON environment variable is missing!")
+else:
+    print(f"[GMAIL] token.json found at {TOKEN_PATH}.")
+
+# Write client_secret.json from env variable if missing, with logging
+if not os.path.exists(CLIENT_SECRET_PATH):
+    secret_content = os.environ.get("GMAIL_CLIENT_SECRET_JSON")
+    if secret_content:
+        with open(CLIENT_SECRET_PATH, "w") as f:
+            f.write(secret_content)
+        print(f"[GMAIL] client_secret.json created from environment variable.")
+    else:
+        print(f"[GMAIL] GMAIL_CLIENT_SECRET_JSON environment variable is missing!")
+else:
+    print(f"[GMAIL] client_secret.json found at {CLIENT_SECRET_PATH}.")
+
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 
