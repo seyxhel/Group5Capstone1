@@ -52,7 +52,8 @@ def test_endpoint(request):
     return JsonResponse({
         'status': 'success',
         'message': 'Backend is working correctly',
-        'method': request.method
+        'method': request.method,
+        'email_configured': bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
     })
 
 # For employee registration
@@ -88,9 +89,7 @@ class CreateEmployeeView(APIView):
                     print(f"Employee created successfully: {employee.email} (ID: {employee.pk})")
                     
                     # Try to send pending approval email, but don't fail if email fails
-                    email_status = "Email sending disabled for testing"
-                    # Temporarily disable email sending to isolate the issue
-                    """
+                    email_status = "Email not sent"
                     try:
                         print("Attempting to send email...")
                         html_content = send_account_pending_email(employee)
@@ -108,7 +107,6 @@ class CreateEmployeeView(APIView):
                         # Log email error but don't fail the entire operation
                         email_status = f"Email failed: {str(e)}"
                         print(f"Failed to send pending approval email: {e}")
-                    """
                     
                     # Return employee data with secure image URL
                     print("Creating response serializer...")
@@ -737,33 +735,57 @@ class IsSystemAdmin(BasePermission):
 @permission_classes([IsAuthenticated, IsSystemAdmin])
 def approve_employee(request, pk):
     try:
-        employee = Employee.objects.get(pk=pk)
-    except Employee.DoesNotExist:
-        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if employee.status == 'Approved':
-        return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    employee.status = 'Approved'
-    employee.save()
+        print(f"Approve employee request received for ID: {pk}")
+        
+        try:
+            employee = Employee.objects.get(pk=pk)
+            print(f"Employee found: {employee.email}")
+        except Employee.DoesNotExist:
+            print(f"Employee with ID {pk} not found")
+            return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        if employee.status == 'Approved':
+            print(f"Employee {employee.email} already approved")
+            return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(f"Approving employee {employee.email}...")
+        employee.status = 'Approved'
+        employee.save()
+        print(f"Employee {employee.email} status updated to Approved")
 
-    # Try to send approval email, but don't fail if email fails
-    try:
-        html_content = send_account_approved_email(employee)
-        msg = EmailMultiAlternatives(
-            subject="Your Account is Ready!",
-            body="Your account has been approved! You can now log in using the credentials you signed up with.",
-            from_email="mapactivephsmartsupport@gmail.com",
-            to=[employee.email],
-        )
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
-        email_status = "Employee approved and email sent."
+        # Try to send approval email, but don't fail if email fails
+        email_status = "Email not sent"
+        try:
+            print(f"Attempting to send approval email to {employee.email}...")
+            html_content = send_account_approved_email(employee)
+            msg = EmailMultiAlternatives(
+                subject="Your Account is Ready!",
+                body="Your account has been approved! You can now log in using the credentials you signed up with.",
+                from_email="mapactivephsmartsupport@gmail.com",
+                to=[employee.email],
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+            email_status = "Employee approved and email sent."
+            print(f"Approval email sent successfully to: {employee.email}")
+        except Exception as e:
+            # Log email error but don't fail the approval
+            email_status = f"Employee approved, but email failed: {str(e)}"
+            print(f"Failed to send approval email: {e}")
+            import traceback
+            print(f"Email error traceback: {traceback.format_exc()}")
+
+        print(f"Returning success response: {email_status}")
+        return Response({'detail': email_status}, status=status.HTTP_200_OK)
+        
     except Exception as e:
-        # Log email error but don't fail the approval
-        print(f"Failed to send approval email: {e}")
-        email_status = "Employee approved, but email failed to send."
-
-    return Response({'detail': email_status}, status=status.HTTP_200_OK)
+        print(f"Unexpected error in approve_employee: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return Response(
+            {'detail': f'Unexpected error: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 def send_account_approved_email(employee):
     logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
