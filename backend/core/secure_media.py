@@ -125,14 +125,22 @@ def serve_media_file(file_path, request, skip_auth_check=False):
         
         # Set Content-Disposition based on file type
         file_ext = os.path.splitext(filename)[1].lower()
-        if content_type in [
+        
+        # Files that should be downloaded (not displayed)
+        download_types = [
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
-            "text/csv",
-            "application/pdf"
-        ] or file_ext in [".docx", ".xlsx", ".csv", ".pdf"]:
+            "application/msword",  # .doc
+            "application/vnd.ms-excel",  # .xls
+            "text/csv"
+        ]
+        download_extensions = [".docx", ".xlsx", ".csv", ".doc", ".xls"]
+        
+        # Check if file should be downloaded or displayed inline
+        if content_type in download_types or file_ext in download_extensions:
             response["Content-Disposition"] = f'attachment; filename="{filename}"'
         else:
+            # Display inline for images, PDFs, and other viewable content
             response["Content-Disposition"] = f'inline; filename="{filename}"'
         
         return response

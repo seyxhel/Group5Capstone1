@@ -58,6 +58,13 @@ PY
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+echo "Creating media directories..."
+mkdir -p /app/media/employee_images
+mkdir -p /app/media/ticket_attachments
+chmod 755 /app/media
+chmod 755 /app/media/employee_images
+chmod 755 /app/media/ticket_attachments
+
 echo "Starting passed command..."
 # Exec the command passed to the container (e.g., gunicorn ...)
 exec "$@"

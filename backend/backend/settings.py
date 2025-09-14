@@ -140,7 +140,14 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Media files storage configuration
+if DEBUG:
+    # Development: store in project folder
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    # Production: use Railway volume or persistent path
+    MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/app/media')
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [

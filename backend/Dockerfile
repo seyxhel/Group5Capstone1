@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the Django project
 COPY . .
 
+# Create media directory for file uploads
+RUN mkdir -p /app/media/employee_images /app/media/ticket_attachments
+
 # Copy and enable entrypoint that waits for DB, runs migrations, creates superuser,
 # collects static files, then execs the container command (e.g. gunicorn).
 COPY entrypoint.sh /entrypoint.sh
