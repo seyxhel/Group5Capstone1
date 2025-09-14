@@ -56,151 +56,95 @@ def test_endpoint(request):
         'email_configured': bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
     })
 
+@csrf_exempt 
+def debug_create_employee(request):
+    """Debug endpoint to test employee creation without frontend"""
+    if request.method == 'POST':
+        try:
+            # Simple test data
+            test_data = {
+                'first_name': 'Test',
+                'last_name': 'User',
+                'email': 'test@example.com',
+                'password': 'testpass123',
+                'department': 'IT',
+                'role': 'Employee'
+            }
+            
+            serializer = EmployeeSerializer(data=test_data)
+            if serializer.is_valid():
+                employee = serializer.save()
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f'Test employee created: {employee.email}',
+                    'employee_id': employee.pk
+                })
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Serializer validation failed',
+                    'errors': serializer.errors
+                })
+        except Exception as e:
+            import traceback
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Exception occurred: {str(e)}',
+                'traceback': traceback.format_exc()
+            })
+    
+    return JsonResponse({'status': 'error', 'message': 'Only POST allowed'})
+
 # For employee registration
 class CreateEmployeeView(APIView):
-    parser_classes = [MultiPartParser, FormParser]  # Add this to handle file uploads
+    parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request, *args, **kwargs):
+        print("=== CreateEmployeeView POST started ===")
+        
         try:
-            print("=== CreateEmployeeView: POST request received ===")
-            print(f"Request data keys: {list(request.data.keys())}")
-            print(f"Request content type: {request.content_type}")
+            # Basic data validation
+            data = request.data.copy()
+            print(f"Received data keys: {list(data.keys())}")
             
-            # Wrap everything in try-catch to prevent any uncaught exceptions
-            try:
-                data = request.data.copy()
-                print("Data copied successfully")
-                
-                password = data.get("password")
-                confirm_password = data.get("confirm_password")
-                
-                print(f"Password check: password exists={bool(password)}, confirm_password exists={bool(confirm_password)}")
-
-                if password != confirm_password:
-                    print("Password mismatch error")
-                    return Response(
-                        {"error": "Passwords do not match."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                print("Creating serializer...")
-                try:
-                    serializer = EmployeeSerializer(data=data)
-                    print(f"Serializer created successfully")
-                except Exception as e:
-                    print(f"Error creating serializer: {e}")
-                    return Response({"error": f"Serializer error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-                
-                print("Checking serializer validity...")
-                if serializer.is_valid():
-                    print("Serializer is valid, attempting to save...")
-                    try:
-                        employee = serializer.save()
-                        print(f"Employee created successfully: {employee.email} (ID: {employee.pk})")
-                        
-                        # Try to send pending approval email with extensive error handling
-                        email_status = "Email not sent"
-                        try:
-                            print("=== Starting email sending process ===")
-                            
-                            # Check if email configuration exists
-                            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-                                email_status = "Email not configured"
-                                print("Email configuration missing")
-                            else:
-                                print(f"Email config found - User: {settings.EMAIL_HOST_USER}")
-                                
-                                # Generate email content
-                                try:
-                                    print("Generating email HTML content...")
-                                    html_content = send_account_pending_email(employee)
-                                    print("Email HTML content generated successfully")
-                                except Exception as e:
-                                    email_status = f"Email template error: {str(e)}"
-                                    print(f"Error generating email content: {e}")
-                                    raise e
-                                
-                                # Create email message
-                                try:
-                                    print("Creating email message...")
-                                    msg = EmailMultiAlternatives(
-                                        subject="Account Creation Pending Approval",
-                                        body="Your account has been created and is pending approval.",
-                                        from_email="mapactivephsmartsupport@gmail.com",
-                                        to=[employee.email],
-                                    )
-                                    msg.attach_alternative(html_content, "text/html")
-                                    print("Email message created successfully")
-                                except Exception as e:
-                                    email_status = f"Email message creation error: {str(e)}"
-                                    print(f"Error creating email message: {e}")
-                                    raise e
-                                
-                                # Send email
-                                try:
-                                    print(f"Sending email to: {employee.email}")
-                                    msg.send()
-                                    email_status = "Email sent successfully"
-                                    print(f"Email sent successfully to: {employee.email}")
-                                except Exception as e:
-                                    email_status = f"Email sending failed: {str(e)}"
-                                    print(f"Failed to send email: {e}")
-                                    # Don't raise here - let it continue
-                                    
-                        except Exception as e:
-                            # Catch any email-related error and continue
-                            email_status = f"Email process failed: {str(e)}"
-                            print(f"=== Email process failed: {e} ===")
-                            import traceback
-                            print(f"Email error traceback: {traceback.format_exc()}")
-                            # Don't return error - continue with successful account creation
-                        
-                        print(f"Email process completed with status: {email_status}")
-                        
-                        # Return employee data with secure image URL
-                        print("Creating response serializer...")
-                        try:
-                            employee_serializer = EmployeeSerializer(employee, context={'request': request})
-                            print("Response serializer created successfully")
-                        except Exception as e:
-                            print(f"Error creating response serializer: {e}")
-                            return Response({"error": f"Response serializer error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-                        
-                        try:
-                            response_data = {
-                                "message": f"Account created successfully. Pending approval. {email_status}",
-                                "employee": employee_serializer.data
-                            }
-                            print("Response data created successfully")
-                            print("Returning success response")
-                            return Response(response_data, status=status.HTTP_201_CREATED)
-                        except Exception as e:
-                            print(f"Error creating response data: {e}")
-                            return Response({"error": f"Response data error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-                        
-                    except Exception as e:
-                        print(f"Error saving employee: {e}")
-                        import traceback
-                        print(f"Full traceback: {traceback.format_exc()}")
-                        return Response({"error": f"Error creating employee: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-                print(f"Serializer errors: {serializer.errors}")
+            password = data.get("password")
+            confirm_password = data.get("confirm_password")
+            
+            if password != confirm_password:
+                print("Password mismatch")
+                return Response(
+                    {"error": "Passwords do not match."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create and validate serializer
+            print("Creating serializer...")
+            serializer = EmployeeSerializer(data=data)
+            
+            if not serializer.is_valid():
+                print(f"Serializer validation failed: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
-            except Exception as e:
-                print(f"Error in data processing: {e}")
-                import traceback
-                print(f"Full traceback: {traceback.format_exc()}")
-                return Response({"error": f"Data processing error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Save employee
+            print("Saving employee...")
+            employee = serializer.save()
+            print(f"Employee saved successfully: {employee.email} (ID: {employee.pk})")
+            
+            # Simple response without email for now
+            return Response({
+                "message": "Account created successfully. Pending approval.",
+                "employee_id": employee.pk,
+                "email": employee.email
+            }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            print(f"=== CRITICAL ERROR in CreateEmployeeView: {e} ===")
+            print(f"=== CRITICAL ERROR: {e} ===")
             import traceback
-            print(f"=== Full traceback: {traceback.format_exc()} ===")
-            return Response(
-                {"error": f"Critical error: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            return Response({
+                "error": f"Server error: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CreateAdminEmployeeView(APIView):
     permission_classes = [IsAuthenticated]
