@@ -66,7 +66,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['first_name'] = user.first_name
         data['last_name'] = user.last_name
         data['dateCreated'] = user.date_created
-        data['image'] = user.image.url if user.image else ""   # <-- ADD THIS LINE
+        # Return secure image URL instead of relative path
+        data['image'] = get_media_url_with_token(user.image, user) if user.image else ""
 
         return data
 

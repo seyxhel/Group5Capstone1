@@ -39,14 +39,18 @@ const EmployeeNavBar = () => {
       const imagePath = localStorage.getItem("employee_image");
       const token = localStorage.getItem("employee_access_token");
       
+      console.log("Navigation bar loading image:", imagePath); // Debug log
+      
       // If we have a relative path (old format), fetch fresh profile
       if (token && imagePath && imagePath.startsWith("/media/")) {
+        console.log("Detected old relative path, fetching fresh profile..."); // Debug log
         try {
           const profileRes = await fetch(`${API_URL}employee/profile/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (profileRes.ok) {
             const profileData = await profileRes.json();
+            console.log("Fresh profile data:", profileData.image); // Debug log
             localStorage.setItem("employee_image", profileData.image || "");
             setImageUrl(profileData.image || null);
             return;
