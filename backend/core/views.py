@@ -647,7 +647,13 @@ def upload_profile_image(request):
         file_content = ContentFile(buffer.getvalue())
         user.image.save(f"profile_{user.id}.jpg", file_content)
         user.save()
-        return Response({'detail': 'Image uploaded successfully.'})
+        
+        # Return updated user data with secure image URL
+        serializer = EmployeeSerializer(user, context={'request': request})
+        return Response({
+            'detail': 'Image uploaded successfully.',
+            'user': serializer.data
+        })
     except Exception as e:
         return Response({'detail': 'Failed to process image.'}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -140,14 +140,18 @@ const EmployeeNavBar = () => {
   let imageUrl = null;
 
   if (imagePath) {
+    // If it's already a complete URL (with token), use it directly
     if (imagePath.startsWith("http")) {
       imageUrl = imagePath;
-    } else if (imagePath.startsWith("/media/")) {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app${imagePath}`;
-    } else if (imagePath.startsWith("employee_images/")) {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`;
     } else {
-      imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`;
+      // Legacy fallback for old relative paths
+      if (imagePath.startsWith("/media/")) {
+        imageUrl = `https://smartsupport-hdts-backend.up.railway.app${imagePath}`;
+      } else if (imagePath.startsWith("employee_images/")) {
+        imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`;
+      } else {
+        imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`;
+      }
     }
   }
 

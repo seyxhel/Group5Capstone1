@@ -1,5 +1,3 @@
-console.log("API_URL:", import.meta.env.VITE_REACT_APP_API_URL);
-
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -8,13 +6,13 @@ import authService from "../../../utilities/service/authService";
 import Alert from "../../../shared/alert/Alert";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
 
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Logo from "../../../shared/assets/MapLogo.png";
 import SmartSupportImage from "../../assets/SmartSupportImage.jpg";
 
 import "./SmartSupportLogIn.css";
-
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const SmartSupportLogIn = () => {
   const navigate = useNavigate();
@@ -76,7 +74,23 @@ const SmartSupportLogIn = () => {
       // Store first name and last name
       localStorage.setItem("employee_first_name", tokenData.first_name || "");
       localStorage.setItem("employee_last_name", tokenData.last_name || "");
-      localStorage.setItem("employee_image", tokenData.image || "");
+      
+      // Fetch profile to get secure image URL
+      try {
+        const profileRes = await fetch(`${API_URL}employee/profile/`, {
+          headers: { Authorization: `Bearer ${tokenData.access}` },
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          localStorage.setItem("employee_image", profileData.image || "");
+        } else {
+          localStorage.setItem("employee_image", tokenData.image || "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+        localStorage.setItem("employee_image", tokenData.image || "");
+      }
+      
       navigate("/employee/home");
     }
 

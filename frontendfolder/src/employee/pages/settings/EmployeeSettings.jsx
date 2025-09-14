@@ -75,7 +75,7 @@ const EmployeeSettings = () => {
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
-        setImagePreview(data.image ? `${MEDIA_URL}${data.image}` : null);
+        setImagePreview(data.image); // Use secure URL directly from backend
       }
     };
     fetchProfile();
@@ -120,19 +120,32 @@ const EmployeeSettings = () => {
       body: formData,
     });
     if (res.ok) {
+      const uploadData = await res.json();
       toast.success("Profile image updated!");
-      // Fetch the updated profile to get the new image filename
-      const profileRes = await fetch(`${API_URL}employee/profile/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setProfile(data);
-        setImagePreview(data.image ? `${MEDIA_URL}${data.image}` : null);
+      
+      // Use the updated user data from the upload response
+      if (uploadData.user) {
+        setProfile(uploadData.user);
+        setImagePreview(uploadData.user.image); // Use secure URL directly
         setImageFile(null);
-        // Update localStorage so nav/profile uses the new image immediately
-        if (data.image) {
-          localStorage.setItem("employee_image", data.image);
+        // Store the secure URL in localStorage
+        if (uploadData.user.image) {
+          localStorage.setItem("employee_image", uploadData.user.image);
+        }
+      } else {
+        // Fallback: fetch the updated profile
+        const profileRes = await fetch(`${API_URL}employee/profile/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setProfile(data);
+          setImagePreview(data.image); // Use secure URL directly
+          setImageFile(null);
+          // Store the secure URL in localStorage
+          if (data.image) {
+            localStorage.setItem("employee_image", data.image);
+          }
         }
       }
     } else {
