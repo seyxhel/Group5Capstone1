@@ -7,7 +7,8 @@ from django.conf import settings
 from .media_utils import get_media_url_with_token, generate_secure_media_url
 
 class EmployeeSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
+    # Use ImageField for input/output, override in to_representation for secure URLs
+    image = serializers.ImageField(required=False, allow_null=True)
     
     class Meta:
         model = Employee
@@ -21,34 +22,31 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
         }
 
-    def get_image(self, obj):
+    def to_representation(self, instance):
+        """Override to return secure URLs for image field"""
+        data = super().to_representation(instance)
         request = self.context.get('request')
+        
         if request and request.user.is_authenticated:
-            if obj.image:
+            if instance.image:
                 # Try to get secure URL for user's image (custom or default)
                 try:
-                    return get_media_url_with_token(obj.image, request.user)
+                    data['image'] = get_media_url_with_token(instance.image, request.user)
                 except Exception:
                     # If there's an issue with the user's image, fallback to default
-                    return generate_secure_media_url('employee_images/default-profile.png', request.user)
+                    data['image'] = generate_secure_media_url('employee_images/default-profile.png', request.user)
             else:
                 # No image field, use default
-                return generate_secure_media_url('employee_images/default-profile.png', request.user)
-        return None
+                data['image'] = generate_secure_media_url('employee_images/default-profile.png', request.user)
+        else:
+            data['image'] = None
+            
+        return data
 
     def create(self, validated_data):
-        # Extract the image file if present
-        image_file = validated_data.pop('image', None)
         password = validated_data.pop('password')
-        
-        # Create employee without image first
         employee = Employee(**validated_data)
         employee.set_password(password)
-        
-        # Handle image upload if provided
-        if image_file:
-            employee.image = image_file
-            
         employee.save()
         return employee
 
