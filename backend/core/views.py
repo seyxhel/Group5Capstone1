@@ -97,29 +97,77 @@ def debug_create_employee(request):
 
 @csrf_exempt
 def test_email(request):
-    """Test email sending functionality directly"""
+    """Test email configuration without actually sending"""
+    try:
+        # Just check configuration without sending anything
+        config_info = {
+            'EMAIL_HOST': getattr(settings, 'EMAIL_HOST', 'Not set'),
+            'EMAIL_PORT': getattr(settings, 'EMAIL_PORT', 'Not set'),
+            'EMAIL_USE_TLS': getattr(settings, 'EMAIL_USE_TLS', 'Not set'),
+            'EMAIL_HOST_USER': getattr(settings, 'EMAIL_HOST_USER', 'Not set'),
+            'EMAIL_HOST_PASSWORD_SET': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', None)),
+            'EMAIL_BACKEND': getattr(settings, 'EMAIL_BACKEND', 'Not set'),
+        }
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Email configuration check completed',
+            'config': config_info
+        })
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Configuration check failed: {str(e)}',
+            'traceback': traceback.format_exc()
+        })
+
+@csrf_exempt
+def test_simple_email(request):
+    """Test actual email sending with maximum error handling"""
     if request.method == 'POST':
         try:
             test_email_address = request.POST.get('email', 'test@example.com')
             
-            # Test basic email configuration
-            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Email not configured - missing credentials'
-                })
-            
-            print(f"Testing email to: {test_email_address}")
-            print(f"Email config - Host: {settings.EMAIL_HOST}, User: {settings.EMAIL_HOST_USER}")
-            
-            # Try the simplest possible email first
+            # Import Django mail at the function level
             try:
                 from django.core.mail import send_mail
+                print("Django mail imported successfully")
+            except Exception as import_error:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Failed to import Django mail: {str(import_error)}'
+                })
+            
+            # Check configuration exists
+            try:
+                email_user = settings.EMAIL_HOST_USER
+                email_password = settings.EMAIL_HOST_PASSWORD
                 
-                print("Attempting to send simple email...")
+                if not email_user or not email_password:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'Email credentials not configured',
+                        'email_user_set': bool(email_user),
+                        'email_password_set': bool(email_password)
+                    })
+                    
+                print(f"Email config OK - User: {email_user}")
+                
+            except Exception as config_error:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Email configuration error: {str(config_error)}'
+                })
+            
+            # Try to send the simplest possible email
+            try:
+                print(f"Attempting to send email to: {test_email_address}")
+                
                 send_mail(
-                    subject='Test Email from SmartSupport',
-                    message='This is a simple test email to verify email functionality.',
+                    subject='Simple Test Email',
+                    message='This is a test.',
                     from_email='mapactivephsmartsupport@gmail.com',
                     recipient_list=[test_email_address],
                     fail_silently=False,
@@ -127,51 +175,21 @@ def test_email(request):
                 
                 return JsonResponse({
                     'status': 'success',
-                    'message': f'Simple test email sent successfully to {test_email_address}',
-                    'email_config': f'Using: {settings.EMAIL_HOST_USER}'
+                    'message': f'Email sent successfully to {test_email_address}'
                 })
                 
-            except Exception as simple_error:
-                print(f"Simple email failed: {simple_error}")
-                
-                # Try with EmailMultiAlternatives as backup
-                try:
-                    from django.core.mail import EmailMultiAlternatives
-                    
-                    print("Attempting with EmailMultiAlternatives...")
-                    msg = EmailMultiAlternatives(
-                        subject="Test Email from SmartSupport",
-                        body="This is a test email to verify email functionality.",
-                        from_email="mapactivephsmartsupport@gmail.com",
-                        to=[test_email_address],
-                    )
-                    msg.send()
-                    
-                    return JsonResponse({
-                        'status': 'success',
-                        'message': f'EmailMultiAlternatives test sent successfully to {test_email_address}',
-                        'simple_error': str(simple_error)
-                    })
-                    
-                except Exception as multi_error:
-                    print(f"EmailMultiAlternatives also failed: {multi_error}")
-                    
-                    return JsonResponse({
-                        'status': 'error',
-                        'message': 'Both email methods failed',
-                        'simple_error': str(simple_error),
-                        'multi_error': str(multi_error),
-                        'email_host': settings.EMAIL_HOST,
-                        'email_port': settings.EMAIL_PORT,
-                        'email_tls': settings.EMAIL_USE_TLS
-                    })
+            except Exception as send_error:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Email sending failed: {str(send_error)}',
+                    'error_type': type(send_error).__name__
+                })
             
         except Exception as e:
             import traceback
-            print(f"Critical email test error: {e}")
             return JsonResponse({
                 'status': 'error',
-                'message': f'Email test failed: {str(e)}',
+                'message': f'Unexpected error: {str(e)}',
                 'traceback': traceback.format_exc()
             })
     

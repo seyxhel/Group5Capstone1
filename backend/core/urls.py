@@ -31,6 +31,7 @@ from .views import (
     test_endpoint,  # Add test endpoint
     debug_create_employee,  # Add debug endpoint
     test_email,  # Add email test endpoint
+    test_simple_email,  # Add simple email test endpoint
 )
 from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -45,7 +46,8 @@ urlpatterns = [
     path('', custom_api_root, name='api-root'),  # <-- put this FIRST
     path('test/', test_endpoint, name='test_endpoint'),  # Add test endpoint
     path('debug-create/', debug_create_employee, name='debug_create_employee'),  # Add debug endpoint
-    path('test-email/', test_email, name='test_email'),  # Add email test endpoint
+    path('test-email/', test_email, name='test_email'),  # Add email config test endpoint
+    path('test-simple-email/', test_simple_email, name='test_simple_email'),  # Add simple email test endpoint
     # Custom endpoints (must come before router)
     path('create_employee/', CreateEmployeeView.as_view(), name='create_employee'),
     path("admin/create-employee/", CreateAdminEmployeeView.as_view(), name="admin-create-employee"),
