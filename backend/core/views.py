@@ -130,9 +130,50 @@ class CreateEmployeeView(APIView):
             employee = serializer.save()
             print(f"Employee saved successfully: {employee.email} (ID: {employee.pk})")
             
-            # Simple response without email for now
+            # Add email sending functionality
+            email_status = "Email not attempted"
+            try:
+                print("=== Starting email sending process ===")
+                
+                # Check email configuration
+                if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+                    email_status = "Email not configured - missing credentials"
+                    print("Email configuration missing")
+                else:
+                    print(f"Email config found - User: {settings.EMAIL_HOST_USER}")
+                    
+                    # Generate email content
+                    print("Generating email HTML content...")
+                    html_content = send_account_pending_email(employee)
+                    print("Email HTML content generated successfully")
+                    
+                    # Create and send email
+                    print("Creating and sending email...")
+                    msg = EmailMultiAlternatives(
+                        subject="Account Creation Pending Approval",
+                        body="Your account has been created and is pending approval.",
+                        from_email="mapactivephsmartsupport@gmail.com",
+                        to=[employee.email],
+                    )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send()
+                    
+                    email_status = "Email sent successfully"
+                    print(f"Email sent successfully to: {employee.email}")
+                    
+            except Exception as email_error:
+                # Log email error but DO NOT let it crash the response
+                email_status = f"Email failed: {str(email_error)}"
+                print(f"=== Email error (non-critical): {email_error} ===")
+                import traceback
+                print(f"Email error traceback: {traceback.format_exc()}")
+                # Continue execution - don't return here
+            
+            print(f"Email process completed with status: {email_status}")
+            
+            # Return successful response regardless of email status
             return Response({
-                "message": "Account created successfully. Pending approval.",
+                "message": f"Account created successfully. Pending approval. {email_status}",
                 "employee_id": employee.pk,
                 "email": employee.email
             }, status=status.HTTP_201_CREATED)
