@@ -98,9 +98,64 @@ class CreateEmployeeView(APIView):
                         employee = serializer.save()
                         print(f"Employee created successfully: {employee.email} (ID: {employee.pk})")
                         
-                        # SKIP EMAIL SENDING ENTIRELY FOR NOW TO ISOLATE THE ISSUE
-                        email_status = "Email sending skipped for testing"
-                        print("Skipping email sending for debugging")
+                        # Try to send pending approval email with extensive error handling
+                        email_status = "Email not sent"
+                        try:
+                            print("=== Starting email sending process ===")
+                            
+                            # Check if email configuration exists
+                            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+                                email_status = "Email not configured"
+                                print("Email configuration missing")
+                            else:
+                                print(f"Email config found - User: {settings.EMAIL_HOST_USER}")
+                                
+                                # Generate email content
+                                try:
+                                    print("Generating email HTML content...")
+                                    html_content = send_account_pending_email(employee)
+                                    print("Email HTML content generated successfully")
+                                except Exception as e:
+                                    email_status = f"Email template error: {str(e)}"
+                                    print(f"Error generating email content: {e}")
+                                    raise e
+                                
+                                # Create email message
+                                try:
+                                    print("Creating email message...")
+                                    msg = EmailMultiAlternatives(
+                                        subject="Account Creation Pending Approval",
+                                        body="Your account has been created and is pending approval.",
+                                        from_email="mapactivephsmartsupport@gmail.com",
+                                        to=[employee.email],
+                                    )
+                                    msg.attach_alternative(html_content, "text/html")
+                                    print("Email message created successfully")
+                                except Exception as e:
+                                    email_status = f"Email message creation error: {str(e)}"
+                                    print(f"Error creating email message: {e}")
+                                    raise e
+                                
+                                # Send email
+                                try:
+                                    print(f"Sending email to: {employee.email}")
+                                    msg.send()
+                                    email_status = "Email sent successfully"
+                                    print(f"Email sent successfully to: {employee.email}")
+                                except Exception as e:
+                                    email_status = f"Email sending failed: {str(e)}"
+                                    print(f"Failed to send email: {e}")
+                                    # Don't raise here - let it continue
+                                    
+                        except Exception as e:
+                            # Catch any email-related error and continue
+                            email_status = f"Email process failed: {str(e)}"
+                            print(f"=== Email process failed: {e} ===")
+                            import traceback
+                            print(f"Email error traceback: {traceback.format_exc()}")
+                            # Don't return error - continue with successful account creation
+                        
+                        print(f"Email process completed with status: {email_status}")
                         
                         # Return employee data with secure image URL
                         print("Creating response serializer...")
