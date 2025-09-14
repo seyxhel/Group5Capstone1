@@ -5,11 +5,11 @@
 /.react-router/
 /build/
 
-env/
-node_modules/
 dist
 dist-ssr
 *.local
 # Environment variables
 .env
 .env*
+backend/core/token.json
+backend/core/client_secret_*.json
