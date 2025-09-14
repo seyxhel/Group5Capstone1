@@ -95,6 +95,58 @@ def debug_create_employee(request):
     
     return JsonResponse({'status': 'error', 'message': 'Only POST allowed'})
 
+@csrf_exempt
+def test_email(request):
+    """Test email sending functionality directly"""
+    if request.method == 'POST':
+        try:
+            test_email_address = request.POST.get('email', 'test@example.com')
+            
+            # Test email configuration
+            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Email not configured - missing credentials'
+                })
+            
+            # Create a dummy employee for email testing
+            class DummyEmployee:
+                def __init__(self):
+                    self.first_name = 'Test'
+                    self.last_name = 'User'
+                    self.email = test_email_address
+            
+            dummy_employee = DummyEmployee()
+            
+            # Try to send email
+            from django.core.mail import EmailMultiAlternatives
+            
+            html_content = send_account_pending_email(dummy_employee)
+            msg = EmailMultiAlternatives(
+                subject="Test Email - Account Creation Pending Approval",
+                body="This is a test email. Your account has been created and is pending approval.",
+                from_email="mapactivephsmartsupport@gmail.com",
+                to=[test_email_address],
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Test email sent successfully to {test_email_address}',
+                'email_config': f'Using: {settings.EMAIL_HOST_USER}'
+            })
+            
+        except Exception as e:
+            import traceback
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Email test failed: {str(e)}',
+                'traceback': traceback.format_exc()
+            })
+    
+    return JsonResponse({'status': 'error', 'message': 'Only POST allowed'})
+
 # For employee registration
 class CreateEmployeeView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -130,17 +182,22 @@ class CreateEmployeeView(APIView):
             employee = serializer.save()
             print(f"Employee saved successfully: {employee.email} (ID: {employee.pk})")
             
-            # Add email sending functionality
+            # Add email sending functionality with ABSOLUTE error protection
             email_status = "Email not attempted"
-            try:
-                print("=== Starting email sending process ===")
-                
-                # Check email configuration
-                if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-                    email_status = "Email not configured - missing credentials"
-                    print("Email configuration missing")
-                else:
+            
+            # Use a separate function to completely isolate email sending
+            def send_email_safely():
+                try:
+                    print("=== Starting email sending process ===")
+                    
+                    # Check email configuration
+                    if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+                        return "Email not configured - missing credentials"
+                    
                     print(f"Email config found - User: {settings.EMAIL_HOST_USER}")
+                    
+                    # Import here to avoid any import issues
+                    from django.core.mail import EmailMultiAlternatives
                     
                     # Generate email content
                     print("Generating email HTML content...")
@@ -158,25 +215,31 @@ class CreateEmployeeView(APIView):
                     msg.attach_alternative(html_content, "text/html")
                     msg.send()
                     
-                    email_status = "Email sent successfully"
                     print(f"Email sent successfully to: {employee.email}")
+                    return "Email sent successfully"
                     
-            except Exception as email_error:
-                # Log email error but DO NOT let it crash the response
-                email_status = f"Email failed: {str(email_error)}"
-                print(f"=== Email error (non-critical): {email_error} ===")
-                import traceback
-                print(f"Email error traceback: {traceback.format_exc()}")
-                # Continue execution - don't return here
+                except Exception as e:
+                    print(f"Email error caught: {e}")
+                    return f"Email failed: {str(e)}"
+            
+            # Call the safe email function - this CANNOT crash the main flow
+            try:
+                email_status = send_email_safely()
+            except Exception as e:
+                email_status = f"Email function failed: {str(e)}"
+                print(f"Email function error: {e}")
             
             print(f"Email process completed with status: {email_status}")
             
             # Return successful response regardless of email status
-            return Response({
+            response_data = {
                 "message": f"Account created successfully. Pending approval. {email_status}",
                 "employee_id": employee.pk,
                 "email": employee.email
-            }, status=status.HTTP_201_CREATED)
+            }
+            
+            print("Creating final response...")
+            return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             print(f"=== CRITICAL ERROR: {e} ===")

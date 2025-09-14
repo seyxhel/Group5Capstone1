@@ -153,6 +153,19 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# Additional CORS settings to handle 500 errors properly
+CORS_ALLOWED_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Ensure CORS headers are added even for error responses
+CORS_PREFLIGHT_MAX_AGE = 86400
+
 MEDIA_URL = '/media/'
 
 # Media files storage configuration
