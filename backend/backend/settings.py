@@ -159,6 +159,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #new one
 
+# External System API Key for secure media access
+EXTERNAL_SYSTEM_API_KEY = os.environ.get("EXTERNAL_SYSTEM_API_KEY")
+
 AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'
 

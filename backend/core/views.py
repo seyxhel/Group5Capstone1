@@ -207,7 +207,7 @@ def create_employee_admin_view(request):
 @permission_classes([IsAuthenticated])
 def employee_profile_view(request):
     user = request.user
-    serializer = EmployeeSerializer(user)
+    serializer = EmployeeSerializer(user, context={'request': request})
     return Response(serializer.data)
 
 @api_view(['GET'])

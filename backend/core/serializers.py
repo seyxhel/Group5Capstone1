@@ -4,8 +4,11 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.conf import settings
+from .media_utils import get_media_url_with_token, generate_secure_media_url
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    
     class Meta:
         model = Employee
         fields = [
@@ -16,8 +19,14 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'password': {'write_only': True},
-            'image': {'required': False, 'allow_null': True}
         }
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request and request.user.is_authenticated:
+            # Return secure URL with token
+            return get_media_url_with_token(obj.image, request.user)
+        return None
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -98,17 +107,24 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
 
     def get_file(self, obj):
         request = self.context.get('request')
-        if obj.file:
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-            # fallback if no request in context
-            return f"https://smartsupport-hdts-backend.up.railway.app{obj.file.url}"
+        if obj.file and request and request.user.is_authenticated:
+            # Return secure URL with token
+            return get_media_url_with_token(obj.file, request.user)
         return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    
     class Meta:
         model = Employee
         fields = ['first_name', 'last_name', 'email', 'company_id', 'department', 'image']
+    
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request and request.user.is_authenticated:
+            # Return secure URL with token
+            return get_media_url_with_token(obj.image, request.user)
+        return None
 
 class TicketSerializer(serializers.ModelSerializer):
     attachments = TicketAttachmentSerializer(many=True, read_only=True)
@@ -134,33 +150,98 @@ class TicketSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         return Ticket.objects.create(employee=user, **validated_data)
     
-def ticket_to_dict(ticket):
+def ticket_to_dict(ticket, user=None):
     # Gather all attachments for this ticket
-    attachments = [
-        {
+    attachments = []
+    for att in TicketAttachment.objects.filter(ticket=ticket):
+        attachment_data = {
             "id": att.id,
-            "file": att.file.url if att.file else None,
+            "file": None,
             "file_name": att.file_name,
             "file_type": att.file_type,
             "file_size": att.file_size,
             "upload_date": att.upload_date.isoformat() if att.upload_date else None,
         }
-        for att in TicketAttachment.objects.filter(ticket=ticket)
-    ]
+        
+        # Generate secure URL if user is provided
+        if user and att.file:
+            attachment_data["file"] = get_media_url_with_token(att.file, user)
+        elif att.file:
+            attachment_data["file"] = att.file.url
+            
+        attachments.append(attachment_data)
 
     # Gather customer (employee) info
     employee = ticket.employee
-    customer = {
-        "id": employee.id,
-        "first_name": employee.first_name,
-        "last_name": employee.last_name,
-        "middle_name": employee.middle_name,
-        "suffix": employee.suffix,
-        "email": employee.email,
-        "company_id": employee.company_id,
-        "department": employee.department,
-        "image": employee.image.url if employee.image else None,
-    } if employee else None
+    customer = None
+    if employee:
+        customer = {
+            "id": employee.id,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "middle_name": employee.middle_name,
+            "suffix": employee.suffix,
+            "email": employee.email,
+            "company_id": employee.company_id,
+            "department": employee.department,
+            "image": None,
+        }
+        
+        # Generate secure URL for employee image if user is provided
+        if user and employee.image:
+            customer["image"] = get_media_url_with_token(employee.image, user)
+        elif employee.image:
+            customer["image"] = employee.image.url
+
+
+def ticket_to_dict_for_external_systems(ticket):
+    """
+    Convert ticket to dictionary for external systems (like workflow API)
+    Uses URLs with API key for external system access
+    """
+    from django.conf import settings
+    
+    # Get external system API key from settings
+    api_key = getattr(settings, 'EXTERNAL_SYSTEM_API_KEY', 'external-api-key-placeholder')
+    
+    # Gather all attachments for this ticket with API key URLs
+    attachments = []
+    for att in TicketAttachment.objects.filter(ticket=ticket):
+        attachment_data = {
+            "id": att.id,
+            "file": None,
+            "file_name": att.file_name,
+            "file_type": att.file_type,
+            "file_size": att.file_size,
+            "upload_date": att.upload_date.isoformat() if att.upload_date else None,
+        }
+        
+        # Use URL with API key for external systems
+        if att.file:
+            # Build URL with API key for external system access
+            attachment_data["file"] = f"https://smartsupport-hdts-backend.up.railway.app{att.file.url}?api_key={api_key}"
+            
+        attachments.append(attachment_data)
+
+    # Gather customer (employee) info with API key URLs
+    employee = ticket.employee
+    customer = None
+    if employee:
+        customer = {
+            "id": employee.id,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "middle_name": employee.middle_name,
+            "suffix": employee.suffix,
+            "email": employee.email,
+            "company_id": employee.company_id,
+            "department": employee.department,
+            "image": None,
+        }
+        
+        # Use URL with API key for employee image
+        if employee.image:
+            customer["image"] = f"https://smartsupport-hdts-backend.up.railway.app{employee.image.url}?api_key={api_key}"
 
     data = {
         "id": ticket.id,
@@ -184,6 +265,36 @@ def ticket_to_dict(ticket):
         "rejection_reason": ticket.rejection_reason if hasattr(ticket, "rejection_reason") else None,
     }
 
-    print("Serialized ticket data:", data)  # <-- Debug print statement
+    print("Serialized ticket data for external systems:", data)
 
+    return data
+
+
+def ticket_to_dict(ticket, user=None):
+    """
+    Convert ticket to dictionary for internal use (with secure URLs when user provided)
+    """
+    # Call external systems function and then modify for internal use if user provided
+    data = ticket_to_dict_for_external_systems(ticket)
+    
+    if user:
+        # Replace public URLs with secure ones for internal use
+        for attachment in data["attachments"]:
+            if attachment["file"]:
+                try:
+                    att = TicketAttachment.objects.get(id=attachment["id"])
+                    if att.file:
+                        attachment["file"] = get_media_url_with_token(att.file, user)
+                except TicketAttachment.DoesNotExist:
+                    pass
+        
+        # Replace employee image URL with secure one
+        if data["customer"] and data["customer"]["image"]:
+            try:
+                employee = ticket.employee
+                if employee and employee.image:
+                    data["customer"]["image"] = get_media_url_with_token(employee.image, user)
+            except:
+                pass
+    
     return data

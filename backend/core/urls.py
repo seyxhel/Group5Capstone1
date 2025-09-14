@@ -29,6 +29,7 @@ from .views import (
     check_password,  # <-- add this
     rejected_employee_audit_list,  # <-- add this import
 )
+from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from .serializers import TicketSerializer
@@ -66,6 +67,9 @@ urlpatterns = [
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
     path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
     path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
+    
+    # Secure media download
+    path('attachments/<int:attachment_id>/download/', secure_attachment_download, name='secure_attachment_download'),
 
     # New endpoint for rejected employee audit list
     path('rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),

@@ -157,8 +157,8 @@ def send_ticket_to_workflow(sender, instance, created, **kwargs):
     # Only trigger when status is set to "Open" (and not just created)
     if not created and instance.status == "Open":
         from .tasks import push_ticket_to_workflow  # Import here!
-        from .serializers import TicketSerializer   # Import here!
-        data = TicketSerializer(instance).data
+        from .serializers import ticket_to_dict_for_external_systems   # Import here!
+        data = ticket_to_dict_for_external_systems(instance)
         push_ticket_to_workflow.delay(data)
         
 class TicketAttachment(models.Model):
