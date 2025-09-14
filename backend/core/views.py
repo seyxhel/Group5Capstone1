@@ -88,7 +88,9 @@ class CreateEmployeeView(APIView):
                     print(f"Employee created successfully: {employee.email} (ID: {employee.pk})")
                     
                     # Try to send pending approval email, but don't fail if email fails
-                    email_status = "Email not sent"
+                    email_status = "Email sending disabled for testing"
+                    # Temporarily disable email sending to isolate the issue
+                    """
                     try:
                         print("Attempting to send email...")
                         html_content = send_account_pending_email(employee)
@@ -106,6 +108,7 @@ class CreateEmployeeView(APIView):
                         # Log email error but don't fail the entire operation
                         email_status = f"Email failed: {str(e)}"
                         print(f"Failed to send pending approval email: {e}")
+                    """
                     
                     # Return employee data with secure image URL
                     print("Creating response serializer...")
