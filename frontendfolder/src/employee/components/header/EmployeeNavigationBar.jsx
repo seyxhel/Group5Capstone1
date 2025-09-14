@@ -39,14 +39,18 @@ const EmployeeNavBar = () => {
       const imagePath = localStorage.getItem("employee_image");
       const token = localStorage.getItem("employee_access_token");
       
+      console.log("Navigation bar - imagePath from localStorage:", imagePath); // Debug log
+      
       // If we have a relative path (old format), fetch fresh profile
       if (token && imagePath && imagePath.startsWith("/media/")) {
+        console.log("Detected old relative path, fetching fresh profile..."); // Debug log
         try {
           const profileRes = await fetch(`${API_URL}employee/profile/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (profileRes.ok) {
             const profileData = await profileRes.json();
+            console.log("Fresh profile data image:", profileData.image); // Debug log
             localStorage.setItem("employee_image", profileData.image || "");
             setImageUrl(profileData.image || null);
             return;
@@ -58,6 +62,7 @@ const EmployeeNavBar = () => {
       
       // Use existing image path
       if (imagePath) {
+        console.log("Using existing image path:", imagePath); // Debug log
         if (imagePath.startsWith("http")) {
           setImageUrl(imagePath);
         } else if (imagePath.startsWith("/media/")) {
@@ -68,6 +73,7 @@ const EmployeeNavBar = () => {
           setImageUrl(`https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`);
         }
       } else {
+        console.log("No image path found in localStorage"); // Debug log
         setImageUrl(null);
       }
     };
