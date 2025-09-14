@@ -160,12 +160,16 @@ export default function SmartSupportEmployeeCreateAccount() {
 
       // Handle successful account creation
       const responseData = await res.json();
+      console.log("Account creation response:", responseData); // Debug log
       
       // If employee data is returned, store the secure image URL
       if (responseData.employee && responseData.employee.image) {
+        console.log("Employee image from creation:", responseData.employee.image); // Debug log
         // Store the secure image URL so it's available when they log in
         localStorage.setItem("pending_employee_image", responseData.employee.image);
         localStorage.setItem("pending_employee_email", responseData.employee.email);
+      } else {
+        console.log("No employee image in response"); // Debug log
       }
       
       toast.success("Account created! Waiting for admin approval.");

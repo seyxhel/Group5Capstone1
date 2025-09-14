@@ -23,15 +23,32 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         request = self.context.get('request')
-        if obj.image and request and request.user.is_authenticated:
-            # Return secure URL with token
-            return get_media_url_with_token(obj.image, request.user)
+        if request and request.user.is_authenticated:
+            if obj.image:
+                # Try to get secure URL for user's image (custom or default)
+                try:
+                    return get_media_url_with_token(obj.image, request.user)
+                except Exception:
+                    # If there's an issue with the user's image, fallback to default
+                    return generate_secure_media_url('employee_images/default-profile.png', request.user)
+            else:
+                # No image field, use default
+                return generate_secure_media_url('employee_images/default-profile.png', request.user)
         return None
 
     def create(self, validated_data):
+        # Extract the image file if present
+        image_file = validated_data.pop('image', None)
         password = validated_data.pop('password')
+        
+        # Create employee without image first
         employee = Employee(**validated_data)
         employee.set_password(password)
+        
+        # Handle image upload if provided
+        if image_file:
+            employee.image = image_file
+            
         employee.save()
         return employee
 

@@ -48,6 +48,8 @@ def login_view(request):
 
 # For employee registration
 class CreateEmployeeView(APIView):
+    parser_classes = [MultiPartParser, FormParser]  # Add this to handle file uploads
+    
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
         password = data.get("password")
@@ -116,9 +118,13 @@ class CreateAdminEmployeeView(APIView):
         serializer = EmployeeSerializer(data=data)
         if serializer.is_valid():
             employee = serializer.save()
+            
+            # Return employee data with secure image URL (including default image)
+            employee_serializer = EmployeeSerializer(employee, context={'request': request})
             return Response({
                 "message": "Employee account created successfully",
-                "company_id": employee.company_id
+                "company_id": employee.company_id,
+                "employee": employee_serializer.data
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
