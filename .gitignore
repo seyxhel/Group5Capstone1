@@ -12,5 +12,4 @@ dist-ssr
 *.local
 # Environment variables
 .env
-backend/token.json
 .env*
