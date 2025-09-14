@@ -168,7 +168,7 @@ def test_simple_email(request):
                 send_mail(
                     subject='Simple Test Email',
                     message='This is a test.',
-                    from_email='mapactivephsmartsupport@gmail.com',
+                    from_email=settings.EMAIL_HOST_USER,
                     recipient_list=[test_email_address],
                     fail_silently=False,
                 )
