@@ -212,31 +212,25 @@ class CreateEmployeeView(APIView):
                 try:
                     print("=== Starting email sending process ===")
                     
-                    # Check email configuration
-                    if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-                        return "Email not configured - missing credentials"
-                    
-                    print(f"Email config found - User: {settings.EMAIL_HOST_USER}")
-                    
-                    # Import here to avoid any import issues
-                    from django.core.mail import EmailMultiAlternatives
-                    
                     # Generate email content
                     print("Generating email HTML content...")
                     html_content = send_account_pending_email(employee)
                     print("Email HTML content generated successfully")
-                    
-                    # Create and send email
-                    print("Creating and sending email...")
-                    send_gmail_message(
+
+                    # Create and send email using Gmail API only
+                    print("Creating and sending email via Gmail API...")
+                    result = send_gmail_message(
                         to=employee.email,
                         subject="Account Creation Pending Approval",
                         body=html_content,
                         is_html=True
                     )
-                    
-                    print(f"Email sent successfully to: {employee.email}")
-                    return "Email sent successfully"
+                    if result:
+                        print(f"Email sent successfully to: {employee.email}")
+                        return "Email sent successfully"
+                    else:
+                        print(f"Email sending failed for: {employee.email}")
+                        return "Email sending failed"
                     
                 except Exception as e:
                     print(f"Email error caught: {e}")
