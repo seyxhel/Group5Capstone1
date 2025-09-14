@@ -228,12 +228,12 @@ class CreateEmployeeView(APIView):
                     
                     # Create and send email
                     print("Creating and sending email...")
-                        send_gmail_message(
-                            to=employee.email,
-                            subject="Account Creation Pending Approval",
-                            body=html_content,
-                            is_html=True
-                        )
+                    send_gmail_message(
+                        to=employee.email,
+                        subject="Account Creation Pending Approval",
+                        body=html_content,
+                        is_html=True
+                    )
                     
                     print(f"Email sent successfully to: {employee.email}")
                     return "Email sent successfully"
