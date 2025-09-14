@@ -8,3 +8,6 @@ gunicorn
 dj-database-url
 celery
 whitenoise
+google-auth
+google-auth-oauthlib
+google-api-python-client
