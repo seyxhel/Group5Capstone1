@@ -29,4 +29,4 @@ def send_gmail(to, subject, body):
     service.users().messages().send(userId='me', body=message).execute()
 
 # Usage example:
-send_gmail('your_email@gmail.com', 'Test Subject', 'Hello from Gmail API!')
+send_gmail('seyxhel2023@gmail.com', 'Test Subject', 'Hello from Gmail API!')
