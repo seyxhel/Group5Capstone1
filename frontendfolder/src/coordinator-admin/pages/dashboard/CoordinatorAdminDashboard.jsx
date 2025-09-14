@@ -135,6 +135,7 @@ const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [tickets, setTickets] = useState([]);
   const [users, setUsers] = useState([]);
+  const [rejectedCount, setRejectedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -150,24 +151,31 @@ const CoordinatorAdminDashboard = () => {
         if (!token) {
           setTickets([]);
           setUsers([]);
+          setRejectedCount(0);
           setLoading(false);
           return;
         }
-        const [ticketsRes, usersRes] = await Promise.all([
+        const [ticketsRes, usersRes, rejectedRes] = await Promise.all([
           fetch(`${API_URL}tickets/`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
           fetch(`${API_URL}employees/`, {
             headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}admin/rejected-users-count/`, {
+            headers: { Authorization: `Bearer ${token}` }
           })
         ]);
         const ticketsData = await ticketsRes.json();
         const usersData = await usersRes.json();
+        const rejectedData = await rejectedRes.json();
         setTickets(Array.isArray(ticketsData) ? ticketsData : []);
         setUsers(Array.isArray(usersData) ? usersData : []);
+        setRejectedCount(rejectedData.rejected_users_count || 0);
       } catch (e) {
         setTickets([]);
         setUsers([]);
+        setRejectedCount(0);
       }
       setLoading(false);
     };
@@ -281,7 +289,7 @@ const CoordinatorAdminDashboard = () => {
     } else if (item.label === "Pending Accounts") {
       count = userCounts["Pending"] || 0;
     } else if (item.label === "Rejected Accounts") {
-      count = userCounts["Rejected"] || 0;
+      count = rejectedCount;
     }
     return {
       label: item.label,
@@ -384,7 +392,7 @@ const CoordinatorAdminDashboard = () => {
     { name: 'Ticket Coordinators', key: 'Ticket Coordinator', fill: '#F59E0B' },
     { name: 'System Admins', key: 'System Admin', fill: '#10B981' },
     { name: 'Pending', key: 'Pending', fill: '#EF4444' },
-    { name: 'Rejected', key: 'Rejected', fill: '#8B5CF6' } // <-- fixed here
+    { name: 'Rejected', key: 'Rejected', fill: '#8B5CF6' }
   ];
 
   // Count users by role and status for pie chart
@@ -396,14 +404,14 @@ const CoordinatorAdminDashboard = () => {
     userStatusCounts[status] = (userStatusCounts[status] || 0) + 1;
   });
 
-  // Build user pie data from actual counts
+  // Build user pie data from actual counts, but use rejectedCount for Rejected
   const dynamicUserPieData = userPieStatuses
     .map(({ name, key, fill }) => ({
       name,
-      value: userStatusCounts[key] || 0,
+      value: key === 'Rejected' ? rejectedCount : userStatusCounts[key] || 0,
       fill
     }))
-    .filter(item => item.value > 0); // Only show roles/statuses that exist
+    .filter(item => item.value > 0);
 
   if (loading) {
     return (
