@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
@@ -6,6 +6,7 @@ import EmployeeNotification from '../popups/EmployeeNotification';
 import authService from '../../../utilities/service/authService'; // Add this import
 
 const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app/media/";
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const NotificationIcon = () => (
   <svg
@@ -30,6 +31,49 @@ const EmployeeNavBar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [imageUrl, setImageUrl] = useState(null);
+
+  // Check and refresh profile data if needed on component mount
+  useEffect(() => {
+    const loadImageUrl = async () => {
+      const imagePath = localStorage.getItem("employee_image");
+      const token = localStorage.getItem("employee_access_token");
+      
+      // If we have a relative path (old format), fetch fresh profile
+      if (token && imagePath && imagePath.startsWith("/media/")) {
+        try {
+          const profileRes = await fetch(`${API_URL}employee/profile/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            localStorage.setItem("employee_image", profileData.image || "");
+            setImageUrl(profileData.image || null);
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to refresh profile:", error);
+        }
+      }
+      
+      // Use existing image path
+      if (imagePath) {
+        if (imagePath.startsWith("http")) {
+          setImageUrl(imagePath);
+        } else if (imagePath.startsWith("/media/")) {
+          setImageUrl(`https://smartsupport-hdts-backend.up.railway.app${imagePath}`);
+        } else if (imagePath.startsWith("employee_images/")) {
+          setImageUrl(`https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`);
+        } else {
+          setImageUrl(`https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`);
+        }
+      } else {
+        setImageUrl(null);
+      }
+    };
+    
+    loadImageUrl();
+  }, []); // Run once on mount
 
   const dropdowns = {
     active: {
@@ -135,27 +179,6 @@ const EmployeeNavBar = () => {
 
   const firstName = localStorage.getItem("employee_first_name") || "";
   const lastName = localStorage.getItem("employee_last_name") || "";
-
-  const imagePath = localStorage.getItem("employee_image");
-  let imageUrl = null;
-
-  if (imagePath) {
-    // If it's already a complete URL (with token), use it directly
-    if (imagePath.startsWith("http")) {
-      imageUrl = imagePath;
-    } else {
-      // Legacy fallback for old relative paths
-      if (imagePath.startsWith("/media/")) {
-        imageUrl = `https://smartsupport-hdts-backend.up.railway.app${imagePath}`;
-      } else if (imagePath.startsWith("employee_images/")) {
-        imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/${imagePath}`;
-      } else {
-        imageUrl = `https://smartsupport-hdts-backend.up.railway.app/media/employee_images/${imagePath}`;
-      }
-    }
-  }
-
-  console.log("employee_image from localStorage:", imagePath);
 
   return (
     <nav className={styles['main-nav-bar']}>
