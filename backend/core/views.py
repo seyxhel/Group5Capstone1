@@ -102,43 +102,73 @@ def test_email(request):
         try:
             test_email_address = request.POST.get('email', 'test@example.com')
             
-            # Test email configuration
+            # Test basic email configuration
             if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Email not configured - missing credentials'
                 })
             
-            # Create a dummy employee for email testing
-            class DummyEmployee:
-                def __init__(self):
-                    self.first_name = 'Test'
-                    self.last_name = 'User'
-                    self.email = test_email_address
+            print(f"Testing email to: {test_email_address}")
+            print(f"Email config - Host: {settings.EMAIL_HOST}, User: {settings.EMAIL_HOST_USER}")
             
-            dummy_employee = DummyEmployee()
-            
-            # Try to send email
-            from django.core.mail import EmailMultiAlternatives
-            
-            html_content = send_account_pending_email(dummy_employee)
-            msg = EmailMultiAlternatives(
-                subject="Test Email - Account Creation Pending Approval",
-                body="This is a test email. Your account has been created and is pending approval.",
-                from_email="mapactivephsmartsupport@gmail.com",
-                to=[test_email_address],
-            )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send()
-            
-            return JsonResponse({
-                'status': 'success',
-                'message': f'Test email sent successfully to {test_email_address}',
-                'email_config': f'Using: {settings.EMAIL_HOST_USER}'
-            })
+            # Try the simplest possible email first
+            try:
+                from django.core.mail import send_mail
+                
+                print("Attempting to send simple email...")
+                send_mail(
+                    subject='Test Email from SmartSupport',
+                    message='This is a simple test email to verify email functionality.',
+                    from_email='mapactivephsmartsupport@gmail.com',
+                    recipient_list=[test_email_address],
+                    fail_silently=False,
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f'Simple test email sent successfully to {test_email_address}',
+                    'email_config': f'Using: {settings.EMAIL_HOST_USER}'
+                })
+                
+            except Exception as simple_error:
+                print(f"Simple email failed: {simple_error}")
+                
+                # Try with EmailMultiAlternatives as backup
+                try:
+                    from django.core.mail import EmailMultiAlternatives
+                    
+                    print("Attempting with EmailMultiAlternatives...")
+                    msg = EmailMultiAlternatives(
+                        subject="Test Email from SmartSupport",
+                        body="This is a test email to verify email functionality.",
+                        from_email="mapactivephsmartsupport@gmail.com",
+                        to=[test_email_address],
+                    )
+                    msg.send()
+                    
+                    return JsonResponse({
+                        'status': 'success',
+                        'message': f'EmailMultiAlternatives test sent successfully to {test_email_address}',
+                        'simple_error': str(simple_error)
+                    })
+                    
+                except Exception as multi_error:
+                    print(f"EmailMultiAlternatives also failed: {multi_error}")
+                    
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'Both email methods failed',
+                        'simple_error': str(simple_error),
+                        'multi_error': str(multi_error),
+                        'email_host': settings.EMAIL_HOST,
+                        'email_port': settings.EMAIL_PORT,
+                        'email_tls': settings.EMAIL_USE_TLS
+                    })
             
         except Exception as e:
             import traceback
+            print(f"Critical email test error: {e}")
             return JsonResponse({
                 'status': 'error',
                 'message': f'Email test failed: {str(e)}',
