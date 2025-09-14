@@ -28,6 +28,7 @@ from .views import (
     forgot_password,  # <-- add this import
     check_password,  # <-- add this
     rejected_employee_audit_list,  # <-- add this import
+    test_endpoint,  # Add test endpoint
 )
 from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -40,6 +41,7 @@ router.register(r'tickets', TicketViewSet, basename='ticket')
 
 urlpatterns = [
     path('', custom_api_root, name='api-root'),  # <-- put this FIRST
+    path('test/', test_endpoint, name='test_endpoint'),  # Add test endpoint
     # Custom endpoints (must come before router)
     path('create_employee/', CreateEmployeeView.as_view(), name='create_employee'),
     path("admin/create-employee/", CreateAdminEmployeeView.as_view(), name="admin-create-employee"),
