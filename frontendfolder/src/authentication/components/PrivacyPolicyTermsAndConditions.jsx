@@ -28,7 +28,16 @@ const PrivacyPolicyTermsAndConditions = ({ onAgree, onClose }) => {
   };
 
   const handleNext = () => setStep("terms");
-  const handleBack = () => setStep("privacy");
+  const handleBack = () => {
+    setStep("privacy");
+    // After switching to privacy, scroll to bottom so Next is enabled
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+        setScrolledToBottom(true);
+      }
+    }, 0);
+  };
   const handleAgree = () => {
     if (step === "privacy") {
       setStep("terms");
