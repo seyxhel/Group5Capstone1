@@ -33,6 +33,7 @@ from .views import (
     test_email,  # Add email test endpoint
     test_simple_email,  # Add simple email test endpoint
     rejected_users_count,  # <-- add this import
+    download_attachment,  # <-- add secure download endpoint
 )
 from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -79,7 +80,7 @@ urlpatterns = [
     path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
     
     # Secure media download
-    path('attachments/<int:attachment_id>/download/', secure_attachment_download, name='secure_attachment_download'),
+    path('attachments/<int:attachment_id>/download/', download_attachment, name='download_attachment'),
 
     # New endpoint for rejected employee audit list
     path('rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),

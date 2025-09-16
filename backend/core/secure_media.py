@@ -169,22 +169,10 @@ def has_file_permission(user, file_path, full_path):
         # All authenticated users can view profile images (for team visibility)
         return True
     
-    # Check if it's a ticket attachment
+    # BLOCK DIRECT ACCESS TO TICKET ATTACHMENTS
+    # Ticket attachments should ONLY be accessible through the secure API endpoint
     if file_path.startswith('ticket_attachments/'):
-        try:
-            # Find the attachment record
-            attachment = TicketAttachment.objects.filter(file__icontains=os.path.basename(file_path)).first()
-            if attachment:
-                ticket = attachment.ticket
-                # User can access if they are:
-                # 1. The ticket creator
-                # 2. The assigned agent
-                # 3. System admin or ticket coordinator (already checked above)
-                if ticket.employee == user or ticket.assigned_to == user:
-                    return True
-        except Exception as e:
-            logger.error(f"Error checking ticket attachment permission: {str(e)}")
-            return False
+        return False  # Force all ticket attachments to use API endpoint
     
     # Default deny
     return False
