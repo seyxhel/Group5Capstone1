@@ -748,8 +748,9 @@ def get_my_tickets(request):
 
 
 # Secure download for any ticket attachment
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def download_attachment(request, attachment_id):
     """
     Simple secure file download: authenticated users with proper roles can access attachments
