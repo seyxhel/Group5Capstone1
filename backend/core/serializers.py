@@ -124,9 +124,17 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
     def get_file(self, obj):
         request = self.context.get('request')
         if obj.file and request and request.user.is_authenticated:
-            # Return secure API endpoint URL instead of direct media URL
+            # Return secure API endpoint URL with token parameter
             from django.urls import reverse
-            return request.build_absolute_uri(reverse('download_attachment', args=[obj.id]))
+            base_url = request.build_absolute_uri(reverse('download_attachment', args=[obj.id]))
+            
+            # Get the user's JWT token from request
+            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+                return f"{base_url}?token={token}"
+            
+            return base_url
         return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):

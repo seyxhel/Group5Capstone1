@@ -756,26 +756,42 @@ def download_attachment(request, attachment_id):
     """
     Simple secure file download: authenticated users with proper roles can access attachments
     """
+    # Debug: Print request info
+    print(f"=== Download Request Debug ===")
+    print(f"Method: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
+    print(f"Query params: {dict(request.GET)}")
+    
     # Handle JWT authentication manually (no DRF)
     user = None
     jwt_auth = JWTAuthentication()
     
     # Try to get JWT token from Authorization header OR query parameter
     try:
+        print("Trying Authorization header...")
         auth_result = jwt_auth.authenticate(request)
         if auth_result:
             user, token = auth_result
-    except (InvalidToken, TokenError):
-        # Try token from query parameter as fallback
+            print(f"Authorization header success: {user.email}, role: {user.role}")
+        else:
+            print("No Authorization header found")
+    except (InvalidToken, TokenError) as e:
+        print(f"Authorization header failed: {e}")
+        
+    # Try token from query parameter as fallback
+    if not user:
         token = request.GET.get('token')
+        print(f"Trying query parameter token: {token[:50] if token else 'None'}...")
         if token:
             try:
                 validated_token = jwt_auth.get_validated_token(token)
                 user = jwt_auth.get_user(validated_token)
-            except (InvalidToken, TokenError):
-                pass
+                print(f"Query parameter success: {user.email}, role: {user.role}")
+            except (InvalidToken, TokenError) as e:
+                print(f"Query parameter token failed: {e}")
     
     if not user or not user.is_authenticated:
+        print("Authentication failed - no valid user found")
         return HttpResponse("Authentication required", status=401)
     
     attachment = get_object_or_404(TicketAttachment, id=attachment_id)
