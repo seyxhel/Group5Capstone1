@@ -125,17 +125,34 @@ export default function EmployeeTicketTracker() {
                   attachments.map((file, idx) => {
                     const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(file.file_name);
                     return (
-                      <a
+                      <button
                         key={file.id || idx}
-                        href={file.file}
-                        {...(isDownloadOnly
-                          ? { download: file.file_name }
-                          : { target: "_blank", rel: "noopener noreferrer", download: file.file_name })}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          try {
+                            const { downloadSecureFile } = await import('../../../utilities/secureMedia');
+                            // If inline (images/pdf), open in new tab
+                            if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(file.file_name)) {
+                              const token = localStorage.getItem('employee_access_token') || localStorage.getItem('admin_access_token');
+                              const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
+                              if (!res.ok) throw new Error('Not authorized');
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              window.open(url, '_blank');
+                              // revoke later
+                              setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+                            } else {
+                              await downloadSecureFile(file.file, file.file_name);
+                            }
+                          } catch (err) {
+                            alert('Download failed or unauthorized');
+                          }
+                        }}
                         className={styles.attachmentText}
-                        style={{ display: "block" }}
+                        style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
                       >
                         {file.file_name}
-                      </a>
+                      </button>
                     );
                   })
                 ) : (

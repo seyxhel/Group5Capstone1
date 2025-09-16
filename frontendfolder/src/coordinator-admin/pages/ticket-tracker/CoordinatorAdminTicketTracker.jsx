@@ -128,16 +128,32 @@ export default function CoordinatorAdminTicketTracker() {
                 <span className={styles.attachmentIcon}>📎</span>
                 {attachments && attachments.length > 0 ? (
                   attachments.map((file, idx) => (
-                    <a
+                    <button
                       key={file.id || idx}
-                      href={file.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        try {
+                          const { downloadSecureFile } = await import('../../../utilities/secureMedia');
+                          if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(file.file_name)) {
+                            const token = localStorage.getItem('admin_access_token') || localStorage.getItem('coordinator_access_token') || localStorage.getItem('employee_access_token');
+                            const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
+                            if (!res.ok) throw new Error('Not authorized');
+                            const blob = await res.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+                          } else {
+                            await downloadSecureFile(file.file, file.file_name);
+                          }
+                        } catch (err) {
+                          alert('Download failed or unauthorized');
+                        }
+                      }}
                       className={styles.attachmentText}
-                      style={{ display: "block" }}
+                      style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
                     >
                       {file.file_name}
-                    </a>
+                    </button>
                   ))
                 ) : (
                   <span className={styles.noAttachmentText}>No file attached.</span>
