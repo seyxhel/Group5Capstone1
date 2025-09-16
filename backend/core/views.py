@@ -755,24 +755,24 @@ def download_attachment(request, attachment_id):
     """
     try:
         attachment = get_object_or_404(TicketAttachment, id=attachment_id)
-            ticket = attachment.ticket  # Get the associated ticket for permission checks
-            # Check permissions
-            if not (
-                request.user.is_staff or
-                request.user.role in ['System Admin', 'Ticket Coordinator'] or
-                request.user == ticket.employee
-            ):
-                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-            file_path = attachment.file.path
-            if os.path.exists(file_path):
-                with open(file_path, 'rb') as fh:
-                    response = HttpResponse(fh.read(), content_type="application/octet-stream")
-                    response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
-                    return response
-            else:
-                raise Http404("File not found")
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        ticket = attachment.ticket  # Get the associated ticket for permission checks
+        # Check permissions
+        if not (
+            request.user.is_staff or
+            request.user.role in ['System Admin', 'Ticket Coordinator'] or
+            request.user == ticket.employee
+        ):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        file_path = attachment.file.path
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as fh:
+                response = HttpResponse(fh.read(), content_type="application/octet-stream")
+                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+                return response
+        else:
+            raise Http404("File not found")
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def custom_api_root(request, format=None):
