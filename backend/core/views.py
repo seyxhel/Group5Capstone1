@@ -766,7 +766,7 @@ def download_attachment(request, attachment_id):
     user = None
     jwt_auth = JWTAuthentication()
     
-    # Try to get JWT token from Authorization header OR query parameter
+    # Only accept JWT token from Authorization header
     try:
         print("Trying Authorization header...")
         auth_result = jwt_auth.authenticate(request)
@@ -777,19 +777,7 @@ def download_attachment(request, attachment_id):
             print("No Authorization header found")
     except (InvalidToken, TokenError) as e:
         print(f"Authorization header failed: {e}")
-        
-    # Try token from query parameter as fallback
-    if not user:
-        token = request.GET.get('token')
-        print(f"Trying query parameter token: {token[:50] if token else 'None'}...")
-        if token:
-            try:
-                validated_token = jwt_auth.get_validated_token(token)
-                user = jwt_auth.get_user(validated_token)
-                print(f"Query parameter success: {user.email}, role: {user.role}")
-            except (InvalidToken, TokenError) as e:
-                print(f"Query parameter token failed: {e}")
-    
+        user = None
     if not user or not user.is_authenticated:
         print("Authentication failed - no valid user found")
         return HttpResponse("Authentication required", status=401)
