@@ -760,16 +760,33 @@ def download_attachment(request, attachment_id):
     Only ticket employee, ticket coordinator, or system admin can access
     """
     try:
-        # Manual JWT authentication since we're not using @api_view
+        # Try multiple authentication methods
         user = None
-        jwt_auth = JWTAuthentication()
         
-        try:
-            auth_result = jwt_auth.authenticate(request)
-            if auth_result:
-                user, token = auth_result
-        except (InvalidToken, TokenError):
-            pass
+        # 1. Try session authentication first (for Django admin users)
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            user = request.user
+        
+        # 2. Try JWT authentication from Authorization header
+        if not user:
+            jwt_auth = JWTAuthentication()
+            try:
+                auth_result = jwt_auth.authenticate(request)
+                if auth_result:
+                    user, token = auth_result
+            except (InvalidToken, TokenError):
+                pass
+        
+        # 3. Try token from query parameter (for direct browser access)
+        if not user:
+            token = request.GET.get('token')
+            if token:
+                try:
+                    jwt_auth = JWTAuthentication()
+                    validated_token = jwt_auth.get_validated_token(token)
+                    user = jwt_auth.get_user(validated_token)
+                except (InvalidToken, TokenError):
+                    pass
         
         # Check if user is authenticated
         if not user or not user.is_authenticated:
