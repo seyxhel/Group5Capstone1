@@ -744,23 +744,26 @@ def get_my_tickets(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# Secure download for any ticket attachment
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def download_attachment(request, ticket_id):
+def download_attachment(request, attachment_id):
     """
-    Secure file download endpoint
+    Secure file download endpoint for any ticket attachment
+    Only ticket employee, ticket coordinator, or system admin can access
     """
     try:
-        ticket = get_object_or_404(Ticket, id=ticket_id)
-        
+        attachment = get_object_or_404(TicketAttachment, id=attachment_id)
+        ticket = attachment.ticket
         # Check permissions
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+        if not (
+            request.user.is_staff or
+            request.user.role in ['System Admin', 'Ticket Coordinator'] or
+            request.user == ticket.employee
+        ):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
-        if not ticket.attachment:
-            raise Http404("File not found")
-        
-        file_path = ticket.attachment.path
+        file_path = attachment.file.path
         if os.path.exists(file_path):
             with open(file_path, 'rb') as fh:
                 response = HttpResponse(fh.read(), content_type="application/octet-stream")
@@ -768,7 +771,6 @@ def download_attachment(request, ticket_id):
                 return response
         else:
             raise Http404("File not found")
-            
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
