@@ -748,97 +748,48 @@ def get_my_tickets(request):
 
 
 # Secure download for any ticket attachment
-from django.views.decorators.http import require_http_methods
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-
-@require_http_methods(["GET"])
-@csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def download_attachment(request, attachment_id):
     """
-    Secure file download endpoint for any ticket attachment
-    Only ticket employee, ticket coordinator, or system admin can access
+    Simple secure file download: authenticated users with proper roles can access attachments
     """
-    try:
-        # Try multiple authentication methods
-        user = None
-        
-        # 1. Try session authentication first (for Django admin users)
-        if hasattr(request, 'user') and request.user.is_authenticated:
-            user = request.user
-        
-        # 2. Try JWT authentication from Authorization header
-        if not user:
-            jwt_auth = JWTAuthentication()
-            try:
-                auth_result = jwt_auth.authenticate(request)
-                if auth_result:
-                    user, token = auth_result
-            except (InvalidToken, TokenError):
-                pass
-        
-        # 3. Try token from query parameter (for direct browser access)
-        if not user:
-            token = request.GET.get('token')
-            if token:
-                try:
-                    jwt_auth = JWTAuthentication()
-                    validated_token = jwt_auth.get_validated_token(token)
-                    user = jwt_auth.get_user(validated_token)
-                except (InvalidToken, TokenError):
-                    pass
-        
-        # Check if user is authenticated
-        if not user or not user.is_authenticated:
-            return HttpResponse("Authentication required", status=401)
-        
-        attachment = get_object_or_404(TicketAttachment, id=attachment_id)
-        ticket = attachment.ticket  # Get the associated ticket for permission checks
-        
-        # Check permissions
-        if not (
-            user.is_staff or
-            user.role in ['System Admin', 'Ticket Coordinator'] or
-            user == ticket.employee
-        ):
-            return HttpResponse("Permission denied", status=403)
-        
-        file_path = attachment.file.path
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as fh:
-                file_data = fh.read()
-            
-            # Determine content type
-            import mimetypes
-            content_type, _ = mimetypes.guess_type(file_path)
-            if not content_type:
-                content_type = 'application/octet-stream'
-            
-            response = HttpResponse(file_data, content_type=content_type)
-            
-            # Get file extension for disposition logic
-            file_ext = os.path.splitext(attachment.file_name)[1].lower()
-            
-            # Files that should be viewed inline (PNG, JPG, PDF)
-            inline_types = [
-                "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
-                "application/pdf"
-            ]
-            inline_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"]
-            
-            # Check if file should be viewed inline or downloaded
-            if content_type in inline_types or file_ext in inline_extensions:
-                response['Content-Disposition'] = f'inline; filename="{attachment.file_name}"'
-            else:
-                # Default to download for all other file types
-                response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
-            
-            response['Content-Length'] = len(file_data)
-            return response
-        else:
-            raise Http404("File not found")
-    except Exception as e:
-        return HttpResponse(f"Error: {str(e)}", status=500)
+    attachment = get_object_or_404(TicketAttachment, id=attachment_id)
+    ticket = attachment.ticket
+    user = request.user
+    
+    # Simple permission check: employee, coordinator, or admin
+    if not (
+        user.role in ['System Admin', 'Ticket Coordinator'] or
+        user == ticket.employee or
+        user.is_staff
+    ):
+        return HttpResponse("Permission denied", status=403)
+    
+    # Serve the file
+    file_path = attachment.file.path
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    
+    with open(file_path, 'rb') as fh:
+        file_data = fh.read()
+    
+    # Get content type
+    import mimetypes
+    content_type, _ = mimetypes.guess_type(file_path)
+    if not content_type:
+        content_type = 'application/octet-stream'
+    
+    response = HttpResponse(file_data, content_type=content_type)
+    
+    # Simple file handling: images/PDFs inline, others download
+    file_ext = os.path.splitext(attachment.file_name)[1].lower()
+    if file_ext in ['.png', '.jpg', '.jpeg', '.gif', '.pdf']:
+        response['Content-Disposition'] = f'inline; filename="{attachment.file_name}"'
+    else:
+        response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
+    
+    return response
 
 @api_view(['GET'])
 def custom_api_root(request, format=None):
