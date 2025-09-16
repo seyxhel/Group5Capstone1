@@ -22,6 +22,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from django.shortcuts import get_object_or_404
@@ -746,21 +748,41 @@ def get_my_tickets(request):
 
 
 # Secure download for any ticket attachment
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
+from django.views.decorators.http import require_http_methods
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+@require_http_methods(["GET"])
+@csrf_exempt
 def download_attachment(request, attachment_id):
     """
     Secure file download endpoint for any ticket attachment
     Only ticket employee, ticket coordinator, or system admin can access
     """
     try:
+        # Manual JWT authentication since we're not using @api_view
+        user = None
+        jwt_auth = JWTAuthentication()
+        
+        try:
+            auth_result = jwt_auth.authenticate(request)
+            if auth_result:
+                user, token = auth_result
+        except (InvalidToken, TokenError):
+            pass
+        
+        # Check if user is authenticated
+        if not user or not user.is_authenticated:
+            return HttpResponse("Authentication required", status=401)
+        
         attachment = get_object_or_404(TicketAttachment, id=attachment_id)
         ticket = attachment.ticket  # Get the associated ticket for permission checks
+        
         # Check permissions
         if not (
-            request.user.is_staff or
-            request.user.role in ['System Admin', 'Ticket Coordinator'] or
-            request.user == ticket.employee
+            user.is_staff or
+            user.role in ['System Admin', 'Ticket Coordinator'] or
+            user == ticket.employee
         ):
             return HttpResponse("Permission denied", status=403)
         
@@ -786,16 +808,6 @@ def download_attachment(request, attachment_id):
                 "application/pdf"
             ]
             inline_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"]
-            
-            # Files that should be downloaded (Word, Excel, CSV, etc.)
-            download_types = [
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
-                "application/msword",  # .doc
-                "application/vnd.ms-excel",  # .xls
-                "text/csv", "application/csv"
-            ]
-            download_extensions = [".docx", ".xlsx", ".csv", ".doc", ".xls", ".txt"]
             
             # Check if file should be viewed inline or downloaded
             if content_type in inline_types or file_ext in inline_extensions:
