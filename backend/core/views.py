@@ -751,6 +751,7 @@ def get_my_tickets(request):
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
+@csrf_exempt
 def download_attachment(request, attachment_id):
     """
     Simple secure file download: authenticated users with proper roles can access attachments
@@ -759,12 +760,20 @@ def download_attachment(request, attachment_id):
     user = None
     jwt_auth = JWTAuthentication()
     
+    # Try to get JWT token from Authorization header OR query parameter
     try:
         auth_result = jwt_auth.authenticate(request)
         if auth_result:
             user, token = auth_result
     except (InvalidToken, TokenError):
-        return HttpResponse("Authentication required", status=401)
+        # Try token from query parameter as fallback
+        token = request.GET.get('token')
+        if token:
+            try:
+                validated_token = jwt_auth.get_validated_token(token)
+                user = jwt_auth.get_user(validated_token)
+            except (InvalidToken, TokenError):
+                pass
     
     if not user or not user.is_authenticated:
         return HttpResponse("Authentication required", status=401)
