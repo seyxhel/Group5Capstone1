@@ -748,16 +748,29 @@ def get_my_tickets(request):
 
 
 # Secure download for any ticket attachment
-from django.contrib.auth.decorators import login_required
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
-@login_required
 def download_attachment(request, attachment_id):
     """
     Simple secure file download: authenticated users with proper roles can access attachments
     """
+    # Handle JWT authentication manually (no DRF)
+    user = None
+    jwt_auth = JWTAuthentication()
+    
+    try:
+        auth_result = jwt_auth.authenticate(request)
+        if auth_result:
+            user, token = auth_result
+    except (InvalidToken, TokenError):
+        return HttpResponse("Authentication required", status=401)
+    
+    if not user or not user.is_authenticated:
+        return HttpResponse("Authentication required", status=401)
+    
     attachment = get_object_or_404(TicketAttachment, id=attachment_id)
     ticket = attachment.ticket
-    user = request.user
     
     # Simple permission check: employee, coordinator, or admin
     if not (
