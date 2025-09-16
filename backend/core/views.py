@@ -797,12 +797,23 @@ def download_attachment(request, attachment_id):
     attachment = get_object_or_404(TicketAttachment, id=attachment_id)
     ticket = attachment.ticket
     
+    print(f"Found attachment: {attachment.file_name}")
+    print(f"Ticket ID: {ticket.id}, Owner: {ticket.employee.email}")
+    print(f"Authenticated user: {user.email}")
+    print(f"User role: {getattr(user, 'role', 'NO ROLE ATTRIBUTE')}")
+    print(f"User is_staff: {user.is_staff}")
+    
     # Simple permission check: employee, coordinator, or admin
-    if not (
-        user.role in ['System Admin', 'Ticket Coordinator'] or
+    has_permission = (
+        getattr(user, 'role', '') in ['System Admin', 'Ticket Coordinator'] or
         user == ticket.employee or
         user.is_staff
-    ):
+    )
+    
+    print(f"Permission check result: {has_permission}")
+    
+    if not has_permission:
+        print("Permission denied - user doesn't have access to this ticket")
         return HttpResponse("Permission denied", status=403)
     
     # Serve the file
