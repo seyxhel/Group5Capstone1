@@ -762,17 +762,54 @@ def download_attachment(request, attachment_id):
             request.user.role in ['System Admin', 'Ticket Coordinator'] or
             request.user == ticket.employee
         ):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return HttpResponse("Permission denied", status=403)
+        
         file_path = attachment.file.path
         if os.path.exists(file_path):
             with open(file_path, 'rb') as fh:
-                response = HttpResponse(fh.read(), content_type="application/octet-stream")
-                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
-                return response
+                file_data = fh.read()
+            
+            # Determine content type
+            import mimetypes
+            content_type, _ = mimetypes.guess_type(file_path)
+            if not content_type:
+                content_type = 'application/octet-stream'
+            
+            response = HttpResponse(file_data, content_type=content_type)
+            
+            # Get file extension for disposition logic
+            file_ext = os.path.splitext(attachment.file_name)[1].lower()
+            
+            # Files that should be viewed inline (PNG, JPG, PDF)
+            inline_types = [
+                "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+                "application/pdf"
+            ]
+            inline_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"]
+            
+            # Files that should be downloaded (Word, Excel, CSV, etc.)
+            download_types = [
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       # .xlsx
+                "application/msword",  # .doc
+                "application/vnd.ms-excel",  # .xls
+                "text/csv", "application/csv"
+            ]
+            download_extensions = [".docx", ".xlsx", ".csv", ".doc", ".xls", ".txt"]
+            
+            # Check if file should be viewed inline or downloaded
+            if content_type in inline_types or file_ext in inline_extensions:
+                response['Content-Disposition'] = f'inline; filename="{attachment.file_name}"'
+            else:
+                # Default to download for all other file types
+                response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
+            
+            response['Content-Length'] = len(file_data)
+            return response
         else:
             raise Http404("File not found")
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return HttpResponse(f"Error: {str(e)}", status=500)
 
 @api_view(['GET'])
 def custom_api_root(request, format=None):
