@@ -13,7 +13,18 @@ if (USE_LOCAL_API) {
   console.log('  ✅ Sample data pre-loaded');
   console.log('  ✅ No backend dependencies');
   console.log('');
-  console.log('🎮 Quick Access URLs:');
+  console.log('🔑 Login Credentials:');
+  console.log('  👨‍💼 ADMIN ACCOUNTS:');
+  console.log('    📧 sysadmin@company.com | 🔒 sysadmin123 | 🎭 System Administrator');
+  console.log('    📧 coordinator@company.com | 🔒 coordinator123 | � Ticket Coordinator');
+  console.log('    📧 superadmin@company.com | 🔒 superadmin123 | 🎭 Super Administrator');
+  console.log('');
+  console.log('  👤 EMPLOYEE ACCOUNTS:');
+  console.log('    📧 john.doe@company.com | 🔒 employee123 | 🎭 Developer');
+  console.log('    📧 jane.smith@company.com | 🔒 manager123 | 🎭 HR Manager');
+  console.log('    📧 mike.wilson@company.com | 🔒 analyst123 | 🎭 Finance Analyst');
+  console.log('');
+  console.log('�🎮 Quick Access URLs (Direct Access):');
   console.log('  📱 Employee Dashboard: /employee/home');
   console.log('  👔 Admin Dashboard: /coordinator-admin/dashboard');
   console.log('  🎫 Submit Ticket: /employee/ticket-submission-form');
@@ -64,13 +75,61 @@ if (USE_LOCAL_API) {
       }
     },
     
+    showCredentials: () => {
+      console.log('🔑 AVAILABLE LOGIN CREDENTIALS:');
+      console.log('');
+      console.log('👨‍💼 ADMIN ACCOUNTS:');
+      console.log('┌─────────────────────────────┬─────────────────┬──────────────────────┐');
+      console.log('│ Email                       │ Password        │ Role                 │');
+      console.log('├─────────────────────────────┼─────────────────┼──────────────────────┤');
+      console.log('│ sysadmin@company.com        │ sysadmin123     │ System Administrator │');
+      console.log('│ coordinator@company.com     │ coordinator123  │ Ticket Coordinator   │');
+      console.log('│ superadmin@company.com      │ superadmin123   │ Super Administrator  │');
+      console.log('└─────────────────────────────┴─────────────────┴──────────────────────┘');
+      console.log('');
+      console.log('👤 EMPLOYEE ACCOUNTS:');
+      console.log('┌─────────────────────────────┬─────────────────┬──────────────────────┐');
+      console.log('│ Email                       │ Password        │ Role                 │');
+      console.log('├─────────────────────────────┼─────────────────┼──────────────────────┤');
+      console.log('│ john.doe@company.com        │ employee123     │ Developer            │');
+      console.log('│ jane.smith@company.com      │ manager123      │ HR Manager           │');
+      console.log('│ mike.wilson@company.com     │ analyst123      │ Finance Analyst      │');
+      console.log('└─────────────────────────────┴─────────────────┴──────────────────────┘');
+    },
+    
+    quickLogin: (userType) => {
+      const accounts = {
+        sysad: { email: 'sysadmin@company.com', password: 'sysadmin123' },
+        coordinator: { email: 'coordinator@company.com', password: 'coordinator123' },
+        superadmin: { email: 'superadmin@company.com', password: 'superadmin123' },
+        employee: { email: 'john.doe@company.com', password: 'employee123' },
+        manager: { email: 'jane.smith@company.com', password: 'manager123' },
+        analyst: { email: 'mike.wilson@company.com', password: 'analyst123' }
+      };
+      
+      const account = accounts[userType];
+      if (account) {
+        console.log(`🚀 Quick login as ${userType}:`, account);
+        console.log('Go to login page and use these credentials!');
+      } else {
+        console.log('❌ Invalid user type. Available: sysad, coordinator, superadmin, employee, manager, analyst');
+      }
+    },
+
     help: () => {
       console.log('🛠️  Available dev utilities:');
+      console.log('  devUtils.showCredentials() - Show all login credentials');
+      console.log('  devUtils.quickLogin(type) - Get credentials for quick login');
       console.log('  devUtils.clearStorage() - Clear all local data');
       console.log('  devUtils.showCurrentUser() - Show current user info');
       console.log('  devUtils.showAllData() - Show all stored data');
       console.log('  devUtils.switchUser(id) - Switch to different user');
       console.log('  devUtils.help() - Show this help');
+      console.log('');
+      console.log('💡 Examples:');
+      console.log('  devUtils.quickLogin("sysad") - Get system admin credentials');
+      console.log('  devUtils.quickLogin("coordinator") - Get coordinator credentials');
+      console.log('  devUtils.quickLogin("employee") - Get employee credentials');
     }
   };
 

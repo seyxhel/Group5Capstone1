@@ -18,8 +18,8 @@ export const localAuthService = {
     const admins = getFromStorage(STORAGE_KEYS.ADMINS) || [];
     const allUsers = [...employees, ...admins];
     
-    // Find user by email (in real app, password would be hashed and verified)
-    const user = allUsers.find(u => u.email === email);
+    // Find user by email and verify password
+    const user = allUsers.find(u => u.email === email && u.password === password);
     
     if (user && user.status === 'approved') {
       // Generate mock JWT token
@@ -27,6 +27,7 @@ export const localAuthService = {
         user_id: user.id,
         email: user.email,
         role: user.role,
+        admin_type: user.admin_type || 'employee',
         exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
       }));
       
@@ -34,22 +35,37 @@ export const localAuthService = {
       setToStorage(STORAGE_KEYS.AUTH_TOKEN, token);
       setToStorage(STORAGE_KEYS.CURRENT_USER, user);
       
+      // Set appropriate auth tokens for compatibility
+      if (user.admin_type) {
+        localStorage.setItem('admin_access_token', token);
+        localStorage.setItem('user_role', user.admin_type);
+      } else {
+        localStorage.setItem('employee_access_token', token);
+        localStorage.setItem('user_role', 'employee');
+      }
+      
       return {
         success: true,
         data: {
           access: token,
-          user: user
+          user: user,
+          redirect_path: user.admin_type ? '/coordinator-admin/dashboard' : '/employee/home'
         }
       };
-    } else if (user && user.status === 'pending') {
+    } else if (allUsers.find(u => u.email === email) && allUsers.find(u => u.email === email).status === 'pending') {
       return {
         success: false,
         error: 'Account is pending approval'
       };
+    } else if (allUsers.find(u => u.email === email)) {
+      return {
+        success: false,
+        error: 'Invalid password'
+      };
     } else {
       return {
         success: false,
-        error: 'Invalid credentials'
+        error: 'Email not found'
       };
     }
   },
