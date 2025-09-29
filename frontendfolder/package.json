@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --mode local",
     "build": "vite build",
+    "build:local": "vite build --mode local",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean:storage": "node scripts/clean-storage.js",
+    "reset:local": "npm run clean:storage && npm run dev:local"
   },
   "dependencies": {
     "@vitejs/plugin-react-swc": "^3.10.2",
@@ -24,7 +28,8 @@
     "react-router-dom": "^7.6.2",
     "react-select": "^5.10.1",
     "react-toastify": "^11.0.5",
-    "recharts": "^2.15.3"
+    "recharts": "^2.15.3",
+    "sql.js": "^1.13.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
