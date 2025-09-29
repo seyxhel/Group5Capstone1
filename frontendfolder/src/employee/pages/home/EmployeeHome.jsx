@@ -8,6 +8,8 @@ import {
 } from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import styles from './EmployeeHome.module.css';
+import { USE_LOCAL_API } from '../../../config/environment.js';
+import { apiService } from '../../../services/apiService.js';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
@@ -19,17 +21,32 @@ const EmployeeHome = () => {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const token = localStorage.getItem("employee_access_token");
-        const res = await fetch(`${API_URL}tickets/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const allTickets = await res.json();
-          setHasCreatedTicket(Array.isArray(allTickets) && allTickets.length > 0);
-          // Only active tickets
-          const activeTickets = allTickets; // No filter, show all tickets
+        let allTickets = [];
+        
+        if (USE_LOCAL_API) {
+          console.log('🏠 Fetching tickets for home dashboard locally...');
+          const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
+          const result = await apiService.tickets.getEmployeeTickets(currentUser.id);
+          if (result.success) {
+            allTickets = result.data;
+            console.log('✅ Loaded tickets for dashboard:', allTickets.length);
+          }
+        } else {
+          // Original backend API logic
+          const token = localStorage.getItem("employee_access_token");
+          const res = await fetch(`${API_URL}tickets/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            allTickets = await res.json();
+          }
+        }
+        
+        setHasCreatedTicket(Array.isArray(allTickets) && allTickets.length > 0);
+        // Show all tickets for testing
+        if (Array.isArray(allTickets) && allTickets.length > 0) {
           // Sort and slice for recent
-          const sorted = activeTickets
+          const sorted = allTickets
             .sort((a, b) =>
               new Date(b.last_updated || b.update_date || b.submit_date) -
               new Date(a.last_updated || a.update_date || a.submit_date)

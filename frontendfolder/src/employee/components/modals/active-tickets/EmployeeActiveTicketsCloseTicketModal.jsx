@@ -3,6 +3,8 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeActiveTicketsCloseTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { USE_LOCAL_API } from '../../../../config/environment.js';
+import { apiService } from '../../../../services/apiService.js';
 
 const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -11,31 +13,54 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
   const handleClose = async () => {
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(
-        `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/close/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ comment }),
+      if (USE_LOCAL_API) {
+        console.log('🎫 Closing ticket locally:', ticket.ticket_number || ticket.ticketNumber);
+        // Use local service to update ticket status
+        const result = await apiService.tickets.updateTicketStatus(
+          ticket.id, 
+          'Closed', 
+          comment || 'Ticket closed by employee'
+        );
+        
+        if (result.success) {
+          toast.success(`Ticket #${ticket.ticket_number || ticket.ticketNumber} closed successfully.`, {
+            position: "top-right",
+            autoClose: 3000,
+          });
+          
+          onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Closed");
+          onClose();
+        } else {
+          throw new Error(result.error || "Failed to close the ticket.");
         }
-      );
+      } else {
+        // Original backend API logic
+        const token = localStorage.getItem("employee_access_token");
+        const res = await fetch(
+          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/close/`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ comment }),
+          }
+        );
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to close the ticket.");
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to close the ticket.");
+        }
+
+        toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
+          position: "top-right",
+          autoClose: 3000,
+        });
+
+        onSuccess?.(ticket.ticketNumber, "Closed");
+        onClose();
       }
-
-      toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
-        position: "top-right",
-        autoClose: 3000,
-      });
-
-      onSuccess?.(ticket.ticketNumber, "Closed");
-      onClose();
     } catch (err) {
       toast.error(err.message || "Failed to close the ticket. Please try again.", {
         position: "top-right",

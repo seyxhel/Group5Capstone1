@@ -20,14 +20,17 @@ export const localTicketService = {
     };
   },
 
-  // Get tickets by employee
+  // Get tickets by employee (in local dev mode, return ALL tickets for better testing)
   getEmployeeTickets: async (employeeId) => {
     await delay();
     const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
-    const employeeTickets = tickets.filter(ticket => ticket.employee.id === employeeId);
+    
+    // For local development, return ALL tickets so frontend developers can see all mock data
+    // This allows testing with any employee account to see the full range of ticket statuses
+    console.log('🎫 Local dev: Returning all tickets for frontend testing (not just employee-specific)');
     return {
       success: true,
-      data: employeeTickets
+      data: tickets // Return all tickets instead of filtering by employeeId
     };
   },
 
@@ -74,8 +77,11 @@ export const localTicketService = {
     await delay();
     const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
     
-    // Generate ticket number in the format TX0001, TX0002, etc.
-    const ticketNumber = `TX${String(tickets.length + 1).padStart(4, '0')}`;
+    // Generate ticket number with exactly 4 random digits: TX + XXXX
+    const randomFourDigits = Math.floor(Math.random() * 9000) + 1000; // Random number between 1000-9999
+    const ticketNumber = `TX${randomFourDigits}`;
+    
+    const currentDateTime = new Date().toISOString();
     
     const newTicket = {
       id: generateId(),
@@ -83,10 +89,16 @@ export const localTicketService = {
       subject: ticketData.subject,
       description: ticketData.description,
       priority_level: ticketData.priority_level,
-      department: ticketData.department,
+      priority: ticketData.priority_level, // For compatibility
+      category: ticketData.category,
+      sub_category: ticketData.sub_category,
+      department: null, // Will be assigned by coordinator
       status: 'Pending',
-      date_created: new Date().toISOString(),
-      date_updated: new Date().toISOString(),
+      date_created: currentDateTime,
+      date_updated: currentDateTime,
+      submit_date: currentDateTime,
+      update_date: currentDateTime,
+      scheduled_date: ticketData.scheduled_date,
       employee: {
         id: currentUser.id,
         first_name: currentUser.first_name,

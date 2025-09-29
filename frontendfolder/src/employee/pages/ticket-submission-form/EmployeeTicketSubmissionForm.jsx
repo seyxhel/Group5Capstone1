@@ -105,9 +105,16 @@ export default function EmployeeTicketSubmissionForm() {
         const ticketData = {
           subject: data.subject,
           description: data.description,
-          priority_level: data.category, // Using category as priority for now
-          department: data.subCategory, // Using subcategory as department for now
-          attachments: selectedFiles ? Array.from(selectedFiles).map(f => f.name) : []
+          priority_level: null, // Will be set by coordinator on approval
+          department: null, // Will be set by coordinator on approval
+          category: data.category,
+          sub_category: data.subCategory,
+          scheduled_date: data.schedule || null,
+          attachments: selectedFiles ? Array.from(selectedFiles).map(file => ({
+            name: file.name,
+            size: file.size,
+            type: file.type
+          })) : []
         };
         
         const result = await apiService.tickets.createTicket(ticketData, currentUser);

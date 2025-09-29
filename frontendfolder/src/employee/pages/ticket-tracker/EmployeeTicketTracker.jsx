@@ -139,37 +139,50 @@ export default function EmployeeTicketTracker() {
                 <span className={styles.attachmentIcon}>📎</span>
                 {attachments && attachments.length > 0 ? (
                   attachments.map((file, idx) => {
-                    const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(file.file_name);
-                    return (
-                      <button
-                        key={file.id || idx}
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          try {
-                            const { downloadSecureFile } = await import('../../../utilities/secureMedia');
-                            // If inline (images/pdf), open in new tab
-                            if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(file.file_name)) {
-                              const token = localStorage.getItem('employee_access_token') || localStorage.getItem('admin_access_token');
-                              const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
-                              if (!res.ok) throw new Error('Not authorized');
-                              const blob = await res.blob();
-                              const url = window.URL.createObjectURL(blob);
-                              window.open(url, '_blank');
-                              // revoke later
-                              setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-                            } else {
-                              await downloadSecureFile(file.file, file.file_name);
+                    // Handle both local development format (object with name/type/size) and backend format (file_name)
+                    const fileName = file.file_name || file.name || 'Uploaded File';
+                    
+                    if (USE_LOCAL_API) {
+                      // Local development mode - simple filename display like original
+                      return (
+                        <div key={idx} className={styles.attachmentText} style={{ display: 'block', padding: '2px 0' }}>
+                          {fileName}
+                        </div>
+                      );
+                    } else {
+                      // Original backend logic
+                      const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(fileName);
+                      return (
+                        <button
+                          key={file.id || idx}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            try {
+                              const { downloadSecureFile } = await import('../../../utilities/secureMedia');
+                              // If inline (images/pdf), open in new tab
+                              if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(fileName)) {
+                                const token = localStorage.getItem('employee_access_token') || localStorage.getItem('admin_access_token');
+                                const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
+                                if (!res.ok) throw new Error('Not authorized');
+                                const blob = await res.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                                // revoke later
+                                setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+                              } else {
+                                await downloadSecureFile(file.file, fileName);
+                              }
+                            } catch (err) {
+                              alert('Download failed or unauthorized');
                             }
-                          } catch (err) {
-                            alert('Download failed or unauthorized');
-                          }
-                        }}
-                        className={styles.attachmentText}
-                        style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
-                      >
-                        {file.file_name}
-                      </button>
-                    );
+                          }}
+                          className={styles.attachmentText}
+                          style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
+                        >
+                          {fileName}
+                        </button>
+                      );
+                    }
                   })
                 ) : (
                   <span className={styles.attachmentText}>No file attached.</span>
@@ -178,10 +191,10 @@ export default function EmployeeTicketTracker() {
             </section>
 
             <div className={styles.ticketDetails}>
-              <DetailField label="Priority" value={priority} />
-              <DetailField label="Department" value={department} />
-              <DetailField label="Assigned Agent" value={assigned_to?.name} />
-              <DetailField label="Scheduled Request" value={scheduled_date} />
+              <DetailField label="Priority" value={priority || "N/A"} />
+              <DetailField label="Department" value={department || "N/A"} />
+              <DetailField label="Assigned Agent" value={assigned_to?.name || "N/A"} />
+              <DetailField label="Scheduled Request" value={scheduled_date || "N/A"} />
               <DetailField label="Date Created" value={formatDate(submit_date)} />
               <DetailField label="Last Updated" value={formatDate(update_date)} />
             </div>
@@ -230,12 +243,22 @@ export default function EmployeeTicketTracker() {
         <EmployeeActiveTicketsWithdrawTicketModal
           ticket={ticket}
           onClose={() => setShowWithdrawModal(false)}
+          onSuccess={() => {
+            // Refresh the ticket data after withdrawal
+            setShowWithdrawModal(false);
+            window.location.reload(); // Simple refresh for local development
+          }}
         />
       )}
       {showCloseModal && (
         <EmployeeActiveTicketsCloseTicketModal
           ticket={ticket}
           onClose={() => setShowCloseModal(false)}
+          onSuccess={() => {
+            // Refresh the ticket data after closing
+            setShowCloseModal(false);
+            window.location.reload(); // Simple refresh for local development
+          }}
         />
       )}
     </>

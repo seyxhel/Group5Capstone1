@@ -5,6 +5,8 @@ import TableContent from "../../../shared/table/TableContent";
 import getTicketActions from "../../../shared/table/TicketActions";
 import EmployeeActiveTicketsWithdrawTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal";
 import EmployeeActiveTicketsCloseTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal";
+import { USE_LOCAL_API } from '../../../config/environment.js';
+import { apiService } from '../../../services/apiService.js';
 
 const headingMap = {
   "all-active": "All Active Tickets",
@@ -33,26 +35,39 @@ const EmployeeActiveTickets = () => {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const token = localStorage.getItem("employee_access_token");
-        const res = await fetch(
-          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+        let data = [];
+        
+        if (USE_LOCAL_API) {
+          console.log('🎫 Fetching active tickets locally...');
+          const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
+          const result = await apiService.tickets.getEmployeeTickets(currentUser.id);
+          if (result.success) {
+            data = result.data;
+            console.log('✅ Loaded active tickets:', data.length);
           }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setAllActiveTickets(
-            data.map((t) => ({
-              ...t,
-              ticketNumber: t.ticket_number, // for navigation/search
-              subCategory: t.sub_category,   // for table display
-            }))
-          );
         } else {
-          setAllActiveTickets([]);
+          // Original backend API logic
+          const token = localStorage.getItem("employee_access_token");
+          const res = await fetch(
+            `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (res.ok) {
+            data = await res.json();
+          }
         }
-      } catch {
+        
+        setAllActiveTickets(
+          data.map((t) => ({
+            ...t,
+            ticketNumber: t.ticket_number, // for navigation/search
+            subCategory: t.sub_category,   // for table display
+          }))
+        );
+      } catch (error) {
+        console.log('❌ Error fetching active tickets:', error);
         setAllActiveTickets([]);
       }
     };

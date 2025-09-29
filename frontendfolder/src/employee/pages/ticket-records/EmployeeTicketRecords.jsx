@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import TableWrapper from "../../../shared/table/TableWrapper";
 import TableContent from "../../../shared/table/TableContent";
 import getTicketActions from "../../../shared/table/TicketActions";
+import { USE_LOCAL_API } from '../../../config/environment.js';
+import { apiService } from '../../../services/apiService.js';
 
 const headingMap = {
   "all-ticket-records": "All Ticket Records",
@@ -28,28 +30,41 @@ const EmployeeTicketRecords = () => {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const token = localStorage.getItem("employee_access_token");
-        const res = await fetch(
-          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+        let data = [];
+        
+        if (USE_LOCAL_API) {
+          console.log('📋 Fetching ticket records locally...');
+          const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
+          const result = await apiService.tickets.getEmployeeTickets(currentUser.id);
+          if (result.success) {
+            data = result.data;
+            console.log('✅ Loaded ticket records:', data.length);
           }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setAllTickets(
-            data.map((t) => ({
-              ...t,
-              ticketNumber: t.ticket_number,
-              subCategory: t.sub_category,
-              priorityLevel: t.priority,
-              dateCreated: t.submit_date,
-            }))
-          );
         } else {
-          setAllTickets([]);
+          // Original backend API logic
+          const token = localStorage.getItem("employee_access_token");
+          const res = await fetch(
+            `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (res.ok) {
+            data = await res.json();
+          }
         }
-      } catch {
+        
+        setAllTickets(
+          data.map((t) => ({
+            ...t,
+            ticketNumber: t.ticket_number,
+            subCategory: t.sub_category,
+            priorityLevel: t.priority,
+            dateCreated: t.submit_date,
+          }))
+        );
+      } catch (error) {
+        console.log('❌ Error fetching ticket records:', error);
         setAllTickets([]);
       }
     };
