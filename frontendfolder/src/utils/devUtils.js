@@ -1,4 +1,19 @@
-// Development   console.log('🔑 Login Credentials (Updated):');
+// Development utilities for local frontend development
+import { USE_LOCAL_API } from '../config/environment.js';
+import { initializeLocalAuth } from './authUtils.js';
+
+// Initialize development environment
+if (USE_LOCAL_API) {
+  console.log('🚀 Frontend-Only Development Mode Activated!');
+  console.log('');
+  console.log('📋 Available Features:');
+  console.log('  ✅ Local data storage (localStorage)');
+  console.log('  ✅ Mock authentication (no passwords required)');
+  console.log('  ✅ Bypassed protected routes');
+  console.log('  ✅ Sample data pre-loaded');
+  console.log('  ✅ No backend dependencies');
+  console.log('');
+  console.log('🔑 Login Credentials (Updated):');
   console.log('  👨‍💼 ADMIN ACCOUNTS:');
   console.log('    📧 sysadmin@gmail.com | 🔒 sysadmin123 | 🎭 System Admin');
   console.log('    📧 coordinator@gmail.com | 🔒 coordinator123 | 🎭 Ticket Coordinator');
@@ -9,12 +24,22 @@
   console.log('    📧 jane.smith@gmail.com | 🔒 manager123 | 🎭 Employee');
   console.log('    📧 mike.wilson@gmail.com | 🔒 analyst123 | 🎭 Employee');
   console.log('');
+  console.log('🎮 Quick Access URLs (Direct Access):');
+  console.log('  📱 Employee Dashboard: /employee/home');
+  console.log('  👔 Admin Dashboard: /coordinator-admin/dashboard');
+  console.log('  🎫 Submit Ticket: /employee/ticket-submission-form');
+  console.log('  📊 Ticket Tracker: /employee/ticket-tracker');
+  console.log('  ⚙️  Settings: /employee/settings');
+  console.log('');
+  console.log('💡 Tips:');
+  console.log('  - You can access any page directly via URL');
+  console.log('  - All data persists in localStorage');
+  console.log('  - No login required (authentication bypassed)');
+  console.log('  - Use browser dev tools to inspect localStorage');
+  console.log('');
 
   // Initialize authentication for seamless development
   initializeLocalAuth();
-
-// Initialize development environment
-if (USE_LOCAL_API) {
   console.log('🚀 Frontend-Only Development Mode Activated!');
   console.log('');
   console.log('📋 Available Features:');
