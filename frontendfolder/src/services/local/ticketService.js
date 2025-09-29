@@ -50,19 +50,41 @@ export const localTicketService = {
     }
   },
 
+  // Get ticket by ticket number
+  getTicketByTicketNumber: async (ticketNumber) => {
+    await delay();
+    const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
+    const ticket = tickets.find(t => t.ticket_number === ticketNumber);
+    
+    if (ticket) {
+      return {
+        success: true,
+        data: ticket
+      };
+    } else {
+      return {
+        success: false,
+        error: `Ticket with number ${ticketNumber} not found`
+      };
+    }
+  },
+
   // Create new ticket
   createTicket: async (ticketData, currentUser) => {
     await delay();
     const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
     
+    // Generate ticket number in the format TX0001, TX0002, etc.
+    const ticketNumber = `TX${String(tickets.length + 1).padStart(4, '0')}`;
+    
     const newTicket = {
       id: generateId(),
-      ticket_number: `TKT-${new Date().getFullYear()}-${String(tickets.length + 1).padStart(3, '0')}`,
+      ticket_number: ticketNumber,
       subject: ticketData.subject,
       description: ticketData.description,
       priority_level: ticketData.priority_level,
       department: ticketData.department,
-      status: 'Open',
+      status: 'Pending',
       date_created: new Date().toISOString(),
       date_updated: new Date().toISOString(),
       employee: {

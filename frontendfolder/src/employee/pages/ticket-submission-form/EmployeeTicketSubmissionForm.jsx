@@ -114,7 +114,7 @@ export default function EmployeeTicketSubmissionForm() {
         
         if (result.success) {
           ticket = result.data;
-          toast.success('Ticket successfully created locally! (Frontend development mode)');
+          toast.success('Ticket successfully submitted.');
           console.log('✅ Ticket created:', ticket);
         } else {
           throw new Error(result.error || "Failed to create ticket locally.");

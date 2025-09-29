@@ -3,6 +3,8 @@ import { useParams, useLocation } from 'react-router-dom';
 import styles from './EmployeeTicketTracker.module.css';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
+import { USE_LOCAL_API } from '../../../config/environment.js';
+import { apiService } from '../../../services/apiService.js';
 
 const STATUS_COMPLETION = {
   1: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
@@ -49,17 +51,31 @@ export default function EmployeeTicketTracker() {
     const fetchTicket = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("employee_access_token");
-        const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTicket(data);
+        if (USE_LOCAL_API) {
+          console.log('🎫 Fetching ticket locally:', ticketNumber);
+          const result = await apiService.tickets.getTicketByTicketNumber(ticketNumber);
+          if (result.success) {
+            setTicket(result.data);
+            console.log('✅ Ticket found:', result.data);
+          } else {
+            console.log('❌ Ticket not found:', result.error);
+            setTicket(null);
+          }
         } else {
-          setTicket(null);
+          // Original backend API logic
+          const token = localStorage.getItem("employee_access_token");
+          const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setTicket(data);
+          } else {
+            setTicket(null);
+          }
         }
-      } catch {
+      } catch (error) {
+        console.log('❌ Error fetching ticket:', error);
         setTicket(null);
       }
       setLoading(false);
