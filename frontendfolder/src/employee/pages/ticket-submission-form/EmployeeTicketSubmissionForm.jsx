@@ -5,6 +5,8 @@ import { toast } from 'react-toastify';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
 import styles from './EmployeeTicketSubmissionForm.module.css';
 import { categories, subCategories } from '../../../utilities/ticket-data/ticketStaticData';
+import { USE_LOCAL_API } from '../../../config/environment.js';
+import { apiService } from '../../../services/apiService.js';
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -92,42 +94,69 @@ export default function EmployeeTicketSubmissionForm() {
       return;
     }
 
-    const submitTicket = async (accessToken) => {
-      const formData = new FormData();
-      formData.append("subject", data.subject);
-      formData.append("category", data.category);
-      formData.append("sub_category", data.subCategory);
-      formData.append("description", data.description);
-      if (data.schedule) formData.append("scheduled_date", data.schedule);
-      (selectedFiles || []).forEach(file => {
-        formData.append("files[]", file);
-      });
-
-      const res = await fetch(`${API_URL}tickets/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      });
-      return res;
-    };
-
     try {
-      let token = localStorage.getItem("employee_access_token");
-      let res = await submitTicket(token);
+      let ticket;
+      
+      if (USE_LOCAL_API) {
+        console.log('🎫 Creating ticket locally...');
+        // Get current user from localStorage for local development
+        const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
+        
+        const ticketData = {
+          subject: data.subject,
+          description: data.description,
+          priority_level: data.category, // Using category as priority for now
+          department: data.subCategory, // Using subcategory as department for now
+          attachments: selectedFiles ? Array.from(selectedFiles).map(f => f.name) : []
+        };
+        
+        const result = await apiService.tickets.createTicket(ticketData, currentUser);
+        
+        if (result.success) {
+          ticket = result.data;
+          toast.success('Ticket successfully created locally! (Frontend development mode)');
+          console.log('✅ Ticket created:', ticket);
+        } else {
+          throw new Error(result.error || "Failed to create ticket locally.");
+        }
+      } else {
+        // Original backend API logic
+        const submitTicket = async (accessToken) => {
+          const formData = new FormData();
+          formData.append("subject", data.subject);
+          formData.append("category", data.category);
+          formData.append("sub_category", data.subCategory);
+          formData.append("description", data.description);
+          if (data.schedule) formData.append("scheduled_date", data.schedule);
+          (selectedFiles || []).forEach(file => {
+            formData.append("files[]", file);
+          });
 
-      // If token expired, try to refresh and retry once
-      if (res.status === 401) {
-        token = await refreshAccessToken();
-        res = await submitTicket(token);
+          const res = await fetch(`${API_URL}tickets/`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: formData,
+          });
+          return res;
+        };
+
+        let token = localStorage.getItem("employee_access_token");
+        let res = await submitTicket(token);
+
+        // If token expired, try to refresh and retry once
+        if (res.status === 401) {
+          token = await refreshAccessToken();
+          res = await submitTicket(token);
+        }
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Failed to submit ticket.");
+        }
+
+        ticket = await res.json();
+        toast.success('Ticket successfully submitted.');
       }
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to submit ticket.");
-      }
-
-      const ticket = await res.json();
-      toast.success('Ticket successfully submitted.');
       setTimeout(() => navigate(`/employee/ticket-tracker/${ticket.ticket_number || ticket.id}`), 1500);
     } catch (err) {
       toast.error(err.message || 'Failed to submit a ticket. Please try again.');

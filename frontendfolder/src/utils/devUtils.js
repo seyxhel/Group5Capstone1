@@ -1,6 +1,17 @@
-// Development utilities for local frontend development
-import { USE_LOCAL_API } from '../config/environment.js';
-import { initializeLocalAuth } from './authUtils.js';
+// Development   console.log('🔑 Login Credentials (Updated):');
+  console.log('  👨‍💼 ADMIN ACCOUNTS:');
+  console.log('    📧 sysadmin@gmail.com | 🔒 sysadmin123 | 🎭 System Admin');
+  console.log('    📧 coordinator@gmail.com | 🔒 coordinator123 | 🎭 Ticket Coordinator');
+  console.log('    📧 superadmin@gmail.com | 🔒 superadmin123 | 🎭 Super Admin');
+  console.log('');
+  console.log('  👤 EMPLOYEE ACCOUNTS:');
+  console.log('    📧 john.doe@gmail.com | 🔒 employee123 | 🎭 Employee');
+  console.log('    📧 jane.smith@gmail.com | 🔒 manager123 | 🎭 Employee');
+  console.log('    📧 mike.wilson@gmail.com | 🔒 analyst123 | 🎭 Employee');
+  console.log('');
+
+  // Initialize authentication for seamless development
+  initializeLocalAuth();
 
 // Initialize development environment
 if (USE_LOCAL_API) {
@@ -82,29 +93,29 @@ if (USE_LOCAL_API) {
       console.log('┌─────────────────────────────┬─────────────────┬──────────────────────┐');
       console.log('│ Email                       │ Password        │ Role                 │');
       console.log('├─────────────────────────────┼─────────────────┼──────────────────────┤');
-      console.log('│ sysadmin@company.com        │ sysadmin123     │ System Administrator │');
-      console.log('│ coordinator@company.com     │ coordinator123  │ Ticket Coordinator   │');
-      console.log('│ superadmin@company.com      │ superadmin123   │ Super Administrator  │');
+      console.log('│ sysadmin@gmail.com          │ sysadmin123     │ System Administrator │');
+      console.log('│ coordinator@gmail.com       │ coordinator123  │ Ticket Coordinator   │');
+      console.log('│ superadmin@gmail.com        │ superadmin123   │ Super Administrator  │');
       console.log('└─────────────────────────────┴─────────────────┴──────────────────────┘');
       console.log('');
       console.log('👤 EMPLOYEE ACCOUNTS:');
       console.log('┌─────────────────────────────┬─────────────────┬──────────────────────┐');
       console.log('│ Email                       │ Password        │ Role                 │');
       console.log('├─────────────────────────────┼─────────────────┼──────────────────────┤');
-      console.log('│ john.doe@company.com        │ employee123     │ Developer            │');
-      console.log('│ jane.smith@company.com      │ manager123      │ HR Manager           │');
-      console.log('│ mike.wilson@company.com     │ analyst123      │ Finance Analyst      │');
+      console.log('│ john.doe@gmail.com          │ employee123     │ Developer            │');
+      console.log('│ jane.smith@gmail.com        │ manager123      │ HR Manager           │');
+      console.log('│ mike.wilson@gmail.com       │ analyst123      │ Finance Analyst      │');
       console.log('└─────────────────────────────┴─────────────────┴──────────────────────┘');
     },
     
     quickLogin: (userType) => {
       const accounts = {
-        sysad: { email: 'sysadmin@company.com', password: 'sysadmin123' },
-        coordinator: { email: 'coordinator@company.com', password: 'coordinator123' },
-        superadmin: { email: 'superadmin@company.com', password: 'superadmin123' },
-        employee: { email: 'john.doe@company.com', password: 'employee123' },
-        manager: { email: 'jane.smith@company.com', password: 'manager123' },
-        analyst: { email: 'mike.wilson@company.com', password: 'analyst123' }
+        sysad: { email: 'sysadmin@gmail.com', password: 'sysadmin123' },
+        coordinator: { email: 'coordinator@gmail.com', password: 'coordinator123' },
+        superadmin: { email: 'superadmin@gmail.com', password: 'superadmin123' },
+        employee: { email: 'john.doe@gmail.com', password: 'employee123' },
+        manager: { email: 'jane.smith@gmail.com', password: 'manager123' },
+        analyst: { email: 'mike.wilson@gmail.com', password: 'analyst123' }
       };
       
       const account = accounts[userType];
