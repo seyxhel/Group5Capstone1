@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
-import AuthRoutes from './routes/AuthRoutes';
+import AuthChecker from './shared/components/AuthChecker';
+import RoleBasedRedirect from './shared/components/RoleBasedRedirect';
 import EmployeeRoutes from './routes/EmployeeRoutes';
 import CoordinatorAdminRoutes from './routes/CoordinatorAdminRoutes';
 import ScrollToTop from './shared/ScrollToTop';
@@ -10,11 +11,15 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
-        {AuthRoutes()}
-        {EmployeeRoutes()}
-        {CoordinatorAdminRoutes()}
-      </Routes>
+      <AuthChecker>
+        <Routes>
+          {EmployeeRoutes()}
+          {CoordinatorAdminRoutes()}
+          {/* Smart redirect based on user's HDTS role */}
+          <Route path="/" element={<RoleBasedRedirect />} />
+          <Route path="*" element={<RoleBasedRedirect />} />
+        </Routes>
+      </AuthChecker>
       <GlobalToast />
     </BrowserRouter>
   );

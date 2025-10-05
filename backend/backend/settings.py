@@ -135,6 +135,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    'http://localhost:1002',  # HDTS frontend
+    'http://localhost:1000',  # Auth frontend
     'https://smartsupport-hdts-backend.up.railway.app',
     'https://smartsupport-hdts-frontend.up.railway.app',  # <-- add this
 ]

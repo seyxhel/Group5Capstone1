@@ -7,21 +7,23 @@ import {
   IoChevronForward
 } from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
+import { useUser } from '../../../shared/context/UserContext';
 import styles from './EmployeeHome.module.css';
 
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
+  const { user, hdtsRole } = useUser();
   const [recentTickets, setRecentTickets] = useState([]);
   const [hasCreatedTicket, setHasCreatedTicket] = useState(false);
 
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const token = localStorage.getItem("employee_access_token");
+        // Use cookie-based authentication instead of token
         const res = await fetch(`${API_URL}tickets/`, {
-          headers: { Authorization: `Bearer ${token}` }
+          credentials: 'include' // Use cookies for authentication
         });
         if (res.ok) {
           const allTickets = await res.json();
@@ -68,13 +70,20 @@ const EmployeeHome = () => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
   };
 
-  const firstName = localStorage.getItem("employee_first_name") || "Employee";
+  const firstName = user?.first_name || "Employee";
 
   return (
     <div className={styles.container}>
       <h1 className={styles.welcomeHeader}>
         Welcome <span className={styles.welcomeName}>{firstName}</span>,
       </h1>
+      
+      {/* Display user role and company info */}
+      <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+        <p><strong>Role:</strong> {hdtsRole || 'User'}</p>
+        <p><strong>Company:</strong> {user?.company_id}</p>
+        <p><strong>Department:</strong> {user?.department}</p>
+      </div>
 
       <div className={styles.topSection}>
         <div className={styles.card}>
