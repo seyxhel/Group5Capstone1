@@ -33,13 +33,13 @@ const authService = {
   // Check if user has HDTS system access
   hasHDTSAccess: (user) => {
     if (!user || !user.system_roles) return false;
-    return user.system_roles.some(role => role.system_slug === "HDTS");
+    return user.system_roles.some(role => role.system_slug === "hdts");
   },
 
   // Get user's HDTS role
   getHDTSRole: (user) => {
     if (!user || !user.system_roles) return null;
-    const hdtsRole = user.system_roles.find(role => role.system_slug === "HDTS");
+    const hdtsRole = user.system_roles.find(role => role.system_slug === "hdts");
     return hdtsRole ? hdtsRole.role_name : null;
   },
 
