@@ -42,8 +42,21 @@ def login_view(request):
 
 # For employee registration
 class CreateEmployeeView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
+        # If a multipart/form-data POST included an uploaded image, attach it
+        # to the data dict so the serializer will receive the file under
+        # the 'image' key and save it on the model.
+        image_file = None
+        try:
+            image_file = request.FILES.get('image')
+        except Exception:
+            image_file = None
+        if image_file:
+            # request.data is a QueryDict; setting this key will allow the
+            # ModelSerializer to pick up the file if it declares an ImageField
+            data['image'] = image_file
         password = data.get("password")
         confirm_password = data.get("confirm_password")
 
@@ -57,8 +70,10 @@ class CreateEmployeeView(APIView):
         if serializer.is_valid():
             try:
                 employee = serializer.save()
+                # Return serialized employee data so frontend can persist profile (image URL, names, etc.)
+                serialized = EmployeeSerializer(employee).data
                 return Response(
-                    {"message": "Account created successfully. Pending approval."},
+                    {"message": "Account created successfully. Pending approval.", "employee": serialized},
                     status=status.HTTP_201_CREATED
                 )
             except Exception as e:

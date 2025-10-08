@@ -79,7 +79,10 @@ export function extractFilePathFromUrl(fullUrl) {
  */
 export function convertToSecureUrl(existingUrl) {
   const filePath = extractFilePathFromUrl(existingUrl);
-  return getSecureMediaUrl(filePath);
+  if (!filePath) return null;
+  // If filePath includes a leading 'media/' segment (or '/media/'), strip it
+  const normalized = filePath.replace(/^\/?media\//, '');
+  return getSecureMediaUrl(normalized);
 }
 
 /**

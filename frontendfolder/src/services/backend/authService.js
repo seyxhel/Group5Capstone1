@@ -38,13 +38,31 @@ export const backendAuthService = {
 
   async register(userData) {
     try {
-      const response = await fetch(`${BASE_URL}/api/create_employee/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
+      let response;
+      // If caller passed a File under userData.profileImage, send multipart FormData
+      if (userData && userData.profileImage && userData.profileImage instanceof File) {
+        const fd = new FormData();
+        // Append simple scalar fields
+        for (const [k, v] of Object.entries(userData)) {
+          if (k === 'profileImage') continue;
+          if (v !== undefined && v !== null) fd.append(k, v);
+        }
+        fd.append('image', userData.profileImage);
+
+        response = await fetch(`${BASE_URL}/api/create_employee/`, {
+          method: 'POST',
+          // DO NOT set Content-Type when sending FormData: the browser will set the boundary
+          body: fd,
+        });
+      } else {
+        response = await fetch(`${BASE_URL}/api/create_employee/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userData),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();

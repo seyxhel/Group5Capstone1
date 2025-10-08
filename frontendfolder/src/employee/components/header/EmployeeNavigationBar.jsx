@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 import authService from '../../../utilities/service/authService';
+import { convertToSecureUrl, isSecureUrl, getSecureMediaUrl } from '../../../utilities/secureMedia';
+import { API_CONFIG } from '../../../config/environment.js';
 
 const NotificationIcon = () => (
   <svg
@@ -79,6 +81,86 @@ const EmployeeNavBar = () => {
     setOpenDropdown(null);
     setShowNotification(false);
   };
+
+  const resolveUser = () => (authService.getCurrentUser ? authService.getCurrentUser() : null);
+
+  const getProfileImageSrc = () => {
+    const user = resolveUser();
+    // support multiple possible keys used across the app
+    const imgCandidate = user?.profile_image || user?.image || user?.profileImage || user?.profileImg || employeeBonjingData.profileImage;
+
+    if (!imgCandidate) return employeeBonjingData.profileImage;
+
+    // Track any created object URLs so we can revoke them on unmount
+    if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
+    const createdUrlsRef = getProfileImageSrc._createdUrlsRef;
+
+    // If it's a File or Blob (local file selected and stored), create an object URL
+    try {
+      if (typeof Blob !== 'undefined' && imgCandidate instanceof Blob) {
+        const objUrl = URL.createObjectURL(imgCandidate);
+        createdUrlsRef.push(objUrl);
+        return objUrl;
+      }
+    } catch (err) {
+      // ignore cross-realm errors
+    }
+
+    // If the stored value is an object with a url property (some services store this shape)
+    if (typeof imgCandidate === 'object' && imgCandidate !== null) {
+      const urlVal = imgCandidate.url || imgCandidate.image || imgCandidate.path;
+      if (urlVal && typeof urlVal === 'string') {
+        // if it is a data URL or absolute URL, use it
+        if (urlVal.startsWith('data:') || urlVal.startsWith('http')) return urlVal;
+        // otherwise build absolute media URL
+        const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '')}/media/`;
+        const clean = urlVal.startsWith('/') ? urlVal.slice(1) : urlVal;
+        return `${MEDIA_URL}${clean}`;
+      }
+    }
+
+  // If it's a data URL, return as-is
+    if (typeof imgCandidate === 'string' && imgCandidate.startsWith('data:')) return imgCandidate;
+
+    // If it's a string, handle secure/absolute/relative paths
+    if (typeof imgCandidate === 'string') {
+      if (isSecureUrl(imgCandidate)) return imgCandidate;
+
+        const secure = convertToSecureUrl(imgCandidate);
+        if (secure) return secure;
+
+        if (imgCandidate.startsWith('http')) return imgCandidate;
+
+      // Handle cases where the stored path was saved with a '/public/' prefix
+      // Trim whitespace to avoid missed prefixes (some stored values include leading spaces)
+      let candidate = imgCandidate.trim();
+      if (candidate.startsWith('/public/')) candidate = candidate.replace(/^\/public\//, '/');
+      if (candidate.startsWith('public/')) candidate = candidate.replace(/^public\//, '');
+
+      // If the stored value already contains a leading 'media/' segment
+      // (e.g. '/media/employee_images/...'), strip that so we don't
+      // produce duplicated '/media/media/...' when prefixing MEDIA_URL.
+      candidate = candidate.replace(/^\/?media\//, '');
+
+      const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '')}/media/`;
+      const clean = candidate.startsWith('/') ? candidate.slice(1) : candidate;
+      return `${MEDIA_URL}${clean}`;
+    }
+
+    return employeeBonjingData.profileImage;
+  };
+
+  // Revoke any object URLs created for file blobs when the component unmounts
+  useEffect(() => {
+    return () => {
+      try {
+        const urls = getProfileImageSrc._createdUrlsRef || [];
+        urls.forEach((u) => {
+          try { URL.revokeObjectURL(u); } catch (e) {}
+        });
+      } catch (err) {}
+    };
+  }, []);
 
   const toggleNotification = () => {
     setShowNotification((prev) => !prev);
@@ -200,9 +282,17 @@ const EmployeeNavBar = () => {
             }}
           >
             <img
-              src={(authService.getCurrentUser && authService.getCurrentUser().profile_image) || employeeBonjingData.profileImage}
+              src={getProfileImageSrc()}
               alt="Profile"
               className={styles['avatar-placeholder']}
+              onError={(e) => {
+                try {
+                  const user = resolveUser();
+                  console.warn('Profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
+                } catch (err) {}
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = employeeBonjingData.profileImage;
+              }}
             />
           </div>
           {showProfileMenu && (
@@ -210,13 +300,27 @@ const EmployeeNavBar = () => {
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
                   <img
-                    src={(authService.getCurrentUser && authService.getCurrentUser().profile_image) || employeeBonjingData.profileImage}
+                    src={getProfileImageSrc()}
                     alt="Profile"
                     className={styles['avatar-image']}
+                    onError={(e) => {
+                      try {
+                        const user = resolveUser();
+                        console.warn('Large profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
+                      } catch (err) {}
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = employeeBonjingData.profileImage;
+                    }}
                   />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${(authService.getCurrentUser && authService.getCurrentUser().first_name) || employeeBonjingData.firstName} ${(authService.getCurrentUser && authService.getCurrentUser().middle_name) || employeeBonjingData.middleName} ${(authService.getCurrentUser && authService.getCurrentUser().last_name) || employeeBonjingData.lastName}`}</h3>
+                  <h3>{(() => {
+                    const user = resolveUser();
+                    const first = user?.first_name || user?.firstName || employeeBonjingData.firstName;
+                    const middle = user?.middle_name || user?.middleName || employeeBonjingData.middleName || '';
+                    const last = user?.last_name || user?.lastName || employeeBonjingData.lastName;
+                    return `${first} ${middle} ${last}`.replace(/\s+/g, ' ').trim();
+                  })()}</h3>
                   <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
                 </div>
               </div>

@@ -52,14 +52,31 @@ export default function SmartSupportEmployeeCreateAccount() {
       console.log('Creating account with data:', userData);
       console.log('JSON stringified data:', JSON.stringify(userData));
       
+      // If a profile image was selected via the UploadProfilePicture component,
+      // include the first File in the payload so the auth service can send
+      // multipart FormData. The UploadProfilePicture registers 'profileImage'
+      // as a FileList.
+      const profileFiles = data.profileImage;
+      if (profileFiles && profileFiles.length > 0) {
+        userData.profileImage = profileFiles[0];
+      }
+
       // Call the backend API
       const response = await apiService.auth.register(userData);
-      
+
       console.log('Account creation response:', response);
+      // If backend returned the created employee object, persist it to localStorage
+      if (response && response.employee) {
+        // Normalize image field: EmployeeSerializer typically returns image as a URL string
+        const profile = response.employee;
+        // Save profile under the same key the app expects
+        localStorage.setItem('loggedInUser', JSON.stringify(profile));
+      }
+
       toast.success("Account created successfully! Waiting for admin approval.");
-      
-  // Redirect to home page after successful registration
-  setTimeout(() => navigate("/"), 2000);
+
+      // Redirect to home page after successful registration
+      setTimeout(() => navigate("/"), 2000);
       
     } catch (error) {
       console.error('Account creation error:', error);
