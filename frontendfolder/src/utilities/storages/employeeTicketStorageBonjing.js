@@ -234,6 +234,3 @@ if (!localStorage.getItem(EMPLOYEE_TICKET_STORAGE_KEY)) {
   saveEmployeeTickets(sampleEmployeeTickets);
 }
 
-// FORCE RESET — Remove this after verifying initial mock data
-localStorage.removeItem(EMPLOYEE_TICKET_STORAGE_KEY);
-saveEmployeeTickets(sampleEmployeeTickets);

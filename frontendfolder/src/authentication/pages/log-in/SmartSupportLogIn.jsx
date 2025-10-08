@@ -54,7 +54,9 @@ const SmartSupportLogIn = () => {
       }
     } catch (err) {
       console.error("Login failed:", err);
-      setErrorMessage("Something went wrong. Please try again.");
+      // If the backend provided a message, show it; otherwise use generic
+      const message = err?.message || (err?.detail && JSON.stringify(err.detail)) || "Something went wrong. Please try again.";
+      setErrorMessage(message);
     } finally {
       setSubmitting(false);
     }

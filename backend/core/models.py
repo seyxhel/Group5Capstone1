@@ -120,15 +120,24 @@ SUBCATEGORY_CHOICES = [
     # Add more as needed
 ]
 def generate_unique_ticket_number():
-        from .models import Ticket  # or avoid this if it's in the same file
-        while True:
-            random_number = f"TX{random.randint(1, 9999):04d}"
-            if not Ticket.objects.filter(ticket_number=random_number).exists():
-                return random_number
+    from .models import Ticket  # safe import for migrations
+    from datetime import datetime
+    date_part = datetime.utcnow().strftime('%Y%m%d')
+    # Attempt up to a few times to avoid collisions
+    for _ in range(10):
+        rand = f"{random.randint(0, 999999):06d}"
+        candidate = f"TX{date_part}{rand}"
+        if not Ticket.objects.filter(ticket_number=candidate).exists():
+            return candidate
+    # Fallback to uuid-like random
+    while True:
+        candidate = f"TX{date_part}{random.randint(0, 9999999):07d}"
+        if not Ticket.objects.filter(ticket_number=candidate).exists():
+            return candidate
             
 class Ticket(models.Model):
-    ticket_number = models.CharField(max_length=6, unique=True, blank=True, null=True)
-            
+    ticket_number = models.CharField(max_length=32, unique=True, blank=True, null=True)
+
     def save(self, *args, **kwargs):
         if not self.ticket_number:
             self.ticket_number = generate_unique_ticket_number()
@@ -137,11 +146,26 @@ class Ticket(models.Model):
     employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tickets")
     subject = models.CharField(max_length=255)
     category = models.CharField(max_length=100)
-    sub_category = models.CharField(max_length=100)
+    sub_category = models.CharField(max_length=100, blank=True, null=True)
     description = models.TextField()
     scheduled_date = models.DateField(null=True, blank=True)
     priority = models.CharField(max_length=20, choices=PRIORITY_LEVELS, blank=True, null=True)
     department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
+    # Explicit fields for commonly used dynamic data (easier querying)
+    asset_name = models.CharField(max_length=255, blank=True, null=True)
+    serial_number = models.CharField(max_length=255, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    expected_return_date = models.DateField(blank=True, null=True)
+    issue_type = models.CharField(max_length=100, blank=True, null=True)
+    other_issue = models.TextField(blank=True, null=True)
+    performance_start_date = models.DateField(blank=True, null=True)
+    performance_end_date = models.DateField(blank=True, null=True)
+    approved_by = models.CharField(max_length=255, blank=True, null=True)
+    cost_items = models.JSONField(blank=True, null=True)
+    # Total requested budget (calculated or provided by frontend)
+    requested_budget = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    # Arbitrary dynamic form data (fallback storage for unknown fields)
+    dynamic_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='New')
     submit_date = models.DateTimeField(auto_now_add=True)
     update_date = models.DateTimeField(auto_now=True)

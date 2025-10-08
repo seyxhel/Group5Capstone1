@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { getEmployeeTickets, saveEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
@@ -35,38 +35,46 @@ const DetailField = ({ label, value }) => (
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
-// Generate logs based on ticket data
+// Generate logs based on ticket data (start with any persisted logs)
 const generateLogs = (ticket) => {
-  const logs = [];
-  logs.push({ 
-    id: 1, 
-    user: 'System', 
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
-    timestamp: formatDate(ticket.dateCreated) 
+  const logs = Array.isArray(ticket?.logs) ? ticket.logs.map((l, idx) => ({
+    id: l.id || idx + 1,
+    user: l.user || 'You',
+    action: l.action || `Status changed to ${ticket.status}`,
+    timestamp: l.timestamp || ticket.lastUpdated || ticket.dateCreated,
+  })) : [];
+
+  // System-created entry
+  logs.push({
+    id: logs.length + 1,
+    user: 'System',
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    timestamp: ticket.dateCreated,
   });
-  
+
   // Handle assignedTo as object or string
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  
   if (assignedToName) {
-    logs.push({ 
-      id: 2, 
-      user: assignedToName, 
-      action: `Assigned to ${ticket.department} department`, 
-      timestamp: formatDate(ticket.dateCreated) 
+    logs.push({
+      id: logs.length + 1,
+      user: assignedToName,
+      action: `Assigned to ${ticket.department} department`,
+      timestamp: ticket.dateCreated,
     });
   }
-  
-  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
-    logs.push({ 
-      id: 3, 
-      user: 'Coordinator', 
-      action: `Status changed to ${ticket.status}`, 
-      timestamp: formatDate(ticket.lastUpdated) 
+
+    // Add a Coordinator-generated status change log for non-withdrawn statuses
+    if (ticket.status !== 'New' && ticket.status !== 'Pending' && ticket.status !== 'Withdrawn') {
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Status changed to ${ticket.status}`,
+      timestamp: ticket.lastUpdated,
     });
   }
-  
-  return logs;
+
+  // Map timestamps into formatted strings for display
+  return logs.map((l) => ({ ...l, timestamp: formatDate(l.timestamp) }));
 };
 
 // Generate messages based on ticket data
@@ -85,8 +93,9 @@ export default function EmployeeTicketTracker() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
-  const tickets = getEmployeeTickets();
-  
+  // Keep tickets in state so UI updates after status changes
+  const [tickets, setTickets] = useState(() => getEmployeeTickets());
+
   console.log('🎫 All Tickets:', tickets);
   console.log('🔢 Ticket Number from URL:', ticketNumber);
 
@@ -129,16 +138,16 @@ export default function EmployeeTicketTracker() {
   const status = toEmployeeStatus(originalStatus);
   const statusSteps = getStatusSteps(status);
   const isClosable = status === 'Resolved';
-  
+
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
   const ticketMessages = generateMessages(ticket);
-  
+
   // Initialize messages from generated data
   if (messages.length === 0 && ticketMessages.length > 0) {
     setMessages(ticketMessages);
   }
-  
+
   // Handle sending a new message
   const handleSendMessage = () => {
     if (newMessage.trim()) {
@@ -152,11 +161,43 @@ export default function EmployeeTicketTracker() {
       setNewMessage('');
     }
   };
-  
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  // Handler for successful withdraw action from modal
+  const handleWithdrawSuccess = (ticketNum, newStatus) => {
+    try {
+      const nowIso = new Date().toISOString();
+      const updatedTickets = tickets.map((t) => {
+        if (String(t.ticketNumber) === String(ticketNum)) {
+          const existingLogs = Array.isArray(t.logs) ? [...t.logs] : [];
+          const nextId = existingLogs.length ? Math.max(...existingLogs.map(l => l.id || 0)) + 1 : 1;
+          const userLog = {
+            id: nextId,
+            user: 'You',
+            action: `Status changed to ${newStatus}`,
+            timestamp: nowIso,
+          };
+          return {
+            ...t,
+            status: newStatus,
+            lastUpdated: nowIso,
+            logs: [...existingLogs, userLog],
+          };
+        }
+        return t;
+      });
+
+      setTickets(updatedTickets);
+      saveEmployeeTickets(updatedTickets);
+      setShowWithdrawModal(false);
+    } catch (e) {
+      console.error('Failed to withdraw ticket locally:', e);
     }
   };
 
@@ -318,6 +359,7 @@ export default function EmployeeTicketTracker() {
         <EmployeeActiveTicketsWithdrawTicketModal
           ticket={ticket}
           onClose={() => setShowWithdrawModal(false)}
+          onSuccess={handleWithdrawSuccess}
         />
       )}
       {showCloseModal && (

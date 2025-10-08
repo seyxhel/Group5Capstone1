@@ -4,6 +4,7 @@ import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
+import authService from '../../../utilities/service/authService';
 
 const NotificationIcon = () => (
   <svg
@@ -185,7 +186,7 @@ const EmployeeNavBar = () => {
           />
         </div>
 
-        <div className={styles['profile-container']}>
+          <div className={styles['profile-container']}>
           <div
             className={styles['profile-avatar']}
             onClick={toggleProfileMenu}
@@ -199,7 +200,7 @@ const EmployeeNavBar = () => {
             }}
           >
             <img
-              src={employeeBonjingData.profileImage}
+              src={(authService.getCurrentUser && authService.getCurrentUser().profile_image) || employeeBonjingData.profileImage}
               alt="Profile"
               className={styles['avatar-placeholder']}
             />
@@ -209,13 +210,13 @@ const EmployeeNavBar = () => {
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
                   <img
-                    src={employeeBonjingData.profileImage}
+                    src={(authService.getCurrentUser && authService.getCurrentUser().profile_image) || employeeBonjingData.profileImage}
                     alt="Profile"
                     className={styles['avatar-image']}
                   />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${employeeBonjingData.firstName} ${employeeBonjingData.lastName}`}</h3>
+                  <h3>{`${(authService.getCurrentUser && authService.getCurrentUser().first_name) || employeeBonjingData.firstName} ${(authService.getCurrentUser && authService.getCurrentUser().middle_name) || employeeBonjingData.middleName} ${(authService.getCurrentUser && authService.getCurrentUser().last_name) || employeeBonjingData.lastName}`}</h3>
                   <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
                 </div>
               </div>

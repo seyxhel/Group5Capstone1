@@ -1,42 +1,81 @@
-import employeeBonjingData from "../storages/employeeBonjing";
-import ticketCoordinatorKenneth from "../storages/ticketCoordinatorKenneth";
-import systemAdminMarites from "../storages/systemAdminMarites";
+// Adapter auth service — delegates to either the local or backend service
+// and returns a normalized user object so existing components work unchanged.
+import { auth as apiAuth, employees as apiEmployees } from '../../services/apiService.js';
 
-const USER_KEY = "loggedInUser";
+const USER_KEY = 'loggedInUser';
 
-const mockUsers = [
-  employeeBonjingData,
-  ticketCoordinatorKenneth,
-  systemAdminMarites,
-];
+const normalizeLocalLogin = (result) => {
+  // localAuthService returns { success, data: { access, user, redirect_path } }
+  if (!result) return null;
+  if (result.success) {
+    const user = result.data?.user || null;
+    if (user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      return user;
+    }
+  }
+  return null;
+};
 
 const authService = {
+  // Keep the same call signature used by components: login(email, password)
   login: async (email, password) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const matchedUser = mockUsers.find(
-          (user) => user.email === email && user.password === password
-        );
+    try {
+      // apiAuth.login may accept (email,password) for local service
+      // or a single credentials object for backend service. Adapt accordingly.
+      let loginResult;
+      if (apiAuth.login.length === 1) {
+        // backend-style: login({ email, password })
+        loginResult = await apiAuth.login({ email, password });
+      } else {
+        // local-style: login(email, password)
+        loginResult = await apiAuth.login(email, password);
+      }
 
-        if (matchedUser) {
-          const { password, ...userWithoutPassword } = matchedUser;
-          localStorage.setItem(USER_KEY, JSON.stringify(userWithoutPassword));
-          resolve(userWithoutPassword);
-        } else {
-          resolve(null);
+      // If the local service returned the normalized success wrapper
+      if (loginResult && typeof loginResult === 'object' && loginResult.success !== undefined) {
+        const user = normalizeLocalLogin(loginResult);
+        return user;
+      }
+
+      // If backend returned tokens (access/refresh), fetch profile
+      if (loginResult && (loginResult.access || loginResult.token)) {
+        // backendAuthService usually stores tokens itself; now fetch full profile
+        try {
+          const profile = await apiEmployees.getCurrentEmployee();
+          // store a minimal current user for compatibility
+          if (profile) {
+            localStorage.setItem(USER_KEY, JSON.stringify(profile));
+            return profile;
+          }
+        } catch (err) {
+          console.error('Failed to fetch profile after backend login:', err);
+          return null;
         }
-      }, 800);
-    });
+      }
+
+      // Unknown response — treat as failure
+      return null;
+    } catch (error) {
+      console.error('AuthService.login error:', error);
+      // Surface backend errors to the caller so the UI can show a meaningful message
+      throw error;
+    }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      if (apiAuth.logout) await apiAuth.logout();
+    } catch (err) {
+      console.error('Error during logout:', err);
+    }
     localStorage.removeItem(USER_KEY);
   },
 
   getCurrentUser: () => {
-    const storedUser = localStorage.getItem(USER_KEY);
-    return storedUser ? JSON.parse(storedUser) : null;
-  },
+    const stored = localStorage.getItem(USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  }
 };
 
 export default authService;

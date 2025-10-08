@@ -12,6 +12,7 @@ import styles from './EmployeeHome.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
+import authService from '../../../utilities/service/authService';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
@@ -21,8 +22,9 @@ const EmployeeHome = () => {
     const allTickets = getEmployeeTickets();
 
     const activeTickets = allTickets.filter(ticket => {
-      const status = ticket.status.toLowerCase();
-      return !['closed', 'rejected', 'withdrawn'].includes(status);
+      // include Withdrawn tickets in Recent Tickets per UX request
+      const status = (ticket.status || '').toLowerCase();
+      return !['closed', 'rejected'].includes(status);
     });
 
     const sorted = activeTickets
@@ -74,7 +76,7 @@ const EmployeeHome = () => {
   return (
     <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>{employeeBonjingData.firstName}</span>,
+        Welcome <span className={styles.welcomeName}>{(authService.getCurrentUser && authService.getCurrentUser().first_name) || employeeBonjingData.firstName}</span>,
       </h1>
 
       <div className={styles.topSection}>

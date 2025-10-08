@@ -1,5 +1,6 @@
 // Backend ticket service
 import { API_CONFIG } from '../../config/environment.js';
+import { backendAuthService } from './authService.js';
 
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
@@ -51,15 +52,67 @@ export const backendTicketService = {
 
   async createTicket(ticketData) {
     try {
-      const response = await fetch(`${BASE_URL}/api/tickets/`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(ticketData),
-      });
+      // Require an access token for backend requests
+      const existingToken = localStorage.getItem('access_token');
+      if (!existingToken) {
+        throw new Error('No access token found. Are you logged in?');
+      }
+
+      let options;
+      // If ticketData is FormData (contains files), we must not set Content-Type header
+      if (ticketData instanceof FormData) {
+        const token = existingToken;
+        options = {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: ticketData
+        };
+      } else {
+        options = {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(ticketData),
+        };
+      }
+
+      let response = await fetch(`${BASE_URL}/api/tickets/`, options);
+
+      // If unauthorized, attempt a token refresh once then retry
+      if (response.status === 401) {
+        try {
+          await backendAuthService.refreshToken();
+          // Rebuild options with refreshed token
+          if (ticketData instanceof FormData) {
+            const token = localStorage.getItem('access_token');
+            options.headers = { 'Authorization': token ? `Bearer ${token}` : '' };
+          } else {
+            options.headers = getAuthHeaders();
+            options.body = JSON.stringify(ticketData);
+          }
+          response = await fetch(`${BASE_URL}/api/tickets/`, options);
+        } catch (refreshErr) {
+          console.error('Token refresh failed:', refreshErr);
+          // proceed to error handling below
+        }
+      }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create ticket');
+        // Clone response so we can safely attempt different parsers
+        const respClone = response.clone();
+        let errorText = '';
+        try {
+          const errorData = await respClone.json();
+          errorText = errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+          try {
+            errorText = await response.clone().text();
+          } catch (e2) {
+            errorText = '<unreadable response body>';
+          }
+        }
+        throw new Error(`Failed to create ticket: ${response.status} ${errorText}`);
       }
 
       return await response.json();

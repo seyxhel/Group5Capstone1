@@ -101,14 +101,30 @@ class TicketSerializer(serializers.ModelSerializer):
     scheduled_date = serializers.DateField(required=False, allow_null=True)
     assigned_to = serializers.StringRelatedField(read_only=True)
     employee = EmployeeInfoSerializer(read_only=True)
+    # Allow arbitrary JSON from the frontend
+    dynamic_data = serializers.JSONField(required=False, allow_null=True)
+    asset_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    serial_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    location = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    expected_return_date = serializers.DateField(required=False, allow_null=True)
+    issue_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    other_issue = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    performance_start_date = serializers.DateField(required=False, allow_null=True)
+    performance_end_date = serializers.DateField(required=False, allow_null=True)
+    approved_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    cost_items = serializers.JSONField(required=False, allow_null=True)
+    requested_budget = serializers.DecimalField(required=False, allow_null=True, max_digits=12, decimal_places=2)
 
     class Meta:
         model = Ticket
         fields = [
             'id', 'ticket_number', 'subject', 'category', 'sub_category',
             'description', 'scheduled_date', 'priority', 'department',
-            'status', 'submit_date', 'update_date', 'assigned_to', 'attachments',
-            'employee'
+                'asset_name', 'serial_number', 'location', 'expected_return_date',
+                'issue_type', 'other_issue', 'performance_start_date', 'performance_end_date',
+                'approved_by', 'cost_items', 'requested_budget', 'dynamic_data',
+                'status', 'submit_date', 'update_date', 'assigned_to', 'attachments',
+                'employee'
         ]
         read_only_fields = [
             'id', 'ticket_number', 'submit_date', 'update_date',
@@ -118,7 +134,29 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
-        return Ticket.objects.create(employee=user, **validated_data)
+        # Pop dynamic_data if present and pass to model
+        dynamic = validated_data.pop('dynamic_data', None)
+
+        # Map commonly used dynamic fields into explicit model fields if present
+        if dynamic and isinstance(dynamic, dict):
+            for key, field in [
+                ('assetName', 'asset_name'),
+                ('serialNumber', 'serial_number'),
+                ('location', 'location'),
+                ('expectedReturnDate', 'expected_return_date'),
+                ('issueType', 'issue_type'),
+                ('otherIssue', 'other_issue'),
+                ('performanceStartDate', 'performance_start_date'),
+                ('performanceEndDate', 'performance_end_date'),
+                ('approvedBy', 'approved_by'),
+                ('costItems', 'cost_items'),
+                ('requestedBudget', 'requested_budget')
+            ]:
+                if key in dynamic and dynamic[key] is not None:
+                    validated_data[field] = dynamic[key]
+
+        ticket = Ticket.objects.create(employee=user, dynamic_data=dynamic, **validated_data)
+        return ticket
     
 def ticket_to_dict(ticket):
     # Gather all attachments for this ticket

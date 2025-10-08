@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
 import styles from './EmployeeTicketSubmissionForm.module.css';
-import { addNewEmployeeTicket } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { addNewEmployeeTicket, getEmployeeTickets, saveEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { auth, tickets as backendTickets } from '../../../services/apiService.js';
+import { isUsingLocalAPI } from '../../../services/apiService.js';
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -434,22 +436,114 @@ export default function EmployeeTicketSubmissionForm() {
     setIsSubmitting(true);
 
     try {
-      const newTicket = addNewEmployeeTicket({
-        subject: formData.subject,
-        category: formData.category,
-        subCategory: formData.subCategory,
-        description: formData.description,
-        createdBy: mockEmployee,
-        fileUploaded: selectedFiles.length > 0 ? selectedFiles : null,
-        scheduledRequest: formData.schedule || null,
-      });
+      if (isUsingLocalAPI()) {
+        const newTicket = addNewEmployeeTicket({
+          subject: formData.subject,
+          category: formData.category,
+          subCategory: formData.subCategory,
+          description: formData.description,
+          createdBy: mockEmployee,
+          fileUploaded: selectedFiles.length > 0 ? selectedFiles : null,
+          scheduledRequest: formData.schedule || null,
+        });
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      toast.success('Ticket successfully submitted.');
-      setTimeout(() => navigate(`/employee/ticket-tracker/${newTicket.ticketNumber}`), 1500);
+        toast.success('Ticket successfully submitted.');
+        setTimeout(() => navigate(`/employee/ticket-tracker/${newTicket.ticketNumber}`), 1500);
+      } else {
+        // Build FormData for backend submission (supports files)
+        const formDataToSend = new FormData();
+        formDataToSend.append('subject', formData.subject);
+        formDataToSend.append('category', formData.category);
+        formDataToSend.append('sub_category', formData.subCategory || '');
+        formDataToSend.append('description', formData.description);
+        if (formData.schedule) formDataToSend.append('scheduled_date', formData.schedule);
+
+        // Sanitize date fields before sending to the server. Remove
+        // curly quotes, collapse datetimes to date part, normalize separators,
+        // and send nulls for empty values so the backend can accept them.
+        const sanitizeDate = (v) => {
+          if (!v && v !== 0) return null;
+          let s = String(v).trim();
+          // remove curly quotes and straight quotes
+          s = s.replace(/[“”'\"]/g, '');
+          if (s === '') return null;
+          if (s.includes('T')) s = s.split('T')[0];
+          s = s.replace(/\//g, '-');
+          // quick YYYY-MM-DD check
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          // fallback: try Date parse and format
+          const d = new Date(s);
+          if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return null;
+        };
+
+        // dynamic data: include asset details, cost items, etc.
+        const dynamic = {
+          assetName: formData.assetName || null,
+          serialNumber: formData.serialNumber || null,
+          location: formData.location || null,
+          expectedReturnDate: sanitizeDate(formData.expectedReturnDate),
+          issueType: formData.issueType || null,
+          otherIssue: formData.otherIssue || null,
+          performanceStartDate: sanitizeDate(formData.performanceStartDate),
+          performanceEndDate: sanitizeDate(formData.performanceEndDate),
+          approvedBy: formData.approvedBy || null,
+          costItems: costItems || null,
+        };
+
+        formDataToSend.append('dynamic_data', JSON.stringify(dynamic));
+
+        // Attach files as files[]
+        selectedFiles.forEach((file) => {
+          formDataToSend.append('files[]', file, file.name);
+        });
+
+        // Use the backend ticket service (apiService factory exposes tickets)
+        const created = await backendTickets.createTicket(formDataToSend);
+
+        // Persist a minimal local ticket record so the existing tracker UI
+        // (which reads from localStorage) can find and display the ticket.
+        try {
+          const backendTicketNumber = created.ticket_number || created.ticketNumber || created.ticketNumber;
+          const localTickets = getEmployeeTickets();
+          const localTicket = {
+            ticketNumber: backendTicketNumber,
+            subject: created.subject || formData.subject,
+            status: created.status || 'New',
+            priorityLevel: created.priority || '',
+            department: created.department || '',
+            category: created.category || formData.category,
+            subCategory: created.sub_category || formData.subCategory || '',
+            dateCreated: created.submit_date || new Date().toISOString(),
+            lastUpdated: created.update_date || null,
+            fileUploaded: null,
+            description: created.description || formData.description,
+            scheduledRequest: created.scheduled_date || formData.schedule || null,
+            assignedTo: created.assigned_to || { id: null, name: null },
+            handledBy: null,
+            createdBy: { userId: null, role: 'Employee', name: '' }
+          };
+          localTickets.push(localTicket);
+          saveEmployeeTickets(localTickets);
+          toast.success('Ticket successfully submitted.');
+          setTimeout(() => navigate(`/employee/ticket-tracker/${localTicket.ticketNumber}`), 1500);
+        } catch (e) {
+          console.warn('Failed to persist created ticket locally:', e);
+          toast.success('Ticket successfully submitted.');
+          const fallbackNumber = created.ticket_number || created.ticketNumber || created.ticket || created.id;
+          setTimeout(() => navigate(`/employee/ticket-tracker/${fallbackNumber}`), 1500);
+        }
+      }
     } catch (error) {
-      toast.error('Failed to submit a ticket. Please try again.');
+      console.error('Submit ticket error:', error);
+      toast.error(error?.message || 'Failed to submit a ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

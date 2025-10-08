@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate
 from .models import Employee, Ticket, TicketAttachment, TicketComment
 from .models import PRIORITY_LEVELS, DEPARTMENT_CHOICES
 from .serializers import EmployeeSerializer, TicketSerializer, TicketAttachmentSerializer, AdminTokenObtainPairSerializer, MyTokenObtainPairSerializer, CustomTokenObtainPairSerializer
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
@@ -110,7 +110,7 @@ class AdminTokenObtainPairView(TokenObtainPairView):
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # For handling file uploads
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # Accept JSON and form uploads
     
     def get_queryset(self):
         user = self.request.user
@@ -123,16 +123,99 @@ class TicketViewSet(viewsets.ModelViewSet):
         # This logic would need to be updated based on your specific rules
         
         data = request.data.copy()
-            
+        # If frontend sent dynamic_data as a JSON string, parse it
+        dynamic = data.get('dynamic_data')
+        parsed_dynamic = None
+        if dynamic:
+            if isinstance(dynamic, (str, bytes)):
+                try:
+                    parsed_dynamic = json.loads(dynamic)
+                except Exception:
+                    parsed_dynamic = None
+            elif isinstance(dynamic, dict):
+                parsed_dynamic = dynamic
+
+        # If parsed_dynamic is a dict, sanitize any date-like fields inside it
+        # so values like "" or fancy quotes don't get sent later into model
+        # fields that expect YYYY-MM-DD.
+        if isinstance(parsed_dynamic, dict):
+            dd = parsed_dynamic
+            # map camelCase dynamic keys -> expected plain field names
+            dynamic_date_keys = ['expectedReturnDate', 'performanceStartDate', 'performanceEndDate', 'scheduledDate']
+            from datetime import datetime
+            for dk in dynamic_date_keys:
+                if dk in dd:
+                    v = dd.get(dk)
+                    if v is None:
+                        continue
+                    if not isinstance(v, str):
+                        continue
+                    s = v.strip()
+                    if s == '' or all(c in '“”\"\'' for c in s):
+                        dd[dk] = None
+                        continue
+                    if 'T' in s:
+                        s = s.split('T')[0]
+                    s = s.replace('/', '-')
+                    try:
+                        datetime.fromisoformat(s)
+                        dd[dk] = s
+                    except Exception:
+                        dd[dk] = None
+
+        # Convert request.data (QueryDict) to a plain dict so serializer sees proper types
+        plain_data = {k: data.get(k) for k in data.keys()}
+        if parsed_dynamic is not None:
+            plain_data['dynamic_data'] = parsed_dynamic
+
+        # Sanitize date fields coming from the frontend. The frontend may send
+        # empty strings, fancy quote characters (e.g. “”), or ISO datetimes.
+        # DRF's DateField will raise a ValidationError for invalid formats,
+        # so convert anything that can't be parsed into None so the field
+        # becomes null instead of causing a 500.
+        date_keys = [
+            'expected_return_date', 'performance_start_date',
+            'performance_end_date', 'scheduled_date'
+        ]
+        from datetime import datetime
+        for dk in date_keys:
+            if dk in plain_data:
+                val = plain_data.get(dk)
+                if val is None:
+                    continue
+                # If it's already a date object, leave it
+                # If it's a list/querydict value, convert to string
+                if not isinstance(val, str):
+                    # let the serializer handle non-string date objects
+                    continue
+                s = val.strip()
+                # Treat empty or only-quote values as missing
+                if s == '' or all(c in '“”\"\'' for c in s):
+                    plain_data[dk] = None
+                    continue
+                # If it's an ISO datetime like 2023-01-01T12:00:00, take date part
+                if 'T' in s:
+                    s = s.split('T')[0]
+                # Normalize common separators
+                s = s.replace('/', '-')
+                # Validate YYYY-MM-DD by attempting fromisoformat
+                try:
+                    # datetime.fromisoformat accepts YYYY-MM-DD
+                    datetime.fromisoformat(s)
+                    plain_data[dk] = s
+                except Exception:
+                    # If parsing fails, set to None to avoid raising a ValidationError
+                    plain_data[dk] = None
+
         # Handle file uploads separately
         files = request.FILES.getlist('files[]')
-        
-        serializer = self.get_serializer(data=data, context={'request': request})
+
+        serializer = self.get_serializer(data=plain_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         instance = self.perform_create(serializer)
-        
+
         # Process multiple file attachments
-        for file in request.FILES.getlist('files[]'):
+        for file in files:
             TicketAttachment.objects.create(
                 ticket=instance,
                 file=file,
@@ -141,7 +224,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                 file_size=file.size,
                 uploaded_by=request.user
             )
-        
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
