@@ -68,6 +68,101 @@ This document provides a comprehensive view of the SmartSupport Help Desk System
 
 ## Use Case Diagrams
 
+### Overview of Use Case Diagrams
+
+Use Case Diagrams provide a high-level view of the SmartSupport system's functionality by illustrating the interactions between different types of users (actors) and the system's features (use cases). These diagrams help stakeholders understand what the system can do and who can perform specific actions, making them essential for requirements gathering, system design, and user training.
+
+The SmartSupport Use Case Diagram demonstrates a comprehensive help desk and ticketing system that supports three primary user roles, each with distinct capabilities and access levels. The diagram shows how different actors interact with the system boundary and highlights the relationships between various use cases through include and extend relationships.
+
+### Key Components of the Use Case Diagram
+
+**System Boundary**: The rectangle labeled "System Boundary" defines what is inside the SmartSupport system versus what is external to it. Everything inside this boundary represents functionality that the system provides directly.
+
+**Primary Actors**: The diagram identifies three main user types who directly interact with the system:
+- **Employee**: End users who submit support requests and track their tickets
+- **Ticket Coordinator**: Staff members who manage ticket workflow and assignments
+- **System Admin**: Administrative users who manage the entire system and its users
+
+**External Systems**: The diagram also shows external system integrations that the SmartSupport system communicates with, including workflow APIs, email services, AI chatbot, file storage, and authentication services.
+
+**Use Cases**: Each use case represents a specific functionality or goal that an actor can achieve through the system. The use cases are organized by actor type and show the range of capabilities available to each user role.
+
+### Actor Roles and Capabilities
+
+**Employee Use Cases**: Employees represent the primary end-users of the SmartSupport system. Their use cases focus on self-service capabilities and basic ticket management:
+- Account management (register, login/logout, change password, update profile)
+- Ticket operations (submit, track, withdraw, close tickets)
+- File handling (upload attachments to tickets)
+- AI assistance (interact with chatbot for common inquiries)
+
+**Ticket Coordinator Use Cases**: Coordinators have elevated privileges and can perform all employee functions plus additional management capabilities:
+- All employee use cases (indicated by the "All Employee +" notation)
+- Ticket workflow management (claim, assign tickets to appropriate personnel)
+- Priority management (update ticket priority levels based on business needs)
+- Collaboration features (add comments and notes to tickets)
+
+**System Administrator Use Cases**: Administrators have the highest level of access and can manage the entire system:
+- User management (manage accounts, approve new employee registrations)
+- Ticket oversight (review all tickets, assign tickets, update status)
+- System administration (generate reports, view analytics, configure system)
+- Monitoring and maintenance (audit activities, manage system settings)
+
+### Use Case Relationships
+
+The diagram illustrates several important relationships between use cases:
+
+**Include Relationships**: Some use cases automatically include other use cases as part of their normal flow. For example:
+- "Submit Ticket" includes "Validate Data" and "Generate Ticket Number"
+- "Send Email Notification" is included in multiple ticket-related processes
+- "Save to Database" is included whenever data persistence is required
+
+**Extend Relationships**: Some use cases can optionally extend others under specific conditions:
+- "Upload Files" extends "Submit Ticket" when attachments are needed
+- "Log Activity" extends various operations for audit trail purposes
+- "Update Dashboard" extends multiple operations to keep the interface current
+
+### External System Integration
+
+The Use Case Diagram also shows how SmartSupport integrates with external systems:
+
+**Workflow API**: Handles automated ticket routing and processing workflows outside the core system.
+
+**Email Service**: Manages all email communications including notifications, confirmations, and alerts sent to users.
+
+**AI Chatbot**: Provides intelligent assistance and automated responses to common user inquiries, reducing the workload on human coordinators.
+
+**File Storage**: Manages secure storage and retrieval of ticket attachments and user profile images.
+
+**Authentication Service**: Handles user authentication and authorization, potentially integrating with external identity providers.
+
+### Business Value and Benefits
+
+The Use Case Diagram demonstrates several key business benefits of the SmartSupport system:
+
+**Role-Based Access Control**: Clear separation of capabilities ensures that users can only access appropriate functionality based on their role and responsibilities.
+
+**Comprehensive Self-Service**: Employees can handle many tasks independently, reducing the burden on support staff and improving response times.
+
+**Efficient Workflow Management**: Coordinators have tools to manage ticket flow effectively, ensuring proper assignment and timely resolution.
+
+**Administrative Oversight**: Administrators can monitor system performance, generate insights, and maintain system integrity.
+
+**External Integration**: The system can leverage external services for enhanced functionality while maintaining a unified user experience.
+
+### Implementation Considerations
+
+When implementing the system based on this Use Case Diagram, development teams should consider:
+
+**Security**: Each use case must implement appropriate security checks to ensure users can only perform actions within their authorized scope.
+
+**User Experience**: The interface should be intuitive and role-appropriate, showing only relevant options to each user type.
+
+**Performance**: High-frequency use cases like "Submit Ticket" and "Track Ticket" should be optimized for performance and reliability.
+
+**Scalability**: The system should handle growing numbers of users and tickets while maintaining response times.
+
+**Integration Points**: External system connections should be robust and include proper error handling and fallback mechanisms.
+
 ### Primary Actor Use Cases
 
 ```
