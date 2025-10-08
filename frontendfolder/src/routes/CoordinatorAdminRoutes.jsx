@@ -34,7 +34,7 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Settings */}
       <Route path="settings" element={<CoordinatorAdminSettings />} />
-      <Route path="*" element={<NotFoundPage />} />
+      {/* Intentionally no nested wildcard here so sibling route groups can mount without being intercepted. */}
     </Route>
   </Routes>
 );

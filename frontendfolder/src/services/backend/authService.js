@@ -6,20 +6,45 @@ const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 export const backendAuthService = {
   async login(credentials) {
     try {
-      const response = await fetch(`${BASE_URL}/api/token/employee/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
+      // Try the regular employee token endpoint first, then fall back to
+      // the admin token endpoint. Some accounts (System Admin) must
+      // authenticate against /api/token/admin/.
+      const endpoints = [
+        `${BASE_URL}/api/token/employee/`,
+        `${BASE_URL}/api/token/admin/`
+      ];
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+      let data = null;
+      let lastError = null;
+      for (const url of endpoints) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(credentials),
+          });
+
+          if (!response.ok) {
+            // Try to parse error body for a helpful message, otherwise continue
+            const errorBody = await response.json().catch(() => null);
+            lastError = new Error(errorBody?.message || errorBody?.detail || `Login failed (${response.status})`);
+            // Try next endpoint
+            continue;
+          }
+
+          data = await response.json();
+          break; // success
+        } catch (e) {
+          lastError = e;
+          continue; // try next endpoint
+        }
       }
 
-      const data = await response.json();
+      if (!data) {
+        throw lastError || new Error('Login failed');
+      }
       
       // Store authentication tokens
       if (data.access) {

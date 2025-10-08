@@ -5,7 +5,7 @@ import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 import authService from '../../../utilities/service/authService';
-import { convertToSecureUrl, isSecureUrl, getSecureMediaUrl } from '../../../utilities/secureMedia';
+import { convertToSecureUrl, isSecureUrl, getSecureMediaUrl, getAccessToken } from '../../../utilities/secureMedia';
 import { API_CONFIG } from '../../../config/environment.js';
 
 const NotificationIcon = () => (
@@ -31,6 +31,7 @@ const EmployeeNavBar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [backendAvailable, setBackendAvailable] = useState(true);
 
   const dropdowns = {
     active: {
@@ -122,6 +123,9 @@ const EmployeeNavBar = () => {
   // If it's a data URL, return as-is
     if (typeof imgCandidate === 'string' && imgCandidate.startsWith('data:')) return imgCandidate;
 
+    // If backend is down, avoid constructing remote MEDIA URLs to prevent connection errors
+    if (!backendAvailable) return employeeBonjingData.profileImage;
+
     // If it's a string, handle secure/absolute/relative paths
     if (typeof imgCandidate === 'string') {
       if (isSecureUrl(imgCandidate)) return imgCandidate;
@@ -159,6 +163,35 @@ const EmployeeNavBar = () => {
           try { URL.revokeObjectURL(u); } catch (e) {}
         });
       } catch (err) {}
+    };
+  }, []);
+
+  // Track which URLs we've attempted an authenticated fetch for to avoid retry loops
+  const attemptedAuthFetchRef = useRef(new Set());
+
+  // Quick backend reachability probe to avoid rendering broken media URLs when devserver is down
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 800);
+
+    (async () => {
+      try {
+        const base = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+        const probeUrl = `${base}/api/`;
+        const res = await fetch(probeUrl, { method: 'GET', signal: controller.signal });
+        if (!cancelled) setBackendAvailable(res.ok);
+      } catch (e) {
+        if (!cancelled) setBackendAvailable(false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timeout);
     };
   }, []);
 
@@ -281,19 +314,41 @@ const EmployeeNavBar = () => {
               }
             }}
           >
-            <img
-              src={getProfileImageSrc()}
-              alt="Profile"
-              className={styles['avatar-placeholder']}
-              onError={(e) => {
-                try {
-                  const user = resolveUser();
-                  console.warn('Profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
-                } catch (err) {}
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = employeeBonjingData.profileImage;
-              }}
-            />
+                  <img
+                    src={getProfileImageSrc()}
+                    alt="Profile"
+                    className={styles['avatar-placeholder']}
+                    onError={async (e) => {
+                      try {
+                        const user = resolveUser();
+                        console.warn('Profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
+                      } catch (err) {}
+
+                      const failedUrl = e.currentTarget.src;
+                      // If backend requires Authorization header, attempt an authenticated fetch once
+                      const token = getAccessToken();
+                      if (backendAvailable && token && !attemptedAuthFetchRef.current.has(failedUrl)) {
+                        attemptedAuthFetchRef.current.add(failedUrl);
+                        try {
+                          const resp = await fetch(failedUrl.split('?')[0], { headers: { 'Authorization': `Bearer ${token}` } });
+                          if (resp.ok) {
+                            const blob = await resp.blob();
+                            const objUrl = URL.createObjectURL(blob);
+                            // record for revocation
+                            if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
+                            getProfileImageSrc._createdUrlsRef.push(objUrl);
+                            e.currentTarget.src = objUrl;
+                            return;
+                          }
+                        } catch (fetchErr) {
+                          // ignore and fallthrough to placeholder
+                        }
+                      }
+
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = employeeBonjingData.profileImage;
+                    }}
+                  />
           </div>
           {showProfileMenu && (
             <div className={styles['profile-dropdown']}>
@@ -303,11 +358,29 @@ const EmployeeNavBar = () => {
                     src={getProfileImageSrc()}
                     alt="Profile"
                     className={styles['avatar-image']}
-                    onError={(e) => {
+                    onError={async (e) => {
                       try {
                         const user = resolveUser();
                         console.warn('Large profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
                       } catch (err) {}
+
+                      const failedUrl = e.currentTarget.src;
+                      const token = getAccessToken();
+                      if (backendAvailable && token && !attemptedAuthFetchRef.current.has(failedUrl)) {
+                        attemptedAuthFetchRef.current.add(failedUrl);
+                        try {
+                          const resp = await fetch(failedUrl.split('?')[0], { headers: { 'Authorization': `Bearer ${token}` } });
+                          if (resp.ok) {
+                            const blob = await resp.blob();
+                            const objUrl = URL.createObjectURL(blob);
+                            if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
+                            getProfileImageSrc._createdUrlsRef.push(objUrl);
+                            e.currentTarget.src = objUrl;
+                            return;
+                          }
+                        } catch (fetchErr) {}
+                      }
+
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = employeeBonjingData.profileImage;
                     }}

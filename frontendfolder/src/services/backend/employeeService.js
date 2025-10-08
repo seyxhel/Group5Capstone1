@@ -6,10 +6,11 @@ const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 // Helper function to get auth headers
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-  };
+  const headers = {};
+  // Only set JSON content-type when sending JSON body
+  headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
 };
 
 export const backendEmployeeService = {
@@ -67,20 +68,77 @@ export const backendEmployeeService = {
     }
   },
 
+  async verifyCurrentPassword(currentPassword) {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE_URL}/api/employee/verify-password/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ current_password: currentPassword }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(err || 'Verification failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error verifying current password:', error);
+      throw error;
+    }
+  },
+
   async updateEmployee(employeeId, employeeData) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
+      let response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(employeeData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update employee');
+      // If the route doesn't exist (404) some deployments don't expose /api/employees/:id/
+      // so fall back to updating the current authenticated user at /api/employee/profile/
+      if (response.status === 404) {
+        response = await fetch(`${BASE_URL}/api/employee/profile/`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(employeeData),
+        });
       }
 
-      return await response.json();
+      if (!response.ok) {
+        // When parsing error body, use separate clones to avoid reading the same stream twice
+        if (response.status === 401) {
+          // Unauthorized - likely missing/expired token
+          try {
+            const errJson = await response.clone().json();
+            throw new Error(errJson.detail || errJson.message || 'Unauthorized');
+          } catch (_) {
+            const txt = await response.clone().text();
+            throw new Error(txt || 'Unauthorized');
+          }
+        }
+
+        try {
+          const errorData = await response.clone().json();
+          throw new Error(errorData.message || errorData.detail || 'Failed to update employee');
+        } catch (_) {
+          const text = await response.clone().text();
+          throw new Error(text || response.statusText || 'Failed to update employee');
+        }
+      }
+
+      // Successful response
+      try {
+        return await response.json();
+      } catch (parseErr) {
+        // If server returned no JSON body but succeeded, return an empty object
+        return {};
+      }
     } catch (error) {
       console.error('Error updating employee:', error);
       throw error;
@@ -169,7 +227,8 @@ export const backendEmployeeService = {
       formData.append('image', imageFile);
 
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE_URL}/api/employees/${employeeId}/upload-image/`, {
+      // Backend endpoint expects authenticated user and does not require an employeeId in the path
+      const response = await fetch(`${BASE_URL}/api/employee/upload-image/`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
@@ -178,11 +237,21 @@ export const backendEmployeeService = {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload image');
+        const clone = response.clone();
+        try {
+          const err = await clone.json();
+          throw new Error(err.message || err.detail || 'Failed to upload image');
+        } catch (_) {
+          const txt = await clone.text();
+          throw new Error(txt || 'Failed to upload image');
+        }
       }
 
-      return await response.json();
+      try {
+        return await response.json();
+      } catch (_) {
+        return {};
+      }
     } catch (error) {
       console.error('Error uploading employee image:', error);
       throw error;

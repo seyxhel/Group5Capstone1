@@ -287,12 +287,47 @@ def create_employee_admin_view(request):
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def employee_profile_view(request):
+    """
+    GET: return current user's profile
+    PATCH: partially update current user's profile (multipart/form-data or JSON).
+    Password updates should go through the change_password endpoint, but if a
+    'password' field is included here we will set it securely.
+    """
     user = request.user
-    serializer = EmployeeSerializer(user)
-    return Response(serializer.data)
+
+    if request.method == 'GET':
+        serializer = EmployeeSerializer(user)
+        return Response(serializer.data)
+
+    # PATCH - update fields
+    data = request.data.copy()
+
+    # Handle password separately to ensure proper hashing
+    new_password = None
+    if 'password' in data:
+        new_password = data.pop('password')
+
+    # If an uploaded image was sent, attach it so serializer will accept it
+    try:
+        image_file = request.FILES.get('image')
+    except Exception:
+        image_file = None
+    if image_file:
+        data['image'] = image_file
+
+    serializer = EmployeeSerializer(user, data=data, partial=True)
+    if serializer.is_valid():
+        employee = serializer.save()
+        if new_password:
+            employee.set_password(new_password)
+            employee.save()
+        return Response(EmployeeSerializer(employee).data)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -728,6 +763,19 @@ def upload_profile_image(request):
         return Response({'detail': 'Image uploaded successfully.'})
     except Exception as e:
         return Response({'detail': 'Failed to process image.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_password(request):
+    """Verify that the provided current_password matches the authenticated user."""
+    current_password = request.data.get('current_password')
+    if not current_password:
+        return Response({'detail': 'Current password required.'}, status=status.HTTP_400_BAD_REQUEST)
+    user = request.user
+    if user.check_password(current_password):
+        return Response({'detail': 'Password verified.'})
+    return Response({'detail': 'Incorrect password.'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

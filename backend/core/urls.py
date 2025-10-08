@@ -18,6 +18,7 @@ from .views import (
     custom_api_root,  # <-- add this import
     change_password,
     upload_profile_image,
+    verify_password,
     list_employees,
     approve_employee,
     finalize_ticket,  # <-- add this import
@@ -41,6 +42,7 @@ urlpatterns = [
     path('employee/profile/', employee_profile_view, name='employee_profile'),
     path('employee/change-password/', change_password, name='change_password'),
     path('employee/upload-image/', upload_profile_image, name='upload_profile_image'),
+    path('employee/verify-password/', verify_password, name='verify_password'),
     path('employees/', list_employees, name='list_employees'),
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
 

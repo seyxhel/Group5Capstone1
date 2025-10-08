@@ -2,14 +2,12 @@ import { Routes, Route } from 'react-router-dom';
 import SmartSupportLogIn from '../authentication/pages/log-in/SmartSupportLogIn';
 import SmartSupportEmployeeCreateAccount from '../authentication/pages/employee-create-account/SmartSupportEmployeeCreateAccount';
 import SmartSupportForgotPassword from '../authentication/pages/forgot-password/SmartSupportForgotPassword';
-import NotFoundPage from '../shared/not-found-page/NotFoundPage';
-
 const AuthRoutes = () => (
   <Routes>
     <Route path="/" element={<SmartSupportLogIn />} />
     <Route path="/create-account" element={<SmartSupportEmployeeCreateAccount />} />
     <Route path="/forgot-password" element={<SmartSupportForgotPassword />} />
-    <Route path="*" element={<NotFoundPage />} />
+    {/* Intentionally no top-level catch-all here so other route groups (e.g. /employee, /admin) can match. */}
   </Routes>
 );
 

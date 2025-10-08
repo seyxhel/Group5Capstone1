@@ -50,7 +50,26 @@ const authService = {
           }
         } catch (err) {
           console.error('Failed to fetch profile after backend login:', err);
-          return null;
+          // Fallback: try to decode the JWT access token to get user claims
+          try {
+            const tokenUser = apiAuth.getCurrentUser();
+            if (tokenUser) {
+              // The backend token may include extra claims like role/first_name/last_name
+              // Merge them into a minimal user object expected by the app
+              const minimalUser = {
+                id: tokenUser.user_id || tokenUser.id || tokenUser.sub,
+                email: tokenUser.email || tokenUser.email || null,
+                role: tokenUser.role || null,
+                first_name: tokenUser.first_name || tokenUser.given_name || null,
+                last_name: tokenUser.last_name || tokenUser.family_name || null,
+              };
+              localStorage.setItem(USER_KEY, JSON.stringify(minimalUser));
+              return minimalUser;
+            }
+          } catch (e2) {
+            console.error('Failed to decode token for fallback user:', e2);
+            return null;
+          }
         }
       }
 
