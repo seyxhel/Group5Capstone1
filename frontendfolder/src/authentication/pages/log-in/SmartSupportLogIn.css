@@ -26,13 +26,16 @@
 }
 
 .login-page .left-panel {
-  background-color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden; /* prevent overflow */
 }
 
 .login-page .left-panel img {
   width: 100%;
-  height: auto;
-  object-fit: cover;
+  height: 100%;
+  object-fit: cover;   /* fill panel without distortion */
 }
 
 .login-page .right-panel {
@@ -119,8 +122,10 @@ input[type="password"]::-ms-reveal {
   background-color: #d3d3d3;
 }
 
-.resend-button {
-  margin-bottom: 1rem;
+.form-btn .resend-button {
+  margin-top: 0.5rem;
+  text-align: center;
+  width: 100%;
 }
 
 .login-page button:hover:not(button:disabled) {
@@ -225,4 +230,68 @@ input[type="password"]::-ms-reveal {
 
 .create-account-link:hover {
   color: var(--primary-color-hover);
+}
+
+/* --- Responsive Styles --- */
+@media (max-width: 900px) {
+  .login-page {
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+  .login-page .left-panel {
+    display: none;
+  }
+  .login-page .right-panel {
+    width: 100vw;
+    height: 100vh;
+    padding: 24px 16px;
+    justify-content: flex-start;
+  }
+  .form-header {
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+  .login-page form,
+  .form-btn {
+    width: 100%;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 901px) {
+  .login-page .left-panel {
+    width: 30vw; /* smaller branding area */
+  }
+  .login-page .right-panel {
+    width: 70vw;
+  }
+}
+
+/* --- Consistent Padding for Form Elements --- */
+.login-page form fieldset input {
+  padding: 24px 20px; /* 20-30px padding */
+}
+
+.login-page form,
+.form-btn {
+  padding: 24px 0; /* 20-30px vertical padding */
+}
+
+.login-page .right-panel {
+  padding: 30px 20px; /* 20-30px padding */
+}
+
+/* --- Version Info at the Bottom --- */
+.version-info {
+  position: fixed;   /* instead of absolute */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  padding: 10px 0;
+  background: transparent;
+  letter-spacing: 0.5px;
 }

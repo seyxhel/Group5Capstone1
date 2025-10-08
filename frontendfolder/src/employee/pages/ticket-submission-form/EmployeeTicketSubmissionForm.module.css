@@ -83,6 +83,12 @@ textarea {
   background-color: var(--primary-color-hover);
 }
 
+.submitBtn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* ✅ Upload File Styles */
 .fileUploadWrapper {
   display: flex;

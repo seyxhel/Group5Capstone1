@@ -2,9 +2,8 @@ import { Outlet, useLocation, matchPath } from 'react-router-dom';
 import EmployeeNavBar from '../components/header/EmployeeNavigationBar';
 import TopPageSectionHeader from '../../shared/section-header/TopPageSectionHeader';
 import { getEmployeeTickets } from '../../utilities/storages/employeeTicketStorageBonjing';
-import './EmployeeLayout.css';
-
-const activeStatuses = ['Submitted', 'Pending', 'Open', 'In Progress', 'On Hold', 'Resolved'];
+import { isActiveStatus } from '../../utilities/helpers/statusMapper';
+import PageLayout from '../../shared/layouts/PageLayout';
 
 const getHeaderConfig = (path) => {
   const ticketMatch = matchPath({ path: '/employee/ticket-tracker/:ticketNumber', end: true }, path);
@@ -13,7 +12,7 @@ const getHeaderConfig = (path) => {
     const ticketNumber = ticketMatch.params.ticketNumber;
     const tickets = getEmployeeTickets();
     const ticket = tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
-    const isActive = ticket && activeStatuses.includes(ticket.status);
+    const isActive = ticket && isActiveStatus(ticket.status);
 
     return {
       root: isActive ? 'Active Tickets' : 'Ticket Records',
@@ -48,25 +47,17 @@ const EmployeeLayout = () => {
   const headerConfig = getHeaderConfig(pathname);
 
   return (
-    <>
-      <div className="navbarWrapper">
-        <EmployeeNavBar />
-      </div>
-
-      <div className="scrollContainer">
-        <main className="employee-layout-main">
-          {headerConfig && (
-            <TopPageSectionHeader
-              root={headerConfig.root}
-              currentPage={headerConfig.currentPage}
-              rootNavigatePage={headerConfig.rootNavigatePage}
-              title={headerConfig.title}
-            />
-          )}
-          <Outlet />
-        </main>
-      </div>
-    </>
+    <PageLayout Navbar={EmployeeNavBar}>
+      {headerConfig && (
+        <TopPageSectionHeader
+          root={headerConfig.root}
+          currentPage={headerConfig.currentPage}
+          rootNavigatePage={headerConfig.rootNavigatePage}
+          title={headerConfig.title}
+        />
+      )}
+      <Outlet />
+    </PageLayout>
   );
 };
 

@@ -143,6 +143,8 @@ const SmartSupportLogIn = () => {
             </span>
           </p>
         </section>
+
+        <div className="version-info">Version 1.0.0 &copy; 2025 SmartSupport</div>
       </main>
     </>
   );

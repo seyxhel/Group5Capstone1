@@ -76,6 +76,31 @@ export const getEmployeeUserById = (id) => {
   return getEmployeeUsers().find(user => user.id === id) || null;
 };
 
+export const addEmployeeUser = (userData) => {
+  const existingUsers = getEmployeeUsers();
+  const newId = `U${String(existingUsers.length + 1).padStart(3, '0')}`;
+  const currentDate = new Date().toISOString().split('T')[0];
+  
+  const newUser = {
+    id: newId,
+    companyId: userData.companyId,
+    lastName: userData.lastName,
+    firstName: userData.firstName,
+    department: userData.department,
+    role: userData.role,
+    status: userData.status || 'Active',
+    dateCreated: currentDate,
+    email: userData.email,
+    profileImage: userData.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    password: userData.password
+  };
+  
+  const updatedUsers = [...existingUsers, newUser];
+  saveEmployeeUsers(updatedUsers);
+  
+  return newUser;
+};
+
 if (!localStorage.getItem(EMPLOYEE_USER_STORAGE_KEY)) {
   saveEmployeeUsers(sampleEmployeeUsers);
 }

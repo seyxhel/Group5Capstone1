@@ -7,8 +7,10 @@ import {
   IoChevronForward
 } from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
+import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
 import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 
 const EmployeeHome = () => {
@@ -27,7 +29,26 @@ const EmployeeHome = () => {
       .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
       .slice(0, 5);
 
-    setRecentTickets(sorted);
+    // If there are fewer than 5 recent tickets, append demo tickets to reach 5
+    const demoCount = 5 - sorted.length;
+    const demoTickets = [];
+    for (let i = 0; i < demoCount; i++) {
+      const idx = i + 1;
+      demoTickets.push({
+        ticketNumber: `DT00${idx}`,
+        subject: 'Sample Ticket',
+        assignedTo: { name: null },
+        priorityLevel: 'Normal',
+        category: 'General',
+        subCategory: 'Inquiry',
+        status: 'New', // Use admin-side status
+        dateCreated: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      });
+    }
+
+    const finalList = sorted.concat(demoTickets).slice(0,5);
+    setRecentTickets(finalList);
   }, []);
 
   const handleSubmitTicket = () => {
@@ -51,7 +72,7 @@ const EmployeeHome = () => {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
         Welcome <span className={styles.welcomeName}>{employeeBonjingData.firstName}</span>,
       </h1>
@@ -60,19 +81,19 @@ const EmployeeHome = () => {
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Quick Actions</h2>
           <div className={styles.actionGroupColumn}>
-            <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
+            <Button variant="primary" onClick={handleSubmitTicket}>
               <IoAdd />
               Submit a Ticket
-            </button>
+            </Button>
             <div className={styles.actionGroupRow}>
-              <button className={`${styles.button} ${styles.outline}`} onClick={handleViewActiveTickets}>
+              <Button variant="outline" onClick={handleViewActiveTickets}>
                 <IoList />
                 View Active Tickets
-              </button>
-              <button className={`${styles.button} ${styles.outline}`} onClick={handleViewTicketRecords}>
+              </Button>
+              <Button variant="outline" onClick={handleViewTicketRecords}>
                 <IoFolderOpen />
                 View Ticket Records
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -96,26 +117,39 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          <button className={styles.trackBtn} onClick={handleTrackTickets}>
+          <Button variant="primary" onClick={handleTrackTickets}>
             Track Active Tickets
-          </button>
+          </Button>
         </div>
 
         {recentTickets.length === 0 ? (
           <div className={styles.noTickets}>
             <p>No active tickets to display.</p>
-            <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
+            <Button variant="primary" onClick={handleSubmitTicket}>
               Submit a Ticket
-            </button>
+            </Button>
           </div>
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {
-              const statusKey = ticket.status.replace(/\s/g, '').toLowerCase();
+              // Convert status to employee view (New/Open -> Pending)
+              const displayStatus = toEmployeeStatus(ticket.status);
+              const statusKey = displayStatus.replace(/\s/g, '').toLowerCase();
               return (
                 <div key={ticket.ticketNumber} className={styles.ticketItem}>
                   <div className={styles.ticketInfo}>
-                    <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                    <div className={styles.ticketHeader}>
+                      <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                      <span
+                        className={styles.statusBadge}
+                        style={{
+                          backgroundColor: `var(--${statusKey}-bg)`,
+                          color: `var(--${statusKey}-text)`
+                        }}
+                      >
+                        {displayStatus.toUpperCase()}
+                      </span>
+                    </div>
                     <div className={styles.ticketDetailsGrid}>
                       <div>
                         <div className={styles.ticketLabel}>Assigned Agent</div>
@@ -140,25 +174,17 @@ const EmployeeHome = () => {
                     </div>
                   </div>
 
-                 <div className={styles.ticketStatus}>
-                  <span
-                    className={styles.statusBadge}
-                    style={{
-                      backgroundColor: `var(--${statusKey}-bg)`,
-                      color: `var(--${statusKey}-text)`
-                    }}
-                  >
-                    {ticket.status.toUpperCase()}
-                  </span>
+                 <div className={styles.ticketActions}>
                   <div className={styles.lastUpdated}>
                     Last Updated {new Date(ticket.lastUpdated || ticket.dateCreated).toLocaleDateString()}
                   </div>
-                  <button
-                    className={styles.viewDetails}
+                  <Button
+                    variant="secondary"
+                    size="small"
                     onClick={() => handleViewDetails(ticket.ticketNumber)}
                   >
                     View Details <IoChevronForward />
-                  </button>
+                  </Button>
                 </div>
 
               </div>

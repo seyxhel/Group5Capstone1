@@ -7,41 +7,60 @@
 }
 
 .table-wrapper-inner {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 10px;
+}
+
+.table-wrapper-inner::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-wrapper-inner::-webkit-scrollbar-thumb {
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  margin-bottom: 24px;
 }
 
 /* === Table Header === */
 .table-header {
-  background-color: #374151; /* Gray-700 */
+  background-color: #f0f1f2;
 }
 
 .table-header-cell,
 .sortable-header,
 .selection-header,
 .actions-header {
-  padding: 12px;
+  height: 50px;
+  padding: 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #ffffff;
+  color: #0C0C0C;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-align: left;
-  border-bottom: 1px solid #4b5563; /* Gray-600 border */
-  background-color: #374151;
+  border-top: 1px solid #cccccc;
+  border-bottom: 1px solid #cccccc;
+  background-color: #f0f1f2;
+  vertical-align: middle;
 }
 
+/* Column width specifications */
 .selection-header {
   width: 30px;
+  min-width: 30px;
 }
 
 .actions-header {
   width: 70px;
+  min-width: 70px;
   text-align: center;
 }
 
@@ -52,10 +71,10 @@
   transition: background-color 0.15s ease-in-out;
 }
 .sortable-header:hover {
-  background-color: #4b5563;
+  background-color: #E0E0E0; /* Gray 300 on hover */
 }
 .sortable-header.active {
-  color: #ffffff;
+  color: #0C0C0C;
 }
 
 .sortable-header-content {
@@ -68,7 +87,7 @@
   width: 1rem;
   height: 1rem;
   opacity: 0.6;
-  color: #ffffff;
+  color: #0C0C0C; /* Base text color for icons */
   transition: opacity 0.15s ease-in-out;
 }
 .sort-icon.active {
@@ -77,31 +96,38 @@
 
 /* === Table Body === */
 .table-body {
-  background-color: #fff;
+  background-color: #FFFFFF;
 }
 
 .table-row {
+  background-color: #FFFFFF;
   transition: background-color 0.15s ease-in-out;
+  border-bottom: 1px solid #cccccc;
 }
+
+/* Alternating row colors - removed to match reference */
+/* .table-row:nth-child(even) {
+  background-color: #f8f8f8;
+} */
+
+/* Row hover effect */
 .table-row:hover {
-  background-color: #f9fafb;
-}
-.table-row:not(:last-child) {
-  border-bottom: 1px solid #d3d3d3;
+  background-color: #fcfcfc;
 }
 
 .table-cell {
-  padding: 12px;
+  height: 50px;
+  padding: 0.75rem;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.88rem;
-  color: var(--text-color);
+  font-size: 0.8125rem;
+  color: #0C0C0C;
 }
 
 .cell-content {
-  font-size: 0.88rem;
+  font-size: 0.8125rem;
   color: var(--text-color);
 }
 
@@ -269,14 +295,78 @@
   to { transform: rotate(360deg); }
 }
 
+/* === Column Width Specifications === */
+.data-table .checkbox-column {
+  width: 30px;
+  min-width: 30px;
+}
+
+.data-table .image-column {
+  width: 50px;
+  min-width: 50px;
+}
+
+.data-table .action-column {
+  width: 70px;
+  min-width: 70px;
+}
+
+.data-table .id-column,
+.data-table .ticket-number-column {
+  width: 120px;
+  min-width: 120px;
+}
+
+.data-table .status-column,
+.data-table .priority-column {
+  width: 100px;
+  min-width: 100px;
+}
+
+.data-table .date-column {
+  width: 120px;
+  min-width: 120px;
+}
+
+.data-table .category-column {
+  width: 140px;
+  min-width: 140px;
+}
+
+/* Flexible columns for longer content */
+.data-table .subject-column,
+.data-table .description-column,
+.data-table .name-column {
+  width: auto;
+  min-width: 200px;
+}
+
 /* === Responsive === */
+@media (max-width: 992px) {
+  .table-wrapper-inner {
+    overflow-x: auto;
+  }
+  
+  /* Use sticky headers to preserve context */
+  .table-header-cell,
+  .sortable-header,
+  .selection-header,
+  .actions-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #F8F9FA;
+  }
+}
+
 @media (max-width: 768px) {
   .table-cell,
   .table-header-cell,
   .sortable-header,
   .selection-header,
   .actions-header {
-    padding: 0.75rem 1rem;
+    padding: 0.5rem;
+    font-size: 0.75rem;
   }
 
   .table-footer {
@@ -291,5 +381,26 @@
 
   .actions-container {
     flex-wrap: wrap;
+  }
+  
+  /* Reduce minimum widths on mobile */
+  .data-table .id-column,
+  .data-table .ticket-number-column {
+    min-width: 100px;
+  }
+  
+  .data-table .category-column {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 576px) {
+  .table-cell,
+  .table-header-cell,
+  .sortable-header,
+  .selection-header,
+  .actions-header {
+    padding: 0.375rem;
+    font-size: 0.7rem;
   }
 }

@@ -1,9 +1,29 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Pie, Line } from 'react-chartjs-2';
 import {
-  PieChart, Pie, Cell,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 import styles from './CoordinatorAdminDashboard.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
@@ -14,13 +34,7 @@ const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
   { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
   { label: "In Progress Tickets", path: "/admin/ticket-management/in-progress-tickets" },
-  { label: "On hold Tickets", path: "/admin/ticket-management/on-hold-tickets" },
-  { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
-  { label: "Resolved Tickets", path: "/admin/ticket-management/resolved-tickets" },
-  { label: "Closed Tickets", path: "/admin/ticket-management/closed-tickets" },
-  { label: "Rejected Tickets", path: "/admin/ticket-management/rejected-tickets" },
-  { label: "Withdrawn Tickets", path: "/admin/ticket-management/withdrawn-tickets" },
-  { label: "Total Tickets", path: "/admin/ticket-management/all-tickets" }
+  { label: "On Hold Tickets", path: "/admin/ticket-management/on-hold-tickets" }
 ];
 
 const userPaths = [
@@ -33,19 +47,33 @@ const userPaths = [
 ];
 
 // === Reusable Components ===
-const StatCard = ({ label, count, isHighlight, position, onClick }) => (
-  <div
-    className={`${styles.statusCard} ${statCardStyles.statusCard} ${statCardStyles[`card-position-${position}`]}`}
-    onClick={onClick}
-  >
-    <div className={`${styles.statCardContent} ${statCardStyles.statCardContent}`}>
-      <div className={`${styles.statBadge} ${statCardStyles.statBadge} ${isHighlight ? statCardStyles.statBadgeRed : statCardStyles.statBadgeBlue}`}>
-        {count}
+const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) => {
+  // Map status labels to CSS class names
+  const getStatusClass = (label) => {
+    const statusMap = {
+      'New Tickets': 'statBadgeNew',
+      'Open Tickets': 'statBadgeOpen', 
+      'In Progress Tickets': 'statBadgeInProgress',
+      'On Hold Tickets': 'statBadgeOnHold',
+      'Pending Users': 'statBadgePending'
+    };
+    return statusMap[label] || (isHighlight ? 'statBadgeRed' : 'statBadgeBlue');
+  };
+
+  return (
+    <div
+      className={`${styles.statusCard} ${statCardStyles.statusCard} ${statCardStyles[`card-position-${position}`]}`}
+      onClick={onClick}
+    >
+      <div className={`${styles.statCardContent} ${statCardStyles.statCardContent}`}>
+        <div className={`${styles.statBadge} ${statCardStyles.statBadge} ${statCardStyles[getStatusClass(label)]}`}>
+          {count}
+        </div>
+        <span className={`${styles.statLabel} ${statCardStyles.statLabel}`}>{label}</span>
       </div>
-      <span className={`${styles.statLabel} ${statCardStyles.statLabel}`}>{label}</span>
     </div>
-  </div>
-);
+  );
+};
 
 const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
   <div className={tableStyles.tableContainer}>
@@ -53,77 +81,230 @@ const DataTable = ({ title, headers, data, buttonText, onButtonClick }) => (
       <h3 className={tableStyles.tableTitle}>{title}</h3>
       <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
     </div>
+
     <div className={tableStyles.tableOverflow}>
-      <table className={tableStyles.table}>
-        <thead className={tableStyles.tableHead}>
-          <tr>
-            {headers.map((header, idx) => (
-              <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i} className={tableStyles.tableRow}>
-              {Object.values(row).map((cell, j) => (
-                <td key={j} className={tableStyles.tableCell}>
-                  {typeof cell === 'object' ? (
-                    <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
-                      {cell.text}
-                    </span>
-                  ) : cell}
-                </td>
+      {data.length > 0 ? (
+        <table className={tableStyles.table}>
+          <thead className={tableStyles.tableHead}>
+            <tr>
+              {headers.map((header, idx) => (
+                <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const StatusPieChart = ({ data, title }) => (
-  <div className={chartStyles.chartContainer}>
-    <h3 className={chartStyles.chartTitle}>{title}</h3>
-    <div className={chartStyles.chartContent}>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={data} dataKey="value" cx="50%" cy="50%" outerRadius={80}>
-            {data.map((entry, i) => (
-              <Cell key={`cell-${i}`} fill={entry.fill} />
+          </thead>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i} className={tableStyles.tableRow}>
+                {Object.values(row).map((cell, j) => (
+                  <td key={j} className={tableStyles.tableCell}>
+                    {typeof cell === 'object' ? (
+                      <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
+                        {cell.text}
+                      </span>
+                    ) : cell}
+                  </td>
+                ))}
+              </tr>
             ))}
-          </Pie>
-          <Tooltip />
-        </PieChart>
-      </ResponsiveContainer>
+          </tbody>
+        </table>
+      ) : (
+        <div className={tableStyles.emptyState}>
+          No records found. Click "{buttonText}" to add items.
+        </div>
+      )}
     </div>
-    <button className={chartStyles.browseButton}>Browse All</button>
   </div>
 );
 
-const TrendLineChart = ({ data, title }) => (
-  <div className={chartStyles.chartContainer}>
-    <h3 className={chartStyles.chartTitle}>{title}</h3>
-    <div className={chartStyles.chartContent}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Line type="monotone" dataKey="dataset1" stroke="#3B82F6" strokeWidth={2} />
-          <Line type="monotone" dataKey="dataset2" stroke="#EF4444" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
+const StatusPieChart = ({ data, title, activities }) => {
+  // Transform data for Chart.js
+  const chartData = {
+    labels: data.map(item => item.name),
+    datasets: [
+      {
+        label: title,
+        data: data.map(item => item.value),
+        backgroundColor: data.map(item => item.fill),
+        borderWidth: 1,
+        borderColor: '#fff',
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 15,
+          font: {
+            size: 12,
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        }
+      }
+    },
+  };
+
+  return (
+    <div className={chartStyles.chartContainer}>
+      <h3 className={chartStyles.chartTitle}>{title}</h3>
+
+      <div className={chartStyles.chartContentRow}>
+        {/* Pie Chart */}
+        <div style={{ width: '300px', height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Pie data={chartData} options={options} />
+        </div>
+
+        {/* Activity Timeline */}
+        {activities && (
+          <ul className={chartStyles.timelineList}>
+            {activities.map((item, i) => (
+              <li key={i} className={chartStyles.timelineItem}>
+                <span className={chartStyles.timelineTime}>{item.time}</span>
+                <span className={chartStyles.timelineAction}>{item.action}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <button className={chartStyles.browseButton}>Browse All</button>
     </div>
-  </div>
-);
+  );
+};
+
+const TrendLineChart = ({ data, title, isTicketChart = true }) => {
+  // Transform data for Chart.js
+  const chartData = {
+    labels: data.map(item => item.month),
+    datasets: [
+      {
+        label: isTicketChart ? 'Submitted Tickets' : 'New Users',
+        data: data.map(item => item.dataset1),
+        fill: false,
+        borderColor: '#3e506cff',
+        backgroundColor: '#3e506cff',
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      },
+      {
+        label: isTicketChart ? 'Closed Tickets' : 'Active Users',
+        data: data.map(item => item.dataset2),
+        fill: false,
+        borderColor: '#22C55E',
+        backgroundColor: '#22C55E',
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          padding: 15,
+          font: {
+            size: 12,
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      title: {
+        display: false,
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+      },
+    },
+    scales: {
+      x: {
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+      },
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false,
+    },
+  };
+
+  return (
+    <div className={chartStyles.chartContainer}>
+      <h3 className={chartStyles.chartTitle}>{title}</h3>
+      <div className={chartStyles.chartContent} style={{ height: '300px' }}>
+        <Line data={chartData} options={options} />
+      </div>
+    </div>
+  );
+};
 
 // === Main Component ===
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  const containerRef = useRef(null);
+  const tabRefs = useRef([]);
   const navigate = useNavigate();
+
+  const tabs = ['tickets', 'users'];
+
+  // Measure and position the sliding indicator under the active tab
+  const updateIndicator = () => {
+    const idx = tabs.indexOf(activeTab);
+    const container = containerRef.current;
+    const btn = tabRefs.current[idx];
+    if (!container || !btn) return;
+    const containerRect = container.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    setIndicator({
+      left: btnRect.left - containerRect.left,
+      width: btnRect.width
+    });
+  };
+
+  useEffect(() => {
+    updateIndicator();
+    const onResize = () => updateIndicator();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const ticketData = {
     stats: ticketPaths.map((item, i) => ({
@@ -147,35 +328,61 @@ const CoordinatorAdminDashboard = () => {
         subject: 'Network Problem',
         category: 'IT Support',
         subCategory: 'Network Issue',
-        status: { text: 'Submitted', statusClass: 'statusSubmitted' },
+        status: { text: 'New', statusClass: 'statusNew' },
         dateCreated: '06/11/2025 1:05PM'
+      },
+      {
+        ticketNumber: 'TX0003',
+        subject: 'Software License Request',
+        category: 'IT Support',
+        subCategory: 'Software',
+        status: { text: 'In Progress', statusClass: 'statusInProgress' },
+        dateCreated: '06/10/2025 9:20AM'
+      },
+      {
+        ticketNumber: 'TX0004',
+        subject: 'Email Issue',
+        category: 'IT Support',
+        subCategory: 'Email',
+        status: { text: 'On Hold', statusClass: 'statusOnHold' },
+        dateCreated: '06/09/2025 2:45PM'
+      },
+      {
+        ticketNumber: 'TX0005',
+        subject: 'Password Reset',
+        category: 'IT Support',
+        subCategory: 'Account',
+        status: { text: 'New', statusClass: 'statusNew' },
+        dateCreated: '06/08/2025 8:15AM'
       }
     ],
     pieData: [
-      { name: 'Submitted', value: 15, fill: '#6B7280' },
-      { name: 'Open', value: 25, fill: '#3B82F6' },
-      { name: 'Pending', value: 20, fill: '#F59E0B' },
-      { name: 'Resolved', value: 18, fill: '#10B981' },
-      { name: 'Closed', value: 12, fill: '#8B5CF6' }
+      { name: 'New', value: 15, fill: '#1E90FF' },           // Blue
+      { name: 'Open', value: 25, fill: '#14B8A6' },          // Teal
+      { name: 'In Progress', value: 20, fill: '#FB923C' },   // Orange
+      { name: 'On Hold', value: 10, fill: '#A855F7' },       // Purple
+      { name: 'Withdrawn', value: 8, fill: '#9CA3AF' },      // Gray
+      { name: 'Closed', value: 12, fill: '#2563EB' },        // Dark Blue
+      { name: 'Rejected', value: 5, fill: '#EF4444' }        // Red
     ],
     lineData: [
-      { month: 'Jan', dataset1: 800, dataset2: 600 },
-      { month: 'Feb', dataset1: 600, dataset2: 400 },
-      { month: 'Mar', dataset1: 700, dataset2: 500 },
-      { month: 'Apr', dataset1: 500, dataset2: 800 },
-      { month: 'May', dataset1: 900, dataset2: 700 },
-      { month: 'Jun', dataset1: 400, dataset2: 300 }
+      { month: 'Jan', dataset1: 45, dataset2: 38 },
+      { month: 'Feb', dataset1: 52, dataset2: 45 },
+      { month: 'Mar', dataset1: 48, dataset2: 42 },
+      { month: 'Apr', dataset1: 60, dataset2: 55 },
+      { month: 'May', dataset1: 58, dataset2: 50 },
+      { month: 'Jun', dataset1: 65, dataset2: 60 }
     ]
   };
 
   const userData = {
+    // Only include Pending Users as requested
     stats: [
-      "All Users", "Employees", "Ticket Coordinators", "System Administrators",
-      "Pending Accounts", "Rejected Accounts"
+      "Pending Users"
     ].map((label, i) => ({
       label,
       count: 5,
-      isHighlight: i >= 4,
+      isHighlight: false,
       position: i,
       path: userPaths.find(p => p.label === label)?.path
     })),
@@ -190,30 +397,103 @@ const CoordinatorAdminDashboard = () => {
       }
     ],
     pieData: [
-      { name: 'Employees', value: 30, fill: '#3B82F6' },
-      { name: 'Coordinator', value: 25, fill: '#F59E0B' },
-      { name: 'Admin', value: 20, fill: '#10B981' },
-      { name: 'Pending', value: 15, fill: '#EF4444' },
-      { name: 'Rejected', value: 10, fill: '#8B5CF6' }
+      { name: 'Active Users', value: 120, fill: '#22C55E' },      // Green
+      { name: 'Pending', value: 15, fill: '#FBBF24' },            // Amber
+      { name: 'Rejected', value: 8, fill: '#EF4444' },            // Red
+      { name: 'Inactive', value: 5, fill: '#9CA3AF' }             // Gray
+    ],
+    lineData: [
+      { month: 'Jan', dataset1: 12, dataset2: 8 },
+      { month: 'Feb', dataset1: 18, dataset2: 15 },
+      { month: 'Mar', dataset1: 22, dataset2: 18 },
+      { month: 'Apr', dataset1: 28, dataset2: 25 },
+      { month: 'May', dataset1: 35, dataset2: 30 },
+      { month: 'Jun', dataset1: 40, dataset2: 38 }
     ]
   };
+
+  const activityTimeline = [
+    { time: "10:30 AM", action: "Ticket TX0001 submitted", type: "ticket" },
+    { time: "11:00 AM", action: "User MAP0001 account created", type: "user" },
+    { time: "02:15 PM", action: "Ticket TX0002 resolved", type: "ticket" },
+    { time: "04:20 PM", action: "User MAP0001 approved by Admin", type: "user" },
+  ];
+
+  const userActivityTimeline = [
+    { time: "09:15 AM", action: "User MAP0002 account created", type: "user" },
+    { time: "10:45 AM", action: "User MAP0003 account rejected", type: "user" },
+    { time: "01:20 PM", action: "User MAP0004 approved by Admin", type: "user" },
+    { time: "03:05 PM", action: "User MAP0005 role updated", type: "user" },
+  ];
+
+  const ActivityTimeline = ({ activities }) => (
+    <div className={chartStyles.timelineContainer}>
+      <h3 className={chartStyles.chartTitle}>Activity Timeline</h3>
+      <ul className={chartStyles.timelineList}>
+        {activities.map((item, i) => (
+          <li key={i} className={chartStyles.timelineItem}>
+            <span className={chartStyles.timelineTime}>{item.time}</span>
+            <span className={chartStyles.timelineAction}>{item.action}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <div className={styles.dashboardContainer}>
       <div className={styles.dashboardContent}>
-        <h1>Dashboard</h1>
+        <h1 className={styles.title}>Dashboard</h1>
 
-        <div className={styles.tabContainer}>
-          {['tickets', 'users'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`${styles.tab} ${activeTab === tab ? styles.tabActive : styles.tabInactive}`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+        {/* Tabs with sliding underline and keyboard navigation */}
+        <div
+          className={styles.tabContainer}
+          ref={containerRef}
+          role="tablist"
+          aria-label="Dashboard Tabs"
+        >
+          {tabs.map((tab, idx) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                ref={(el) => (tabRefs.current[idx] = el)}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => setActiveTab(tab)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight') {
+                    const next = (idx + 1) % tabs.length;
+                    tabRefs.current[next]?.focus();
+                    setActiveTab(tabs[next]);
+                  } else if (e.key === 'ArrowLeft') {
+                    const prev = (idx - 1 + tabs.length) % tabs.length;
+                    tabRefs.current[prev]?.focus();
+                    setActiveTab(tabs[prev]);
+                  } else if (e.key === 'Home') {
+                    tabRefs.current[0]?.focus();
+                    setActiveTab(tabs[0]);
+                  } else if (e.key === 'End') {
+                    tabRefs.current[tabs.length - 1]?.focus();
+                    setActiveTab(tabs[tabs.length - 1]);
+                  }
+                }}
+                className={`${styles.tab} ${isActive ? styles.tabActive : styles.tabInactive}`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            );
+          })}
+
+          {/* Sliding underline indicator */}
+          <div
+            className={styles.tabIndicator}
+            style={{ left: indicator.left, width: indicator.width }}
+            aria-hidden="true"
+          />
         </div>
+
 
         <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid}>
@@ -227,8 +507,8 @@ const CoordinatorAdminDashboard = () => {
           </div>
 
           <DataTable
-            title={activeTab === 'tickets' ? 'Tickets to Review' : 'Account Approval'}
-            buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Accounts'}
+            title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
+            buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'}
             headers={
               activeTab === 'tickets'
                 ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
@@ -247,11 +527,13 @@ const CoordinatorAdminDashboard = () => {
           <div className={chartStyles.chartsGrid}>
             <StatusPieChart
               data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
-              title={activeTab === 'tickets' ? 'Ticket Status' : 'Accounts'}
+              title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
+              activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
             />
             <TrendLineChart
-              data={ticketData.lineData}
-              title={activeTab === 'tickets' ? 'Status per month' : 'Accounts per month'}
+              data={activeTab === 'tickets' ? ticketData.lineData : userData.lineData}
+              title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'}
+              isTicketChart={activeTab === 'tickets'}
             />
           </div>
         </div>

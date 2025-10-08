@@ -34,6 +34,7 @@ const CoordinatorAdminNavBar = () => {
   const location = useLocation();
   const navRef = useRef(null);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
@@ -42,16 +43,34 @@ const CoordinatorAdminNavBar = () => {
   const handleNavigate = (path) => {
     navigate(path);
     setOpenDropdown(null);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    navigate('/');
+    setIsMobileMenuOpen(false);
   };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (navRef.current && !navRef.current.contains(e.target)) {
         setOpenDropdown(null);
+        setIsMobileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close mobile menu on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const navSections = [
@@ -62,14 +81,12 @@ const CoordinatorAdminNavBar = () => {
       links: [
         { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
         { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-        { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
         { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
         { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
         { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
-        { label: 'Resolved Tickets', path: '/admin/ticket-management/resolved-tickets' },
+        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
         { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
-        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' },
-        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' }
+        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
       ]
     },
     {
@@ -90,17 +107,35 @@ const CoordinatorAdminNavBar = () => {
       label: 'Reports',
       basePath: '/admin/reports',
       links: [
-        { label: 'Department Reports', path: '/admin/reports/departments' },
-        { label: 'Coordinator Reports', path: '/admin/reports/coordinators' },
-        { label: 'Ticket Statistics', path: '/admin/reports/statistics' }
+        { label: 'Ticket Reports', path: '/admin/reports/tickets' },
+        { label: 'SLA Compliance', path: '/admin/reports/sla' }
       ]
     }
   ];
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen((prev) => !prev);
+    // Close any open dropdowns when toggling mobile menu
+    setOpenDropdown(null);
+  };
+
   return (
     <nav className={styles['main-nav-bar']} ref={navRef}>
-      {/* Logo & Brand */}
+      {/* Logo & Brand (Desktop: Left, Mobile: Right) */}
       <section className={styles['logo-placeholder']}>
+        {/* Hamburger Menu (Mobile Only) */}
+        <div
+          className={`${styles.hamburger} ${isMobileMenuOpen ? styles.open : ''}`}
+          onClick={toggleMobileMenu}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleMobileMenu()}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
@@ -108,9 +143,39 @@ const CoordinatorAdminNavBar = () => {
         </div>
       </section>
 
-      {/* Navigation Links */}
+      {/* Navigation Links (Desktop: Middle, Mobile: Sidebar) */}
       <section>
-        <ul className={styles['nav-list']}>
+        <ul className={`${styles['nav-list']} ${isMobileMenuOpen ? styles.open : ''}`}>
+          {/* Mobile Profile Section - Shows at top of mobile menu */}
+          <li className={styles['mobile-profile-section']}>
+            <div className={styles['profile-avatar-large']}>
+              <img 
+                src={systemAdminData.profileImage} 
+                alt="Profile" 
+                className={styles['avatar-image']} 
+              />
+            </div>
+            <div className={styles['mobile-profile-info']}>
+              <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
+              <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+              <div className={styles['mobile-profile-actions']}>
+                <button 
+                  className={styles['mobile-settings-btn']}
+                  onClick={() => handleNavigate('/admin/settings')}
+                >
+                  Settings
+                </button>
+                <button
+                  className={styles['mobile-logout-btn']}
+                  onClick={handleLogout}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </li>
+
+          {/* Dashboard Link */}
           <li className={styles['nav-item']}>
             <button
               className={`${styles['nav-link']} ${location.pathname === '/admin/dashboard' ? styles.clicked : ''}`}
@@ -120,6 +185,7 @@ const CoordinatorAdminNavBar = () => {
             </button>
           </li>
 
+          {/* Navigation Sections with Dropdowns */}
           {navSections.map(({ key, label, links, basePath }) => {
             const isActiveSection = location.pathname.startsWith(basePath);
             return (
@@ -152,10 +218,12 @@ const CoordinatorAdminNavBar = () => {
               </li>
             );
           })}
+
+
         </ul>
       </section>
 
-      {/* Right Side: Notifications & Profile */}
+      {/* Right Section: Notifications & Profile (Desktop Only) */}
       <section className={styles['nav-right-section']}>
         <div
           className={`${styles['notification-icon-container']} ${
@@ -198,7 +266,7 @@ const CoordinatorAdminNavBar = () => {
               </div>
               <div className={styles['profile-menu']}>
                 <button onClick={() => handleNavigate('/admin/settings')}>Settings</button>
-                <button className={styles['logout-btn']} onClick={() => navigate('/')}>Log Out</button>
+                <button className={styles['logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>
           )}
