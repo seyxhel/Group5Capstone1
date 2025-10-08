@@ -1,217 +1,225 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useState } from 'react';
 import styles from './CoordinatorAdminTicketTracker.module.css';
+import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 
+// Coordinator/Admin-side status progression (4 steps)
+// Step 1: New (newly submitted, awaiting review)
+// Step 2: Open (reviewed and assigned)
+// Step 3: In Progress (being worked on)
+// Step 4: Closed (or Rejected/Withdrawn as terminal states)
+// Note: No "Resolved" status for admins - goes straight to Closed
 const STATUS_COMPLETION = {
-  1: ['Submitted', 'Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  5: ['Resolved', 'Closed', 'Rejected', 'Withdrawn'],
+  1: ['New', 'Open', 'In Progress', 'Closed', 'Rejected', 'Withdrawn'],
+  2: ['Open', 'In Progress', 'Closed', 'Rejected', 'Withdrawn'],
+  3: ['In Progress', 'Closed', 'Rejected', 'Withdrawn'],
+  4: ['Closed', 'Rejected', 'Withdrawn'],
 };
 
 const getStatusSteps = (status) =>
-  [1, 2, 3, 4, 5].map((id) => ({
+  [1, 2, 3, 4].map((id) => ({
     id,
-    completed: STATUS_COMPLETION[id].includes(status),
+    completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
-
-const DetailField = ({ label, value }) => {
-  const id = `detail-${label.replace(/\s+/g, '-').toLowerCase()}`;
-  return (
-    <fieldset>
-      <label htmlFor={id}>{label}</label>
-      <p id={id}>{value || 'N/A'}</p>
-    </fieldset>
-  );
-};
 
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+// Generate logs based on ticket data
+const generateLogs = (ticket) => {
+  const logs = [];
+  logs.push({ 
+    id: 1, 
+    user: 'System', 
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
+    timestamp: formatDate(ticket.dateCreated) 
+  });
+  
+  // Handle assignedTo as object or string
+  const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
+  
+  if (assignedToName) {
+    logs.push({ 
+      id: 2, 
+      user: assignedToName, 
+      action: `Assigned to ${ticket.department} department`, 
+      timestamp: formatDate(ticket.dateCreated) 
+    });
+  }
+  
+  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
+    logs.push({ 
+      id: 3, 
+      user: 'Coordinator', 
+      action: `Status changed to ${ticket.status}`, 
+      timestamp: formatDate(ticket.lastUpdated) 
+    });
+  }
+  
+  return logs;
+};
 
 export default function CoordinatorAdminTicketTracker() {
   const { ticketNumber } = useParams();
-  const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  useEffect(() => {
-    const fetchTicket = async () => {
-      setLoading(true);
-      try {
-        const token =
-          localStorage.getItem('admin_access_token') ||
-          localStorage.getItem('coordinator_access_token');
-        const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTicket(data);
-        } else {
-          setTicket(null);
-        }
-      } catch {
-        setTicket(null);
-      }
-      setLoading(false);
-    };
-    if (ticketNumber) fetchTicket();
-  }, [ticketNumber]);
+  const tickets = getEmployeeTickets();
+  
+  const ticket = ticketNumber
+    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
+    : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
 
-  if (loading) return <p>Loading...</p>;
-  if (!ticket) return <p className={styles.notFound}>Ticket #{ticketNumber} not found.</p>;
+  if (!ticket) {
+    return (
+      <div className={styles.coordinatorTicketTrackerPage}>
+        <p className={styles.notFound}>No ticket found.</p>
+      </div>
+    );
+  }
 
   const {
-    ticket_number,
+    ticketNumber: number,
     subject,
     category,
-    sub_category,
-    status,
-    submit_date,
-    update_date,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
     description,
-    attachments,
-    priority,
+    fileUploaded,
+    priorityLevel,
     department,
-    assigned_to,
-    scheduled_date,
-    employee,
+    assignedTo,
+    scheduledRequest,
   } = ticket;
 
+  // Convert "Submitted" to "New" for coordinator/admin view
+  const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
   const statusSteps = getStatusSteps(status);
+  
+  // Generate dynamic data based on ticket
+  const ticketLogs = generateLogs(ticket);
 
   return (
     <>
       <main className={styles.coordinatorTicketTrackerPage}>
-        <div className={styles.mainContent}>
-          <section className={styles.ticketCard}>
-            <header className={styles.header}>
-              <div>
-                <h2 className={styles.heading}>#{ticket_number || ticketNumber}</h2>
-                <p className={styles.subheading}>{subject || 'No subject provided'}</p>
+        {/* Two Column Layout */}
+        <div className={styles.contentGrid}>
+          {/* Left Column - Ticket Information */}
+          <div className={styles.leftColumn}>
+            <section className={styles.ticketCard}>
+              {/* Ticket Number with Priority and Status Badges */}
+              <div className={styles.ticketHeader}>
+                <div className={styles.headerLeft}>
+                  <div className={`${styles.priorityBadge} ${styles[`priority${priorityLevel || 'NotSet'}`]}`}>
+                    {priorityLevel || 'Not Set'}
+                  </div>
+                  <h2 className={styles.ticketNumber}>Ticket No. {number}</h2>
+                </div>
+                <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
+                  {status}
+                </div>
               </div>
-              <div className={styles.statusBadge}>
-                <span className={styles.statusDot}></span>
-                <span className={styles.statusText}>{status}</span>
+
+              {/* Subject */}
+              <div className={styles.subjectSection}>
+                <h3 className={styles.sectionTitle}>{subject}</h3>
+                <div className={styles.subjectMeta}>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Category:</span>
+                    <span className={styles.metaValue}>{category} - {subCategory}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Department:</span>
+                    <span className={styles.metaValue}>{department || 'N/A'}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Assigned To:</span>
+                    <span className={styles.metaValue}>
+                      {typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}
+                    </span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Date Created:</span>
+                    <span className={styles.metaValue}>{formatDate(dateCreated)}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Last Updated:</span>
+                    <span className={styles.metaValue}>{formatDate(lastUpdated)}</span>
+                  </div>
+                </div>
               </div>
-            </header>
 
-            <div className={styles.timestamp}>Created at: {formatDate(submit_date)}</div>
+              {/* Description */}
+              <div className={styles.descriptionSection}>
+                <h4 className={styles.descriptionLabel}>Description</h4>
+                <p className={styles.descriptionText}>
+                  {description || 'No description provided.'}
+                </p>
+              </div>
 
-            <div className={styles.ticketInfo}>
-              <DetailField label="Priority" value={priority} />
-              <DetailField label="Department" value={department} />
-              <DetailField label="Assigned Agent" value={assigned_to?.first_name ? `${assigned_to.first_name} ${assigned_to.last_name}` : assigned_to || "Unassigned"} />
-              <DetailField label="Scheduled Request" value={scheduled_date} />
-              <DetailField label="Date Created" value={formatDate(submit_date)} />
-              <DetailField label="Last Updated" value={formatDate(update_date)} />
-              <DetailField label="Category" value={category} />
-              <DetailField label="Sub-Category" value={sub_category} />
-            </div>
-
-            <section className={styles.descriptionBlock}>
-              <h3 className={styles.descriptionTitle}>Description</h3>
-              <p className={styles.descriptionBox}>{description || 'No description provided.'}</p>
+              {/* Attachments */}
+              {fileUploaded && (
+                <div className={styles.attachmentSection}>
+                  <h4 className={styles.attachmentLabel}>Attachments</h4>
+                  <div className={styles.attachmentGrid}>
+                    <div className={styles.attachmentCard}>
+                      <div className={styles.attachmentIcon}>�</div>
+                      <div className={styles.attachmentInfo}>
+                        <p className={styles.attachmentName}>{fileUploaded}</p>
+                        <button className={styles.attachmentDownload}>Download</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
+          </div>
 
-            <section className={styles.attachment}>
-              <h3 className={styles.descriptionTitle}>
-                Attachment{attachments && attachments.length > 1 ? 's' : ''}
-              </h3>
-              <div className={styles.attachmentContent}>
-                <span className={styles.attachmentIcon}>📎</span>
-                {attachments && attachments.length > 0 ? (
-                  attachments.map((file, idx) => (
-                    <button
-                      key={file.id || idx}
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        try {
-                          const { downloadSecureFile } = await import('../../../utilities/secureMedia');
-                          if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(file.file_name)) {
-                            const token = localStorage.getItem('admin_access_token') || localStorage.getItem('coordinator_access_token') || localStorage.getItem('employee_access_token');
-                            const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
-                            if (!res.ok) throw new Error('Not authorized');
-                            const blob = await res.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            window.open(url, '_blank');
-                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-                          } else {
-                            await downloadSecureFile(file.file, file.file_name);
-                          }
-                        } catch (err) {
-                          alert('Download failed or unauthorized');
-                        }
-                      }}
-                      className={styles.attachmentText}
-                      style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
-                    >
-                      {file.file_name}
-                    </button>
-                  ))
-                ) : (
-                  <span className={styles.noAttachmentText}>No file attached.</span>
-                )}
-              </div>
-            </section>
-
-            {/* Move Employee info here */}
-            <div className={styles.ticketInfo}>
-              <DetailField label="Employee" value={employee ? `${employee.first_name} ${employee.last_name}` : "N/A"} />
-              <DetailField label="Employee Department" value={employee?.department} />
-              <DetailField label="Employee Email" value={employee?.email} />
-            </div>
-          </section>
-        </div>
-
-        <aside className={styles.sidebar}>
-          <div className={styles.statusSection}>
-            {status === 'New' && (
-              <div className={styles.actionButtons}>
+          {/* Right Column - Actions and Logs */}
+          <div className={styles.rightColumn}>
+            {/* Action Buttons */}
+            {['New', 'Pending'].includes(status) && (
+              <div className={styles.actionButtonsContainer}>
+                <button
+                  className={styles.openButton}
+                  onClick={() => setShowOpenModal(true)}
+                >
+                  Open Ticket
+                </button>
                 <button
                   className={styles.rejectButton}
                   onClick={() => setShowRejectModal(true)}
                 >
                   Reject Ticket
                 </button>
-                <button
-                  className={styles.approveButton}
-                  onClick={() => setShowOpenModal(true)}
-                >
-                  Open Ticket
-                </button>
               </div>
             )}
 
-            <h3 className={styles.statusTitle}>Status</h3>
-            <div className={styles.statusTimeline}>
-              {statusSteps.map((step, index) => (
-                <div key={step.id} className={styles.statusStep}>
-                  <div className={`${styles.statusCircle} ${step.completed ? styles.completed : ''}`}>
-                    {step.completed && <span className={styles.checkmark}>✓</span>}
-                  </div>
-                  {index < statusSteps.length - 1 && (
-                    <div
-                      className={`${styles.statusLine} ${
-                        step.completed ? styles.completedLine : ''
-                      }`}
-                    />
-                  )}
+            {/* Logs Container */}
+            <div className={styles.tabsContainer}>
+              <div className={styles.tabs}>
+                <button className={`${styles.tab} ${styles.activeTab}`}>
+                  Logs
+                </button>
+              </div>
+              <div className={styles.tabContent}>
+                <div className={styles.logsContent}>
+                  {ticketLogs.map((log) => (
+                    <div key={log.id} className={styles.logEntry}>
+                      <div className={styles.logUser}>{log.user}</div>
+                      <div className={styles.logAction}>{log.action}</div>
+                      <div className={styles.logTimestamp}>{log.timestamp}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className={styles.currentStatus}>
-              <h4 className={styles.currentStatusTitle}>Current Status</h4>
-              <p className={styles.currentStatusText}>{status}</p>
+              </div>
             </div>
           </div>
-        </aside>
+        </div>
       </main>
 
       {showOpenModal && (

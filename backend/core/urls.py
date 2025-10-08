@@ -21,21 +21,7 @@ from .views import (
     list_employees,
     approve_employee,
     finalize_ticket,  # <-- add this import
-    reject_employee,  # <-- add this import
-    withdraw_ticket,  # <-- add this import
-    close_ticket,  # <-- add this import
-    reset_password,
-    forgot_password,  # <-- add this import
-    check_password,  # <-- add this
-    rejected_employee_audit_list,  # <-- add this import
-    test_endpoint,  # Add test endpoint
-    debug_create_employee,  # Add debug endpoint
-    test_email,  # Add email test endpoint
-    test_simple_email,  # Add simple email test endpoint
-    rejected_users_count,  # <-- add this import
-    download_attachment,  # <-- add secure download endpoint
 )
-from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from .serializers import TicketSerializer
@@ -46,11 +32,6 @@ router.register(r'tickets', TicketViewSet, basename='ticket')
 
 urlpatterns = [
     path('', custom_api_root, name='api-root'),  # <-- put this FIRST
-    path('test/', test_endpoint, name='test_endpoint'),  # Add test endpoint
-    path('debug-create/', debug_create_employee, name='debug_create_employee'),  # Add debug endpoint
-    path('test-email/', test_email, name='test_email'),  # Add email config test endpoint
-    path('test-simple-email/', test_simple_email, name='test_simple_email'),  # Add simple email test endpoint
-    path('admin/rejected-users-count/', rejected_users_count, name='rejected_users_count'),  # Dashboard rejected users count
     # Custom endpoints (must come before router)
     path('create_employee/', CreateEmployeeView.as_view(), name='create_employee'),
     path("admin/create-employee/", CreateAdminEmployeeView.as_view(), name="admin-create-employee"),
@@ -62,10 +43,6 @@ urlpatterns = [
     path('employee/upload-image/', upload_profile_image, name='upload_profile_image'),
     path('employees/', list_employees, name='list_employees'),
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
-    path('employees/<int:pk>/reject/', reject_employee, name='reject_employee'),  # <-- add this line
-    path('employee/reset-password/', reset_password, name='reset_password'),
-    path('employee/forgot-password/', forgot_password, name='forgot_password'),  # <-- add this line
-    path('employee/check-password/', check_password, name='check_password'),  # <-- add this
 
     path('tickets/<int:ticket_id>/', get_ticket_detail, name='get_ticket_detail'),
     path('tickets/<int:ticket_id>/approve/', approve_ticket, name='approve_ticket'),
@@ -76,14 +53,6 @@ urlpatterns = [
     path('tickets/open/', get_open_tickets, name='get_open_tickets'),
     path('tickets/my-tickets/', get_my_tickets, name='get_my_tickets'),
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
-    path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
-    path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
-    
-    # Secure media download
-    path('attachments/<int:attachment_id>/download/', download_attachment, name='download_attachment'),
-
-    # New endpoint for rejected employee audit list
-    path('rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST

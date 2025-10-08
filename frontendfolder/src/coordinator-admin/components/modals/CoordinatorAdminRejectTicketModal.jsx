@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
+import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import styles from "./CoordinatorAdminRejectTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
-
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -17,43 +16,20 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
       });
       return;
     }
-    // Restrict to not just punctuation
-    if (!/[a-zA-Z0-9]/.test(comment)) {
-      toast.error("Comment must contain at least one letter or number.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("admin_access_token");
-      const res = await fetch(`${API_URL}tickets/${ticket.id}/reject/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          rejection_reason: comment,
-        }),
-      });
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to reject ticket");
-      }
-
-      toast.success(`Ticket #${ticket.ticket_number || ticket.ticketNumber} rejected successfully.`, {
+      toast.success(`Ticket #${ticket.ticketNumber} rejected successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Rejected");
+      onSuccess?.(ticket.ticketNumber, "Rejected"); // ✅ update parent
       onClose();
     } catch (err) {
-      toast.error(err.message || "Failed to reject ticket. Please try again.", {
+      toast.error("Failed to reject ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -63,10 +39,10 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
   };
 
   return (
-    <>
+    <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Reject Ticket {ticket.ticket_number || ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+        Reject Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
       </h2>
 
       <div className={styles.field}>
@@ -100,7 +76,7 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
           {isSubmitting ? "Rejecting..." : "Reject Ticket"}
         </button>
       </div>
-    </>
+    </ModalWrapper>
   );
 };
 

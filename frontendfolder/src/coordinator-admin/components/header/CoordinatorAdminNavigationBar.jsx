@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
-import authService from '../../../utilities/service/authService';
+import systemAdminData from '../../../utilities/storages/systemAdminMarites';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -34,46 +34,44 @@ const CoordinatorAdminNavBar = () => {
   const location = useLocation();
   const navRef = useRef(null);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [adminInfo, setAdminInfo] = useState({
-    first_name: '',
-    last_name: '',
-    role: '',
-    image: ''
-  });
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem('admin_access_token');
-      try {
-        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/profile/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAdminInfo({
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            role: data.role || '',
-            image: data.image || ''
-          });
-        }
-      } catch (e) {
-        // Optionally handle error
-      }
-    };
-    fetchProfile();
-  }, []);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
   };
 
-  const mediaUrl = import.meta.env.VITE_MEDIA_URL;
-  const getProfileImageUrl = (img) => {
-    if (!img) return "";
-    if (img.startsWith("http")) return img;
-    return `${mediaUrl}${img.startsWith("/") ? img.slice(1) : img}`;
+  const handleNavigate = (path) => {
+    navigate(path);
+    setOpenDropdown(null);
+    setIsMobileMenuOpen(false);
   };
+
+  const handleLogout = () => {
+    navigate('/');
+    setIsMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setOpenDropdown(null);
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close mobile menu on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const navSections = [
     {
@@ -83,14 +81,12 @@ const CoordinatorAdminNavBar = () => {
       links: [
         { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
         { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-        { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
         { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
         { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
         { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
-        { label: 'Resolved Tickets', path: '/admin/ticket-management/resolved-tickets' },
+        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
         { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
-        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' },
-        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' }
+        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
       ]
     },
     {
@@ -111,100 +107,123 @@ const CoordinatorAdminNavBar = () => {
       label: 'Reports',
       basePath: '/admin/reports',
       links: [
-        { label: 'Department Reports', path: '/admin/reports/departments' },
-        { label: 'Coordinator Reports', path: '/admin/reports/coordinators' },
-        { label: 'Ticket Statistics', path: '/admin/reports/statistics' }
+        { label: 'Ticket Reports', path: '/admin/reports/tickets' },
+        { label: 'SLA Compliance', path: '/admin/reports/sla' }
       ]
     }
   ];
 
-  // Helper for initials
-  const getInitials = (first, last) => {
-    if (!first && !last) return "U";
-    return `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen((prev) => !prev);
+    // Close any open dropdowns when toggling mobile menu
+    setOpenDropdown(null);
   };
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (navRef.current && !navRef.current.contains(e.target)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Get user role from profile info (already fetched)
-  const isSystemAdmin = adminInfo.role === "System Admin";
 
   return (
     <nav className={styles['main-nav-bar']} ref={navRef}>
-      {/* Logo & Brand */}
+      {/* Logo & Brand (Desktop: Left, Mobile: Right) */}
       <section className={styles['logo-placeholder']}>
+        {/* Hamburger Menu (Mobile Only) */}
+        <div
+          className={`${styles.hamburger} ${isMobileMenuOpen ? styles.open : ''}`}
+          onClick={toggleMobileMenu}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleMobileMenu()}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
+          <span className={styles['admin-badge']}>{systemAdminData.role}</span>
         </div>
       </section>
 
-      {/* Navigation Links */}
+      {/* Navigation Links (Desktop: Middle, Mobile: Sidebar) */}
       <section>
-        <ul className={styles['nav-list']}>
+        <ul className={`${styles['nav-list']} ${isMobileMenuOpen ? styles.open : ''}`}>
+          {/* Mobile Profile Section - Shows at top of mobile menu */}
+          <li className={styles['mobile-profile-section']}>
+            <div className={styles['profile-avatar-large']}>
+              <img 
+                src={systemAdminData.profileImage} 
+                alt="Profile" 
+                className={styles['avatar-image']} 
+              />
+            </div>
+            <div className={styles['mobile-profile-info']}>
+              <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
+              <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+              <div className={styles['mobile-profile-actions']}>
+                <button 
+                  className={styles['mobile-settings-btn']}
+                  onClick={() => handleNavigate('/admin/settings')}
+                >
+                  Settings
+                </button>
+                <button
+                  className={styles['mobile-logout-btn']}
+                  onClick={handleLogout}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </li>
+
+          {/* Dashboard Link */}
           <li className={styles['nav-item']}>
             <button
               className={`${styles['nav-link']} ${location.pathname === '/admin/dashboard' ? styles.clicked : ''}`}
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => handleNavigate('/admin/dashboard')}
             >
               Dashboard
             </button>
           </li>
 
-          {/* Ticket Management always visible */}
-          {navSections
-            .filter(
-              (section) =>
-                section.key !== 'users' || isSystemAdmin // Only show User Access if System Admin
-            )
-            .map(({ key, label, links, basePath }) => {
-              const isActiveSection = location.pathname.startsWith(basePath);
-              return (
-                <li
-                  key={key}
-                  className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
+          {/* Navigation Sections with Dropdowns */}
+          {navSections.map(({ key, label, links, basePath }) => {
+            const isActiveSection = location.pathname.startsWith(basePath);
+            return (
+              <li
+                key={key}
+                className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
+              >
+                <div
+                  className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
+                  onClick={() => toggleDropdown(key)}
                 >
-                  <div
-                    className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
-                    onClick={() => toggleDropdown(key)}
-                  >
-                    <span className={styles['dropdown-text']}>{label}</span>
-                    <ArrowDownIcon flipped={openDropdown === key} />
-                  </div>
-                  {openDropdown === key && (
-                    <div className={styles['custom-dropdown']}>
-                      <div className={styles['dropdown-menu']}>
-                        {links.map(({ label, path }) => (
-                          <button
-                            key={path}
-                            onClick={() => {
-                              navigate(path);
-                              setOpenDropdown(null);
-                            }}
-                            className={location.pathname === path ? styles.clicked : ''}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+                  <span className={styles['dropdown-text']}>{label}</span>
+                  <ArrowDownIcon flipped={openDropdown === key} />
+                </div>
+                {openDropdown === key && (
+                  <div className={styles['custom-dropdown']}>
+                    <div className={styles['dropdown-menu']}>
+                      {links.map(({ label, path }) => (
+                        <button
+                          key={path}
+                          onClick={() => handleNavigate(path)}
+                          className={location.pathname === path ? styles.clicked : ''}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </li>
-              );
-            })}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+
+
         </ul>
       </section>
 
-      {/* Right Side: Notifications & Profile */}
+      {/* Right Section: Notifications & Profile (Desktop Only) */}
       <section className={styles['nav-right-section']}>
         <div
           className={`${styles['notification-icon-container']} ${
@@ -232,37 +251,22 @@ const CoordinatorAdminNavBar = () => {
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            {adminInfo.image ? (
-              <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
-            ) : (
-              <div className={styles['avatar-placeholder']}>
-                {getInitials(adminInfo.first_name, adminInfo.last_name)}
-              </div>
-            )}
+            <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  {adminInfo.image ? (
-                    <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
-                  ) : (
-                    <div className={styles['avatar-placeholder']}>
-                      {getInitials(adminInfo.first_name, adminInfo.last_name)}
-                    </div>
-                  )}
+                  <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${adminInfo.first_name} ${adminInfo.last_name}`}</h3>
-                  <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
+                  <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
+                  <span className={styles['admin-badge']}>{systemAdminData.role}</span>
                 </div>
               </div>
               <div className={styles['profile-menu']}>
-                <button onClick={() => navigate('/admin/settings')}>Settings</button>
-                <button className={styles['logout-btn']} onClick={() => {
-                  authService.logoutAdmin();
-                  navigate('/');
-                }}>Log Out</button>
+                <button onClick={() => handleNavigate('/admin/settings')}>Settings</button>
+                <button className={styles['logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>
           )}

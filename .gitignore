@@ -1,27 +1,12 @@
 .DS_Store
 /node_modules/
-node_modules/
-frontend/
 
 # React Router
 /.react-router/
 /build/
 
+env/
+node_modules/
 dist
 dist-ssr
 *.local
-
-# Python Virtual Environment
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-*.pyc
-__pycache__/
-
-# Environment variables
-.env
-.env*
-backend/core/token.json
-backend/core/client_secret_*.json

@@ -7,62 +7,48 @@ import {
   IoChevronForward
 } from 'react-icons/io5';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
+import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
-import { USE_LOCAL_API } from '../../../config/environment.js';
-import { apiService } from '../../../services/apiService.js';
-
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
+import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
-  const [hasCreatedTicket, setHasCreatedTicket] = useState(false);
 
   useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        let allTickets = [];
-        
-        if (USE_LOCAL_API) {
-          console.log('🏠 Fetching tickets for home dashboard locally...');
-          const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
-          const result = await apiService.tickets.getEmployeeTickets(currentUser.id);
-          if (result.success) {
-            allTickets = result.data;
-            console.log('✅ Loaded tickets for dashboard:', allTickets.length);
-          }
-        } else {
-          // Original backend API logic
-          const token = localStorage.getItem("employee_access_token");
-          const res = await fetch(`${API_URL}tickets/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.ok) {
-            allTickets = await res.json();
-          }
-        }
-        
-        setHasCreatedTicket(Array.isArray(allTickets) && allTickets.length > 0);
-        // Show all tickets for testing
-        if (Array.isArray(allTickets) && allTickets.length > 0) {
-          // Sort and slice for recent
-          const sorted = allTickets
-            .sort((a, b) =>
-              new Date(b.last_updated || b.update_date || b.submit_date) -
-              new Date(a.last_updated || a.update_date || a.submit_date)
-            )
-            .slice(0, 5);
-          setRecentTickets(sorted);
-        } else {
-          setHasCreatedTicket(false);
-          setRecentTickets([]);
-        }
-      } catch (err) {
-        setHasCreatedTicket(false);
-        setRecentTickets([]);
-      }
-    };
-    fetchTickets();
+    const allTickets = getEmployeeTickets();
+
+    const activeTickets = allTickets.filter(ticket => {
+      const status = ticket.status.toLowerCase();
+      return !['closed', 'rejected', 'withdrawn'].includes(status);
+    });
+
+    const sorted = activeTickets
+      .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
+      .slice(0, 5);
+
+    // If there are fewer than 5 recent tickets, append demo tickets to reach 5
+    const demoCount = 5 - sorted.length;
+    const demoTickets = [];
+    for (let i = 0; i < demoCount; i++) {
+      const idx = i + 1;
+      demoTickets.push({
+        ticketNumber: `DT00${idx}`,
+        subject: 'Sample Ticket',
+        assignedTo: { name: null },
+        priorityLevel: 'Normal',
+        category: 'General',
+        subCategory: 'Inquiry',
+        status: 'New', // Use admin-side status
+        dateCreated: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      });
+    }
+
+    const finalList = sorted.concat(demoTickets).slice(0,5);
+    setRecentTickets(finalList);
   }, []);
 
   const handleSubmitTicket = () => {
@@ -85,31 +71,29 @@ const EmployeeHome = () => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
   };
 
-  const firstName = localStorage.getItem("employee_first_name") || "Employee";
-
   return (
-    <div className={styles.container}>
+    <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>{firstName}</span>,
+        Welcome <span className={styles.welcomeName}>{employeeBonjingData.firstName}</span>,
       </h1>
 
       <div className={styles.topSection}>
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Quick Actions</h2>
           <div className={styles.actionGroupColumn}>
-            <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
+            <Button variant="primary" onClick={handleSubmitTicket}>
               <IoAdd />
               Submit a Ticket
-            </button>
+            </Button>
             <div className={styles.actionGroupRow}>
-              <button className={`${styles.button} ${styles.outline}`} onClick={handleViewActiveTickets}>
+              <Button variant="outline" onClick={handleViewActiveTickets}>
                 <IoList />
                 View Active Tickets
-              </button>
-              <button className={`${styles.button} ${styles.outline}`} onClick={handleViewTicketRecords}>
+              </Button>
+              <Button variant="outline" onClick={handleViewTicketRecords}>
                 <IoFolderOpen />
                 View Ticket Records
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -121,7 +105,7 @@ const EmployeeHome = () => {
           </p>
           <ul className={styles.noticeList}>
             <li className={styles.noticeItem}>
-              Tickets should be processed within <strong>1 business day</strong>
+              Tickets will be processed within <strong>1 business day</strong>
             </li>
             <li className={styles.noticeItem}>
               Urgent requests? Call <span className={styles.phoneNumber}>+63 912 345 6789</span>
@@ -133,38 +117,44 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          {/* Removed Track Active Tickets button */}
+          <Button variant="primary" onClick={handleTrackTickets}>
+            Track Active Tickets
+          </Button>
         </div>
 
         {recentTickets.length === 0 ? (
           <div className={styles.noTickets}>
             <p>No active tickets to display.</p>
-            {/* Only show Submit a Ticket if user has ever created a ticket */}
-            {hasCreatedTicket && (
-              <button className={`${styles.button} ${styles.primary}`} onClick={handleSubmitTicket}>
-                Submit a Ticket
-              </button>
-            )}
+            <Button variant="primary" onClick={handleSubmitTicket}>
+              Submit a Ticket
+            </Button>
           </div>
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {
-              // Map "New" to "pending" for color and display
-              const statusKey = ticket.status.toLowerCase() === "new"
-                ? "pending"
-                : ticket.status.replace(/\s/g, '').toLowerCase();
-
+              // Convert status to employee view (New/Open -> Pending)
+              const displayStatus = toEmployeeStatus(ticket.status);
+              const statusKey = displayStatus.replace(/\s/g, '').toLowerCase();
               return (
-                <div key={ticket.ticket_number} className={styles.ticketItem}>
+                <div key={ticket.ticketNumber} className={styles.ticketItem}>
                   <div className={styles.ticketInfo}>
-                    <div className={styles.ticketNumber}>#{ticket.ticket_number}</div>
+                    <div className={styles.ticketHeader}>
+                      <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                      <span
+                        className={styles.statusBadge}
+                        style={{
+                          backgroundColor: `var(--${statusKey}-bg)`,
+                          color: `var(--${statusKey}-text)`
+                        }}
+                      >
+                        {displayStatus.toUpperCase()}
+                      </span>
+                    </div>
                     <div className={styles.ticketDetailsGrid}>
                       <div>
                         <div className={styles.ticketLabel}>Assigned Agent</div>
                         <div className={styles.ticketValue}>
-                          {ticket.assigned_to
-                            ? `${ticket.assigned_to.first_name} ${ticket.assigned_to.last_name}`
-                            : 'Unassigned'}
+                          {ticket.assignedTo?.name || 'Unassigned'}
                         </div>
                       </div>
                       <div>
@@ -173,40 +163,31 @@ const EmployeeHome = () => {
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Priority Level</div>
-                        <div className={styles.ticketValue}>{ticket.priority || 'Not Set'}</div>
+                        <div className={styles.ticketValue}>{ticket.priorityLevel || 'Not Set'}</div>
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Category & Sub-category</div>
                         <div className={styles.ticketValue}>
-                          {ticket.category} &gt; {ticket.sub_category}
+                          {ticket.category} &gt; {ticket.subCategory}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className={styles.ticketStatus}>
-                    <span
-                      className={styles.statusBadge}
-                      style={{
-                        backgroundColor: `var(--${statusKey}-bg)`,
-                        color: `var(--${statusKey}-text)`
-                      }}
-                    >
-                      {ticket.status.toLowerCase() === "new"
-                        ? "PENDING"
-                        : ticket.status.toUpperCase()}
-                    </span>
-                    <div className={styles.lastUpdated}>
-                      Last Updated {new Date(ticket.update_date || ticket.submit_date).toLocaleDateString()}
-                    </div>
-                    <button
-                      className={styles.viewDetails}
-                      onClick={() => handleViewDetails(ticket.ticket_number)}
-                    >
-                      View Details <IoChevronForward />
-                    </button>
+                 <div className={styles.ticketActions}>
+                  <div className={styles.lastUpdated}>
+                    Last Updated {new Date(ticket.lastUpdated || ticket.dateCreated).toLocaleDateString()}
                   </div>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    onClick={() => handleViewDetails(ticket.ticketNumber)}
+                  >
+                    View Details <IoChevronForward />
+                  </Button>
                 </div>
+
+              </div>
               );
             })}
           </div>

@@ -1,21 +1,100 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import TableWrapper from "../../../shared/table/TableWrapper";
-import TableContent from "../../../shared/table/TableContent";
+import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
+import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import getTicketActions from "../../../shared/table/TicketActions";
+
+import TablePagination from "../../../shared/table/TablePagination";
+import FilterPanel from "../../../shared/table/FilterPanel";
 import EmployeeActiveTicketsWithdrawTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal";
 import EmployeeActiveTicketsCloseTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal";
-import { USE_LOCAL_API } from '../../../config/environment.js';
-import { apiService } from '../../../services/apiService.js';
+import styles from './EmployeeActiveTickets.module.css';
 
 const headingMap = {
-  "all-active": "All Active Tickets",
-  open: "Open Tickets",
-  "in-progress": "In Progress Tickets",
-  "on-hold": "On Hold Tickets",
-  pending: "Pending Tickets",
-  resolved: "Resolved Tickets",
+  "all-active-tickets": "All Active Tickets",
+  "pending-tickets": "Pending Tickets",
+  "in-progress-tickets": "In Progress Tickets",
+  "on-hold-tickets": "On Hold Tickets",
+  "resolved-tickets": "Resolved Tickets",
 };
+
+// Map employee filter URLs to actual ticket statuses (stored as admin statuses)
+// Employee sees "Pending" for both "New" and "Open" admin statuses
+const statusMap = {
+  "all-active-tickets": ["New", "Open", "In Progress", "On Hold", "Resolved"],
+  "pending-tickets": ["New", "Open"], // Employee "Pending" = Admin "New" or "Open"
+  "in-progress-tickets": ["In Progress"],
+  "on-hold-tickets": ["On Hold"],
+  "resolved-tickets": ["Resolved"],
+};
+
+// TableHeader component
+function TableHeader() {
+  return (
+    <tr>
+      <th>Ticket No.</th>
+      <th>Subject</th>
+      <th>Status</th>
+      <th>Priority</th>
+      <th>Category</th>
+      <th>Sub Category</th>
+      <th>Date Created</th>
+      <th>Actions</th>
+    </tr>
+  );
+}
+
+// TableItem component
+function TableItem({ ticket, onView, onWithdraw, onClose }) {
+  // Convert status to employee view for display
+  const displayStatus = toEmployeeStatus(ticket.status);
+  
+  const isWithdrawAllowed = () => {
+    const allowed = ["pending", "in progress", "on hold"];
+    return allowed.includes(displayStatus.toLowerCase());
+  };
+
+  const isCloseAllowed = () => {
+    return displayStatus.toLowerCase() === "resolved";
+  };
+
+  return (
+    <tr>
+      <td>{ticket.ticketNumber}</td>
+      <td>
+        <div className={styles.subjectCell} title={ticket.subject}>
+          {ticket.subject}
+        </div>
+      </td>
+      <td>
+        <div className={`${styles.status} ${styles[`status-${displayStatus.replace(/\s+/g, "-").toLowerCase()}`]}`}>
+          {displayStatus}
+        </div>
+      </td>
+      <td>
+        {ticket.priorityLevel ? (
+          <div className={`${styles.priority} ${styles[`priority-${ticket.priorityLevel.toLowerCase()}`]}`}>
+            {ticket.priorityLevel}
+          </div>
+        ) : (
+          <div className={`${styles.priority} ${styles['priority-not-set']}`}>
+            Not Set
+          </div>
+        )}
+      </td>
+      <td>{ticket.category}</td>
+      <td>{ticket.subCategory}</td>
+      <td>{ticket.dateCreated?.slice(0, 10)}</td>
+      <td>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+          {getTicketActions("view", ticket, { onView })}
+          {isWithdrawAllowed() && getTicketActions("withdraw", ticket, { onWithdraw })}
+          {isCloseAllowed() && getTicketActions("delete", ticket, { onDelete: onClose })}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 const EmployeeActiveTickets = () => {
   const { filter = "all-active-tickets" } = useParams();
@@ -23,94 +102,89 @@ const EmployeeActiveTickets = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allActiveTickets, setAllActiveTickets] = useState([]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Modals
   const [selectedWithdraw, setSelectedWithdraw] = useState(null);
   const [selectedClose, setSelectedClose] = useState(null);
 
-  const normalizedFilter = filter.replace("-tickets", "").toLowerCase();
-  const statusFilter =
-    normalizedFilter === "all-active"
-      ? null
-      : normalizedFilter.replace(/-/g, " ").toLowerCase();
-
   useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        let data = [];
-        
-        if (USE_LOCAL_API) {
-          console.log('🎫 Fetching active tickets locally...');
-          const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
-          const result = await apiService.tickets.getEmployeeTickets(currentUser.id);
-          if (result.success) {
-            data = result.data;
-            console.log('✅ Loaded active tickets:', data.length);
-          }
-        } else {
-          // Original backend API logic
-          const token = localStorage.getItem("employee_access_token");
-          const res = await fetch(
-            `${import.meta.env.VITE_REACT_APP_API_URL}tickets/`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          if (res.ok) {
-            data = await res.json();
-          }
-        }
-        
-        setAllActiveTickets(
-          data.map((t) => ({
-            ...t,
-            ticketNumber: t.ticket_number, // for navigation/search
-            subCategory: t.sub_category,   // for table display
-          }))
-        );
-      } catch (error) {
-        console.log('❌ Error fetching active tickets:', error);
-        setAllActiveTickets([]);
-      }
-    };
-    fetchTickets();
+    const tickets = getEmployeeTickets();
+    setAllActiveTickets(tickets);
   }, []);
 
-  const displayedTickets = useMemo(() => {
-    let result = [...allActiveTickets];
+  const [activeFilters, setActiveFilters] = useState({
+    category: null,
+    status: null,
+    priority: null,
+    startDate: "",
+    endDate: "",
+  });
 
-    // Exclude rejected, withdrawn, and closed tickets from active tickets
-    result = result.filter(
-      (ticket) => {
-        const status = ticket.status.toLowerCase();
-        return status !== "rejected" && status !== "withdrawn" && status !== "closed";
-      }
+  const filteredTickets = useMemo(() => {
+    const allowedStatuses = statusMap[filter] || [];
+    
+    let filtered = allActiveTickets.filter(ticket =>
+      allowedStatuses.includes(ticket.status)
     );
 
-    if (statusFilter) {
-      if (statusFilter === "pending") {
-        // Show both "Pending" and "New" tickets under Pending
-        result = result.filter(
-          (ticket) =>
-            ticket.status.toLowerCase() === "pending" ||
-            ticket.status.toLowerCase() === "new"
-        );
-      } else {
-        result = result.filter(
-          (ticket) => ticket.status.toLowerCase() === statusFilter
-        );
-      }
-    }
-
+    // Apply search filter
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(
+      filtered = filtered.filter(
         ({ ticketNumber, subject }) =>
           ticketNumber?.toLowerCase().includes(term) ||
           subject?.toLowerCase().includes(term)
       );
     }
 
-    return result;
-  }, [allActiveTickets, statusFilter, searchTerm]);
+    // Apply category filter
+    if (activeFilters.category) {
+      filtered = filtered.filter(
+        ticket => ticket.category === activeFilters.category.label
+      );
+    }
+
+    // Apply status filter (need to map employee status back to admin statuses)
+    if (activeFilters.status) {
+      const employeeStatus = activeFilters.status.label;
+      filtered = filtered.filter(ticket => {
+        const displayStatus = toEmployeeStatus(ticket.status);
+        return displayStatus === employeeStatus;
+      });
+    }
+
+    // Apply priority filter
+    if (activeFilters.priority) {
+      filtered = filtered.filter(
+        ticket => ticket.priorityLevel === activeFilters.priority.label
+      );
+    }
+
+    // Apply date range filter
+    if (activeFilters.startDate) {
+      filtered = filtered.filter(
+        ticket => ticket.dateCreated >= activeFilters.startDate
+      );
+    }
+    if (activeFilters.endDate) {
+      filtered = filtered.filter(
+        ticket => ticket.dateCreated <= activeFilters.endDate
+      );
+    }
+
+    return filtered;
+  }, [allActiveTickets, filter, searchTerm, activeFilters]);
+
+  // Paginate tickets
+  const displayedTickets = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredTickets.slice(startIndex, endIndex);
+  }, [filteredTickets, currentPage, pageSize]);
 
   const handleWithdraw = (ticket) => {
     setSelectedWithdraw(ticket);
@@ -121,96 +195,120 @@ const EmployeeActiveTickets = () => {
   };
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`, {
-      state: { from: "active-tickets" }
-    });
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
   };
 
-  const columns = useMemo(() => {
-    // Always included columns
-    const baseCols = [
-      { key: "ticket_number", label: "Ticket Number" },
-      { key: "subject", label: "Subject" },
-      {
-        key: "status",
-        label: "Status",
-        render: (val) => (val === "New" ? "Pending" : val),
-      },
-      { key: "priority", label: "Priority", render: (val) => val || "—" },
-      { key: "department", label: "Department" },
-      { key: "category", label: "Category" },
-      { key: "sub_category", label: "Sub Category" },
-      {
-        key: "submit_date",
-        label: "Date Created",
-        render: (val) => val?.slice(0, 10),
-      },
-    ];
-
-    // Action columns
-    const withdrawCol = {
-      key: "withdraw",
-      label: "Withdraw",
-      render: (_, row) =>
-        getTicketActions("withdraw", row, {
-          onWithdraw: handleWithdraw,
-        }),
-    };
-    const closeCol = {
-      key: "close",
-      label: "Close",
-      render: (_, row) =>
-        getTicketActions("delete", row, {
-          onDelete: handleClose,
-        }),
-    };
-    const viewCol = {
-      key: "view",
-      label: "View",
-      render: (_, row) =>
-        getTicketActions("view", row, {
-          onView: handleView,
-        }),
-    };
-
-    // Determine which columns to show based on filter
-    if (
-      ["pending", "open", "in-progress", "on-hold"].includes(normalizedFilter)
-    ) {
-      // Remove Close column
-      return [...baseCols, withdrawCol, viewCol];
-    }
-    if (normalizedFilter === "resolved") {
-      // Remove Withdraw column
-      return [...baseCols, closeCol, viewCol];
-    }
-    // Default: show both Withdraw and Close
-    return [...baseCols, withdrawCol, closeCol, viewCol];
-  }, [normalizedFilter, handleWithdraw, handleClose, handleView]);
+  const [showFilter, setShowFilter] = useState(false);
 
   return (
-    <>
-      <TableWrapper
-        title={headingMap[normalizedFilter] || "Active Tickets"}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        showFilters={false}
-        showActions={false}
-      >
-        <TableContent
-          columns={columns}
-          data={displayedTickets}
-          showSelection={false}
-          showFooter={false}
-          emptyMessage="No tickets found for this filter."
-          onRowClick={(row) =>
-            navigate(`/employee/ticket-tracker/${row.ticketNumber}`, {
-              state: { from: "active-tickets" }
-            })
-          }
-        />
-      </TableWrapper>
+    <div className={styles.pageContainer}>
+      {/* Top bar with Show Filter button */}
+      <div className={styles.topBar}>
+        <button 
+          className={styles.showFilterButton}
+          onClick={() => setShowFilter(!showFilter)}
+        >
+          {showFilter ? 'Hide Filter' : 'Show Filter'}
+        </button>
+      </div>
 
+      {/* Filter Panel - outside table section */}
+      {showFilter && (
+        <FilterPanel
+          hideToggleButton={true}
+          onApply={setActiveFilters}
+          onReset={() => {
+            setActiveFilters({
+              category: null,
+              status: null,
+              priority: null,
+              startDate: "",
+              endDate: "",
+            });
+            setCurrentPage(1);
+          }}
+          categoryOptions={[
+            { label: "Hardware", category: "IT" },
+            { label: "Software", category: "IT" },
+            { label: "Network", category: "IT" },
+            { label: "Account", category: "Access" },
+            { label: "Other", category: "General" },
+          ]}
+          statusOptions={[
+            { label: "Pending", category: "Active" },
+            { label: "In Progress", category: "Active" },
+            { label: "On Hold", category: "Active" },
+            { label: "Resolved", category: "Complete" },
+          ]}
+          priorityOptions={[
+            { label: "Critical", category: "Urgent" },
+            { label: "High", category: "Important" },
+            { label: "Medium", category: "Normal" },
+            { label: "Low", category: "Minor" },
+          ]}
+          initialFilters={activeFilters}
+        />
+      )}
+
+      <div className={styles.tableSection}>
+
+        {/* Table header */}
+        <div className={styles.tableHeader}>
+          <h2>{headingMap[filter] || "Active Tickets"}</h2>
+          <div className={styles.tableActions}>
+            <input
+              className={styles.searchBar}
+              type="search"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+        
+        {/* Table wrapper */}
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <TableHeader />
+            </thead>
+            <tbody>
+              {displayedTickets.length > 0 ? (
+                displayedTickets.map((ticket, index) => (
+                  <TableItem 
+                    key={index} 
+                    ticket={ticket}
+                    onView={handleView}
+                    onWithdraw={handleWithdraw}
+                    onClose={handleClose}
+                  />
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className={styles.emptyMessage}>
+                    No active tickets found for this filter.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className={styles.tablePagination}>
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredTickets.length}
+            initialItemsPerPage={pageSize}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setPageSize}
+            alwaysShow={true}
+          />
+        </div>
+
+      </div>
+
+      {/* Modals */}
       {selectedWithdraw && (
         <EmployeeActiveTicketsWithdrawTicketModal
           ticket={selectedWithdraw}
@@ -238,7 +336,7 @@ const EmployeeActiveTickets = () => {
           }}
         />
       )}
-    </>
+    </div>
   );
 };
 

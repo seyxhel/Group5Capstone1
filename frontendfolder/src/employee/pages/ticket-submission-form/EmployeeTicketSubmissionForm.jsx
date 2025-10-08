@@ -1,12 +1,9 @@
-import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
 import styles from './EmployeeTicketSubmissionForm.module.css';
-import { categories, subCategories } from '../../../utilities/ticket-data/ticketStaticData';
-import { USE_LOCAL_API } from '../../../config/environment.js';
-import { apiService } from '../../../services/apiService.js';
+import { addNewEmployeeTicket } from '../../../utilities/storages/employeeTicketStorageBonjing';
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -19,29 +16,321 @@ const ALLOWED_FILE_TYPES = [
   'text/csv',
 ];
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+// Main ticket categories
+const ticketCategories = [
+  'Asset Check In',
+  'Asset Check Out',
+  'Capital Expenses (CapEx)',
+  'Operational Expenses (OpeEx)',
+  'Reimbursement Claim (Liabilities)',
+  'Charging Department (Cost Center)'
+];
 
-const namePattern = /^[a-zA-Z.\-'\s]+$/;
-const letterPresencePattern = /[a-zA-Z]/;
+// Asset sub-categories (Type of Product)
+const assetSubCategories = [
+  'Laptop',
+  'Tablet',
+  'Printer',
+  'Projector',
+  'Mouse',
+  'Keyboard',
+  'Monitor',
+  'Other'
+];
+
+// BMS Sub-categories based on category
+const bmsSubCategories = {
+  'Capital Expenses (CapEx)': [
+    'Equipment',
+    'Software (Long-term value like MS Office, Adobe Suite, Antivirus)',
+    'Furniture'
+  ],
+  'Operational Expenses (OpeEx)': [
+    'Utilities',
+    'Supplies',
+    'IT Services',
+    'Software Subscriptions'
+  ],
+  'Reimbursement Claim (Liabilities)': [
+    'Payable',
+    'Loans'
+  ],
+  'Charging Department (Cost Center)': [
+    'IT Operations (Day-to-day support)',
+    'System Development (In-house software projects)',
+    'Infrastructure & Equipment (Hardware, network, servers)',
+    'Training and Seminars (Employee development)'
+  ]
+};
+
+// Mock asset data
+const mockAssets = {
+  'Laptop': [
+    { name: 'Dell Latitude 5420', serialNumber: 'DL5420001' },
+    { name: 'HP ProBook 450 G9', serialNumber: 'HP450002' },
+    { name: 'Lenovo ThinkPad X1', serialNumber: 'LTX1003' }
+  ],
+  'Tablet': [
+    { name: 'iPad Pro 12.9"', serialNumber: 'IPAD001' },
+    { name: 'Samsung Galaxy Tab S8', serialNumber: 'SGTAB002' }
+  ],
+  'Printer': [
+    { name: 'Canon ImageRunner 2625i', serialNumber: 'CI2625001' },
+    { name: 'HP LaserJet Pro 404dn', serialNumber: 'HP404002' }
+  ],
+  'Projector': [
+    { name: 'Epson PowerLite 1795F', serialNumber: 'EP1795001' },
+    { name: 'BenQ MH535FHD', serialNumber: 'BQ535002' }
+  ],
+  'Mouse': [
+    { name: 'Logitech MX Master 3', serialNumber: 'LMX3001' },
+    { name: 'Dell Wireless Mouse WM126', serialNumber: 'DWM126002' }
+  ],
+  'Keyboard': [
+    { name: 'Logitech K380', serialNumber: 'LK380001' },
+    { name: 'Dell KB216', serialNumber: 'DKB216002' }
+  ],
+  'Monitor': [
+    { name: 'Dell UltraSharp U2422H', serialNumber: 'DU2422001' },
+    { name: 'LG 27UK850-W 4K', serialNumber: 'LG27UK002' }
+  ],
+  'Other': [
+    { name: 'Webcam Logitech C920', serialNumber: 'WC920001' },
+    { name: 'USB Hub Anker 7-Port', serialNumber: 'USBH7P002' }
+  ]
+};
+
+// Locations
+const locations = [
+  'Manila Office - Floor 1',
+  'Manila Office - Floor 2', 
+  'Manila Office - Floor 3',
+  'Cebu Branch',
+  'Davao Branch',
+  'Work From Home'
+];
+
+// Issue types for Asset Check In
+const assetIssueTypes = [
+  'Not Functioning',
+  'Missing Accessories (e.g., charger, case)',
+  'Other'
+];
+
+// Type of Proposal - removed as not in requirements
+const proposalTypes = [
+  'New Proposal',
+  'Continuing Proposal'
+];
+
+// Cost ranges for Estimated Cost dropdown
+const costRanges = [
+  '₱0 - ₱10,000',
+  '₱10,001 - ₱50,000',
+  '₱50,001 - ₱100,000',
+  '₱100,001 - ₱500,000',
+  '₱500,001 - ₱1,000,000',
+  '₱1,000,001 and above'
+];
+
+const mockEmployee = {
+  userId: 'U001',
+  role: 'User',
+  name: 'Bonjing San Jose',
+  department: 'IT Department',
+};
 
 export default function EmployeeTicketSubmissionForm() {
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm({
-    mode: 'all', // Validate onChange, onBlur, and onSubmit
-    reValidateMode: 'onChange',
+  const navigate = useNavigate();
+  
+  const [formData, setFormData] = useState({
+    subject: '',
+    category: '',
+    subCategory: '',
+    description: '',
+    assetName: '',
+    serialNumber: '',
+    location: '',
+    expectedReturnDate: '',
+    issueType: '',
+    otherIssue: '',
+    performanceStartDate: '',
+    performanceEndDate: '',
+    approvedBy: '',
+    schedule: ''
   });
 
-  const navigate = useNavigate();
-  const selectedCategory = watch('category');
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [subjectLengthError, setSubjectLengthError] = useState("");
+  const [costItems, setCostItems] = useState([{ costElement: '', estimatedCost: '' }]);
+
+  // Category checks
+  const isAssetCheckIn = formData.category === 'Asset Check In';
+  const isAssetCheckOut = formData.category === 'Asset Check Out';
+  const isBMSCategory = [
+    'Capital Expenses (CapEx)',
+    'Operational Expenses (OpeEx)',
+    'Reimbursement Claim (Liabilities)',
+    'Charging Department (Cost Center)'
+  ].includes(formData.category);
+  const isAnyAssetCategory = isAssetCheckIn || isAssetCheckOut;
+
+  const validateField = (field, value) => {
+    let error = '';
+    
+    switch (field) {
+      case 'subject':
+        if (!value.trim()) {
+          error = 'Subject is required';
+        } else if (value.trim().length < 5) {
+          error = 'Subject must be at least 5 characters long';
+        }
+        break;
+      
+      case 'category':
+        if (!value) {
+          error = 'Category is required';
+        }
+        break;
+      
+      case 'subCategory':
+        if ((isAnyAssetCategory || isBMSCategory) && !value) {
+          error = 'Sub-Category is required';
+        }
+        break;
+      
+      case 'description':
+        if (!value.trim()) {
+          error = 'Description is required';
+        } else if (value.trim().length < 10) {
+          error = 'Description must be at least 10 characters long';
+        }
+        break;
+      
+      case 'assetName':
+        if (isAnyAssetCategory && !value) {
+          error = 'Asset Name is required';
+        }
+        break;
+      
+      case 'location':
+        if (isAnyAssetCategory && !value) {
+          error = 'Location is required';
+        }
+        break;
+      
+      case 'issueType':
+        if (isAssetCheckIn && !value) {
+          error = 'Issue Type is required';
+        }
+        break;
+      
+      case 'performanceStartDate':
+        if (isBMSCategory && !value) {
+          error = 'Performance Start Date is required';
+        }
+        break;
+      
+      case 'performanceEndDate':
+        if (isBMSCategory && !value) {
+          error = 'Performance End Date is required';
+        } else if (isBMSCategory && formData.performanceStartDate && value && new Date(value) < new Date(formData.performanceStartDate)) {
+          error = 'End date must be after start date';
+        }
+        break;
+
+      case 'expectedReturnDate':
+        if (isAssetCheckOut && !value) {
+          error = 'Expected Return Date is required';
+        }
+        break;
+      
+      case 'approvedBy':
+        if (isBMSCategory && !value.trim()) {
+          error = 'Approved By is required';
+        }
+        break;
+      
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
+  const handleInputChange = (field) => (e) => {
+    const value = e.target.value;
+    
+    setFormData({
+      ...formData,
+      [field]: value
+    });
+
+    // Reset dependent fields when category changes
+    if (field === 'category') {
+      setFormData(prev => ({
+        ...prev,
+        category: value,
+        subCategory: '',
+        assetName: '',
+        serialNumber: '',
+        location: '',
+        expectedReturnDate: '',
+        issueType: '',
+        otherIssue: '',
+        performanceStartDate: '',
+        performanceEndDate: '',
+        approvedBy: ''
+      }));
+    }
+
+    // Reset asset name and serial number when sub-category changes
+    if (field === 'subCategory') {
+      setFormData(prev => ({
+        ...prev,
+        subCategory: value,
+        assetName: '',
+        serialNumber: ''
+      }));
+    }
+
+    // Auto-populate serial number when asset name is selected
+    if (field === 'assetName' && value && formData.subCategory) {
+      const asset = mockAssets[formData.subCategory]?.find(a => a.name === value);
+      if (asset) {
+        setFormData(prev => ({
+          ...prev,
+          assetName: value,
+          serialNumber: asset.serialNumber
+        }));
+      }
+    }
+
+    // Validate field if it has been touched
+    if (touched[field]) {
+      const error = validateField(field, value);
+      setErrors({
+        ...errors,
+        [field]: error
+      });
+    }
+  };
+
+  const handleBlur = (field) => () => {
+    setTouched({
+      ...touched,
+      [field]: true
+    });
+
+    const error = validateField(field, formData[field]);
+    setErrors({
+      ...errors,
+      [field]: error
+    });
+  };
 
   const handleFileChange = (e) => {
     const newFiles = Array.from(e.target.files);
@@ -53,164 +342,160 @@ export default function EmployeeTicketSubmissionForm() {
 
     const updated = [...selectedFiles, ...validFiles];
     setSelectedFiles(updated);
-    setValue('fileUpload', updated);
     e.target.value = '';
   };
 
   const removeFile = (index) => {
     const updated = selectedFiles.filter((_, i) => i !== index);
     setSelectedFiles(updated);
-    setValue('fileUpload', updated.length > 0 ? updated : null);
   };
 
-  const refreshAccessToken = async () => {
-    const refresh = localStorage.getItem("employee_refresh_token");
-    if (!refresh) throw new Error("Session expired. Please log in again.");
-    const res = await fetch(`${API_URL}token/refresh/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
+  // Handle cost items for BMS
+  const addCostItem = () => {
+    setCostItems([...costItems, { costElement: '', estimatedCost: '' }]);
+  };
+
+  const removeCostItem = (index) => {
+    if (costItems.length > 1) {
+      const updated = costItems.filter((_, i) => i !== index);
+      setCostItems(updated);
+    }
+  };
+
+  const updateCostItem = (index, field, value) => {
+    const updated = costItems.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    );
+    setCostItems(updated);
+  };
+
+  // Calculate total budget
+  const calculateTotalBudget = () => {
+    return costItems.reduce((total, item) => {
+      if (item.estimatedCost) {
+        // Extract numeric value from cost range
+        const match = item.estimatedCost.match(/₱([\d,]+)/);
+        if (match) {
+          const value = parseInt(match[1].replace(/,/g, ''));
+          return total + value;
+        }
+      }
+      return total;
+    }, 0);
+  };
+
+  const validateAllFields = () => {
+    const newErrors = {};
+    const newTouched = {};
+    
+    const fieldsToValidate = ['subject', 'category', 'description'];
+    
+    // Add category-specific required fields
+    if (isAnyAssetCategory || isBMSCategory) {
+      fieldsToValidate.push('subCategory');
+    }
+    
+    if (isAnyAssetCategory) {
+      fieldsToValidate.push('assetName', 'location');
+    }
+
+    if (isAssetCheckIn) {
+      fieldsToValidate.push('issueType');
+    }
+
+    if (isAssetCheckOut) {
+      fieldsToValidate.push('expectedReturnDate');
+    }
+
+    if (isBMSCategory) {
+      fieldsToValidate.push('performanceStartDate', 'performanceEndDate', 'approvedBy');
+    }
+
+    fieldsToValidate.forEach(field => {
+      newTouched[field] = true;
+      newErrors[field] = validateField(field, formData[field]);
     });
-    if (!res.ok) throw new Error("Session expired. Please log in again.");
-    const data = await res.json();
-    localStorage.setItem("employee_access_token", data.access);
-    return data.access;
+    
+    setTouched(newTouched);
+    setErrors(newErrors);
+    
+    // Return true if no errors
+    return !Object.values(newErrors).some(error => error !== '');
   };
 
-  const onSubmit = async (data) => {
-    setSubjectLengthError("");
-    if (data.subject && data.subject.length > 70) {
-      setSubjectLengthError("Subject should be 70 characters or less.");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateAllFields()) {
+      toast.error('Please fix the errors in the form before submitting.');
       return;
     }
+
     setIsSubmitting(true);
 
-    const requiredFields = ['subject', 'category', 'subCategory', 'description'];
-    const isEmpty = requiredFields.some(field => !data[field]);
-
-    if (isEmpty) {
-      toast.error('Please fill out all required fields.');
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      let ticket;
-      
-      if (USE_LOCAL_API) {
-        console.log('🎫 Creating ticket locally...');
-        // Get current user from localStorage for local development
-        const currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || '{}');
-        
-        const ticketData = {
-          subject: data.subject,
-          description: data.description,
-          priority_level: null, // Will be set by coordinator on approval
-          department: null, // Will be set by coordinator on approval
-          category: data.category,
-          sub_category: data.subCategory,
-          scheduled_date: data.schedule || null,
-          attachments: selectedFiles ? Array.from(selectedFiles).map(file => ({
-            name: file.name,
-            size: file.size,
-            type: file.type
-          })) : []
-        };
-        
-        const result = await apiService.tickets.createTicket(ticketData, currentUser);
-        
-        if (result.success) {
-          ticket = result.data;
-          toast.success('Ticket successfully submitted.');
-          console.log('✅ Ticket created:', ticket);
-        } else {
-          throw new Error(result.error || "Failed to create ticket locally.");
-        }
-      } else {
-        // Original backend API logic
-        const submitTicket = async (accessToken) => {
-          const formData = new FormData();
-          formData.append("subject", data.subject);
-          formData.append("category", data.category);
-          formData.append("sub_category", data.subCategory);
-          formData.append("description", data.description);
-          if (data.schedule) formData.append("scheduled_date", data.schedule);
-          (selectedFiles || []).forEach(file => {
-            formData.append("files[]", file);
-          });
+      const newTicket = addNewEmployeeTicket({
+        subject: formData.subject,
+        category: formData.category,
+        subCategory: formData.subCategory,
+        description: formData.description,
+        createdBy: mockEmployee,
+        fileUploaded: selectedFiles.length > 0 ? selectedFiles : null,
+        scheduledRequest: formData.schedule || null,
+      });
 
-          const res = await fetch(`${API_URL}tickets/`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: formData,
-          });
-          return res;
-        };
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        let token = localStorage.getItem("employee_access_token");
-        let res = await submitTicket(token);
-
-        // If token expired, try to refresh and retry once
-        if (res.status === 401) {
-          token = await refreshAccessToken();
-          res = await submitTicket(token);
-        }
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || "Failed to submit ticket.");
-        }
-
-        ticket = await res.json();
-        toast.success('Ticket successfully submitted.');
-      }
-      setTimeout(() => navigate(`/employee/ticket-tracker/${ticket.ticket_number || ticket.id}`), 1500);
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit a ticket. Please try again.');
+      toast.success('Ticket successfully submitted.');
+      setTimeout(() => navigate(`/employee/ticket-tracker/${newTicket.ticketNumber}`), 1500);
+    } catch (error) {
+      toast.error('Failed to submit a ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      subject: '',
+      category: '',
+      subCategory: '',
+      description: '',
+      assetName: '',
+      serialNumber: '',
+      location: '',
+      expectedReturnDate: '',
+      issueType: '',
+      otherIssue: '',
+      performanceStartDate: '',
+      performanceEndDate: '',
+      approvedBy: '',
+      schedule: ''
+    });
+    setErrors({});
+    setTouched({});
+    setSelectedFiles([]);
+    setFileError('');
+    setCostItems([{ costElement: '', estimatedCost: '' }]);
+  };
+
   return (
     <main className={styles.registration}>
       <section className={styles.registrationForm}>
-        <form onSubmit={handleSubmit(onSubmit)} autoComplete='off'>
+        <form onSubmit={handleSubmit}>
+          {/* Main Form Fields */}
           <FormField
             id="subject"
             label="Subject"
             required
-            autoComplete="off"
-            error={errors.subject || (subjectLengthError ? { message: subjectLengthError } : undefined)}
+            error={errors.subject}
             render={() => (
               <input
                 type="text"
                 placeholder="Enter ticket subject"
-                maxLength={70}
-                {...register('subject', {
-                  required: 'Subject is required.',
-                  validate: value => {
-                    if (!value.trim()) return 'Subject is required.';
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
-                      return 'Only English letters, numbers, and common punctuation are allowed.';
-                    if (!/[a-zA-Z]/.test(value))
-                      return 'Subject must contain letter.';
-                    return true;
-                  },
-                })}
-                onInput={e => {
-                  // Remove disallowed characters and trim to 70 chars
-                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  if (filtered.length > 70) filtered = filtered.slice(0, 70);
-                  e.target.value = filtered;
-                }}
-                onPaste={e => {
-                  e.preventDefault();
-                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  filtered = filtered.slice(0, 70 - e.target.value.length);
-                  document.execCommand('insertText', false, filtered);
-                }}
+                value={formData.subject}
+                onChange={handleInputChange('subject')}
+                onBlur={handleBlur('subject')}
               />
             )}
           />
@@ -221,69 +506,16 @@ export default function EmployeeTicketSubmissionForm() {
             required
             error={errors.category}
             render={() => (
-              <select {...register('category', { required: 'Category is required.' })}>
+              <select
+                value={formData.category}
+                onChange={handleInputChange('category')}
+                onBlur={handleBlur('category')}
+              >
                 <option value="">Select Category</option>
-                {categories.map(cat => (
+                {ticketCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
-            )}
-          />
-
-          <FormField
-            id="subCategory"
-            label="Sub-Category"
-            required
-            error={errors.subCategory}
-            render={() => (
-              <select
-                disabled={!selectedCategory}
-                {...register('subCategory', { required: 'Sub-Category is required.' })}
-              >
-                <option value="">Select Sub-Category</option>
-                {selectedCategory &&
-                  subCategories[selectedCategory]?.map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-              </select>
-            )}
-          />
-
-          <FormField
-            id="description"
-            label="Description"
-            required
-            error={errors.description}
-            render={() => (
-              <textarea
-                rows={5}
-                placeholder="Provide a detailed description..."
-                maxLength={500}
-                {...register('description', {
-                  required: 'Description is required.',
-                  validate: value => {
-                    if (!value.trim()) return 'Description is required.';
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
-                      return 'Only English letters, numbers, and common punctuation are allowed.';
-                    if (!/[a-zA-Z]/.test(value))
-                      return 'Description must contain letter.';
-                    return true;
-                  },
-                })}
-                onInput={e => {
-                  // Remove disallowed characters and trim to 500 chars
-                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  if (filtered.length > 500) filtered = filtered.slice(0, 500);
-                  e.target.value = filtered;
-                }}
-                onPaste={e => {
-                  e.preventDefault();
-                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  filtered = filtered.slice(0, 500 - e.target.value.length);
-                  document.execCommand('insertText', false, filtered);
-                }}
-              />
             )}
           />
 
@@ -296,7 +528,6 @@ export default function EmployeeTicketSubmissionForm() {
                 id="fileUpload"
                 multiple
                 accept={ALLOWED_FILE_TYPES.join(',')}
-                {...register('fileUpload')}
                 onChange={handleFileChange}
                 hidden
               />
@@ -326,21 +557,312 @@ export default function EmployeeTicketSubmissionForm() {
 
           <FormField
             id="schedule"
-            label="Schedule Request"
-            render={() => {
-              const today = new Date();
-              const localDate = today.getFullYear() + '-' +
-                String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                String(today.getDate()).padStart(2, '0');
-              return (
-                <input
-                  type="date"
-                  min={localDate}
-                  {...register('schedule')}
-                />
-              );
-            }}
+            label="Scheduled Request"
+            render={() => (
+              <input
+                type="date"
+                value={formData.schedule}
+                onChange={handleInputChange('schedule')}
+              />
+            )}
           />
+
+          <FormField
+            id="description"
+            label="Description"
+            required
+            error={errors.description}
+            render={() => (
+              <textarea
+                rows={5}
+                placeholder="Provide a detailed description..."
+                value={formData.description}
+                onChange={handleInputChange('description')}
+                onBlur={handleBlur('description')}
+              />
+            )}
+          />
+
+          {/* Asset Management Fields (AMS) - For both Check In and Check Out */}
+          {isAnyAssetCategory && (
+            <>
+              <FormField
+                id="subCategory"
+                label="Sub-Category (Type of Product)"
+                required
+                error={errors.subCategory}
+                render={() => (
+                  <select
+                    value={formData.subCategory}
+                    onChange={handleInputChange('subCategory')}
+                    onBlur={handleBlur('subCategory')}
+                  >
+                    <option value="">Select Product Type</option>
+                    {assetSubCategories.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                )}
+              />
+
+              <FormField
+                id="assetName"
+                label="Asset Name"
+                required
+                error={errors.assetName}
+                render={() => (
+                  <select
+                    disabled={!formData.subCategory}
+                    value={formData.assetName}
+                    onChange={handleInputChange('assetName')}
+                    onBlur={handleBlur('assetName')}
+                  >
+                    <option value="">Select Asset</option>
+                    {formData.subCategory &&
+                      mockAssets[formData.subCategory]?.map(asset => (
+                        <option key={asset.name} value={asset.name}>
+                          {asset.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              />
+
+              <FormField
+                id="serialNumber"
+                label="Serial Number"
+                render={() => (
+                  <input
+                    type="text"
+                    placeholder="Auto-filled when asset is selected"
+                    readOnly
+                    value={formData.serialNumber}
+                    style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                  />
+                )}
+              />
+
+              <FormField
+                id="location"
+                label="Location"
+                required
+                error={errors.location}
+                render={() => (
+                  <select
+                    value={formData.location}
+                    onChange={handleInputChange('location')}
+                    onBlur={handleBlur('location')}
+                  >
+                    <option value="">Select Location</option>
+                    {locations.map(location => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
+                  </select>
+                )}
+              />
+
+              {/* Expected Return Date - Only for Asset Check Out */}
+              {isAssetCheckOut && (
+                <FormField
+                  id="expectedReturnDate"
+                  label="Expected Return Date"
+                  required
+                  error={errors.expectedReturnDate}
+                  render={() => (
+                    <input
+                      type="date"
+                      value={formData.expectedReturnDate}
+                      onChange={handleInputChange('expectedReturnDate')}
+                      onBlur={handleBlur('expectedReturnDate')}
+                    />
+                  )}
+                />
+              )}
+
+              {/* Specify Issue - Only for Asset Check In */}
+              {isAssetCheckIn && (
+                <FormField
+                  id="issueType"
+                  label="Specify Issue"
+                  required
+                  error={errors.issueType}
+                  render={() => (
+                    <select
+                      value={formData.issueType}
+                      onChange={handleInputChange('issueType')}
+                      onBlur={handleBlur('issueType')}
+                    >
+                      <option value="">Select Issue Type</option>
+                      {assetIssueTypes.map(issue => (
+                        <option key={issue} value={issue}>{issue}</option>
+                      ))}
+                    </select>
+                  )}
+                />
+              )}
+
+              {isAssetCheckIn && formData.issueType === 'Other' && (
+                <FormField
+                  id="otherIssue"
+                  label="Please Specify Other Issue"
+                  render={() => (
+                    <textarea
+                      rows={3}
+                      placeholder="Please describe the issue..."
+                      value={formData.otherIssue || ''}
+                      onChange={handleInputChange('otherIssue')}
+                    />
+                  )}
+                />
+              )}
+            </>
+          )}
+
+          {/* BMS Fields */}
+          {isBMSCategory && (
+            <>
+              <FormField
+                id="subCategory"
+                label="Sub-Category"
+                required
+                error={errors.subCategory}
+                render={() => (
+                  <select
+                    value={formData.subCategory}
+                    onChange={handleInputChange('subCategory')}
+                    onBlur={handleBlur('subCategory')}
+                  >
+                    <option value="">Select Sub-Category</option>
+                    {bmsSubCategories[formData.category]?.map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                )}
+              />
+
+              <FormField
+                id="performanceStartDate"
+                label="Performance Start Date"
+                required
+                error={errors.performanceStartDate}
+                render={() => (
+                  <input
+                    type="date"
+                    value={formData.performanceStartDate}
+                    onChange={handleInputChange('performanceStartDate')}
+                    onBlur={handleBlur('performanceStartDate')}
+                  />
+                )}
+              />
+
+              <FormField
+                id="performanceEndDate"
+                label="Performance End Date"
+                required
+                error={errors.performanceEndDate}
+                render={() => (
+                  <input
+                    type="date"
+                    value={formData.performanceEndDate}
+                    onChange={handleInputChange('performanceEndDate')}
+                    onBlur={handleBlur('performanceEndDate')}
+                  />
+                )}
+              />
+
+              {/* Cost Items Section */}
+              <fieldset>
+                <label>Cost Elements & Estimated Costs</label>
+                {costItems.map((item, index) => (
+                  <div key={index} style={{ border: '1px solid #ddd', padding: '15px', marginBottom: '10px', borderRadius: '5px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'end' }}>
+                      <FormField
+                        id={`costElement-${index}`}
+                        label="Cost Element (e.g. Software, Hardware)"
+                        render={() => (
+                          <input
+                            type="text"
+                            placeholder="e.g., Software, Hardware"
+                            value={item.costElement}
+                            onChange={(e) => updateCostItem(index, 'costElement', e.target.value)}
+                          />
+                        )}
+                      />
+
+                      <FormField
+                        id={`estimatedCost-${index}`}
+                        label="Estimated Cost"
+                        render={() => (
+                          <select
+                            value={item.estimatedCost}
+                            onChange={(e) => updateCostItem(index, 'estimatedCost', e.target.value)}
+                          >
+                            <option value="">Select Cost Range</option>
+                            {costRanges.map(range => (
+                              <option key={range} value={range}>{range}</option>
+                            ))}
+                          </select>
+                        )}
+                      />
+
+                      {costItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeCostItem(index)}
+                          style={{ 
+                            background: '#dc3545', 
+                            color: 'white', 
+                            border: 'none', 
+                            padding: '8px 12px', 
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addCostItem}
+                  style={{ 
+                    background: '#28a745', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '10px 20px', 
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginBottom: '15px'
+                  }}
+                >
+                  + Add Item
+                </button>
+
+                <div style={{ fontWeight: 'bold', fontSize: '18px' }}>
+                  Total Requested Budget: ₱{calculateTotalBudget().toLocaleString()}
+                </div>
+              </fieldset>
+
+              <FormField
+                id="approvedBy"
+                label="Approved By"
+                required
+                error={errors.approvedBy}
+                render={() => (
+                  <input
+                    type="text"
+                    placeholder="Enter name of approver"
+                    value={formData.approvedBy}
+                    onChange={handleInputChange('approvedBy')}
+                    onBlur={handleBlur('approvedBy')}
+                  />
+                )}
+              />
+            </>
+          )}
 
           <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
             {isSubmitting && <LoadingButton />}
@@ -360,7 +882,7 @@ function FormField({ id, label, required = false, error, render }) {
         {required && <span className={styles.required}>*</span>}
       </label>
       {render()}
-      {error && <span className={styles.errorMessage}>{error.message}</span>}
+      {error && <span className={styles.errorMessage}>{error}</span>}
     </fieldset>
   );
 }

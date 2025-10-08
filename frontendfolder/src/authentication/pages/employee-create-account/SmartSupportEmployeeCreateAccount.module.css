@@ -9,7 +9,6 @@
 
 .leftPanel {
   width: 50%;
-  height: 100%;
   background-color: white;
   display: flex;
   justify-content: center;
@@ -18,7 +17,7 @@
 
 .assetImage {
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: cover;
 }
 
@@ -189,32 +188,12 @@
   align-items: center;
   gap: 10px;
   font-size: 0.875rem;
-  flex-wrap: nowrap;      /* Prevent wrapping */
-  white-space: nowrap;    /* Prevent text wrapping */
-  margin-top: -0.5rem;
-  margin-bottom: -0.5rem;
-}
-
-.checkboxWrapper input[type="checkbox"] {
-  accent-color: var(--primary-color);
-  pointer-events: none;
-  cursor: not-allowed;
-}
-
-/* Fallback for browsers that don't support accent-color */
-.checkboxWrapper input[type="checkbox"]:checked {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.checkboxWrapper input[type="checkbox"]:hover {
-  cursor: not-allowed;       /* Show disabled cursor on hover */
 }
 
 .link {
   color: var(--primary-color);
-  font-weight: 500;
-  /* No text-decoration here, it's inherited from .underlineLinks */
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .link:hover {
@@ -246,7 +225,7 @@
 /* ========== Footer ========== */
 .backToLogin {
   text-align: center;
-  margin-top: 0.5rem;
+  margin-top: 1.5rem;
 }
 
 .backToLogin span {
@@ -256,38 +235,4 @@
 
 .backToLogin span:hover {
   color: var(--primary-color-hover);
-}
-
-/* ========== Password Field ========== */
-.passwordContainer {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.showPassword {
-  height: 20px;
-  width: 20px;
-  position: absolute;
-  right: 16px;
-  top: 53%;
-  transform: translateY(-50%);
-  cursor: pointer;
-  color: #888;
-  font-size: 0.95rem;   /* Make the icon smaller, matching login */
-  z-index: 2;
-}
-
-.underlineLinks {
-  display: inline;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-color: var(--primary-color); /* <-- Make underline blue */
-  cursor: pointer;
-}
-
-.andText {
-  color: inherit;      /* Inherit color from parent */
-  font-weight: 600;    /* Normal font weight */
 }

@@ -4,10 +4,3 @@ psycopg2-binary
 django-cors-headers
 Pillow
 djangorestframework-simplejwt
-gunicorn
-dj-database-url
-celery
-whitenoise
-google-auth
-google-auth-oauthlib
-google-api-python-client

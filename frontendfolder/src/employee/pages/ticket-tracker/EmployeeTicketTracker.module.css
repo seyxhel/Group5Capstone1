@@ -1,257 +1,746 @@
+/* Main Container */
 .employeeTicketTrackerPage {
-  display: flex;
-  gap: 20px;
   background-color: var(--bg-color);
   font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
 }
 
-/* === Left Column === */
-.mainContent {
-  flex: 1 1 65%;
+/* Page Header */
+.pageHeader {
+  margin-bottom: 24px;
 }
 
-.ticketCard {
-  padding: 24px;
-  background-color: #fff;
-  border: 1px solid #d3d3d3;
-  border-radius: 40px;
-  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.breadcrumb {
+  font-size: 0.875rem;
+  color: var(--secondary-text-color);
+  margin-bottom: 8px;
 }
 
-.ticketCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.pageTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0;
 }
 
-/* === Ticket Header === */
-.header {
+/* Two Column Grid */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 28px;
+  align-items: start;
+}
+
+/* Left Column */
+.leftColumn {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Ticket Header */
+.ticketHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
-.title {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--text-color);
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ticketNumber {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .statusBadge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f3f4f6;
+  display: inline-block;
   padding: 4px 12px;
-  border-radius: 20px;
-}
-
-.statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #6c757d;
-}
-
-.statusText {
+  border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #6c757d;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Status Badge Colors - matching active tickets */
+.statusPending {
+  color: #b38f00;
+  background-color: #fff9cc;
+}
+
+.statusInProgress {
+  color: #7c3aed;
+  background-color: #bcbcdf;
+}
+
+.statusOnHold {
+  color: #b35000;
+  background-color: #ffe5b4;
+}
+
+.statusResolved {
+  color: #059669;
+  background-color: #bbf7d0;
+}
+
+.statusClosed {
+  color: #16a34a;
+  background-color: #dcfce7;
+}
+
+.statusRejected {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+.statusWithdrawn {
+  color: #6b7280;
+  background-color: #f3f4f6;
+}
+
+.statusOpen {
+  color: #0284c7;
+  background-color: #a6ccdd;
+}
+
+/* Priority Badges */
+.priorityBadge {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.priorityLow {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.priorityMedium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.priorityHigh {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.priorityCritical {
+  background-color: #fecaca;
+  color: #991b1b;
+}
+
+.priorityNotSet {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Subject Section */
+.subjectSection {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.subjectMeta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 24px;
+  font-size: 0.9rem;
+  background-color: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metaLabel {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.timestamp {
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin-bottom: 1.5rem;
+.metaValue {
+  color: #111827;
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 
-/* === Ticket Details === */
-.ticketDetails fieldset {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 1rem;
-  border: none;
-  padding: 0;
+/* Description Section */
+.descriptionSection {
+  margin-bottom: 24px;
 }
 
-.ticketDetails fieldset label {
+.descriptionLabel {
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--secondary-text-color);
-}
-
-.ticketDetails fieldset p {
-  padding: 13px 16px;
-  border: 1px solid #d3d3d3;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  color: var(--secondary-text-color);
-}
-
-/* === Description === */
-.description {
-  margin-bottom: 1.25rem;
-}
-
-.descriptionTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 1rem;
+  color: #111827;
+  margin-bottom: 12px;
 }
 
 .descriptionText {
-  color: #343a40;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  color: #374151;
   line-height: 1.7;
+  margin: 0;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
 }
 
-/* === Attachment === */
-.attachment {
-  margin-bottom: 1.25rem;
+/* Ticket Information Section (in Left Column) */
+.ticketInfoSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
 
-.attachmentTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 1rem;
-}
-
-.attachmentContent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.attachmentIcon {
-  font-size: 16px;
-}
-
-.attachmentText {
-  font-size: 0.85rem;
-  color: #6c757d;
-}
-
-/* === Right Column / Sidebar === */
-.sidebar {
-  flex: 0 0 35%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* === Status Section === */
-.statusSection {
-  background-color: #fff;
-  padding: 24px;
-  border: 1px solid #d3d3d3;
-  border-radius: 40px;
-  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.statusSection:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-.withdrawButton {
-  align-self: flex-start;
-  background-color: var(--priority-high-text);
-  color: #fff;
-  border: none;
-  border-radius: 40px;
-  padding: 10px 18px;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-.withdrawButton:hover {
-  background-color: #ea580c;
-  transform: translateY(-1px);
-}
-
-.statusTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.statusTimeline {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.statusStep {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.statusCircle {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #f3f4f6;
-  border: 2px solid #d1d5db;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-.statusCircle.completed {
-  background-color: var(--resolved-text);
-  border-color: var(--resolved-text);
-}
-
-.checkmark {
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.statusLine {
-  width: 2px;
-  height: 40px;
-  background: #d1d5db;
-}
-
-.statusLine.completedLine {
-  background-color: var(--resolved-text);
-}
-
-.currentStatus {
-  border-top: 1px solid #e9ecef;
-  padding-top: 1rem;
-}
-
-.currentStatusTitle {
+.ticketInfoTitle {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-color);
+  margin: 0 0 16px 0;
 }
 
-.currentStatusText {
+.ticketInfoContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.infoRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.infoLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.infoValue {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-color);
+  text-align: right;
+}
+
+/* Instructions Section */
+.instructionsSection {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #f0f9ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+}
+
+.instructionsTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0 0 8px 0;
+}
+
+.instructionsText {
+  font-size: 0.875rem;
+  color: #1e40af;
+  margin: 0;
+}
+
+/* Attachment Section */
+.attachmentSection {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.attachmentLabel {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.attachmentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.attachmentCard {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: #ffffff;
+  align-items: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.attachmentCard:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.attachmentIcon {
+  font-size: 2.5rem;
+  filter: grayscale(0.2);
+}
+
+.attachmentInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachmentName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.attachmentDownload {
+  font-size: 0.875rem;
+  color: #ffffff;
+  background: #3b82f6;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.attachmentDownload:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Right Column */
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Action Buttons */
+.withdrawButton {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #dbeafe;
+  color: #1e40af;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.withdrawButton:hover {
+  background-color: #bfdbfe;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.closeButton {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #dbeafe;
+  color: #1e40af;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.closeButton:hover {
+  background-color: #bfdbfe;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+/* Tabs Container */
+.tabsContainer {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  flex: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tabs {
+  display: flex;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 18px 20px;
+  background: transparent;
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  position: relative;
+}
+
+.tab:hover {
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.activeTab {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 800;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+  overflow-y: auto;
+  background-color: #ffffff;
+}
+
+/* Logs Content */
+.logsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.logEntry {
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border-left: 4px solid #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.logEntry:hover {
+  background-color: #f3f4f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.logUser {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.logAction {
+  font-size: 0.875rem;
+  color: #374151;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.logTimestamp {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Messages Content */
+.messagesContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px;
+  flex: 1;
+  margin-bottom: 20px;
+}
+
+.messageEntry {
+  padding: 16px 20px;
+  border-radius: 16px;
+  max-width: 75%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.myMessage {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  align-self: flex-end;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.theirMessage {
+  background-color: #f3f4f6;
+  color: #111827;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.messageSender {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: capitalize;
+}
+
+.myMessage .messageSender {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.theirMessage .messageSender {
+  color: #374151;
+}
+
+.messageText {
   font-size: 0.9rem;
-  color: #6c757d;
-  margin-top: 0.5rem;
+  line-height: 1.6;
+  margin-bottom: 6px;
+  word-wrap: break-word;
 }
 
-/* === Not Found Message === */
+.messageTimestamp {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+/* Message Section Container */
+.messageSection {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Message Input Container */
+.messageInputContainer {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  align-items: flex-end;
+}
+
+.messageInput {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  transition: all 0.2s ease;
+  background-color: #ffffff;
+}
+
+.messageInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.messageInput::placeholder {
+  color: #9ca3af;
+}
+
+.sendButton {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sendButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.logsPlaceholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.logItem {
+  height: 60px;
+  background-color: #f3f4f6;
+  border-radius: 6px;
+}
+
+/* Details Section */
+.detailsSection {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.detailsTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0 0 16px 0;
+}
+
+.detailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detailLabel {
+  font-size: 0.875rem;
+  color: var(--secondary-text-color);
+  font-weight: 500;
+}
+
+.detailValue {
+  font-size: 0.875rem;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+/* Action Logs Section */
+.actionLogsSection {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.actionLogsTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0 0 16px 0;
+}
+
+.actionLogsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actionLogItem {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+}
+
+.logAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.logContent {
+  flex: 1;
+  height: 60px;
+  background-color: #f3f4f6;
+  border-radius: 6px;
+}
+
+/* Not Found Message */
 .notFound {
   text-align: center;
   color: #6c757d;
@@ -259,31 +748,27 @@
   margin: 2rem 0;
 }
 
-/* === Responsive Design === */
-@media (max-width: 992px) {
-  .employeeTicketTrackerPage {
-    flex-direction: column;
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
   }
 
-  .mainContent,
-  .sidebar {
-    flex-basis: auto;
-  }
-
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
+  .attachmentGrid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 576px) {
-  .ticketCard,
-  .statusSection {
-    padding: 16px;
+  .leftColumn {
+    padding: 20px;
   }
 
-  .ticketDetails fieldset p {
-    font-size: 0.8rem;
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+
+  .attachmentGrid {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,16 +1,15 @@
 export const EMPLOYEE_TICKET_STORAGE_KEY_BY_RUMI = 'employeeTicketsByRumi';
 
-// Status options used in Employee side
+// Status options visible to Employees
+// Note: "New" and "Open" (admin side) are shown as "Pending" to employees
 export const employeeTicketStatusesByRumi = [
-  'Submitted',
   'Pending',
-  'Open',
   'In Progress',
-  'Resolved',
   'On Hold',
+  'Withdrawn',
+  'Resolved',
   'Closed',
   'Rejected',
-  'Withdrawn',
 ];
 
 // 🧪 Sample Tickets - all created by employee Rumi Kim
@@ -18,7 +17,7 @@ const sampleEmployeeTicketsByRumi = [
   {
     ticketNumber: 'TCK-101',
     subject: 'New printer installation',
-    status: 'Submitted',
+    status: 'New', // Changed from 'Submitted' to 'New'
     priorityLevel: 'Medium',
     department: 'IT Department',
     category: 'Hardware',
@@ -35,7 +34,7 @@ const sampleEmployeeTicketsByRumi = [
   {
     ticketNumber: 'TCK-102',
     subject: 'Issue with shared drive',
-    status: 'Pending',
+    status: 'New', // Changed from 'Pending' to 'New'
     priorityLevel: 'High',
     department: 'IT Department',
     category: 'IT Services',
@@ -85,7 +84,7 @@ export const addNewEmployeeTicketByRumi = ({
   const newTicket = {
     ticketNumber: generateTicketNumberByRumi(),
     subject,
-    status: 'Submitted',
+    status: 'New', // Changed from 'Submitted' to 'New'
     priorityLevel: '',
     department: createdBy.department || '',
     category,

@@ -1,23 +1,28 @@
-import { useEffect, useState } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useState } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
+import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
-import { USE_LOCAL_API } from '../../../config/environment.js';
-import { apiService } from '../../../services/apiService.js';
+import Button from '../../../shared/components/Button';
 
+// Employee-side status progression (5 steps)
+// Step 1: Pending (when admin sets New or Open)
+// Step 2: In Progress
+// Step 3: Resolved (employee can close from here)
+// Step 4: Closed (or Rejected/Withdrawn as terminal states)
 const STATUS_COMPLETION = {
-  1: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  2: ['Pending', 'Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  3: ['Open', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  4: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn', 'On Hold'],
-  5: ['Resolved', 'Closed', 'Rejected', 'Withdrawn'],
+  1: ['Pending', 'In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn'],
+  2: ['In Progress', 'Resolved', 'Closed', 'Rejected', 'Withdrawn'],
+  3: ['Resolved', 'Closed', 'Rejected', 'Withdrawn'],
+  4: ['Closed', 'Rejected', 'Withdrawn'],
 };
 
 const getStatusSteps = (status) =>
-  [1, 2, 3, 4, 5].map((id) => ({
+  [1, 2, 3, 4].map((id) => ({
     id,
-    completed: STATUS_COMPLETION[id].includes(status),
+    completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
 
 const DetailField = ({ label, value }) => (
@@ -30,183 +35,213 @@ const DetailField = ({ label, value }) => (
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
+// Generate logs based on ticket data
+const generateLogs = (ticket) => {
+  const logs = [];
+  logs.push({ 
+    id: 1, 
+    user: 'System', 
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
+    timestamp: formatDate(ticket.dateCreated) 
+  });
+  
+  // Handle assignedTo as object or string
+  const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
+  
+  if (assignedToName) {
+    logs.push({ 
+      id: 2, 
+      user: assignedToName, 
+      action: `Assigned to ${ticket.department} department`, 
+      timestamp: formatDate(ticket.dateCreated) 
+    });
+  }
+  
+  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
+    logs.push({ 
+      id: 3, 
+      user: 'Coordinator', 
+      action: `Status changed to ${ticket.status}`, 
+      timestamp: formatDate(ticket.lastUpdated) 
+    });
+  }
+  
+  return logs;
+};
 
-const getDisplayStatus = (status) => {
-  if (!status) return '';
-  if (status === "New") return "Pending";
-  return status;
+// Generate messages based on ticket data
+const generateMessages = (ticket) => {
+  return [
+    { id: 1, sender: 'Support Team', message: `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`, timestamp: formatDate(ticket.dateCreated) },
+    { id: 2, sender: 'You', message: 'Thank you for the update. When can I expect this to be resolved?', timestamp: formatDate(ticket.dateCreated) },
+  ];
 };
 
 export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
-  const location = useLocation();
-  const from = location.state?.from || "ticket-records"; // fallback
-  const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
 
-  useEffect(() => {
-    const fetchTicket = async () => {
-      setLoading(true);
-      try {
-        if (USE_LOCAL_API) {
-          console.log('🎫 Fetching ticket locally:', ticketNumber);
-          const result = await apiService.tickets.getTicketByTicketNumber(ticketNumber);
-          if (result.success) {
-            setTicket(result.data);
-            console.log('✅ Ticket found:', result.data);
-          } else {
-            console.log('❌ Ticket not found:', result.error);
-            setTicket(null);
-          }
-        } else {
-          // Original backend API logic
-          const token = localStorage.getItem("employee_access_token");
-          const res = await fetch(`${API_URL}tickets/${ticketNumber}/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setTicket(data);
-          } else {
-            setTicket(null);
-          }
-        }
-      } catch (error) {
-        console.log('❌ Error fetching ticket:', error);
-        setTicket(null);
-      }
-      setLoading(false);
-    };
-    if (ticketNumber) fetchTicket();
-  }, [ticketNumber]);
+  const tickets = getEmployeeTickets();
+  
+  console.log('🎫 All Tickets:', tickets);
+  console.log('🔢 Ticket Number from URL:', ticketNumber);
 
-  if (loading) return <p>Loading...</p>;
-  if (!ticket) return <p className={styles.notFound}>No ticket data available.</p>;
+  const ticket = ticketNumber
+    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
+    : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+
+  console.log('✅ Selected Ticket:', ticket);
+
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Active Tickets page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
 
   const {
-    ticket_number: number,
+    ticketNumber: number,
     subject,
     category,
-    sub_category,
-    status,
-    submit_date,
-    update_date,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
     description,
-    attachments,
-    priority,
+    fileUploaded,
+    priorityLevel,
     department,
-    assigned_to,
-    scheduled_date,
+    assignedTo,
+    scheduledRequest,
   } = ticket;
 
-  const fileUploaded = attachments && attachments.length > 0 ? attachments[0] : null;
+  // Convert status to employee view (New/Open -> Pending)
+  const status = toEmployeeStatus(originalStatus);
   const statusSteps = getStatusSteps(status);
   const isClosable = status === 'Resolved';
+  
+  // Generate dynamic data based on ticket
+  const ticketLogs = generateLogs(ticket);
+  const ticketMessages = generateMessages(ticket);
+  
+  // Initialize messages from generated data
+  if (messages.length === 0 && ticketMessages.length > 0) {
+    setMessages(ticketMessages);
+  }
+  
+  // Handle sending a new message
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      const newMsg = {
+        id: messages.length + 1,
+        sender: 'You',
+        message: newMessage,
+        timestamp: formatDate(new Date().toISOString())
+      };
+      setMessages([...messages, newMsg]);
+      setNewMessage('');
+    }
+  };
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
-        {/* Left Column */}
-        <div className={styles.mainContent}>
-          <section className={styles.ticketCard}>
-            <header className={styles.header}>
-              <h2 className={styles.title}>#{number}</h2>
-              <div className={styles.statusBadge}>
-                <span className={styles.statusDot}></span>
-                <span className={styles.statusText}>{getDisplayStatus(status)}</span>
+        {/* Two Column Layout */}
+        <div className={styles.contentGrid}>
+          {/* Left Column - Ticket Information */}
+          <div className={styles.leftColumn}>
+            <section className={styles.ticketCard}>
+              {/* Ticket Number with Priority and Status Badges */}
+              <div className={styles.ticketHeader}>
+                <div className={styles.headerLeft}>
+                  <div className={`${styles.priorityBadge} ${styles[`priority${priorityLevel || 'NotSet'}`]}`}>
+                    {priorityLevel || 'Not Set'}
+                  </div>
+                  <h2 className={styles.ticketNumber}>Ticket No. {number}</h2>
+                </div>
+                <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
+                  {status}
+                </div>
               </div>
-            </header>
 
-            <div className={styles.ticketDetails}>
-              <DetailField label="Subject" value={subject} />
-              <DetailField label="Category" value={category} />
-              <DetailField label="Sub-Category" value={sub_category} />
-            </div>
-
-            <section className={styles.description}>
-              <h3 className={styles.descriptionTitle}>Description</h3>
-              <p className={styles.descriptionText}>
-                {description || 'No description provided.'}
-              </p>
-            </section>
-
-            <section className={styles.attachment}>
-              <h3 className={styles.attachmentTitle}>Attachment{attachments && attachments.length > 1 ? 's' : ''}</h3>
-              <div className={styles.attachmentContent}>
-                <span className={styles.attachmentIcon}>📎</span>
-                {attachments && attachments.length > 0 ? (
-                  attachments.map((file, idx) => {
-                    // Handle both local development format (object with name/type/size) and backend format (file_name)
-                    const fileName = file.file_name || file.name || 'Uploaded File';
-                    
-                    if (USE_LOCAL_API) {
-                      // Local development mode - simple filename display like original
-                      return (
-                        <div key={idx} className={styles.attachmentText} style={{ display: 'block', padding: '2px 0' }}>
-                          {fileName}
-                        </div>
-                      );
-                    } else {
-                      // Original backend logic
-                      const isDownloadOnly = /\.(docx|xlsx|csv)$/i.test(fileName);
-                      return (
-                        <button
-                          key={file.id || idx}
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            try {
-                              const { downloadSecureFile } = await import('../../../utilities/secureMedia');
-                              // If inline (images/pdf), open in new tab
-                              if (/\.(png|jpg|jpeg|gif|pdf)$/i.test(fileName)) {
-                                const token = localStorage.getItem('employee_access_token') || localStorage.getItem('admin_access_token');
-                                const res = await fetch(file.file, { headers: { Authorization: `Bearer ${token}` } });
-                                if (!res.ok) throw new Error('Not authorized');
-                                const blob = await res.blob();
-                                const url = window.URL.createObjectURL(blob);
-                                window.open(url, '_blank');
-                                // revoke later
-                                setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-                              } else {
-                                await downloadSecureFile(file.file, fileName);
-                              }
-                            } catch (err) {
-                              alert('Download failed or unauthorized');
-                            }
-                          }}
-                          className={styles.attachmentText}
-                          style={{ display: 'block', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
-                        >
-                          {fileName}
-                        </button>
-                      );
-                    }
-                  })
-                ) : (
-                  <span className={styles.attachmentText}>No file attached.</span>
-                )}
+              {/* Subject */}
+              <div className={styles.subjectSection}>
+                <h3 className={styles.sectionTitle}>{subject}</h3>
+                <div className={styles.subjectMeta}>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Category:</span>
+                    <span className={styles.metaValue}>{category} - {subCategory}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Department:</span>
+                    <span className={styles.metaValue}>{department || 'N/A'}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Assigned To:</span>
+                    <span className={styles.metaValue}>
+                      {typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}
+                    </span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Date Created:</span>
+                    <span className={styles.metaValue}>{formatDate(dateCreated)}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Last Updated:</span>
+                    <span className={styles.metaValue}>{formatDate(lastUpdated)}</span>
+                  </div>
+                </div>
               </div>
+
+              {/* Description */}
+              <div className={styles.descriptionSection}>
+                <h4 className={styles.descriptionLabel}>Description</h4>
+                <p className={styles.descriptionText}>
+                  {description || 'No description provided.'}
+                </p>
+              </div>
+
+              {/* Attachments */}
+              {fileUploaded && (
+                <div className={styles.attachmentSection}>
+                  <h4 className={styles.attachmentLabel}>Attachments</h4>
+                  <div className={styles.attachmentGrid}>
+                    <div className={styles.attachmentCard}>
+                      <div className={styles.attachmentIcon}>📄</div>
+                      <div className={styles.attachmentInfo}>
+                        <p className={styles.attachmentName}>{fileUploaded}</p>
+                        <button className={styles.attachmentDownload}>Download</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
+          </div>
 
-            <div className={styles.ticketDetails}>
-              <DetailField label="Priority" value={priority || "N/A"} />
-              <DetailField label="Department" value={department || "N/A"} />
-              <DetailField label="Assigned Agent" value={assigned_to?.name || "N/A"} />
-              <DetailField label="Scheduled Request" value={scheduled_date || "N/A"} />
-              <DetailField label="Date Created" value={formatDate(submit_date)} />
-              <DetailField label="Last Updated" value={formatDate(update_date)} />
-            </div>
-          </section>
-        </div>
-
-        {/* Right Column (Sidebar) */}
-        <aside className={styles.sidebar}>
-          <div className={styles.statusSection}>
+          {/* Right Column - Actions and Details */}
+          <div className={styles.rightColumn}>
+            {/* Action Button */}
             {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
               <button
-                className={styles.withdrawButton}
+                className={isClosable ? styles.closeButton : styles.withdrawButton}
                 onClick={() =>
                   isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
                 }
@@ -215,27 +250,67 @@ export default function EmployeeTicketTracker() {
               </button>
             )}
 
-            <h3 className={styles.statusTitle}>Status</h3>
-
-            <div className={styles.statusTimeline}>
-              {statusSteps.map((step, index) => (
-                <div key={step.id} className={styles.statusStep}>
-                  <div className={`${styles.statusCircle} ${step.completed ? styles.completed : ''}`}>
-                    {step.completed && <span className={styles.checkmark}>✓</span>}
-                  </div>
-                  {index < statusSteps.length - 1 && (
-                    <div className={`${styles.statusLine} ${step.completed ? styles.completedLine : ''}`} />
-                  )}
+            {/* Tabs: Logs / Message */}
+            <div className={styles.tabsContainer}>
+                <div className={styles.tabs}>
+                  <button 
+                    className={`${styles.tab} ${activeTab === 'logs' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('logs')}
+                  >
+                    Logs
+                  </button>
+                  <button 
+                    className={`${styles.tab} ${activeTab === 'message' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('message')}
+                  >
+                    Message
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            <div className={styles.currentStatus}>
-              <h4 className={styles.currentStatusTitle}>Current Status</h4>
-              <p className={styles.currentStatusText}>{getDisplayStatus(status)}</p>
+                <div className={styles.tabContent}>
+                  {activeTab === 'logs' ? (
+                  <div className={styles.logsContent}>
+                    {ticketLogs.map((log) => (
+                      <div key={log.id} className={styles.logEntry}>
+                        <div className={styles.logUser}>{log.user}</div>
+                        <div className={styles.logAction}>{log.action}</div>
+                        <div className={styles.logTimestamp}>{log.timestamp}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.messageSection}>
+                    <div className={styles.messagesContent}>
+                      {messages.map((msg) => (
+                        <div key={msg.id} className={`${styles.messageEntry} ${msg.sender === 'You' ? styles.myMessage : styles.theirMessage}`}>
+                          <div className={styles.messageSender}>{msg.sender}</div>
+                          <div className={styles.messageText}>{msg.message}</div>
+                          <div className={styles.messageTimestamp}>{msg.timestamp}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={styles.messageInputContainer}>
+                      <textarea
+                        className={styles.messageInput}
+                        placeholder="Type your message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        rows={2}
+                      />
+                      <button 
+                        className={styles.sendButton}
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim()}
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </aside>
+        </div>
       </main>
 
       {/* Modals */}
@@ -243,22 +318,12 @@ export default function EmployeeTicketTracker() {
         <EmployeeActiveTicketsWithdrawTicketModal
           ticket={ticket}
           onClose={() => setShowWithdrawModal(false)}
-          onSuccess={() => {
-            // Refresh the ticket data after withdrawal
-            setShowWithdrawModal(false);
-            window.location.reload(); // Simple refresh for local development
-          }}
         />
       )}
       {showCloseModal && (
         <EmployeeActiveTicketsCloseTicketModal
           ticket={ticket}
           onClose={() => setShowCloseModal(false)}
-          onSuccess={() => {
-            // Refresh the ticket data after closing
-            setShowCloseModal(false);
-            window.location.reload(); // Simple refresh for local development
-          }}
         />
       )}
     </>

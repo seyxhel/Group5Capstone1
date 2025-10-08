@@ -1,94 +1,111 @@
 /* === Pagination Controls Container === */
 .paginationContainer {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  font-family: 'Poppins', sans-serif;
-  font-size: 11px;
+  align-items: center;
   width: 100%;
-  margin-top: 12px;
-  gap: 12px;
-  flex-wrap: nowrap;
+  height: 48px;
+  padding: 8px 20px;
+  margin-top: 0;
+  border-top: 1px solid #E0E0E0;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  background-color: var(--white);
+  font-family: 'Poppins', sans-serif;
 }
 
-/* === Items Per Page === */
-.itemsPerPage {
+/* === Page Size Selector (Left Section) === */
+.pageSizeSelector {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
-  flex-shrink: 0;
 }
 
-.itemsPerPageInput {
-  width: 40px;
-  height: 28px;
-  padding: 5px 6px;
-  font-size: 11px;
-  text-align: center;
+.pageSizeSelector label,
+.pageSizeSelector span {
+  color: #545f71;
+  font-size: 0.8125rem; /* 13px */
   font-family: 'Poppins', sans-serif;
-  line-height: 1.2;
-  border: 1px solid #001aac80;
-  border-radius: 4px;
-  background-color: #fff;
-  box-sizing: border-box;
 }
 
-/* === Pagination Controls === */
-.paginationControls {
+.pageSizeSelector select {
+  width: 60px;
+  height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #E0E0E0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--white);
+  color: var(--text-color);
+}
+
+.pageSizeSelector select:focus {
+  outline: none;
+  border-color: #007BFF;
+}
+
+/* === Page Navigation (Right Section) === */
+.pageNavigation {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
-  justify-content: flex-end;
-  flex-grow: 1;
 }
 
-/* === Page Info Section === */
-.pageInfo {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #001aac;
-  font-family: 'Poppins', sans-serif;
-}
-
-.pageInput {
-  width: 40px;
-  height: 28px;
-  padding: 5px 6px;
-  font-size: 11px;
-  text-align: center;
-  border: 1px solid #001aac80;
+/* === Navigation Buttons (First, Prev, Next, Last) === */
+.navButton {
+  min-width: 50px;
+  height: 30px;
+  padding: 5px 10px;
+  border: none;
   border-radius: 4px;
-  background-color: #fff;
+  cursor: pointer;
+  background-color: #007BFF;
+  color: var(--white);
   font-family: 'Poppins', sans-serif;
-  box-sizing: border-box;
+  font-size: 0.8125rem;
+  transition: background-color 0.2s ease;
 }
 
-/* === Navigation Buttons (Prev/Next) === */
-.navBtn {
+.navButton:hover:not(:disabled) {
+  background-color: #0056B3;
+}
+
+.navButton:disabled {
+  background-color: #E0E0E0;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}
+
+/* === Page Number Buttons === */
+.pageButton {
+  width: 30px;
+  height: 30px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  width: 32px;
-  padding: 6px;
+  background-color: #E0E0E0;
+  color: var(--text-color);
+  border: none;
   border-radius: 4px;
-  border: 1px solid #ccc;
-  background-color: #033f7b;
-  color: #ffffff;
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8125rem;
+  transition: background-color 0.2s ease;
 }
 
-.navBtn:hover:not(:disabled) {
-  background-color: #095ddc;
+.pageButton:hover {
+  background-color: #0056B3;
+  color: var(--white);
 }
 
-.navBtn:disabled {
-  background-color: #dcd9d9;
-  color: #8e8b8b;
-  cursor: not-allowed;
+.pageButton.active {
+  font-weight: bold;
+  background-color: #007BFF;
+  color: var(--white);
+}
+
+.pageButton.active:hover {
+  background-color: #0056B3;
 }

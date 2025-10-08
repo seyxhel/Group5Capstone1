@@ -57,29 +57,12 @@
 }
 
 .submit {
-  background-color: #22c55e !important;
-  color: #fff !important;
+  background-color: var(--primary-color);
+  color: white;
 }
 
 .submit:disabled,
 .cancel:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.reject {
-  background: #ef4444;
-  color: #fff;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.reject:disabled {
-  background: #fca5a5;
   cursor: not-allowed;
 }

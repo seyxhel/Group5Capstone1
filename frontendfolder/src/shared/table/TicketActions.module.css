@@ -9,12 +9,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f5f5;
-  border: none;
-  border-radius: 8px;
-  padding: 6px;
+  background-color: #f9f9f9;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  padding: 5px 10px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .btn:disabled {
@@ -23,22 +23,16 @@
 }
 
 .icon {
-  font-size: 1rem;
-  color: #333;
+  font-size: 0.75rem; /* 12px */
+  color: #555555;
 }
 
-.edit:hover {
-  background-color: #e6f4ff;
+.btn:hover:not(:disabled) {
+  background-color: #f0f0f0;
+  color: #333333;
+  border-color: #999999;
 }
 
-.delete:hover {
-  background-color: #ffe6e6;
-}
-
-.view:hover {
-  background-color: #e8ffe8;
-}
-
-.withdraw:hover {
-  background-color: #fff7e6;
+.btn:hover:not(:disabled) .icon {
+  color: #333333;
 }

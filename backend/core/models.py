@@ -15,8 +15,13 @@ SUFFIX_CHOICES = [
 
 DEPARTMENT_CHOICES = [
     ('IT Department', 'IT Department'),
-    ('Asset Department', 'Asset Department'),
-    ('Budget Department', 'Budget Department'),
+    ('Asset Management', 'Asset Management'),
+    ('Document Control', 'Document Control'),
+    ('Finance & Budgeting', 'Finance & Budgeting'),
+    ('Operations', 'Operations'),
+    ('Facilities & Maintenance', 'Facilities & Maintenance'),
+    ('Human Resources', 'Human Resources'),
+    ('Administration', 'Administration'),
 ]
 
 ROLE_CHOICES = [
@@ -28,7 +33,7 @@ ROLE_CHOICES = [
 STATUS_CHOICES = [
     ('Pending', 'Pending'),
     ('Approved', 'Approved'),
-    ('Rejected', 'Rejected'),
+    ('Denied', 'Denied'),
 ]
 
 class EmployeeManager(BaseUserManager):
@@ -94,13 +99,12 @@ PRIORITY_LEVELS = [
 STATUS_CHOICES = [
     ('New', 'New'),
     ('Open', 'Open'),
-    ('In Progress', 'In Progress'),
+    ('On Process', 'On Process'),
     ('On Hold', 'On Hold'),
     ('Pending', 'Pending'),
     ('Resolved', 'Resolved'),
     ('Rejected', 'Rejected'),
     ('Closed', 'Closed'),
-    ('Withdrawn','Withdrawn'),
 ]
 
 CATEGORY_CHOICES = [
@@ -157,8 +161,8 @@ def send_ticket_to_workflow(sender, instance, created, **kwargs):
     # Only trigger when status is set to "Open" (and not just created)
     if not created and instance.status == "Open":
         from .tasks import push_ticket_to_workflow  # Import here!
-        from .serializers import ticket_to_dict_for_external_systems   # Import here!
-        data = ticket_to_dict_for_external_systems(instance)
+        from .serializers import TicketSerializer   # Import here!
+        data = TicketSerializer(instance).data
         push_ticket_to_workflow.delay(data)
         
 class TicketAttachment(models.Model):
@@ -185,12 +189,3 @@ class TicketComment(models.Model):
     
     def __str__(self):
         return f"Comment on {self.ticket.ticket_number} by {self.user}"
-
-class RejectedEmployeeAudit(models.Model):
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField()
-    company_id = models.CharField(max_length=100)
-    department = models.CharField(max_length=100)
-    rejected_at = models.DateTimeField(auto_now_add=True)
-    reason = models.TextField(blank=True, null=True)

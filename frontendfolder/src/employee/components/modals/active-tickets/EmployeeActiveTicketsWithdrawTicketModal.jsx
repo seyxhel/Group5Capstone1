@@ -3,8 +3,6 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeActiveTicketsWithdrawTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
-import { USE_LOCAL_API } from '../../../../config/environment.js';
-import { apiService } from '../../../../services/apiService.js';
 
 const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -18,67 +16,20 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
       });
       return;
     }
-    // Restrict to not just punctuation
-    if (!/[a-zA-Z0-9]/.test(comment)) {
-      toast.error("Reason must contain at least one letter or number.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      if (USE_LOCAL_API) {
-        console.log('🎫 Withdrawing ticket locally:', ticket.ticket_number || ticket.ticketNumber);
-        // Use local service to update ticket status
-        const result = await apiService.tickets.updateTicketStatus(
-          ticket.id, 
-          'Withdrawn', 
-          comment
-        );
-        
-        if (result.success) {
-          toast.success(`Ticket #${ticket.ticket_number || ticket.ticketNumber} withdrawn successfully.`, {
-            position: "top-right",
-            autoClose: 3000,
-          });
-          
-          onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Withdrawn");
-          onClose();
-        } else {
-          throw new Error(result.error || "Failed to withdraw ticket.");
-        }
-      } else {
-        // Original backend API logic
-        const token = localStorage.getItem("employee_access_token");
-        const res = await fetch(
-          `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/withdraw/`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ comment }),
-          }
-        );
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated API call
 
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to withdraw ticket.");
-        }
+      toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
+        position: "top-right",
+        autoClose: 3000,
+      });
 
-        toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
-          position: "top-right",
-          autoClose: 3000,
-        });
-
-        onSuccess?.(ticket.ticketNumber, "Withdrawn");
-        onClose();
-      }
+      onSuccess?.(ticket.ticketNumber, "Withdrawn");
+      onClose();
     } catch (err) {
-      toast.error(err.message || "Failed to withdraw ticket. Please try again.", {
+      toast.error("Failed to withdraw ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });

@@ -1,0 +1,167 @@
+/* === FILTER PANEL STYLES === */
+.filterPanel {
+  margin-bottom: 20px;
+}
+
+.fpShowFilter {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.fpShowFilter span {
+  color: #007bff;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.fpShowFilter span:hover {
+  color: #0056b3;
+}
+
+.filterPanelCont {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  padding: 20px;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+}
+
+.filterGroup label {
+  font-size: 0.875rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.filterActions {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.applyButton {
+  border: 1px solid #007bff;
+  padding: 10px 20px;
+  border-radius: 4px;
+  background-color: #fcfcfc;
+  cursor: pointer;
+  color: #007bff;
+}
+
+.applyButton:hover {
+  background-color: #007bff;
+  color: #fcfcfc;
+}
+
+.resetButton {
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  color: #fcfcfc;
+  background-color: #007bff;
+  cursor: pointer;
+}
+
+.resetButton:hover {
+  background-color: #0056b3;
+}
+
+.dateTime {
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  padding: 10px 15px;
+  width: 100%;
+  cursor: pointer;
+  color: #0C0C0C;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: #F8F8F8;
+}
+
+.dateTime:hover,
+.dateTime:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.dropdown {
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #cccccc;
+  padding: 10px 15px;
+  width: 100%;
+  cursor: pointer;
+  color: #0C0C0C;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: #F8F8F8;
+}
+
+.dropdown:hover,
+.dropdown:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+@media (max-width: 768px) {
+  .fpShowFilter {
+    justify-content: center;
+    margin-bottom: 5px;
+  }
+  .fpShowFilter span {
+    font-size: 0.75rem;
+  }
+  .filterPanelCont {
+    flex-direction: column;
+    padding: 15px;
+  }
+  .filterGroup {
+    min-width: 100%;
+    margin-bottom: 10px;
+  }
+  .resetButton {
+    width: 100%;
+    padding: 12px;
+  }
+  .dateTime,
+  .dropdown {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fpShowFilter {
+    margin-bottom: 3px;
+  }
+  .fpShowFilter span {
+    font-size: 0.6875rem;
+  }
+  .filterPanelCont {
+    padding: 10px;
+  }
+  .resetButton {
+    font-size: 0.75rem;
+    padding: 10px;
+  }
+  .filterGroup {
+    min-width: 100%;
+    margin-bottom: 5px;
+  }
+  .dateTime,
+  .dropdown {
+    padding: 6px 8px;
+  }
+}

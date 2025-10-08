@@ -43,10 +43,25 @@
   font-size: 24px;
 }
 
+/* Icon styling for primary background buttons */
+.floatButton svg,
+.mainButton svg {
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
+}
+
 .floatButton:hover,
 .mainButton:hover {
   background-color: var(--primary-color-hover);
   transform: scale(1.05);
+}
+
+.floatButton:hover svg,
+.mainButton:hover svg {
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
 }
 
 /* If needed, scale the icon for emphasis (without rotating the button) */
@@ -60,7 +75,14 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Ensure icons take currentColor */
+/* Icons in expanded state should match the primary color */
+.mainButton.expanded svg {
+  color: var(--primary-color) !important;
+  fill: var(--primary-color) !important;
+  stroke: var(--primary-color) !important;
+}
+
+/* Ensure icons take proper colors */
 .icon {
   color: inherit;
 }

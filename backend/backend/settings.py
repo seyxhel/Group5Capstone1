@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 
 """
 Django settings for backend project.
@@ -14,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,12 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'unsafe-default')
+SECRET_KEY = 'django-insecure-q2(fx!vo0@(tbkky-_qdeo=%f)5xub45y+&cyx$5!$uo=*ta+v'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -49,14 +47,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # <-- Move here
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -83,9 +80,14 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'newdb',
+        'USER': 'postgres',
+        'PASSWORD': 'Oklangyan421!',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
 
 
@@ -124,57 +126,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
+
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'https://smartsupport-hdts-backend.up.railway.app',
-    'https://smartsupport-hdts-frontend.up.railway.app',  # <-- add this
+    'http://localhost:3000',
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
 ]
-
-# Add CORS headers to handle errors properly
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-
-# Additional CORS settings to handle 500 errors properly
-CORS_ALLOWED_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
-
-# Ensure CORS headers are added even for error responses
-CORS_PREFLIGHT_MAX_AGE = 86400
 
 MEDIA_URL = '/media/'
-
-# Media files storage configuration
-if DEBUG:
-    # Development: store in project folder
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-else:
-    # Production: use Railway volume or persistent path
-    MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/app/media')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
@@ -190,36 +157,15 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #new one
-
-# External System API Key for secure media access
-EXTERNAL_SYSTEM_API_KEY = os.environ.get("EXTERNAL_SYSTEM_API_KEY")
+EMAIL_HOST_USER = "sethpelagio20@gmail.com"
+EMAIL_HOST_PASSWORD = "wibleoywhclqjsmm"
 
 AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'
 
 # Celery
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "rpc://")
+CELERY_BROKER_URL = 'amqp://GY6Jx5nsXW5edoIB:DGHuVF0tWCZgWnO~T51D._6viJWc7U_B@ballast.proxy.rlwy.net:48690//'
+CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_TASK_DEFAULT_QUEUE = 'TICKET_TASKS_PRODUCTION'  # Only if you plan to run worker here, please
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": False,
-}
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://smartsupport-hdts-backend.up.railway.app",
-    "http://localhost:5173",
-    "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
-]
-
-SECURE_SSL_REDIRECT = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# it worked!! Thank you, Lord!
+CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks2'  # Only if you plan to run worker here

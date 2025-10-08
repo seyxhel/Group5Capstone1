@@ -1,14 +1,3 @@
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
-from django.http import JsonResponse
-from core.models import RejectedEmployeeAudit
-
-# Dashboard: Get count of rejected users (from audit table)
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
-def rejected_users_count(request):
-    count = RejectedEmployeeAudit.objects.count()
-    return JsonResponse({'rejected_users_count': count})
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, viewsets
@@ -22,8 +11,6 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from django.shortcuts import get_object_or_404
@@ -32,14 +19,9 @@ import os
 from PIL import Image
 from io import BytesIO
 from django.core.files.base import ContentFile
-from core.gmail_utils import send_gmail_message
+from django.core.mail import send_mail
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
-from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth import get_user_model
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from django.utils.encoding import force_bytes
-from django.conf import settings
 
 @csrf_exempt
 def login_view(request):
@@ -58,224 +40,31 @@ def login_view(request):
         else:
             return JsonResponse({'success': False, 'message': 'Invalid credentials'})
 
-@csrf_exempt
-def test_endpoint(request):
-    """Simple test endpoint to verify backend is working"""
-    return JsonResponse({
-        'status': 'success',
-        'message': 'Backend is working correctly',
-        'method': request.method,
-        'email_configured': bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
-    })
-
-@csrf_exempt 
-def debug_create_employee(request):
-    """Debug endpoint to test employee creation without frontend"""
-    if request.method == 'POST':
-        try:
-            # Simple test data
-            test_data = {
-                'first_name': 'Test',
-                'last_name': 'User',
-                'email': 'test@example.com',
-                'password': 'testpass123',
-                'department': 'IT',
-                'role': 'Employee'
-            }
-            
-            serializer = EmployeeSerializer(data=test_data)
-            if serializer.is_valid():
-                employee = serializer.save()
-                return JsonResponse({
-                    'status': 'success',
-                    'message': f'Test employee created: {employee.email}',
-                    'employee_id': employee.pk
-                })
-            else:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Serializer validation failed',
-                    'errors': serializer.errors
-                })
-        except Exception as e:
-            import traceback
-            return JsonResponse({
-                'status': 'error',
-                'message': f'Exception occurred: {str(e)}',
-                'traceback': traceback.format_exc()
-            })
-    
-    return JsonResponse({'status': 'error', 'message': 'Only POST allowed'})
-
-@csrf_exempt
-def test_email(request):
-    """Test email configuration without actually sending"""
-    try:
-        # Just check configuration without sending anything
-        config_info = {
-            'EMAIL_HOST': getattr(settings, 'EMAIL_HOST', 'Not set'),
-            'EMAIL_PORT': getattr(settings, 'EMAIL_PORT', 'Not set'),
-            'EMAIL_USE_TLS': getattr(settings, 'EMAIL_USE_TLS', 'Not set'),
-            'EMAIL_HOST_USER': getattr(settings, 'EMAIL_HOST_USER', 'Not set'),
-            'EMAIL_HOST_PASSWORD_SET': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', None)),
-            'EMAIL_BACKEND': getattr(settings, 'EMAIL_BACKEND', 'Not set'),
-        }
-        
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Email configuration check completed',
-            'config': config_info
-        })
-        
-    except Exception as e:
-        import traceback
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Configuration check failed: {str(e)}',
-            'traceback': traceback.format_exc()
-        })
-
-@csrf_exempt
-def test_simple_email(request):
-    """Test actual email sending with maximum error handling"""
-    if request.method == 'POST':
-        try:
-            test_email_address = request.POST.get('email')
-            if not test_email_address:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Email address not provided in POST data.'
-                }, status=400)
-
-            from django.core.mail import send_mail
-            from django.conf import settings
-
-            # Check configuration exists
-            if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Email credentials not configured on the server.'
-                }, status=500)
-
-            # Try to send the simplest possible email
-            send_mail(
-                subject='Simple Test Email from SmartSupport',
-                message='This is a test to confirm email functionality.',
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[test_email_address],
-                fail_silently=False,
-            )
-            
-            return JsonResponse({
-                'status': 'success',
-                'message': f'Email sent successfully to {test_email_address}'
-            })
-            
-        except Exception as send_error:
-            import traceback
-            return JsonResponse({
-                'status': 'error',
-                'message': f'Email sending failed: {str(send_error)}',
-                'error_type': type(send_error).__name__,
-                'traceback': traceback.format_exc()
-            }, status=500)
-    
-    return JsonResponse({'status': 'error', 'message': 'This endpoint only supports POST requests.'}, status=405)
-
 # For employee registration
 class CreateEmployeeView(APIView):
-    parser_classes = [MultiPartParser, FormParser]
-    
     def post(self, request, *args, **kwargs):
-        print("=== CreateEmployeeView POST started ===")
-        
-        try:
-            # Basic data validation
-            data = request.data.copy()
-            print(f"Received data keys: {list(data.keys())}")
-            
-            password = data.get("password")
-            confirm_password = data.get("confirm_password")
-            
-            if password != confirm_password:
-                print("Password mismatch")
-                return Response(
-                    {"error": "Passwords do not match."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Create and validate serializer
-            print("Creating serializer...")
-            serializer = EmployeeSerializer(data=data)
-            
-            if not serializer.is_valid():
-                print(f"Serializer validation failed: {serializer.errors}")
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Save employee
-            print("Saving employee...")
-            employee = serializer.save()
-            print(f"Employee saved successfully: {employee.email} (ID: {employee.pk})")
-            
-            # Add email sending functionality with ABSOLUTE error protection
-            email_status = "Email not attempted"
-            
-            # Use a separate function to completely isolate email sending
-            def send_email_safely():
-                try:
-                    print("=== Starting email sending process ===")
-                    
-                    # Generate email content
-                    print("Generating email HTML content...")
-                    html_content = send_account_pending_email(employee)
-                    print("Email HTML content generated successfully")
+        data = request.data.copy()
+        password = data.get("password")
+        confirm_password = data.get("confirm_password")
 
-                    # Create and send email using Gmail API only
-                    print("Creating and sending email via Gmail API...")
-                    result = send_gmail_message(
-                        to=employee.email,
-                        subject="Account Creation Pending Approval",
-                        body=html_content,
-                        is_html=True
-                    )
-                    if result:
-                        print(f"Email sent successfully to: {employee.email}")
-                        return "Email sent successfully"
-                    else:
-                        print(f"Email sending failed for: {employee.email}")
-                        return "Email sending failed"
-                    
-                except Exception as e:
-                    print(f"Email error caught: {e}")
-                    return f"Email failed: {str(e)}"
-            
-            # Call the safe email function - this CANNOT crash the main flow
+        if password != confirm_password:
+            return Response(
+                {"error": "Passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = EmployeeSerializer(data=data)
+        if serializer.is_valid():
             try:
-                email_status = send_email_safely()
+                employee = serializer.save()
+                return Response(
+                    {"message": "Account created successfully. Pending approval."},
+                    status=status.HTTP_201_CREATED
+                )
             except Exception as e:
-                email_status = f"Email function failed: {str(e)}"
-                print(f"Email function error: {e}")
-            
-            print(f"Email process completed with status: {email_status}")
-            
-            # Return successful response regardless of email status
-            response_data = {
-                "message": f"Account created successfully. Pending approval. {email_status}",
-                "employee_id": employee.pk,
-                "email": employee.email
-            }
-            
-            print("Creating final response...")
-            return Response(response_data, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            print(f"=== CRITICAL ERROR: {e} ===")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
-            
-            return Response({
-                "error": f"Server error: {str(e)}"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CreateAdminEmployeeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -305,13 +94,9 @@ class CreateAdminEmployeeView(APIView):
         serializer = EmployeeSerializer(data=data)
         if serializer.is_valid():
             employee = serializer.save()
-            
-            # Return employee data with secure image URL (including default image)
-            employee_serializer = EmployeeSerializer(employee, context={'request': request})
             return Response({
                 "message": "Employee account created successfully",
-                "company_id": employee.company_id,
-                "employee": employee_serializer.data
+                "company_id": employee.company_id
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -326,7 +111,6 @@ class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]  # For handling file uploads
-    lookup_field = 'ticket_number'  # <-- ADD THIS LINE
     
     def get_queryset(self):
         user = self.request.user
@@ -335,15 +119,20 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Ticket.objects.filter(employee=user)  # Regular employees see their own
     
     def create(self, request, *args, **kwargs):
+        # Extract the initial priority based on the category and subcategory
+        # This logic would need to be updated based on your specific rules
+        
         data = request.data.copy()
+            
+        # Handle file uploads separately
         files = request.FILES.getlist('files[]')
-
+        
         serializer = self.get_serializer(data=data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         instance = self.perform_create(serializer)
-
+        
         # Process multiple file attachments
-        for file in files:
+        for file in request.FILES.getlist('files[]'):
             TicketAttachment.objects.create(
                 ticket=instance,
                 file=file,
@@ -352,11 +141,9 @@ class TicketViewSet(viewsets.ModelViewSet):
                 file_size=file.size,
                 uploaded_by=request.user
             )
-
-        # Serialize again to include attachments
-        updated_serializer = self.get_serializer(instance, context={'request': request})
-        headers = self.get_success_headers(updated_serializer.data)
-        return Response(updated_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
         return serializer.save()
@@ -406,7 +193,7 @@ def create_employee_admin_view(request):
 @permission_classes([IsAuthenticated])
 def employee_profile_view(request):
     user = request.user
-    serializer = EmployeeSerializer(user, context={'request': request})
+    serializer = EmployeeSerializer(user)
     return Response(serializer.data)
 
 @api_view(['GET'])
@@ -504,6 +291,7 @@ def approve_ticket(request, ticket_id):
         ticket.status = 'Open'
         ticket.priority = priority
         ticket.department = department
+        ticket.assigned_to = request.user
         ticket.save()
 
         # Optional: create a comment for audit
@@ -585,7 +373,7 @@ def claim_ticket(request, ticket_id):
         if ticket.assigned_to and ticket.status != 'Open':
             return Response({'error': 'Ticket is already claimed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        ticket.status = 'In Progress'  # or "In Progress"
+        ticket.status = 'On Process'  # or "In Progress"
         ticket.assigned_to = request.user
         ticket.save()
 
@@ -684,12 +472,10 @@ def get_new_tickets(request):
                 'ticket_number': ticket.ticket_number,
                 'subject': ticket.subject,
                 'category': ticket.category,
-                'sub_category': ticket.sub_category,  # <-- ADD THIS
-                'status': ticket.status,              # <-- ADD THIS
                 'submit_date': ticket.submit_date,
                 'employee_name': f"{ticket.employee.first_name} {ticket.employee.last_name}",
                 'employee_department': ticket.employee.department,
-                'has_attachment': bool(ticket.attachments.exists())
+                'has_attachment': bool(ticket.attachments.exists())  # Updated to check TicketAttachment
             })
         
         return Response(tickets_data, status=status.HTTP_200_OK)
@@ -746,88 +532,33 @@ def get_my_tickets(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-# Secure download for any ticket attachment
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-
-@csrf_exempt
-def download_attachment(request, attachment_id):
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_attachment(request, ticket_id):
     """
-    Simple secure file download: authenticated users with proper roles can access attachments
+    Secure file download endpoint
     """
-    # Debug: Print request info
-    print(f"=== Download Request Debug ===")
-    print(f"Method: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
-    print(f"Query params: {dict(request.GET)}")
-    
-    # Handle JWT authentication manually (no DRF)
-    user = None
-    jwt_auth = JWTAuthentication()
-    
-    # Only accept JWT token from Authorization header
     try:
-        print("Trying Authorization header...")
-        auth_result = jwt_auth.authenticate(request)
-        if auth_result:
-            user, token = auth_result
-            print(f"Authorization header success: {user.email}, role: {user.role}")
+        ticket = get_object_or_404(Ticket, id=ticket_id)
+        
+        # Check permissions
+        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if not ticket.attachment:
+            raise Http404("File not found")
+        
+        file_path = ticket.attachment.path
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as fh:
+                response = HttpResponse(fh.read(), content_type="application/octet-stream")
+                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+                return response
         else:
-            print("No Authorization header found")
-    except (InvalidToken, TokenError) as e:
-        print(f"Authorization header failed: {e}")
-        user = None
-    if not user or not user.is_authenticated:
-        print("Authentication failed - no valid user found")
-        return HttpResponse("Authentication required", status=401)
-    
-    attachment = get_object_or_404(TicketAttachment, id=attachment_id)
-    ticket = attachment.ticket
-    
-    print(f"Found attachment: {attachment.file_name}")
-    print(f"Ticket ID: {ticket.id}, Owner: {ticket.employee.email}")
-    print(f"Authenticated user: {user.email}")
-    print(f"User role: {getattr(user, 'role', 'NO ROLE ATTRIBUTE')}")
-    print(f"User is_staff: {user.is_staff}")
-    
-    # Simple permission check: employee, coordinator, or admin
-    has_permission = (
-        getattr(user, 'role', '') in ['System Admin', 'Ticket Coordinator'] or
-        user == ticket.employee or
-        user.is_staff
-    )
-    
-    print(f"Permission check result: {has_permission}")
-    
-    if not has_permission:
-        print("Permission denied - user doesn't have access to this ticket")
-        return HttpResponse("Permission denied", status=403)
-    
-    # Serve the file
-    file_path = attachment.file.path
-    if not os.path.exists(file_path):
-        raise Http404("File not found")
-    
-    with open(file_path, 'rb') as fh:
-        file_data = fh.read()
-    
-    # Get content type
-    import mimetypes
-    content_type, _ = mimetypes.guess_type(file_path)
-    if not content_type:
-        content_type = 'application/octet-stream'
-    
-    response = HttpResponse(file_data, content_type=content_type)
-    
-    # Simple file handling: images/PDFs inline, others download
-    file_ext = os.path.splitext(attachment.file_name)[1].lower()
-    if file_ext in ['.png', '.jpg', '.jpeg', '.gif', '.pdf']:
-        response['Content-Disposition'] = f'inline; filename="{attachment.file_name}"'
-    else:
-        response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
-    
-    return response
+            raise Http404("File not found")
+            
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def custom_api_root(request, format=None):
@@ -838,10 +569,6 @@ def custom_api_root(request, format=None):
         'admin_token_obtain_pair': reverse('admin_token_obtain_pair', request=request, format=format),
         'token_refresh': reverse('token_refresh', request=request, format=format),
         'employee_profile': reverse('employee_profile', request=request, format=format),
-        'change_password': reverse('change_password', request=request, format=format),
-        'upload_profile_image': reverse('upload_profile_image', request=request, format=format),
-        'list_employees': reverse('list_employees', request=request, format=format),
-        'approve_employee': reverse('approve_employee', args=[1], request=request, format=format),  # Example pk
         'get_ticket_detail': reverse('get_ticket_detail', args=[1], request=request, format=format),  # Example ID
         'approve_ticket': reverse('approve_ticket', args=[1], request=request, format=format),
         'reject_ticket': reverse('reject_ticket', args=[1], request=request, format=format),
@@ -850,7 +577,6 @@ def custom_api_root(request, format=None):
         'get_new_tickets': reverse('get_new_tickets', request=request, format=format),
         'get_open_tickets': reverse('get_open_tickets', request=request, format=format),
         'get_my_tickets': reverse('get_my_tickets', request=request, format=format),
-        'finalize_ticket': reverse('finalize_ticket', args=[1], request=request, format=format),
         'tickets': reverse('ticket-list', request=request, format=format),
     })
 
@@ -901,13 +627,7 @@ def upload_profile_image(request):
         file_content = ContentFile(buffer.getvalue())
         user.image.save(f"profile_{user.id}.jpg", file_content)
         user.save()
-        
-        # Return updated user data with secure image URL
-        serializer = EmployeeSerializer(user, context={'request': request})
-        return Response({
-            'detail': 'Image uploaded successfully.',
-            'user': serializer.data
-        })
+        return Response({'detail': 'Image uploaded successfully.'})
     except Exception as e:
         return Response({'detail': 'Failed to process image.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -929,99 +649,31 @@ class IsSystemAdmin(BasePermission):
 @permission_classes([IsAuthenticated, IsSystemAdmin])
 def approve_employee(request, pk):
     try:
-        print(f"Approve employee request received for ID: {pk}")
-        
-        try:
-            employee = Employee.objects.get(pk=pk)
-            print(f"Employee found: {employee.email}")
-        except Employee.DoesNotExist:
-            print(f"Employee with ID {pk} not found")
-            return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
-            
-        if employee.status == 'Approved':
-            print(f"Employee {employee.email} already approved")
-            return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        print(f"Approving employee {employee.email}...")
-        employee.status = 'Approved'
-        employee.save()
-        print(f"Employee {employee.email} status updated to Approved")
+        employee = Employee.objects.get(pk=pk)
+    except Employee.DoesNotExist:
+        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if employee.status == 'Approved':
+        return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+    employee.status = 'Approved'
+    employee.save()
 
-        # Try to send approval email, but don't fail if email fails
-        email_status = "Email not sent"
-        try:
-            print(f"Attempting to send approval email to {employee.email}...")
-            html_content = send_account_approved_email(employee)
-            send_gmail_message(
-                to=employee.email,
-                subject="Your Account is Ready!",
-                body=html_content,
-                is_html=True
-            )
-            email_status = "Employee approved and email sent."
-            print(f"Approval email sent successfully to: {employee.email}")
-        except Exception as e:
-            # Log email error but don't fail the approval
-            email_status = f"Employee approved, but email failed: {str(e)}"
-            print(f"Failed to send approval email: {e}")
-            import traceback
-            print(f"Email error traceback: {traceback.format_exc()}")
+    # Send approval email
+    send_mail(
+        subject='Account Approved',
+        message=(
+            f"Dear {employee.first_name},\n\n"
+            "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
+            "http://localhost:3000/login/employee\n\n"
+            "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
+            "Respectfully,\n"
+            "SmartSupport Help Desk Team"
+        ),
+        from_email='sethpelagio20@gmail.com',
+        recipient_list=[employee.email],
+        fail_silently=False,
+    )
 
-        print(f"Returning success response: {email_status}")
-        return Response({'detail': email_status}, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        print(f"Unexpected error in approve_employee: {e}")
-        import traceback
-        print(f"Full traceback: {traceback.format_exc()}")
-        return Response(
-            {'detail': f'Unexpected error: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-def send_account_approved_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
-    html_content = f"""
-    <html>
-      <body style="background:#f6f8fa;padding:32px 0;">
-        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
-          <div style="padding:40px 32px 32px 32px;text-align:center;">
-            <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
-            <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-              Account Approved!
-            </div>
-            <div style="text-align:left;margin:0 auto 24px auto;">
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Hi {employee.first_name},
-              </p>
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Your account has been approved! You can now log in using the credentials you signed up with.
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                If you need help, contact us at:<br>
-                <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;font-family:Verdana, Geneva, sans-serif;">mapactivephsmartsupport@gmail.com</a>
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
-                Best regards,<br>
-                MAP Active PH SmartSupport
-              </p>
-            </div>
-            <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
-              Visit site
-            </a>
-            <div style="margin-top:18px;text-align:left;">
-              <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
-                SmartSupport
-              </span>
-            </div>
-          </div>
-          <div style="height:5px;background:#2563eb;"></div>
-        </div>
-      </body>
-    </html>
-    """
-    return html_content
+    return Response({'detail': 'Employee approved and email sent.'}, status=status.HTTP_200_OK)
 
 class ApproveEmployeeView(APIView):
     def post(self, request):
@@ -1046,321 +698,3 @@ def finalize_ticket(request, ticket_id):
         return Response({'detail': 'Ticket finalized and sent to workflow.'})
     except Ticket.DoesNotExist:
         return Response({'detail': 'Ticket not found.'}, status=404)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsSystemAdmin])
-def reject_employee(request, pk):
-    try:
-        employee = Employee.objects.get(pk=pk)
-        from .models import RejectedEmployeeAudit
-        RejectedEmployeeAudit.objects.create(
-            first_name=employee.first_name,
-            last_name=employee.last_name,
-            email=employee.email,
-            company_id=employee.company_id,
-            department=employee.department,
-            reason=request.data.get("reason", ""),
-        )
-        # 2. Send rejection email
-        html_content = send_account_rejected_email(employee)
-        send_gmail_message(
-            to=employee.email,
-            subject="Account Creation Unsuccessful",
-            body=html_content,
-            is_html=True
-        )
-        # 3. Delete the employee
-        employee.delete()
-        return Response({'detail': 'Employee rejected, audited, and deleted.'}, status=status.HTTP_200_OK)
-    except Exception as e:
-        print("Reject employee error:", e)
-        return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['POST'])
-def forgot_password(request):
-    email = request.data.get('email')
-    if not email:
-        return Response({'detail': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        user = Employee.objects.get(email=email)
-        if user.status == "Rejected":
-            return Response({'detail': 'This email is associated with a rejected account and cannot reset password.'}, status=status.HTTP_400_BAD_REQUEST)
-        token = default_token_generator.make_token(user)
-        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-        reset_link = f"https://smartsupport-hdts-frontend.up.railway.app/reset-password/{uidb64}/{token}"
-
-        subject = "Reset Your Password"
-        from_email = "sethpelagio20@gmail.com"
-        to = [email]
-        text_content = (
-            f"Hi {user.first_name},\n\n"
-            "We received a request to reset your password. You can create a new one using the link below:\n"
-            f"{reset_link}\n\n"
-            "If you didn’t request a password reset, please ignore this message or contact us if you have any concerns.\n\n"
-            "If you need further assistance, reach out to us at: mapactivephsmartsupport@gmail.com\n\n"
-            "Best regards,\n"
-            "MAP Active PH SmartSupport"
-        )
-        html_content = f"""
-        <html>
-          <body style="background:#f6f8fa;padding:32px 0;">
-            <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
-              <div style="padding:40px 32px 32px 32px;text-align:center;">
-                <img src="https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
-                <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-                  Password Reset Request
-                </div>
-                <div style="text-align:left;margin:0 auto 24px auto;">
-                  <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                    Hi {user.first_name},
-                  </p>
-                  <p style="font-size:16px;color:#222;margin:0 0 18px 0;font-family:Verdana, Geneva, sans-serif;">
-                    We received a request to reset your password. You can create a new one using the link below:
-                  </p>
-                  <div style="text-align:center;margin:24px 0;">
-                    <a href="{reset_link}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;">
-                      Reset Password
-                    </a>
-                  </div>
-                  <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                    If you didn’t request a password reset, please ignore this message or contact us if you have any concerns.
-                  </p>
-                  <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                    If you need further assistance, reach out to us at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
-                  </p>
-                  <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
-                    Best regards,<br>
-                    MAP Active PH SmartSupport
-                  </p>
-                </div>
-                <div style="margin-top:18px;text-align:left;">
-                  <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
-                    SmartSupport
-                  </span>
-                </div>
-              </div>
-              <div style="height:5px;background:#2563eb;"></div>
-            </div>
-          </body>
-        </html>
-        """
-
-        send_gmail_message(
-            to=email,
-            subject=subject,
-            body=html_content,
-            is_html=True
-        )
-
-        return Response({'detail': 'Password reset link sent.'}, status=status.HTTP_200_OK)
-    except Employee.DoesNotExist:
-        return Response({'detail': 'Invalid Email.'}, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def withdraw_ticket(request, ticket_id):
-    """
-    Allow the ticket owner to withdraw their ticket if not resolved.
-    """
-    try:
-        ticket = Ticket.objects.get(id=ticket_id)
-        # Only the ticket owner can withdraw
-        if ticket.employee != request.user:
-            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-        if ticket.status == "Resolved":
-            return Response({'error': 'Cannot withdraw a resolved ticket.'}, status=status.HTTP_400_BAD_REQUEST)
-        if ticket.status == "Withdrawn":
-            return Response({'error': 'Ticket already withdrawn.'}, status=status.HTTP_400_BAD_REQUEST)
-        ticket.status = "Withdrawn"
-        ticket.save()
-
-        # Save the withdrawal comment if provided
-        comment = request.data.get("comment", "").strip()
-        if comment:
-            TicketComment.objects.create(
-                ticket=ticket,
-                user=request.user,
-                comment=f"Ticket withdrawn: {comment}",
-                is_internal=False
-            )
-
-        return Response({'message': 'Ticket withdrawn successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
-    except Ticket.DoesNotExist:
-        return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def close_ticket(request, ticket_id):
-    """
-    Allow the ticket owner (employee) to close their own ticket if it's resolved.
-    """
-    try:
-        ticket = Ticket.objects.get(id=ticket_id)
-        # Only the ticket owner can close
-        if ticket.employee != request.user:
-            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-        if ticket.status != "Resolved":
-            return Response({'error': 'Only resolved tickets can be closed.'}, status=status.HTTP_400_BAD_REQUEST)
-        if ticket.status == "Closed":
-            return Response({'error': 'Ticket already closed.'}, status=status.HTTP_400_BAD_REQUEST)
-        ticket.status = "Closed"
-        ticket.time_closed = timezone.now()
-        if ticket.submit_date:
-            ticket.resolution_time = ticket.time_closed - ticket.submit_date
-        ticket.save()
-
-        # Save the closing comment if provided
-        comment = request.data.get("comment", "").strip()
-        if comment:
-            TicketComment.objects.create(
-                ticket=ticket,
-                user=request.user,
-                comment=f"Ticket closed: {comment}",
-                is_internal=False
-            )
-
-        return Response({'message': 'Ticket closed successfully.', 'status': ticket.status}, status=status.HTTP_200_OK)
-    except Ticket.DoesNotExist:
-        return Response({'error': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(['POST'])
-def reset_password(request):
-    uidb64 = request.data.get('uidb64')
-    token = request.data.get('token')
-    new_password = request.data.get('new_password')
-
-    if not uidb64 or not token or not new_password:
-        return Response({'detail': 'Missing data.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        uid = urlsafe_base64_decode(uidb64).decode()
-        user = get_user_model().objects.get(pk=uid)
-    except Exception:
-        return Response({'detail': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if not default_token_generator.check_token(user, token):
-        return Response({'detail': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    user.set_password(new_password)
-    user.save()
-    return Response({'detail': 'Password reset successful.'}, status=status.HTTP_200_OK)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def check_password(request):
-    user = request.user
-    current_password = request.data.get('current_password')
-    if not current_password:
-        return Response({'detail': 'Current password is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    if user.check_password(current_password):
-        return Response({'detail': 'Password correct.'}, status=status.HTTP_200_OK)
-    return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
-
-def send_account_rejected_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
-    html_content = f"""
-    <html>
-      <body style="background:#f6f8fa;padding:32px 0;">
-        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
-          <div style="padding:40px 32px 32px 32px;text-align:center;">
-            <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
-            <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-              Account Rejected
-            </div>
-            <div style="text-align:left;margin:0 auto 24px auto;">
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Hi {employee.first_name},
-              </p>
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                If you need help, contact us at:<br>
-                <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;font-family:Verdana, Geneva, sans-serif;">mapactivephsmartsupport@gmail.com</a>
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
-                Best regards,<br>
-                MAP Active PH SmartSupport
-              </p>
-            </div>
-            <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
-              Visit site
-            </a>
-            <div style="margin-top:18px;text-align:left;">
-              <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
-                SmartSupport
-              </span>
-            </div>
-          </div>
-          <div style="height:5px;background:#2563eb;"></div>
-        </div>
-      </body>
-    </html>
-    """
-    return html_content
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def rejected_employee_audit_list(request):
-    from .models import RejectedEmployeeAudit
-    audits = RejectedEmployeeAudit.objects.order_by('-rejected_at')
-    data = [
-        {
-            "id": audit.id,
-            "company_id": audit.company_id,
-            "first_name": audit.first_name,
-            "last_name": audit.last_name,
-            "email": audit.email,
-            "department": audit.department,
-            "timestamp": audit.rejected_at,
-        }
-        for audit in audits
-    ]
-    return Response(data)
-
-def send_account_pending_email(employee):
-    logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
-    site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
-    html_content = f"""
-    <html>
-      <body style="background:#f6f8fa;padding:32px 0;">
-        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
-          <div style="padding:40px 32px 32px 32px;text-align:center;">
-            <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
-            <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
-              Account Creation Pending Approval
-            </div>
-            <div style="text-align:left;margin:0 auto 24px auto;">
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Hi {employee.first_name},
-              </p>
-              <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
-                Thank you for signing up with MAP Active PH! Your account has been successfully created, but it is currently awaiting approval. You’ll receive a confirmation email once your account has been approved.
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                If you have any questions, don’t hesitate to reach out to us.
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
-                If you did not create this account, please contact us immediately at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
-              </p>
-              <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
-                Best regards,<br>
-                MAP Active PH SmartSupport
-              </p>
-            </div>
-            <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
-              Visit site
-            </a>
-            <div style="margin-top:18px;text-align:left;">
-              <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
-                SmartSupport
-              </span>
-            </div>
-          </div>
-          <div style="height:5px;background:#2563eb;"></div>
-        </div>
-      </body>
-    </html>
-    """
-    return html_content

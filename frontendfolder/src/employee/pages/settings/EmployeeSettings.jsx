@@ -1,464 +1,81 @@
-import { useEffect, useState } from "react";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { toast } from "react-toastify";
+import { useState, useEffect } from 'react';
 import styles from './EmployeeSettings.module.css';
-
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app";
-
-const ALLOWED_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-];
-const MAX_IMAGE_SIZE_MB = 2;
-
-const getPasswordErrorMessage = (password) => {
-  const requirements = [];
-  if (!password || password.trim() === "") {
-    return "Please fill in the required field.";
-  }
-  if (password.length < 8) {
-    requirements.push("at least 8 characters");
-  }
-  if (!/[A-Z]/.test(password)) {
-    requirements.push("an uppercase letter");
-  }
-  if (!/[0-9]/.test(password)) {
-    requirements.push("a number");
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'-]/.test(password)) {
-    requirements.push("a special character");
-  }
-  if (requirements.length > 0) {
-    if (requirements.length === 1) {
-      return `Password must contain ${requirements[0]}.`;
-    }
-    const last = requirements.pop();
-    return `Password must contain ${requirements.join(", ")}, and ${last}.`;
-  }
-  return "";
-};
+import authService from '../../../utilities/service/authService';
 
 const EmployeeSettings = () => {
-  const [profile, setProfile] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-  const [message, setMessage] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  // Error states for each field
-  const [currentPasswordError, setCurrentPasswordError] = useState("");
-  const [newPasswordError, setNewPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
-  const [imageError, setImageError] = useState("");
-
-  // Track if user has touched (focused and blurred) each field
-  const [touched, setTouched] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
-  const [passwordChanged, setPasswordChanged] = useState(false);
-  const [currentPasswordValid, setCurrentPasswordValid] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem("employee_access_token");
-      if (!token) return;
-      const res = await fetch(`${API_URL}employee/profile/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data);
-        setImagePreview(data.image); // Use secure URL directly from backend
-      }
-    };
-    fetchProfile();
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
   }, []);
 
-  // Handle image file selection
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        setImageError("Only PNG, JPG, and JPEG images are allowed.");
-        setImageFile(null);
-        setImagePreview(null);
-        return;
-      }
-      if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-        setImageError(`Image must be less than ${MAX_IMAGE_SIZE_MB}MB.`);
-        setImageFile(null);
-        setImagePreview(null);
-        return;
-      }
-      setImageError("");
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    } else {
-      setImageError("");
-      setImageFile(null);
-      setImagePreview(null);
-    }
-  };
-
-  // Upload profile image, woah it works
-  const handleImageUpload = async (e) => {
-    e.preventDefault();
-    if (!imageFile) return;
-    const token = localStorage.getItem("employee_access_token");
-    const formData = new FormData();
-    formData.append("image", imageFile);
-    const res = await fetch(`${API_URL}employee/upload-image/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (res.ok) {
-      const uploadData = await res.json();
-      toast.success("Profile image updated!");
-      
-      // Use the updated user data from the upload response
-      if (uploadData.user) {
-        setProfile(uploadData.user);
-        setImagePreview(uploadData.user.image); // Use secure URL directly
-        setImageFile(null);
-        // Store the secure URL in localStorage
-        if (uploadData.user.image) {
-          localStorage.setItem("employee_image", uploadData.user.image);
-        }
-      } else {
-        // Fallback: fetch the updated profile
-        const profileRes = await fetch(`${API_URL}employee/profile/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfile(data);
-          setImagePreview(data.image); // Use secure URL directly
-          setImageFile(null);
-          // Store the secure URL in localStorage
-          if (data.image) {
-            localStorage.setItem("employee_image", data.image);
-          }
-        }
-      }
-    } else {
-      setMessage("Failed to upload image.");
-    }
-  };
-
-  // Validate fields on change
-  useEffect(() => {
-    // Reset passwordChanged if user types in any field
-    setPasswordChanged(false);
-
-    // Current password
-    setCurrentPasswordError(
-      !passwords.current ? "Please fill in the required field." : ""
-    );
-    // New password
-    setNewPasswordError(getPasswordErrorMessage(passwords.new));
-    // Confirm password
-    setConfirmPasswordError(
-      !passwords.confirm
-        ? "Please fill in the required field."
-        : passwords.new && passwords.confirm !== passwords.new
-        ? "Password did not match."
-        : ""
-    );
-  // eslint-disable-next-line
-  }, [passwords]);
-
-  // Debounced current password check
-  useEffect(() => {
-    if (!passwords.current) {
-      setCurrentPasswordValid(false);
-      setMessage("");
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(`${API_URL}employee/check-password/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ current_password: passwords.current }),
-      });
-      if (res.ok) {
-        setCurrentPasswordValid(true);
-        setMessage("");
-      } else {
-        setCurrentPasswordValid(false);
-        setMessage("Current password is incorrect.");
-      }
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line
-  }, [passwords.current]);
-
-  // Handle password change
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    if (
-      currentPasswordError ||
-      newPasswordError ||
-      confirmPasswordError ||
-      !passwords.current ||
-      !passwords.new ||
-      !passwords.confirm
-    ) {
-      return;
-    }
-    setMessage("");
-    const token = localStorage.getItem("employee_access_token");
-    const res = await fetch(`${API_URL}employee/change-password/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        current_password: passwords.current,
-        new_password: passwords.new,
-      }),
-    });
-    if (res.ok) {
-      toast.success("Password changed successfully.");
-      setPasswords({ current: "", new: "", confirm: "" });
-      setPasswordChanged(true);
-      setCurrentPasswordValid(false);
-      setTouched({ current: false, new: false, confirm: false }); // <-- Add this line
-    } else {
-      const data = await res.json();
-      setMessage(data.detail || "Failed to change password.");
-    }
-  };
-
-  const isChangePasswordDisabled =
-    !passwords.current ||
-    !passwords.new ||
-    !passwords.confirm ||
-    !!currentPasswordError ||
-    !!newPasswordError ||
-    !!confirmPasswordError;
-
-  if (!profile) return <div>Loading...</div>;
+  if (!currentUser) {
+    return <div className={styles.container}>Loading...</div>;
+  }
 
   return (
     <div className={styles.container}>
       <h2 className={styles.heading}>Settings</h2>
-      {message && message !== "Current password is incorrect." && (
-  <div className={styles.message}>{message}</div>
-)}
 
       {/* Personal Information Section */}
       <div className={styles.section}>
         <h3>Personal Information</h3>
         <div className={styles.fieldGroup}>
           <label>Last Name</label>
-          <input type="text" value={profile.last_name || ""} readOnly />
+          <input type="text" value={currentUser.lastName || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>First Name</label>
-          <input type="text" value={profile.first_name || ""} readOnly />
+          <input type="text" value={currentUser.firstName || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Middle Name</label>
-          <input type="text" value={profile.middle_name || ""} readOnly />
+          <input type="text" value={currentUser.middleName || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Suffix</label>
-          <input type="text" value={profile.suffix || ""} readOnly />
+          <input type="text" value={currentUser.suffix || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Company ID</label>
-          <input type="text" value={profile.company_id || ""} readOnly />
+          <input type="text" value={currentUser.companyId || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Department</label>
-          <input type="text" value={profile.department || ""} readOnly />
+          <input type="text" value={currentUser.department || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Role</label>
-          <input type="text" value={profile.role || ""} readOnly />
+          <input type="text" value={currentUser.role || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
           <label>Email</label>
-          <input type="email" value={profile.email || ""} readOnly />
+          <input type="email" value={currentUser.email || ''} readOnly />
         </div>
         <div className={styles.fieldGroup}>
-          <label htmlFor="profile-image">Upload Profile Picture</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input
-              id="profile-image"
-              type="file"
-              accept={ALLOWED_IMAGE_TYPES.join(",")}
-              onChange={handleImageChange}
-              style={{ flex: "none" }}
-            />
-            <span className={styles.currentFileName}>
-              {imageFile
-                ? imageFile.name
-                : profile?.image
-                  ? profile.image.split("/").pop()
-                  : "No file chosen"}
-            </span>
-          </div>
-          {imageError && <span className={styles.errorMessage}>{imageError}</span>}
+          <label>Upload Profile Picture</label>
+          <input type="file" accept="image/*" />
         </div>
-        <button className={styles.saveButton} onClick={handleImageUpload}>Save Changes</button>
+        <button className={styles.saveButton}>Save Changes</button>
       </div>
 
       {/* Security Section */}
       <div className={styles.section}>
         <h3>Security</h3>
-        {/* Current Password */}
         <div className={styles.fieldGroup}>
-          <label>
-            Current Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showCurrent ? "text" : "password"}
-              value={passwords.current}
-              onChange={(e) => {
-                setPasswords({ ...passwords, current: e.target.value });
-                setPasswordChanged(false);
-                setCurrentPasswordValid(false);
-                setTouched((prev) => ({ ...prev, current: true }));
-              }}
-              onPaste={e => {
-                e.preventDefault();
-                const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                // Only allow English letters, numbers, and common password symbols
-                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
-                document.execCommand('insertText', false, filtered);
-              }}
-              style={{ width: "100%", paddingRight: "40px" }}
-            />
-            {passwords.current && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowCurrent((prev) => !prev)}
-              >
-                {showCurrent ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
-          </div>
-          {touched.current && currentPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{currentPasswordError}</span>
-          )}
-          {message === "Current password is incorrect." && !passwordChanged && (
-            <span className={styles.errorMessage}>{message}</span>
-          )}
+          <label>Current Password (hashed)</label>
+          <input type="password" disabled value="••••••••••••••" />
         </div>
-        {/* New Password */}
         <div className={styles.fieldGroup}>
-          <label>
-            New Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showNew ? "text" : "password"}
-              value={passwords.new}
-              onChange={(e) => {
-                const value = e.target.value;
-                setPasswords({ ...passwords, new: value });
-                setPasswordChanged(false);
-              }}
-              onBlur={() => setTouched((prev) => ({ ...prev, new: true }))}
-              onPaste={e => {
-                e.preventDefault();
-                const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                // Only allow English letters, numbers, and common password symbols
-                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
-                document.execCommand('insertText', false, filtered);
-              }}
-              style={{ width: "100%", paddingRight: "40px" }}
-              disabled={!currentPasswordValid}
-            />
-            {passwords.new && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowNew((prev) => !prev)}
-              >
-                {showNew ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
-          </div>
-          {touched.new && newPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{newPasswordError}</span>
-          )}
+          <label>New Password</label>
+          <input type="password" />
         </div>
-        {/* Confirm Password */}
         <div className={styles.fieldGroup}>
-          <label>
-            Confirm Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showConfirm ? "text" : "password"}
-              value={passwords.confirm}
-              onChange={(e) => {
-                setPasswords({ ...passwords, confirm: e.target.value });
-                setPasswordChanged(false);
-              }}
-              onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
-              onPaste={e => e.preventDefault()}
-              style={{ width: "100%", paddingRight: "40px" }}
-              disabled={!!newPasswordError || !passwords.new}
-            />
-            {passwords.confirm && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowConfirm((prev) => !prev)}
-              >
-                {showConfirm ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
-          </div>
-          {touched.confirm && confirmPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{confirmPasswordError}</span>
-          )}
+          <label>Confirm Password</label>
+          <input type="password" />
         </div>
-        <button
-          className={styles.saveButton}
-          onClick={handlePasswordChange}
-          disabled={
-            !passwords.current ||
-            !passwords.new ||
-            !passwords.confirm
-          }
-        >
-          Change Password
-        </button>
+        <button className={styles.saveButton}>Save New Password</button>
       </div>
     </div>
   );

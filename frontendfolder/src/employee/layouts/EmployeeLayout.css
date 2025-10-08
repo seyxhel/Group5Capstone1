@@ -20,14 +20,3 @@
   box-sizing: border-box;
   scroll-behavior: smooth; /* enables smooth scroll */
 }
-
-.employee-layout-main {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px 38px 38px;
-  background-color: var(--bg-color);
-  box-sizing: border-box;
-}
