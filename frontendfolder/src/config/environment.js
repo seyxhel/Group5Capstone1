@@ -1,7 +1,7 @@
 // Configuration file to toggle between local and backend API
 
 // Set to true for local development, false for backend API
-export const USE_LOCAL_API = true;
+export const USE_LOCAL_API = false;
 
 // API Configuration
 export const API_CONFIG = {

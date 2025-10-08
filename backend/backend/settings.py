@@ -81,12 +81,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'newdb',
-        'USER': 'postgres',
-        'PASSWORD': 'Oklangyan421!',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -153,12 +149,21 @@ REST_FRAMEWORK = {
     ),
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "sethpelagio20@gmail.com"
-EMAIL_HOST_PASSWORD = "wibleoywhclqjsmm"
+# Email configuration
+# By default use SMTP backend credentials (kept for production), but when
+# running locally with DEBUG=True prefer the console backend so Django
+# won't attempt to authenticate with an external SMTP server and raise
+# SMTPAuthenticationError while testing.
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') in ('True', 'true', '1')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'sethpelagio20@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'wibleoywhclqjsmm')
+
+# Use console backend during local development to avoid SMTP auth failures
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'

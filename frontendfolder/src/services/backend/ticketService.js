@@ -1,0 +1,185 @@
+// Backend ticket service
+import { API_CONFIG } from '../../config/environment.js';
+
+const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : '',
+  };
+};
+
+export const backendTicketService = {
+  async getAllTickets() {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tickets');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      throw error;
+    }
+  },
+
+  async getTicketById(ticketId) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching ticket:', error);
+      throw error;
+    }
+  },
+
+  async createTicket(ticketData) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(ticketData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      throw error;
+    }
+  },
+
+  async updateTicket(ticketId, ticketData) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(ticketData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+      throw error;
+    }
+  },
+
+  async deleteTicket(ticketId) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete ticket');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      throw error;
+    }
+  },
+
+  async getTicketsByEmployee(employeeId) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/?employee=${employeeId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch employee tickets');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching employee tickets:', error);
+      throw error;
+    }
+  },
+
+  async getTicketsByDepartment(department) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/?department=${department}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch department tickets');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching department tickets:', error);
+      throw error;
+    }
+  },
+
+  async updateTicketStatus(ticketId, status) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update ticket status');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      throw error;
+    }
+  },
+
+  async assignTicket(ticketId, assigneeId) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ assigned_to: assigneeId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to assign ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      throw error;
+    }
+  }
+};

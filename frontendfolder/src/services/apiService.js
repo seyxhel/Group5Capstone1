@@ -6,10 +6,10 @@ import { localAuthService } from './local/authService.js';
 import { localTicketService } from './local/ticketService.js';
 import { localEmployeeService } from './local/employeeService.js';
 
-// Backend services (you can import these when needed)
-// import { backendAuthService } from './backend/authService.js';
-// import { backendTicketService } from './backend/ticketService.js';
-// import { backendEmployeeService } from './backend/employeeService.js';
+// Backend services
+import { backendAuthService } from './backend/authService.js';
+import { backendTicketService } from './backend/ticketService.js';
+import { backendEmployeeService } from './backend/employeeService.js';
 
 // Service factory function
 const createServiceFactory = () => {
@@ -22,24 +22,10 @@ const createServiceFactory = () => {
     };
   } else {
     console.log('🌐 Using BACKEND services');
-    // Return backend services when USE_LOCAL_API is false
     return {
-      // auth: backendAuthService,
-      // tickets: backendTicketService,
-      // employees: backendEmployeeService
-      
-      // Placeholder - you would implement backend services here
-      auth: {
-        login: () => { throw new Error('Backend service not implemented yet'); },
-        register: () => { throw new Error('Backend service not implemented yet'); },
-        logout: () => { throw new Error('Backend service not implemented yet'); }
-      },
-      tickets: {
-        getAllTickets: () => { throw new Error('Backend service not implemented yet'); }
-      },
-      employees: {
-        getAllEmployees: () => { throw new Error('Backend service not implemented yet'); }
-      }
+      auth: backendAuthService,
+      tickets: backendTicketService,
+      employees: backendEmployeeService
     };
   }
 };

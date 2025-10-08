@@ -13,7 +13,7 @@ export function generateSecureMediaUrl(filePath, token) {
     return null;
   }
 
-  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'http://localhost:8000/media/';
   
   // Remove leading slash if present
   const cleanFilePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
@@ -56,7 +56,7 @@ export function getSecureMediaUrl(filePath) {
 export function extractFilePathFromUrl(fullUrl) {
   if (!fullUrl) return null;
   
-  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'http://localhost:8000/media/';
   
   if (fullUrl.startsWith(MEDIA_URL)) {
     const filePath = fullUrl.replace(MEDIA_URL, '');

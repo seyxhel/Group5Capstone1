@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
+import { apiService } from "../../../services/apiService";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
 import Logo from "../../../shared/assets/MapLogo.png";
 import SmartSupportImage from "../../assets/SmartSupportImage.jpg";
@@ -28,14 +29,44 @@ export default function SmartSupportEmployeeCreateAccount() {
 
   const agreed = watch("terms");
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     setSubmitting(true);
-    setTimeout(() => {
-      console.log("Account Created:", data);
-      toast.success("Account created! Waiting for admin approval.");
+    
+    try {
+      console.log('Raw form data:', data);
+      
+      // Prepare the data for the backend API
+      const userData = {
+        email: data.email,
+        password: data.password,
+        confirm_password: data.confirmPassword, // Add confirm password field
+        first_name: data.firstName,
+        last_name: data.lastName,
+        middle_name: data.middleName || '',
+        suffix: data.suffix || '',
+        company_id: `MA${data.companyId}`, // Combine prefix with company ID
+        department: data.department,
+        // Add any other fields that your backend expects
+      };
+
+      console.log('Creating account with data:', userData);
+      console.log('JSON stringified data:', JSON.stringify(userData));
+      
+      // Call the backend API
+      const response = await apiService.auth.register(userData);
+      
+      console.log('Account creation response:', response);
+      toast.success("Account created successfully! Waiting for admin approval.");
+      
+  // Redirect to home page after successful registration
+  setTimeout(() => navigate("/"), 2000);
+      
+    } catch (error) {
+      console.error('Account creation error:', error);
+      toast.error(error.message || "Failed to create account. Please try again.");
+    } finally {
       setSubmitting(false);
-      setTimeout(() => navigate("/"), 3000);
-    }, 2000);
+    }
   };
 
   const handleAgree = () => {
