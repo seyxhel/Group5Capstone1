@@ -94,6 +94,24 @@ const EmployeeTicketRecords = () => {
 
   useEffect(() => {
     const tickets = getEmployeeTickets();
+    try {
+      const storedUser = localStorage.getItem('loggedInUser');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const userId = user?.id || user?.userId || user?.employeeId || null;
+        if (userId) {
+          const filtered = tickets.filter(t => {
+            if (!t.id) return true; // mock/local ticket
+            const createdById = t?.createdBy?.userId || t?.createdBy?.id || t?.created_by?.id || null;
+            return String(createdById) === String(userId);
+          });
+          setAllTickets(filtered);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to filter backend tickets by owner in Records, showing all local tickets', e);
+    }
     setAllTickets(tickets);
   }, []);
 

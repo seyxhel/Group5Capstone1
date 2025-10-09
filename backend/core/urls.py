@@ -9,6 +9,8 @@ from .views import (
     approve_ticket,
     reject_ticket,
     get_ticket_detail,
+    add_ticket_comment,
+    get_ticket_by_number,
     get_new_tickets,
     claim_ticket,
     update_ticket_status,
@@ -47,6 +49,8 @@ urlpatterns = [
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
 
     path('tickets/<int:ticket_id>/', get_ticket_detail, name='get_ticket_detail'),
+    path('tickets/number/<str:ticket_number>/', get_ticket_by_number, name='get_ticket_by_number'),
+    path('tickets/<int:ticket_id>/comments/', add_ticket_comment, name='add_ticket_comment'),
     path('tickets/<int:ticket_id>/approve/', approve_ticket, name='approve_ticket'),
     path('tickets/<int:ticket_id>/reject/', reject_ticket, name='reject_ticket'),
     path('tickets/<int:ticket_id>/claim/', claim_ticket, name='claim_ticket'),

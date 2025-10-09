@@ -20,8 +20,26 @@ const EmployeeHome = () => {
 
   useEffect(() => {
     const allTickets = getEmployeeTickets();
+    // Filter backend-created tickets (those with an `id`) to only those created by current user
+    let ticketsToConsider = allTickets;
+    try {
+      const storedUser = localStorage.getItem('loggedInUser');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const userId = user?.id || user?.userId || user?.employeeId || null;
+        if (userId) {
+          ticketsToConsider = allTickets.filter(t => {
+            if (!t.id) return true; // mock/local ticket
+            const createdById = t?.createdBy?.userId || t?.createdBy?.id || t?.created_by?.id || null;
+            return String(createdById) === String(userId);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to filter backend tickets on Home, showing all local tickets', e);
+    }
 
-    const activeTickets = allTickets.filter(ticket => {
+    const activeTickets = ticketsToConsider.filter(ticket => {
       // include Withdrawn tickets in Recent Tickets per UX request
       const status = (ticket.status || '').toLowerCase();
       return !['closed', 'rejected'].includes(status);

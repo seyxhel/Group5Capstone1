@@ -384,6 +384,7 @@ def get_ticket_detail(request, ticket_id):
                     'created_at': comment.created_at,
                     'is_internal': comment.is_internal,
                     'user': {
+                        'id': comment.user.id,
                         'first_name': comment.user.first_name,
                         'last_name': comment.user.last_name,
                         'role': getattr(comment.user, 'role', 'User')
@@ -394,6 +395,120 @@ def get_ticket_detail(request, ticket_id):
         
         return Response(ticket_data, status=status.HTTP_200_OK)
         
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_ticket_by_number(request, ticket_number):
+    """
+    Lookup ticket by its ticket_number (string) and return the same payload as get_ticket_detail.
+    """
+    try:
+        ticket = get_object_or_404(Ticket, ticket_number=ticket_number)
+
+        # Check if user has permission to view this ticket
+        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get comments based on user role
+        if request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user.is_staff:
+            comments = ticket.comments.all().order_by('created_at')
+        else:
+            comments = ticket.comments.filter(is_internal=False).order_by('created_at')
+
+        ticket_data = {
+            'id': ticket.id,
+            'ticket_number': ticket.ticket_number,
+            'subject': ticket.subject,
+            'category': ticket.category,
+            'sub_category': ticket.sub_category,
+            'description': ticket.description,
+            'attachments': TicketAttachmentSerializer(ticket.attachments.all(), many=True).data,
+            'status': ticket.status,
+            'priority': ticket.priority,
+            'department': ticket.department,
+            'submit_date': ticket.submit_date,
+            'update_date': ticket.update_date,
+            'assigned_to': {
+                'id': ticket.assigned_to.id,
+                'first_name': ticket.assigned_to.first_name,
+                'last_name': ticket.assigned_to.last_name,
+            } if ticket.assigned_to else None,
+            'employee': {
+                'id': ticket.employee.id,
+                'first_name': ticket.employee.first_name,
+                'last_name': ticket.employee.last_name,
+                'company_id': ticket.employee.company_id,
+                'department': ticket.employee.department,
+                'email': ticket.employee.email,
+            },
+            'comments': [
+                {
+                    'id': comment.id,
+                    'comment': comment.comment,
+                    'created_at': comment.created_at,
+                    'is_internal': comment.is_internal,
+                    'user': {
+                        'id': comment.user.id,
+                        'first_name': comment.user.first_name,
+                        'last_name': comment.user.last_name,
+                        'role': getattr(comment.user, 'role', 'User')
+                    }
+                } for comment in comments
+            ]
+        }
+
+        return Response(ticket_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_ticket_comment(request, ticket_id):
+    """
+    Add a comment to a ticket. Expects JSON { "comment": "...", "is_internal": false }
+    """
+    try:
+        ticket = get_object_or_404(Ticket, id=ticket_id)
+
+        # Permission: employee who owns the ticket or staff/admin/coordinator can comment
+        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        comment_text = request.data.get('comment', '').strip()
+        if not comment_text:
+            return Response({'error': 'Comment text is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_internal = bool(request.data.get('is_internal', False))
+        # Prevent regular employees from creating internal comments
+        if is_internal and not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
+            return Response({'error': 'Permission denied for internal comment'}, status=status.HTTP_403_FORBIDDEN)
+
+        comment = TicketComment.objects.create(
+            ticket=ticket,
+            user=request.user,
+            comment=comment_text,
+            is_internal=is_internal
+        )
+
+        # Prepare serialized response similar to get_ticket_detail
+        comment_data = {
+            'id': comment.id,
+            'comment': comment.comment,
+            'created_at': comment.created_at,
+            'is_internal': comment.is_internal,
+            'user': {
+                'id': comment.user.id,
+                'first_name': comment.user.first_name,
+                'last_name': comment.user.last_name,
+                'role': getattr(comment.user, 'role', 'User')
+            }
+        }
+
+        return Response(comment_data, status=status.HTTP_201_CREATED)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

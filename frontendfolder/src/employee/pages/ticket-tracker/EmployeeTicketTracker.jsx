@@ -1,7 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
 import { getEmployeeTickets, saveEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { tickets as ticketService, auth as authService } from '../../../services/apiService.js';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
@@ -77,12 +78,19 @@ const generateLogs = (ticket) => {
   return logs.map((l) => ({ ...l, timestamp: formatDate(l.timestamp) }));
 };
 
-// Generate messages based on ticket data
-const generateMessages = (ticket) => {
-  return [
-    { id: 1, sender: 'Support Team', message: `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`, timestamp: formatDate(ticket.dateCreated) },
-    { id: 2, sender: 'You', message: 'Thank you for the update. When can I expect this to be resolved?', timestamp: formatDate(ticket.dateCreated) },
-  ];
+// Convert API comment objects into message objects for the UI
+const mapCommentsToMessages = (comments, currentUserId) => {
+  if (!Array.isArray(comments)) return [];
+  return comments.map((c, idx) => {
+    const userId = c.user && (c.user.id || null);
+    const isCurrent = currentUserId && userId && Number(currentUserId) === Number(userId);
+    return {
+      id: c.id || idx + 1,
+      sender: isCurrent ? 'You' : (c.user ? `${c.user.first_name} ${c.user.last_name}` : 'Support Team'),
+      message: c.comment || c.message || '',
+      timestamp: formatDate(c.created_at || c.createdAt || c.createdAt)
+    };
+  }).reverse(); // API returns oldest-first in get_ticket_detail; reverse to show oldest->newest
 };
 
 export default function EmployeeTicketTracker() {
@@ -92,6 +100,7 @@ export default function EmployeeTicketTracker() {
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const loadedKeyRef = useRef(null);
 
   // Keep tickets in state so UI updates after status changes
   const [tickets, setTickets] = useState(() => getEmployeeTickets());
@@ -141,24 +150,125 @@ export default function EmployeeTicketTracker() {
 
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
-  const ticketMessages = generateMessages(ticket);
+  // Load persisted comments/messages for this ticket from backend (if available)
+  const loadComments = async () => {
+    try {
+      // If ticket has an `id` field (backend numeric ticket id), fetch details
+      if (ticket && (ticket.id || ticket.id === 0)) {
+        const backendTicketId = ticket.id || ticket.ticketId;
+        const data = await ticketService.getTicketById(backendTicketId);
+  const currentUser = authService.getCurrentUser();
+  const currentUserId = currentUser?.id;
+  let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
+        // Ensure the initial system message exists (do not duplicate if server already has a similar message)
+        const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
+        const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
+        if (!hasSystem) {
+          mapped = [{
+            id: 'sys-1',
+            sender: 'Support Team',
+            message: systemMessageText,
+            timestamp: formatDate(ticket.dateCreated || ticket.submit_date || new Date().toISOString())
+          }, ...mapped];
+        }
+        setMessages(mapped);
+        return;
+      }
 
-  // Initialize messages from generated data
-  if (messages.length === 0 && ticketMessages.length > 0) {
-    setMessages(ticketMessages);
-  }
+      // If ticket does not have numeric id, try looking it up by ticket_number on backend
+      if (ticket && ticket.ticketNumber) {
+        try {
+          const data = await ticketService.getTicketByNumber(ticket.ticketNumber);
+          const currentUser = authService.getCurrentUser();
+          const currentUserId = currentUser?.id;
+          let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
+          const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
+          const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
+          if (!hasSystem) {
+            mapped = [{
+              id: 'sys-1',
+              sender: 'Support Team',
+              message: systemMessageText,
+              timestamp: formatDate(data.submit_date || data.dateCreated || ticket.dateCreated || new Date().toISOString())
+            }, ...mapped];
+          }
+          setMessages(mapped);
+
+          // Update local ticket object with backend id so future createComment can persist
+          const updatedTickets = tickets.map((t) => t.ticketNumber === ticket.ticketNumber ? { ...t, id: data.id } : t);
+          setTickets(updatedTickets);
+          saveEmployeeTickets(updatedTickets);
+          return;
+        } catch (err) {
+          // If lookup fails, continue to local fallback
+          console.warn('Lookup by ticket number failed:', err);
+        }
+      }
+
+      // Fallback: if ticket has `comments` from local storage/mock, use those
+      if (ticket && Array.isArray(ticket.comments) && ticket.comments.length > 0) {
+        const currentUser = authService.getCurrentUser();
+        const currentUserId = currentUser?.id;
+        const mapped = mapCommentsToMessages(ticket.comments, currentUserId);
+        setMessages(mapped);
+        return;
+      }
+
+      // If no comments, clear messages (do not inject a default 'You' message)
+      setMessages([]);
+    } catch (e) {
+      console.error('Failed to load ticket comments:', e);
+      // Keep existing messages if any
+    }
+  };
+
+  // Run loadComments whenever the selected ticket changes
+  useEffect(() => {
+    if (!ticket) return;
+    // Reset messages for a fresh ticket view
+    setMessages([]);
+    // Reset loadedKey so loadComments runs even if ticketNumber/id is unchanged in value reference
+    loadedKeyRef.current = null;
+    loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket?.ticketNumber, ticket?.id]);
 
   // Handle sending a new message
   const handleSendMessage = () => {
     if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
-        sender: 'You',
-        message: newMessage,
-        timestamp: formatDate(new Date().toISOString())
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage('');
+      (async () => {
+        try {
+          // If this ticket has a backend id, persist the comment
+          if (ticket && (ticket.id || ticket.id === 0)) {
+            const created = await ticketService.createComment(ticket.id, newMessage, false);
+            // Map single returned comment to message format
+            const currentUser = authService.getCurrentUser();
+            const currentUserId = currentUser?.id;
+            const isCurrent = created.user && currentUserId && Number(created.user.id) === Number(currentUserId);
+            const msg = {
+              id: created.id,
+              sender: isCurrent ? 'You' : (created.user ? `${created.user.first_name} ${created.user.last_name}` : 'You'),
+              message: created.comment || '',
+              timestamp: formatDate(created.created_at)
+            };
+            setMessages((prev) => [...prev, msg]);
+            setNewMessage('');
+            return;
+          }
+
+          // Fallback local behavior: append to in-memory messages
+          const newMsg = {
+            id: messages.length + 1,
+            sender: 'You',
+            message: newMessage,
+            timestamp: formatDate(new Date().toISOString())
+          };
+          setMessages([...messages, newMsg]);
+          setNewMessage('');
+        } catch (err) {
+          console.error('Failed to send message:', err);
+        }
+      })();
     }
   };
 
