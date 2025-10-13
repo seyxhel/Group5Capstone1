@@ -511,9 +511,25 @@ export default function EmployeeTicketSubmissionForm() {
         // Persist a minimal local ticket record so the existing tracker UI
         // (which reads from localStorage) can find and display the ticket.
         try {
-          const backendTicketNumber = created.ticket_number || created.ticketNumber || created.ticketNumber;
+          const backendTicketNumber = created.ticket_number || created.ticketNumber || created.ticket || created.id;
           const localTickets = getEmployeeTickets();
+          // Try to capture backend id and current user so owner-filtering works correctly
+          const backendId = created.id || created.pk || created.ticket_id || created.ticket || null;
+          let createdByUser = { userId: null, role: 'Employee', name: '' };
+          try {
+            const storedUser = localStorage.getItem('loggedInUser');
+            if (storedUser) {
+              const cur = JSON.parse(storedUser);
+              const userId = cur?.id || cur?.userId || cur?.employeeId || null;
+              const name = cur?.first_name || cur?.name || cur?.fullName || cur?.given_name || '';
+              createdByUser = { userId: userId, role: (cur?.role || 'Employee'), name };
+            }
+          } catch (e) {
+            console.warn('Failed to read loggedInUser when persisting created ticket', e);
+          }
+
           const localTicket = {
+            id: backendId,
             ticketNumber: backendTicketNumber,
             subject: created.subject || formData.subject,
             status: created.status || 'New',
@@ -528,7 +544,7 @@ export default function EmployeeTicketSubmissionForm() {
             scheduledRequest: created.scheduled_date || formData.schedule || null,
             assignedTo: created.assigned_to || { id: null, name: null },
             handledBy: null,
-            createdBy: { userId: null, role: 'Employee', name: '' }
+            createdBy: createdByUser
           };
           localTickets.push(localTicket);
           saveEmployeeTickets(localTickets);

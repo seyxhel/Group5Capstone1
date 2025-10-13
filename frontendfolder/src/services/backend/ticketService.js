@@ -50,6 +50,24 @@ export const backendTicketService = {
     }
   },
 
+  async getTicketByNumber(ticketNumber) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/number/${encodeURIComponent(ticketNumber)}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch ticket by number');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching ticket by number:', error);
+      throw error;
+    }
+  },
+
   async createTicket(ticketData) {
     try {
       // Require an access token for backend requests
@@ -232,6 +250,27 @@ export const backendTicketService = {
       return await response.json();
     } catch (error) {
       console.error('Error assigning ticket:', error);
+      throw error;
+    }
+  }
+  ,
+  // Create a new comment on a ticket
+  async createComment(ticketId, commentText, isInternal = false) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/comments/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment: commentText, is_internal: isInternal })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to create comment');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating comment:', error);
       throw error;
     }
   }
