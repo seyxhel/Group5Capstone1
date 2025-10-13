@@ -88,7 +88,13 @@ const authService = {
     } catch (err) {
       console.error('Error during logout:', err);
     }
+    // Clear stored user and related UI state such as chatbot messages
     localStorage.removeItem(USER_KEY);
+    try {
+      localStorage.removeItem('chatbotMessages');
+    } catch (e) {
+      // ignore storage errors
+    }
   },
 
   getCurrentUser: () => {

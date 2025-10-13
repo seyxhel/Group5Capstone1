@@ -105,12 +105,18 @@ const defaultMessages = [
 
 const EmployeeChatbot = ({ closeModal }) => {
   const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem("chatbotMessages");
-    if (saved) {
-      return JSON.parse(saved).map(msg => ({
-        ...msg,
-        time: msg.time ? new Date(msg.time) : new Date()
-      }));
+    try {
+      const isAuth = !!localStorage.getItem('loggedInUser');
+      if (!isAuth) return defaultMessages;
+      const saved = localStorage.getItem("chatbotMessages");
+      if (saved) {
+        return JSON.parse(saved).map(msg => ({
+          ...msg,
+          time: msg.time ? new Date(msg.time) : new Date()
+        }));
+      }
+    } catch (e) {
+      // If anything goes wrong reading storage, fall back to defaults
     }
     return defaultMessages;
   });
@@ -129,7 +135,13 @@ const EmployeeChatbot = ({ closeModal }) => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("chatbotMessages", JSON.stringify(messages));
+    try {
+      const isAuth = !!localStorage.getItem('loggedInUser');
+      if (!isAuth) return; // do not persist chat history for unauthenticated users
+      localStorage.setItem("chatbotMessages", JSON.stringify(messages));
+    } catch (e) {
+      // ignore storage errors
+    }
   }, [messages]);
 
   const formatTime = (date) => {

@@ -410,6 +410,9 @@ const EmployeeNavBar = () => {
                   className={styles['logout-btn']}
                   onClick={() => {
                     setShowProfileMenu(false);
+                    try {
+                      authService.logout();
+                    } catch (e) {}
                     navigate('/');
                   }}
                 >

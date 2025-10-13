@@ -94,6 +94,9 @@ export const logout = () => {
   if (USE_LOCAL_API) {
     // For local development, just clear current user but keep mock tokens for easy access
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER.replace('hdts_', ''));
+    try {
+      localStorage.removeItem('chatbotMessages');
+    } catch (e) {}
     console.log('🔓 Local dev: User logged out (tokens preserved for easy re-access)');
   } else {
     // Original logout logic
@@ -101,5 +104,8 @@ export const logout = () => {
     localStorage.removeItem('admin_access_token');
     localStorage.removeItem('employee_refresh_token');
     localStorage.removeItem('admin_refresh_token');
+    try {
+      localStorage.removeItem('chatbotMessages');
+    } catch (e) {}
   }
 };
