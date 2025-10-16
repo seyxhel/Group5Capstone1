@@ -8,6 +8,14 @@ import CoordinatorAdminSettings from '../coordinator-admin/pages/settings/Coordi
 import CoordinatorAdminAccountRegister from '../coordinator-admin/pages/account-register/CoordinatorAdminAccountRegister';
 import CoordinatorAdminTicketReports from '../coordinator-admin/pages/reports/CoordinatorAdminTicketReports';
 import CoordinatorAdminSLAReports from '../coordinator-admin/pages/reports/CoordinatorAdminSLAReports';
+// Knowledgebase admin pages (placeholders)
+import KnowledgeDashboard from '../coordinator-admin/pages/knowledge/KnowledgeDashboard';
+import KnowledgeArticles from '../coordinator-admin/pages/knowledge/KnowledgeArticles';
+import KnowledgeCategories from '../coordinator-admin/pages/knowledge/KnowledgeCategories';
+import KnowledgeCreate from '../coordinator-admin/pages/knowledge/KnowledgeCreate';
+import KnowledgeAnalytics from '../coordinator-admin/pages/knowledge/KnowledgeAnalytics';
+import KnowledgeArchived from '../coordinator-admin/pages/knowledge/KnowledgeArchived';
+import KnowledgeSettings from '../coordinator-admin/pages/knowledge/KnowledgeSettings';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const CoordinatorAdminRoutes = () => (
@@ -34,7 +42,17 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Settings */}
       <Route path="settings" element={<CoordinatorAdminSettings />} />
-      {/* Intentionally no nested wildcard here so sibling route groups can mount without being intercepted. */}
+      {/* Knowledgebase */}
+      <Route path="knowledge">
+        <Route path="dashboard" element={<KnowledgeDashboard />} />
+        <Route path="articles" element={<KnowledgeArticles />} />
+        <Route path="categories" element={<KnowledgeCategories />} />
+  <Route path="create" element={<KnowledgeCreate />} />
+        <Route path="analytics" element={<KnowledgeAnalytics />} />
+        <Route path="archived" element={<KnowledgeArchived />} />
+        <Route path="settings" element={<KnowledgeSettings />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
   </Routes>
 );

@@ -1,9 +1,9 @@
 import { useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets, saveEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
-import { tickets as ticketService, auth as authService } from '../../../services/apiService.js';
+import { getEmployeeTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
+import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import Button from '../../../shared/components/Button';
@@ -102,10 +102,14 @@ export default function EmployeeTicketTracker() {
   const [newMessage, setNewMessage] = useState('');
   const loadedKeyRef = useRef(null);
 
-  // Keep tickets in state so UI updates after status changes
-  const [tickets, setTickets] = useState(() => getEmployeeTickets());
-
-  console.log('🎫 All Tickets:', tickets);
+  // Get current logged-in user
+  const currentUser = authService.getCurrentUser();
+  
+  // Get only the current user's tickets
+  const tickets = getEmployeeTickets(currentUser?.id);
+  
+  console.log('👤 Current User:', currentUser);
+  console.log('🎫 User Tickets:', tickets);
   console.log('🔢 Ticket Number from URL:', ticketNumber);
 
   const ticket = ticketNumber
@@ -314,6 +318,12 @@ export default function EmployeeTicketTracker() {
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
+        {/* Breadcrumb Navigation */}
+        <div className={styles.pageHeader}>
+          <p className={styles.breadcrumb}>Ticket Records / Ticket Tracker</p>
+          <h1 className={styles.pageTitle}>{number}</h1>
+        </div>
+
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}

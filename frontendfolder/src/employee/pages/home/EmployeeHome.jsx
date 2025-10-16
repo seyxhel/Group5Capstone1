@@ -9,67 +9,31 @@ import {
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { getEmployeeTickets } from '../../../utilities/storages/ticketStorage';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
-import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 import authService from '../../../utilities/service/authService';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
+  const currentUser = authService.getCurrentUser();
 
   useEffect(() => {
-    const allTickets = getEmployeeTickets();
-    // Filter backend-created tickets (those with an `id`) to only those created by current user
-    let ticketsToConsider = allTickets;
-    try {
-      const storedUser = localStorage.getItem('loggedInUser');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        const userId = user?.id || user?.userId || user?.employeeId || null;
-        if (userId) {
-          ticketsToConsider = allTickets.filter(t => {
-            if (!t.id) return true; // mock/local ticket
-            const createdById = t?.createdBy?.userId || t?.createdBy?.id || t?.created_by?.id || null;
-            return String(createdById) === String(userId);
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to filter backend tickets on Home, showing all local tickets', e);
-    }
+    if (!currentUser) return;
+    
+    const allTickets = getEmployeeTickets(currentUser.id);
 
-    const activeTickets = ticketsToConsider.filter(ticket => {
-      // include Withdrawn tickets in Recent Tickets per UX request
-      const status = (ticket.status || '').toLowerCase();
-      return !['closed', 'rejected'].includes(status);
+    const activeTickets = allTickets.filter(ticket => {
+      const status = ticket.status.toLowerCase();
+      return !['closed', 'rejected', 'withdrawn'].includes(status);
     });
 
     const sorted = activeTickets
-      .sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5);
 
-    // If there are fewer than 5 recent tickets, append demo tickets to reach 5
-    const demoCount = 5 - sorted.length;
-    const demoTickets = [];
-    for (let i = 0; i < demoCount; i++) {
-      const idx = i + 1;
-      demoTickets.push({
-        ticketNumber: `DT00${idx}`,
-        subject: 'Sample Ticket',
-        assignedTo: { name: null },
-        priorityLevel: 'Normal',
-        category: 'General',
-        subCategory: 'Inquiry',
-        status: 'New', // Use admin-side status
-        dateCreated: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
-      });
-    }
-
-    const finalList = sorted.concat(demoTickets).slice(0,5);
-    setRecentTickets(finalList);
-  }, []);
+    setRecentTickets(sorted);
+  }, [currentUser]);
 
   const handleSubmitTicket = () => {
     navigate('/employee/submit-ticket');
@@ -94,7 +58,7 @@ const EmployeeHome = () => {
   return (
     <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>{(authService.getCurrentUser && authService.getCurrentUser().first_name) || employeeBonjingData.firstName}</span>,
+        Welcome <span className={styles.welcomeName}>{currentUser?.firstName}</span>,
       </h1>
 
       <div className={styles.topSection}>

@@ -7,6 +7,7 @@ import EmployeeTicketSubmissionForm from '../employee/pages/ticket-submission-fo
 import EmployeeTicketTracker from '../employee/pages/ticket-tracker/EmployeeTicketTracker';
 import EmployeeSettings from '../employee/pages/settings/EmployeeSettings';
 import EmployeeFAQs from '../employee/pages/frequently-asked-questions/EmployeeFAQs';
+import EmployeeFAQ from '../employee/pages/faq/EmployeeFAQ';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const EmployeeRoutes = () => (
@@ -19,6 +20,7 @@ const EmployeeRoutes = () => (
       <Route path="ticket-tracker/:ticketNumber" element={<EmployeeTicketTracker />} />
       <Route path="settings" element={<EmployeeSettings />} />
       <Route path="frequently-asked-questions" element={<EmployeeFAQs />} />
+  <Route path="faq" element={<EmployeeFAQ />} />
       <Route path="*" element={<NotFoundPage />} />
     </Route>
   </Routes>

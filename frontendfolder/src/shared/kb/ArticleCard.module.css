@@ -1,0 +1,4 @@
+.card { padding: 12px; border: 1px solid #eee; border-radius: 8px; background: white; cursor: pointer; }
+.title { margin: 0 0 6px 0; font-size: 1.05rem; }
+.meta { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+.excerpt { margin: 0; color: var(--text-secondary); }

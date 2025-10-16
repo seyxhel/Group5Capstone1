@@ -34,9 +34,6 @@ const TablePagination = ({
     }
   };
 
-  const handleFirst = () => handlePageClick(1);
-  const handleLast = () => handlePageClick(totalPages);
-
   const renderPageNumbers = () => {
     const pages = [];
 
@@ -78,14 +75,6 @@ const TablePagination = ({
       {/* Right Side: Page Navigation */}
       <div className={styles.pageNavigation}>
         <button
-          onClick={handleFirst}
-          disabled={currentPage === 1}
-          type="button"
-          className={styles.navButton}
-        >
-          First
-        </button>
-        <button
           onClick={() => handlePageClick(currentPage - 1)}
           disabled={currentPage === 1}
           type="button"
@@ -101,14 +90,6 @@ const TablePagination = ({
           className={styles.navButton}
         >
           Next
-        </button>
-        <button
-          onClick={handleLast}
-          disabled={currentPage === totalPages}
-          type="button"
-          className={styles.navButton}
-        >
-          Last
         </button>
       </div>
     </div>

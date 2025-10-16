@@ -1,0 +1,241 @@
+.activityLog {
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: var(--font-bold, 700);
+  color: var(--text-primary, #1F2937);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border-color, #E5E7EB);
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.activityItem:last-child {
+  padding-bottom: 0;
+}
+
+.iconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.iconWrapper svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Action-specific colors */
+.blue {
+  color: #3B82F6;
+  border: 2px solid #3B82F6;
+}
+
+.purple {
+  color: #8B5CF6;
+  border: 2px solid #8B5CF6;
+}
+
+.green {
+  color: #10B981;
+  border: 2px solid #10B981;
+}
+
+.gray {
+  color: #6B7280;
+  border: 2px solid #6B7280;
+}
+
+.yellow {
+  color: #F59E0B;
+  border: 2px solid #F59E0B;
+}
+
+.orange {
+  color: #F97316;
+  border: 2px solid #F97316;
+}
+
+.teal {
+  color: #14B8A6;
+  border: 2px solid #14B8A6;
+}
+
+.connector {
+  position: absolute;
+  left: 19px;
+  top: 40px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-color, #E5E7EB);
+  z-index: 1;
+}
+
+.activityItem:last-child .connector {
+  display: none;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.userName {
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-primary, #1F2937);
+  font-size: 0.9375rem;
+}
+
+.timestamp {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #6B7280);
+  white-space: nowrap;
+}
+
+.details {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #4B5563);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.emptyState {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted, #6B7280);
+  background: var(--bg-secondary, #F9FAFB);
+  border-radius: 12px;
+  border: 2px dashed var(--border-color, #E5E7EB);
+}
+
+.emptyState p {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .activityLog {
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 1.125rem;
+    margin-bottom: 16px;
+  }
+
+  .activityItem {
+    grid-template-columns: 32px 1fr;
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+
+  .iconWrapper {
+    width: 32px;
+    height: 32px;
+  }
+
+  .iconWrapper svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .connector {
+    left: 15px;
+    top: 32px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .userName {
+    font-size: 0.875rem;
+  }
+
+  .timestamp {
+    font-size: 0.75rem;
+  }
+
+  .details {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Dark Mode Support (if needed) */
+@media (prefers-color-scheme: dark) {
+  .activityLog {
+    background: #1F2937;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .title {
+    color: #F9FAFB;
+    border-bottom-color: #374151;
+  }
+
+  .iconWrapper {
+    background: #1F2937;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .connector {
+    background: #374151;
+  }
+
+  .userName {
+    color: #F9FAFB;
+  }
+
+  .timestamp {
+    color: #9CA3AF;
+  }
+
+  .details {
+    color: #D1D5DB;
+  }
+
+  .emptyState {
+    background: #111827;
+    color: #9CA3AF;
+    border-color: #374151;
+  }
+}

@@ -46,6 +46,56 @@
   padding: 36px 38px 38px 38px; /* 100px total - 64px navbar = 36px top */
 }
 
+/* Breadcrumb Navigation */
+.breadcrumbContainer {
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+.breadcrumbList {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.breadcrumbItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.breadcrumbLink {
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  font-weight: 500;
+}
+
+.breadcrumbLink:hover {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.breadcrumbSeparator {
+  color: #cbd5e1;
+  font-weight: 300;
+  user-select: none;
+}
+
+.breadcrumbCurrent {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.mainContent {
+  flex: 1;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .scrollContainer {

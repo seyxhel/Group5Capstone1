@@ -1,9 +1,10 @@
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
 import styles from './CoordinatorAdminTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
+import Breadcrumb from '../../../shared/components/Breadcrumb';
 
 // Coordinator/Admin-side status progression (4 steps)
 // Step 1: New (newly submitted, awaiting review)
@@ -66,10 +67,10 @@ export default function CoordinatorAdminTicketTracker() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  const tickets = getEmployeeTickets();
-  
+  const tickets = getAllTickets();
+
   const ticket = ticketNumber
-    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
+    ? getTicketByNumber(ticketNumber)
     : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
 
   if (!ticket) {
@@ -106,6 +107,12 @@ export default function CoordinatorAdminTicketTracker() {
   return (
     <>
       <main className={styles.coordinatorTicketTrackerPage}>
+        <Breadcrumb
+          root="Ticket Management"
+          currentPage="Ticket Tracker"
+          rootNavigatePage="/admin/ticket-management/all"
+          title={`Ticket No. ${number}`}
+        />
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}

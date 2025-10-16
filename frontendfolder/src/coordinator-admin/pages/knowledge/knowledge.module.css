@@ -1,0 +1,4 @@
+/* Knowledge pages should not add an additional page-level container;
+   shared layout provides page padding and background. Keep this file
+   for page-scoped utilities only. */
+.container { display: block; }

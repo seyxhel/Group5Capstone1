@@ -5,9 +5,8 @@ import { FaEdit, FaTimes, FaEye } from "react-icons/fa";
 
 import styles from "./CoordinatorAdminTicketManagement.module.css";
 import TablePagination from "../../../shared/table/TablePagination";
-import FilterPanel from "../../../shared/table/FilterPanel";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
-import { getEmployeeTicketsByRumi } from "../../../utilities/storages/employeeTicketStorageRumi";
+import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
+import { getAllTickets } from "../../../utilities/storages/ticketStorage";
 import authService from "../../../utilities/service/authService";
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
@@ -61,11 +60,11 @@ const CoordinatorAdminTicketManagement = () => {
   const [modalType, setModalType] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [activeFilters, setActiveFilters] = useState({
-    category: null,
     status: null,
     priority: null,
+    category: null,
+    subCategory: null,
     slaStatus: null,
-    assignedAgent: null,
     startDate: "",
     endDate: "",
   });
@@ -90,8 +89,9 @@ const CoordinatorAdminTicketManagement = () => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
 
-    // Fetch all tickets
-    const fetched = [...getEmployeeTickets(), ...getEmployeeTicketsByRumi()];
+  // Fetch all tickets
+  // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
+  const fetched = getAllTickets();
     
     // Filter tickets based on user role and department
     // Coordinators and System Admins see tickets from their department
@@ -145,6 +145,13 @@ const CoordinatorAdminTicketManagement = () => {
       );
     }
 
+    // Apply sub-category filter
+    if (activeFilters.subCategory) {
+      result = result.filter(
+        ticket => ticket.subCategory === activeFilters.subCategory.label
+      );
+    }
+
     // Apply status filter
     if (activeFilters.status) {
       result = result.filter(
@@ -165,13 +172,6 @@ const CoordinatorAdminTicketManagement = () => {
         const sla = calculateSLAStatus(ticket);
         return sla === activeFilters.slaStatus.label;
       });
-    }
-
-    // Apply assigned agent filter
-    if (activeFilters.assignedAgent) {
-      result = result.filter(
-        ticket => ticket.assignedAgent === activeFilters.assignedAgent.label
-      );
     }
 
     // Apply date range filter
@@ -243,54 +243,20 @@ const CoordinatorAdminTicketManagement = () => {
 
         {/* Filter Panel - outside table section */}
         {showFilter && (
-          <FilterPanel
-            hideToggleButton={true}
+          <CoordinatorTicketFilter
             onApply={setActiveFilters}
             onReset={() => {
               setActiveFilters({
-                category: null,
                 status: null,
                 priority: null,
+                category: null,
+                subCategory: null,
                 slaStatus: null,
-                assignedAgent: null,
                 startDate: "",
                 endDate: "",
               });
               setCurrentPage(1);
             }}
-            categoryOptions={[
-              { label: "Hardware", category: "IT" },
-              { label: "Software", category: "IT" },
-              { label: "Network", category: "IT" },
-              { label: "Account", category: "Access" },
-              { label: "Other", category: "General" },
-            ]}
-            statusOptions={[
-              { label: "New", category: "New" },
-              { label: "Open", category: "Active" },
-              { label: "In Progress", category: "Active" },
-              { label: "On Hold", category: "Active" },
-              { label: "Withdrawn", category: "Complete" },
-              { label: "Closed", category: "Complete" },
-              { label: "Rejected", category: "Complete" },
-            ]}
-            priorityOptions={[
-              { label: "Critical", category: "Urgent" },
-              { label: "High", category: "Important" },
-              { label: "Medium", category: "Normal" },
-              { label: "Low", category: "Minor" },
-            ]}
-            slaStatusOptions={[
-              { label: "On Time", category: "Good" },
-              { label: "Due Soon", category: "Warning" },
-              { label: "Overdue", category: "Critical" },
-            ]}
-            assignedAgentOptions={[
-              { label: "Unassigned", category: "None" },
-              { label: "Agent Smith", category: "IT" },
-              { label: "Agent Johnson", category: "IT" },
-              { label: "Agent Williams", category: "Support" },
-            ]}
             initialFilters={activeFilters}
           />
         )}

@@ -8,9 +8,38 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 100;
-  background-color: var(--bg-color);
-  box-shadow: 0 0 10px #d3d3d3;
+  z-index: 1000;
+  background-color: #ffffff;
+  transition: height 200ms ease, box-shadow 200ms ease;
+}
+
+.main-nav-bar.scrolled {
+  height: 52px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.main-nav-bar.scrolled .logo-image {
+  width: 30px;
+  height: 30px;
+}
+
+.main-nav-bar.scrolled .brand-name {
+  font-size: 1rem;
+}
+
+.main-nav-bar.scrolled .avatar-placeholder,
+.main-nav-bar.scrolled .avatar-image {
+  width: 28px;
+  height: 28px;
+}
+
+/* Hide notification and profile when navbar is in the scrolled/minimized state */
+.main-nav-bar.scrolled .notification-icon-container,
+.main-nav-bar.scrolled .profile-container {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .main-nav-bar > section:last-child {
@@ -21,15 +50,14 @@
   position: relative;
 }
 
-@media (max-width: 768px) {
-  .nav-list {
-    display: none;
-  }
-
-  .main-nav-bar > section:last-child {
-    gap: 8px;
-    padding-right: 10px;
-  }
+/* Hide the hamburger by default (desktop) */
+.hamburgerBtn {
+  display: none;
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-color);
 }
 
 /* --- Logo --- */
@@ -45,6 +73,7 @@
   height: 36px;
   object-fit: contain;
   border-radius: 6px;
+  transition: width 180ms ease, height 180ms ease;
 }
 
 /* --- Branding --- */
@@ -58,21 +87,15 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--primary-color);
+  transition: font-size 180ms ease;
 }
 
-.role-badge,
-.admin-badge {
+.role-badge {
   font-size: 0.75rem;
   padding: 2px 10px;
   border-radius: 999px;
   background-color: var(--primary-color);
   color: white;
-}
-
-.admin-badge {
-  margin-top: 4px;
-  font-size: 12px;
-  padding: 3px 10px;
 }
 
 /* --- Nav Links --- */
@@ -141,7 +164,6 @@
   transform: rotate(180deg);
 }
 
-/* Dropdown Panel */
 .custom-dropdown {
   position: absolute;
   top: 40px;
@@ -236,7 +258,7 @@
   font-size: 10px;
   font-weight: bold;
   color: white;
-  background-color: #EF4444;
+  background-color: #ef4444;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -258,14 +280,15 @@
   height: 35px;
   border-radius: 50%;
   object-fit: cover;
+  transition: width 180ms ease, height 180ms ease;
 }
 
-.profile-avatar-large .avatar-image {
+.profile-avatar-large .avatar-image,
+.profile-avatar-large .avatar-placeholder {
   width: 40px;
   height: 40px;
 }
 
-/* Profile Dropdown */
 .profile-dropdown {
   position: absolute;
   top: 45px;
@@ -277,6 +300,51 @@
   border: 1px solid #eee;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile profile section (hidden on desktop, shown inside mobile menu) */
+.mobile-profile-section {
+  display: none;
+}
+
+.mobile-profile-section .profile-avatar-large .avatar-image {
+  width: 44px;
+  height: 44px;
+}
+
+.mobile-profile-info h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mobile-profile-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mobile-settings-btn,
+.mobile-logout-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mobile-settings-btn {
+  background: var(--primary-color);
+  color: white;
+}
+
+.mobile-logout-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.mobile-only-action {
+  display: none;
 }
 
 .profile-header {
@@ -329,4 +397,164 @@
 .logout-btn:hover {
   background-color: rgba(220, 53, 69, 0.1) !important;
   font-weight: 500;
+}
+
+/* --- Responsive --- */
+
+/* Tablet (≤1023px) */
+@media (max-width: 1023px) {
+  .nav-list {
+    gap: 16px;
+  }
+
+  .nav-link,
+  .dropdown-trigger {
+    font-size: 0.9rem;
+    padding: 8px;
+  }
+
+  .brand-name {
+    font-size: 1.1rem;
+  }
+
+  .logo-placeholder {
+    padding-left: 20px;
+  }
+
+  .main-nav-bar > section:last-child {
+    padding-right: 20px;
+  }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  .logo-placeholder {
+    padding-left: 15px;
+  }
+
+  .main-nav-bar > section:last-child {
+    padding-right: 15px;
+    gap: 12px;
+  }
+
+  /* show the right-side hamburger on mobile */
+  .hamburgerBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    margin-left: 8px;
+    cursor: pointer;
+    color: var(--text-color);
+  }
+
+  /* Make nav-list into a mobile sidebar/menu when open */
+  .nav-list {
+    display: none;
+    flex-direction: column;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 60px);
+    background: white;
+    padding: 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    z-index: 1200;
+    overflow-y: auto;
+  }
+
+  .nav-list.open {
+    display: flex;
+  }
+
+  .logo-image {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand-name {
+    font-size: 1rem;
+  }
+
+  .role-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .nav-list {
+    gap: 12px;
+  }
+
+  .nav-link,
+  .dropdown-trigger {
+    font-size: 0.85rem;
+    padding: 6px;
+  }
+
+  .dropdown-text {
+    margin-right: 4px;
+  }
+
+  /* Hide desktop profile and notifications on mobile */
+  .nav-right-section .notification-icon-container,
+  .nav-right-section .profile-container {
+    display: none;
+  }
+
+  /* Show mobile-profile-section inside mobile nav list */
+  .mobile-profile-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+  }
+
+  .mobile-profile-info {
+    flex: 1;
+  }
+
+  .mobile-profile-info .role-badge {
+    margin-top: 4px;
+  }
+
+  .mobile-only-action {
+    display: block;
+    padding: 12px 20px;
+  }
+}
+
+/* Very small screens (≤480px) */
+@media (max-width: 480px) {
+  .logo-placeholder {
+    padding-left: 10px;
+  }
+
+  .main-nav-bar > section:last-child {
+    padding-right: 10px;
+    gap: 8px;
+  }
+
+  .brand-name {
+    display: none;
+  }
+
+  .logo-image {
+    width: 30px;
+    height: 30px;
+  }
+
+  .nav-list {
+    gap: 8px;
+  }
+
+  .nav-link,
+  .dropdown-trigger {
+    font-size: 0.8rem;
+    padding: 5px;
+  }
 }

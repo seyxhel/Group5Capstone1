@@ -11,7 +11,7 @@ import {
   Legend
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 
 // Register Chart.js components
 ChartJS.register(

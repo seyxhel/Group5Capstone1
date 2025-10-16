@@ -1,0 +1,4 @@
+[
+  { "id": 1, "article_id": 101, "user_id": 201, "helpful": true, "comment": "Super helpful" },
+  { "id": 2, "article_id": 102, "user_id": 202, "helpful": false, "comment": "Missing steps" }
+]

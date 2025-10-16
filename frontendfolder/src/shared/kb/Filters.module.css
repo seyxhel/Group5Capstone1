@@ -1,0 +1,2 @@
+.filters { display:flex; gap:8px; }
+.filters select { padding:6px 8px; border-radius:6px; }

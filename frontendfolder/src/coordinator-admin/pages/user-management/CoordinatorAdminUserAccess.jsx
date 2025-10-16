@@ -125,8 +125,7 @@ const CoordinatorAdminUserAccess = () => {
 
   const isActionable = (status) => status?.toLowerCase() === "pending";
 
-
-
+  const currentConfig = userAccessConfig.find((c) => c.key === status) || userAccessConfig[0];
 
   return (
     <>

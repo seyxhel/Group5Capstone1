@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import useScrollShrink from '../../../shared/hooks/useScrollShrink.jsx';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { FiMenu, FiX } from 'react-icons/fi';
 import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
-import employeeBonjingData from '../../../utilities/storages/employeeBonjing';
 import authService from '../../../utilities/service/authService';
-import { convertToSecureUrl, isSecureUrl, getSecureMediaUrl, getAccessToken } from '../../../utilities/secureMedia';
-import { API_CONFIG } from '../../../config/environment.js';
 
 const NotificationIcon = () => (
   <svg
@@ -23,15 +22,32 @@ const NotificationIcon = () => (
   </svg>
 );
 
+const ArrowDownIcon = ({ isFlipped }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    className={`${styles['arrow-icon']} ${isFlipped ? styles['arrow-flipped'] : ''}`}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 const EmployeeNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const currentUser = authService.getCurrentUser();
+  const navRef = useRef(null);
 
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
-  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const scrolled = useScrollShrink(0, { debug: true });
 
   const dropdowns = {
     active: {
@@ -56,20 +72,6 @@ const EmployeeNavBar = () => {
       path: '/employee/ticket-records/',
     },
   };
-
-  const ArrowDownIcon = ({ isFlipped }) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className={`${styles['arrow-icon']} ${isFlipped ? styles['arrow-flipped'] : ''}`}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
 
   const handleDropdownToggle = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
@@ -201,6 +203,27 @@ const EmployeeNavBar = () => {
     setShowProfileMenu(false);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setOpenDropdown(null);
+        setShowProfileMenu(false);
+        setShowNotification(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close mobile menu when resizing to desktop
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 768) setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const renderDropdownMenu = (key) => {
     const dropdown = dropdowns[key];
     const isInPath = dropdown.items.some(
@@ -233,6 +256,7 @@ const EmployeeNavBar = () => {
                   key={route}
                   onClick={() => {
                     setOpenDropdown(null);
+                    setIsMobileMenuOpen(false);
                     navigate(`${dropdown.path}${route}`);
                   }}
                 >
@@ -247,181 +271,149 @@ const EmployeeNavBar = () => {
   };
 
   return (
-    <nav className={styles['main-nav-bar']}>
+    <nav className={`${styles['main-nav-bar']} ${scrolled ? styles.scrolled : ''}`} ref={navRef}>
       <section>
         <div className={styles['logo-placeholder']}>
           <img src={MapLogo} alt="Logo" className={styles['logo-image']} />
           <div className={styles['brand-wrapper']}>
             <span className={styles['brand-name']}>SmartSupport</span>
-            <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
+            <span className={styles['role-badge']}>{currentUser?.role}</span>
           </div>
         </div>
       </section>
 
       <section>
-        <ul className={styles['nav-list']}>
+        <ul className={`${styles['nav-list']} ${isMobileMenuOpen ? styles.open : ''}`}>
+          {/* Mobile profile section - mirrors Coordinator mobile layout */}
+          <li className={styles['mobile-profile-section']}>
+            <div className={styles['profile-avatar-large']}>
+              <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
+            </div>
+            <div className={styles['mobile-profile-info']}>
+              <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
+              <span className={styles['role-badge']}>{currentUser?.role}</span>
+              <div className={styles['mobile-profile-actions']}>
+                <button className={styles['mobile-settings-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/employee/settings'); }}>Settings</button>
+                <button className={styles['mobile-logout-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }}>Log Out</button>
+              </div>
+            </div>
+          </li>
+
           <li className={styles['nav-item']}>
             <NavLink
               to="/employee/home"
               className={({ isActive }) =>
                 `${styles['nav-link']} ${isActive ? styles['active-link'] : ''}`
               }
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Home
             </NavLink>
           </li>
           {renderDropdownMenu('active')}
           {renderDropdownMenu('records')}
+          {/* Mobile menu actions: notifications/profile quick access */}
+          <li className={styles['nav-item'] + ' ' + styles['mobile-only-action']}>
+            <button onClick={() => { setIsMobileMenuOpen(false); toggleNotification(); }}>Notifications</button>
+          </li>
         </ul>
       </section>
 
-      <section>
-        <div className={styles['notification-icon-container']} style={{ position: 'relative' }}>
-          <div
-            className={styles['notification-icon-wrapper']}
-            onClick={toggleNotification}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleNotification();
-              }
-            }}
-          >
-            <NotificationIcon />
-            {notifCount > 0 && (
-              <span className={styles['notification-badge']}>{notifCount}</span>
-            )}
-          </div>
-          <EmployeeNotification
-            show={showNotification}
-            onClose={() => setShowNotification(false)}
-            onCountChange={setNotifCount}
-          />
-        </div>
-
-          <div className={styles['profile-container']}>
-          <div
-            className={styles['profile-avatar']}
-            onClick={toggleProfileMenu}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleProfileMenu();
-              }
-            }}
-          >
-                  <img
-                    src={getProfileImageSrc()}
-                    alt="Profile"
-                    className={styles['avatar-placeholder']}
-                    onError={async (e) => {
-                      try {
-                        const user = resolveUser();
-                        console.warn('Profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
-                      } catch (err) {}
-
-                      const failedUrl = e.currentTarget.src;
-                      // If backend requires Authorization header, attempt an authenticated fetch once
-                      const token = getAccessToken();
-                      if (backendAvailable && token && !attemptedAuthFetchRef.current.has(failedUrl)) {
-                        attemptedAuthFetchRef.current.add(failedUrl);
-                        try {
-                          const resp = await fetch(failedUrl.split('?')[0], { headers: { 'Authorization': `Bearer ${token}` } });
-                          if (resp.ok) {
-                            const blob = await resp.blob();
-                            const objUrl = URL.createObjectURL(blob);
-                            // record for revocation
-                            if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
-                            getProfileImageSrc._createdUrlsRef.push(objUrl);
-                            e.currentTarget.src = objUrl;
-                            return;
-                          }
-                        } catch (fetchErr) {
-                          // ignore and fallthrough to placeholder
-                        }
-                      }
-
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = employeeBonjingData.profileImage;
-                    }}
-                  />
-          </div>
-          {showProfileMenu && (
-            <div className={styles['profile-dropdown']}>
-              <div className={styles['profile-header']}>
-                <div className={styles['profile-avatar-large']}>
-                  <img
-                    src={getProfileImageSrc()}
-                    alt="Profile"
-                    className={styles['avatar-image']}
-                    onError={async (e) => {
-                      try {
-                        const user = resolveUser();
-                        console.warn('Large profile avatar failed to load. resolvedSrc=', e.target.src, 'storedValue=', user && (user.profile_image || user.image || user.profileImage));
-                      } catch (err) {}
-
-                      const failedUrl = e.currentTarget.src;
-                      const token = getAccessToken();
-                      if (backendAvailable && token && !attemptedAuthFetchRef.current.has(failedUrl)) {
-                        attemptedAuthFetchRef.current.add(failedUrl);
-                        try {
-                          const resp = await fetch(failedUrl.split('?')[0], { headers: { 'Authorization': `Bearer ${token}` } });
-                          if (resp.ok) {
-                            const blob = await resp.blob();
-                            const objUrl = URL.createObjectURL(blob);
-                            if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
-                            getProfileImageSrc._createdUrlsRef.push(objUrl);
-                            e.currentTarget.src = objUrl;
-                            return;
-                          }
-                        } catch (fetchErr) {}
-                      }
-
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = employeeBonjingData.profileImage;
-                    }}
-                  />
-                </div>
-                <div className={styles['profile-info']}>
-                  <h3>{(() => {
-                    const user = resolveUser();
-                    const first = user?.first_name || user?.firstName || employeeBonjingData.firstName;
-                    const middle = user?.middle_name || user?.middleName || employeeBonjingData.middleName || '';
-                    const last = user?.last_name || user?.lastName || employeeBonjingData.lastName;
-                    return `${first} ${middle} ${last}`.replace(/\s+/g, ' ').trim();
-                  })()}</h3>
-                  <span className={styles['role-badge']}>{employeeBonjingData.role}</span>
-                </div>
+      <section className={styles['nav-right-section']}>
+        {/* Right-side hamburger for mobile (matches Coordinator admin behavior) */}
+        <button
+          className={`${styles.hamburgerBtn} ${isMobileMenuOpen ? styles.open : ''}`}
+          onClick={() => setIsMobileMenuOpen((v) => !v)}
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          {isMobileMenuOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+        </button>
+        {!scrolled && (
+          <>
+            <div className={styles['notification-icon-container']} style={{ position: 'relative' }}>
+              <div
+                className={styles['notification-icon-wrapper']}
+                onClick={toggleNotification}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleNotification();
+                  }
+                }}
+              >
+                <NotificationIcon />
+                {notifCount > 0 && (
+                  <span className={styles['notification-badge']}>{notifCount}</span>
+                )}
               </div>
-              <div className={styles['profile-menu']}>
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    navigate('/employee/settings');
-                  }}
-                >
-                  Settings
-                </button>
-                <button
-                  className={styles['logout-btn']}
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    try {
-                      authService.logout();
-                    } catch (e) {}
-                    navigate('/');
-                  }}
-                >
-                  Log Out
-                </button>
-              </div>
+              <EmployeeNotification
+                show={showNotification}
+                onClose={() => setShowNotification(false)}
+                onCountChange={setNotifCount}
+              />
             </div>
-          )}
-        </div>
+
+            <div className={styles['profile-container']}>
+              <div
+                className={styles['profile-avatar']}
+                onClick={toggleProfileMenu}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleProfileMenu();
+                  }
+                }}
+              >
+                <img
+                  src={currentUser?.profileImage}
+                  alt="Profile"
+                  className={styles['avatar-placeholder']}
+                />
+              </div>
+              {showProfileMenu && (
+                <div className={styles['profile-dropdown']}>
+                  <div className={styles['profile-header']}>
+                    <div className={styles['profile-avatar-large']}>
+                      <img
+                        src={currentUser?.profileImage}
+                        alt="Profile"
+                        className={styles['avatar-image']}
+                      />
+                    </div>
+                    <div className={styles['profile-info']}>
+                      <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
+                      <span className={styles['role-badge']}>{currentUser?.role}</span>
+                    </div>
+                  </div>
+                  <div className={styles['profile-menu']}>
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        navigate('/employee/settings');
+                      }}
+                    >
+                      Settings
+                    </button>
+                    <button
+                      className={styles['logout-btn']}
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        navigate('/');
+                      }}
+                    >
+                      Log Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </section>
     </nav>
   );
