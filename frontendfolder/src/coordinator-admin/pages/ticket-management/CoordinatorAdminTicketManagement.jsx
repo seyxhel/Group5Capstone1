@@ -6,7 +6,7 @@ import { FaEdit, FaTimes, FaEye } from "react-icons/fa";
 import styles from "./CoordinatorAdminTicketManagement.module.css";
 import TablePagination from "../../../shared/table/TablePagination";
 import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
-import { getAllTickets } from "../../../utilities/storages/ticketStorage";
+import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from "../../../utilities/service/authService";
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
@@ -88,24 +88,140 @@ const CoordinatorAdminTicketManagement = () => {
     // Get current user
     const user = authService.getCurrentUser();
     setCurrentUser(user);
+    let isMounted = true;
 
-  // Fetch all tickets
-  // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
-  const fetched = getAllTickets();
-    
+    const fetchTickets = async () => {
+      try {
+        setAllTickets([]);
+        // Attempt to fetch from backend API
+        const fetched = await backendTicketService.getAllTickets();
+        if (!isMounted) return;
+
+        // Debug: show fetched count and a small sample of statuses
+        try { console.info('[TicketManagement] fetched count:', fetched.length, 'status sample:', fetched.slice(0,5).map(x=>x.status)); } catch (err) { void err; }
+
+        // Allowed statuses for coordinator/admin views
+        const allowedStatuses = new Set([
+          'new', 'submitted', 'pending',
+          'open', 'in progress', 'in-progress',
+          'on hold', 'on-hold',
+          'withdrawn', 'closed', 'rejected', 'resolved'
+        ]);
+
+        // Normalize and filter by allowed statuses. Use substring matching to
+        // tolerate variants/extra words in the status field.
+        let ticketsToShow = (Array.isArray(fetched) ? fetched : []).filter(t => {
+          const s = (t.status || '').toString().toLowerCase();
+          const normalized = s.replace(/_/g, ' ').replace(/-/g, ' ').trim();
+          const allowedKeywords = [
+            'new', 'submitted', 'pending',
+            'open', 'in progress', 'on hold', 'withdrawn', 'closed', 'rejected', 'resolved'
+          ];
+          return allowedKeywords.some(k => normalized.includes(k));
+        });
+
+        // Filter tickets based on user role and department
+        if (user) {
+          if (user.role === 'Ticket Coordinator') {
+            // Coordinators see tickets from their department.
+            // If the page is the "all" status, show all tickets regardless of department.
+            // Otherwise restrict to the coordinator's department.
+            if (normalizedStatus !== 'all') {
+              ticketsToShow = ticketsToShow.filter(ticket => {
+                const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
+                const userDept = (user.department || '').toString();
+                return ticketDept && userDept && ticketDept === userDept;
+              });
+            }
+          } else if (user.role === 'System Admin') {
+            // System Admins see all tickets
+            ticketsToShow = fetched;
+          }
+        }
+
+        try { console.info('[TicketManagement] after dept filter sample:', ticketsToShow.slice(0,3)); } catch(e) { void e; }
+
+        // Normalize ticket identifier fields so UI can always render Ticket No.
+        const normalizedTickets = ticketsToShow.map(t => ({
+          ...t,
+          ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
+          subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || '',
+          // Normalize priority for UI badge
+          priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
+          // Normalize assigned agent (leave null/unassigned if backend didn't set it)
+          assignedAgent: (t.assigned_to && (typeof t.assigned_to === 'string' ? t.assigned_to : (t.assigned_to?.first_name ? `${t.assigned_to.first_name} ${t.assigned_to.last_name}` : String(t.assigned_to)))) || t.assignedAgent || null,
+        }));
+
+        setAllTickets(normalizedTickets);
+      } catch (err) {
+        console.error('[TicketManagement] error fetching tickets:', err);
+        setAllTickets([]);
+      }
+    };
+
+    fetchTickets();
+
+    return () => { isMounted = false; };
+
+    // Allowed statuses for coordinator/admin views
+    const allowedStatuses = new Set([
+      'new', 'submitted', 'pending',
+      'open', 'in progress', 'in-progress',
+      'on hold', 'on-hold',
+      'withdrawn', 'closed', 'rejected', 'resolved'
+    ]);
+
+    // Normalize and filter by allowed statuses. Use substring matching to
+    // tolerate variants/extra words in the status field.
+    let ticketsToShow = fetched.filter(t => {
+      const s = (t.status || '').toString().toLowerCase();
+      const normalized = s.replace(/_/g, ' ').replace(/-/g, ' ').trim();
+      const allowedKeywords = [
+        'new', 'submitted', 'pending',
+        'open', 'in progress', 'on hold', 'withdrawn', 'closed', 'rejected', 'resolved'
+      ];
+      return allowedKeywords.some(k => normalized.includes(k));
+    });
+
+    // Debug: show fetched count and a small sample of statuses
+    try {
+      // eslint-disable-next-line no-console
+      console.info('[TicketManagement] fetched count:', fetched.length, 'status sample:', fetched.slice(0,5).map(x=>x.status));
+    } catch (err) { void err; }
+
     // Filter tickets based on user role and department
     // Coordinators and System Admins see tickets from their department
-    let ticketsToShow = fetched;
     if (user) {
       if (user.role === 'Ticket Coordinator') {
-        // Coordinators see tickets from their department
-        ticketsToShow = fetched.filter(ticket => ticket.department === user.department);
+        // Coordinators see tickets from their department.
+        // Tickets in local/static storage may use different department fields
+        // (e.g., 'assignedDepartment', 'employeeDepartment', or 'department'),
+        // so check all of them when matching.
+        // If the page is the "all" status, show all tickets regardless of department.
+        // Otherwise restrict to the coordinator's department.
+        if (normalizedStatus !== 'all') {
+          ticketsToShow = ticketsToShow.filter(ticket => {
+            const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
+            const userDept = (user.department || '').toString();
+            return ticketDept && userDept && ticketDept === userDept;
+          });
+        }
+        // Debug sample
+        try { console.info('[TicketManagement] after dept filter sample:', ticketsToShow.slice(0,3)); } catch(e) { void e; }
       } else if (user.role === 'System Admin') {
         // System Admins see all tickets
         ticketsToShow = fetched;
       }
     }
     
+    // Debug: log counts to help diagnose missing tickets
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[TicketManagement] fetched total:', fetched.length, 'after status filter:', ticketsToShow.length, 'user:', user);
+    } catch (err) {
+      // ignore
+    }
+
     setAllTickets(ticketsToShow);
   }, []);
 

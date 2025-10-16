@@ -184,6 +184,27 @@ export const backendTicketService = {
     }
   },
 
+  // Approve a ticket (admin action) - sets status to Open, priority, department and assigns to current user
+  async approveTicket(ticketId, { priority = 'Low', department = '', approval_notes = '' } = {}) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/approve/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ priority, department, approval_notes }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to approve ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error approving ticket:', error);
+      throw error;
+    }
+  },
+
   async deleteTicket(ticketId) {
     try {
       const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {

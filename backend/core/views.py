@@ -1,3 +1,25 @@
+
+from rest_framework.permissions import IsAuthenticated, BasePermission
+
+# Move IsSystemAdmin definition to top
+class IsSystemAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return hasattr(request.user, 'role') and request.user.role == "System Admin"
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated, IsSystemAdmin])
+def deny_employee(request, pk):
+    try:
+        employee = Employee.objects.get(pk=pk)
+    except Employee.DoesNotExist:
+        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if employee.status == 'Denied':
+        return Response({'detail': 'Already denied.'}, status=status.HTTP_400_BAD_REQUEST)
+    employee.status = 'Denied'
+    employee.save()
+    # Optionally log or send email here
+    return Response({'detail': 'Employee denied.'}, status=status.HTTP_200_OK)
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, viewsets
@@ -22,6 +44,7 @@ from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from rest_framework.reverse import reverse
 from .tasks import push_ticket_to_workflow
+from .models import EmployeeLog
 
 @csrf_exempt
 def login_view(request):
@@ -70,6 +93,11 @@ class CreateEmployeeView(APIView):
         if serializer.is_valid():
             try:
                 employee = serializer.save()
+                # Create a log entry for account creation
+                try:
+                    EmployeeLog.objects.create(employee=employee, action='created', performed_by=request.user if hasattr(request, 'user') and request.user.is_authenticated else None, details='Account registered via public create endpoint')
+                except Exception:
+                    pass
                 # Return serialized employee data so frontend can persist profile (image URL, names, etc.)
                 serialized = EmployeeSerializer(employee).data
                 return Response(
@@ -109,6 +137,11 @@ class CreateAdminEmployeeView(APIView):
         serializer = EmployeeSerializer(data=data)
         if serializer.is_valid():
             employee = serializer.save()
+            # Log admin-created employee
+            try:
+                EmployeeLog.objects.create(employee=employee, action='created', performed_by=request.user, details='Account created by admin')
+            except Exception:
+                pass
             return Response({
                 "message": "Employee account created successfully",
                 "company_id": employee.company_id
@@ -345,10 +378,10 @@ def get_ticket_detail(request, ticket_id):
         # Get comments based on user role
         if request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user.is_staff:
             # Admins can see all comments including internal ones
-            comments = ticket.comments.all().order_by('created_at')
+            comments = ticket.comments.all().order_by('-created_at')
         else:
             # Regular employees only see non-internal comments
-            comments = ticket.comments.filter(is_internal=False).order_by('created_at')
+            comments = ticket.comments.filter(is_internal=False).order_by('-created_at')
         
         # Serialize ticket data
         ticket_data = {
@@ -414,9 +447,9 @@ def get_ticket_by_number(request, ticket_number):
 
         # Get comments based on user role
         if request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user.is_staff:
-            comments = ticket.comments.all().order_by('created_at')
+            comments = ticket.comments.all().order_by('-created_at')
         else:
-            comments = ticket.comments.filter(is_internal=False).order_by('created_at')
+            comments = ticket.comments.filter(is_internal=False).order_by('-created_at')
 
         ticket_data = {
             'id': ticket.id,
@@ -539,16 +572,16 @@ def approve_ticket(request, ticket_id):
         ticket.status = 'Open'
         ticket.priority = priority
         ticket.department = department
-        ticket.assigned_to = request.user
+        # Leave ticket unassigned after approval; assignment should be a separate action
         ticket.save()
 
-        # Optional: create a comment for audit
-        # TicketComment.objects.create(
-        #     ticket=ticket,
-        #     user=request.user,
-        #     comment=f"Ticket approved and set to Open. Priority: {priority}, Dept: {department}. Notes: {approval_notes}",
-        #     is_internal=True
-        # )
+        # Create a visible comment with a consistent message for approval/open
+        TicketComment.objects.create(
+            ticket=ticket,
+            user=request.user,
+            comment="Status changed to Open",
+            is_internal=False
+        )
 
         return Response({
             'message': 'Ticket approved successfully',
@@ -667,7 +700,7 @@ def update_ticket_status(request, ticket_id):
             return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Validate status transition
-        valid_statuses = ['Open', 'In Progress', 'Resolved', 'Closed', 'On Hold']
+        valid_statuses = ['Open', 'In Progress', 'Resolved', 'Closed', 'On Hold', 'Rejected']
         if new_status not in valid_statuses:
             return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -683,10 +716,13 @@ def update_ticket_status(request, ticket_id):
         ticket.save()
         
         # Create comment for status change
-        status_comment = f"Status changed from '{old_status}' to '{new_status}' by {request.user.first_name} {request.user.last_name}"
-        if comment_text:
-            status_comment += f". Comment: {comment_text}"
-        
+        if new_status == 'Rejected':
+            status_comment = "Status changed to Rejected"
+        else:
+            status_comment = f"Status changed from '{old_status}' to '{new_status}' by {request.user.first_name} {request.user.last_name}"
+            if comment_text:
+                status_comment += f". Comment: {comment_text}"
+
         TicketComment.objects.create(
             ticket=ticket,
             user=request.user,
@@ -973,8 +1009,8 @@ def verify_password(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_employees(request):
-    # Only allow admins to view all employees
-    if not request.user.is_staff and request.user.role != 'System Admin':
+    # Allow system admins, ticket coordinators, or staff to view all employees
+    if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
         return Response({'detail': 'Permission denied.'}, status=403)
     employees = Employee.objects.all()
     serializer = EmployeeSerializer(employees, many=True)
@@ -995,6 +1031,12 @@ def approve_employee(request, pk):
         return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
     employee.status = 'Approved'
     employee.save()
+
+    # Log approval action
+    try:
+        EmployeeLog.objects.create(employee=employee, action='approved', performed_by=request.user, details='Account approved by admin')
+    except Exception:
+        pass
 
     # Send approval email
     send_mail(

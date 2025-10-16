@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './CoordinatorAdminTicketTracker.module.css';
-import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
@@ -67,11 +67,64 @@ export default function CoordinatorAdminTicketTracker() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  const tickets = getAllTickets();
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const ticket = ticketNumber
-    ? getTicketByNumber(ticketNumber)
-    : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+  useEffect(() => {
+    let mounted = true;
+    const fetchTicket = async () => {
+      setLoading(true);
+      try {
+        if (ticketNumber) {
+          const t = await backendTicketService.getTicketByNumber(ticketNumber);
+          if (!mounted) return;
+          // normalize fields
+          const norm = {
+            ...t,
+            ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || t.ticketId || t.id,
+            dateCreated: t.submit_date || t.createdAt || t.dateCreated || t.created_at || t.submitDate,
+            lastUpdated: t.update_date || t.updatedAt || t.lastUpdated || t.updateDate,
+            subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || '',
+            // Normalize priorityLevel for badge rendering
+            priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
+            // Normalize comments/logs: sort newest-first if present
+            comments: Array.isArray(t.comments) ? [...t.comments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [],
+          };
+          setTicket(norm);
+        } else {
+          // No ticketNumber param: try fetching all and pick the last
+          const all = await backendTicketService.getAllTickets();
+          if (!mounted) return;
+          const last = Array.isArray(all) && all.length > 0 ? all[all.length - 1] : null;
+          if (last) {
+            const norm = {
+              ...last,
+              ticketNumber: last.ticket_number || last.ticketNumber || last.ticket_id || last.ticketId || last.id,
+              dateCreated: last.submit_date || last.createdAt || last.dateCreated || last.created_at || last.submitDate,
+              lastUpdated: last.update_date || last.updatedAt || last.lastUpdated || last.updateDate,
+              subCategory: last.subCategory || last.sub_category || last.subcategory || last.sub_cat || '',
+            };
+            setTicket(norm);
+          } else setTicket(null);
+        }
+      } catch (err) {
+        console.error('[TicketTracker] error fetching ticket:', err);
+        setTicket(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchTicket();
+    return () => { mounted = false; };
+  }, [ticketNumber]);
+
+  if (loading) {
+    return (
+      <div className={styles.coordinatorTicketTrackerPage}>
+        <p className={styles.notFound}>Loading ticket...</p>
+      </div>
+    );
+  }
 
   if (!ticket) {
     return (
@@ -101,8 +154,55 @@ export default function CoordinatorAdminTicketTracker() {
   const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
   const statusSteps = getStatusSteps(status);
   
-  // Generate dynamic data based on ticket
-  const ticketLogs = generateLogs(ticket);
+  // Combine System log and backend comments, then sort all by timestamp (latest-to-oldest)
+  let ticketLogs = [];
+  const systemLog = {
+    id: 'system',
+    user: 'System',
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    timestamp: formatDate(ticket.dateCreated),
+    rawDate: new Date(ticket.dateCreated)
+  };
+  // Get current user from localStorage
+  let currentUser = null;
+  try {
+    currentUser = JSON.parse(localStorage.getItem('hdts_current_user') || 'null');
+  } catch (e) { currentUser = null; }
+
+  let coordinatorLogs = [];
+  if (Array.isArray(ticket.comments) && ticket.comments.length > 0) {
+    coordinatorLogs = ticket.comments
+      .filter(c => c.user?.role === 'Ticket Coordinator' || c.user?.role === 'System Admin') // Only show coordinator/admin actions
+      .map((c, idx) => {
+        let isCurrentCoordinator = false;
+        if (currentUser && c.user) {
+          // Match by id, email, username, or firstName/lastName (from localStorage)
+          if (
+            (c.user.id && currentUser.id && c.user.id === currentUser.id) ||
+            (c.user.email && currentUser.email && c.user.email === currentUser.email) ||
+            (c.user.username && currentUser.username && c.user.username === currentUser.username) ||
+            (c.user.first_name && currentUser.firstName && c.user.first_name === currentUser.firstName &&
+             c.user.last_name && currentUser.lastName && c.user.last_name === currentUser.lastName) ||
+            (c.user.firstName && currentUser.firstName && c.user.firstName === currentUser.firstName &&
+             c.user.lastName && currentUser.lastName && c.user.lastName === currentUser.lastName)
+          ) {
+            isCurrentCoordinator = true;
+          }
+        }
+        return {
+          id: c.id || idx,
+          user: isCurrentCoordinator ? 'You' : 'Coordinator',
+          action: c.comment,
+          timestamp: formatDate(c.created_at),
+          rawDate: new Date(c.created_at)
+        };
+      });
+  } else {
+    coordinatorLogs = generateLogs(ticket).filter(l => l.user !== 'System').map(l => ({...l, rawDate: new Date(l.timestamp)}));
+  }
+  ticketLogs = [systemLog, ...coordinatorLogs];
+  // Sort all logs by rawDate, latest-to-oldest
+  ticketLogs.sort((a, b) => b.rawDate - a.rawDate);
 
   return (
     <>

@@ -5,13 +5,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    recent_logs = serializers.SerializerMethodField()
     class Meta:
         model = Employee
         fields = [
             'id',  # <-- Add this line
             'last_name', 'first_name', 'middle_name', 'suffix',
             'company_id', 'department', 'email', 'password', 
-            'image', 'role', 'status', 'date_created'
+            'image', 'role', 'status', 'date_created', 'recent_logs'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -24,6 +25,50 @@ class EmployeeSerializer(serializers.ModelSerializer):
         employee.set_password(password)
         employee.save()
         return employee
+
+    def get_recent_logs(self, obj):
+        # Return up to 4 recent logs for the employee
+        logs = getattr(obj, 'logs', None)
+        # If there are no explicit audit logs, provide a synthetic 'created' log
+        # based on the employee's date_created so the frontend can display at
+        # least one activity for the user.
+        if logs is None:
+            # No related manager found (model relationship not set up); fall back
+            # to returning a single created event using date_created if present.
+            if getattr(obj, 'date_created', None):
+                return [
+                    {
+                        'action': 'created',
+                        'details': 'Account created',
+                        'performed_by': None,
+                        'timestamp': obj.date_created,
+                    }
+                ]
+            return []
+
+        recent_qs = logs.all()[:4]
+        if not recent_qs or recent_qs.count() == 0:
+            # No actual logs; synthesize a created event from date_created
+            if getattr(obj, 'date_created', None):
+                return [
+                    {
+                        'action': 'created',
+                        'details': 'Account created',
+                        'performed_by': None,
+                        'timestamp': obj.date_created,
+                    }
+                ]
+            return []
+
+        return [
+            {
+                'action': l.action,
+                'details': l.details,
+                'performed_by': l.performed_by.company_id if l.performed_by else None,
+                'timestamp': l.timestamp,
+            }
+            for l in recent_qs
+        ]
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

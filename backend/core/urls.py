@@ -24,6 +24,7 @@ from .views import (
     verify_password,
     list_employees,
     approve_employee,
+    deny_employee,
     finalize_ticket,  # <-- add this import
 )
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -48,6 +49,7 @@ urlpatterns = [
     path('employee/verify-password/', verify_password, name='verify_password'),
     path('employees/', list_employees, name='list_employees'),
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
+    path('employees/<int:pk>/deny/', deny_employee, name='deny_employee'),
 
     path('tickets/<int:ticket_id>/', get_ticket_detail, name='get_ticket_detail'),
     path('tickets/number/<str:ticket_number>/', get_ticket_by_number, name='get_ticket_by_number'),

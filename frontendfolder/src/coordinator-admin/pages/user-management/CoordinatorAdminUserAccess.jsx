@@ -50,22 +50,28 @@ const CoordinatorAdminUserAccess = () => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
 
-    // Fetch all users
-    const fetchedUsers = getEmployeeUsers();
-    
-    // Filter users based on current user role and department
-    let usersToShow = fetchedUsers;
-    if (user) {
-      if (user.role === 'Ticket Coordinator') {
-        // Coordinators see users from their department
-        usersToShow = fetchedUsers.filter(u => u.department === user.department);
-      } else if (user.role === 'System Admin') {
-        // System Admins see all users
-        usersToShow = fetchedUsers;
-      }
-    }
-    
-    setAllUsers(usersToShow);
+    // Fetch all users from backend
+    import("../../../services/backend/employeeService").then(({ backendEmployeeService }) => {
+      backendEmployeeService.getAllEmployees().then(fetchedUsers => {
+        // Normalize backend fields to frontend keys
+        const normalizedUsers = fetchedUsers.map(u => ({
+          ...u,
+          companyId: u.companyId || u.company_id || u.companyID || '',
+          lastName: u.lastName || u.last_name || '',
+          firstName: u.firstName || u.first_name || '',
+        }));
+        // Filter users based on current user role and department
+        let usersToShow = normalizedUsers;
+        if (user) {
+          if (user.role === 'Ticket Coordinator') {
+            usersToShow = normalizedUsers.filter(u => u.department === user.department);
+          } else if (user.role === 'System Admin') {
+            usersToShow = normalizedUsers;
+          }
+        }
+        setAllUsers(usersToShow);
+      }).catch(() => setAllUsers([]));
+    });
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -118,9 +124,31 @@ const CoordinatorAdminUserAccess = () => {
     setModalType(type);
   };
 
-  const closeModal = () => {
+  const closeModal = (shouldRefresh) => {
     setSelectedUser(null);
     setModalType(null);
+    if (shouldRefresh) {
+      // Re-fetch users after approve/reject
+      import("../../../services/backend/employeeService").then(({ backendEmployeeService }) => {
+        backendEmployeeService.getAllEmployees().then(fetchedUsers => {
+          const normalizedUsers = fetchedUsers.map(u => ({
+            ...u,
+            companyId: u.companyId || u.company_id || u.companyID || '',
+            lastName: u.lastName || u.last_name || '',
+            firstName: u.firstName || u.first_name || '',
+          }));
+          let usersToShow = normalizedUsers;
+          if (currentUser) {
+            if (currentUser.role === 'Ticket Coordinator') {
+              usersToShow = normalizedUsers.filter(u => u.department === currentUser.department);
+            } else if (currentUser.role === 'System Admin') {
+              usersToShow = normalizedUsers;
+            }
+          }
+          setAllUsers(usersToShow);
+        }).catch(() => setAllUsers([]));
+      });
+    }
   };
 
   const isActionable = (status) => status?.toLowerCase() === "pending";
@@ -227,7 +255,7 @@ const CoordinatorAdminUserAccess = () => {
                       <div className={
                         styles[`status-${(user.status || "active").replace(/\s+/g, "-").toLowerCase()}`]
                       }>
-                        {user.status}
+                        {user.status === 'Denied' ? 'Rejected' : user.status}
                       </div>
                     </td>
                     <td>
@@ -278,15 +306,14 @@ const CoordinatorAdminUserAccess = () => {
       </div>
       </div>
 
-      {modalType === "approve" && selectedUser && (
+      {selectedUser && (
         <ModalWrapper onClose={closeModal}>
-          <CoordinatorAdminApproveUserModal user={selectedUser} onClose={closeModal} />
-        </ModalWrapper>
-      )}
-
-      {modalType === "reject" && selectedUser && (
-        <ModalWrapper onClose={closeModal}>
-          <CoordinatorAdminRejectUserModal user={selectedUser} onClose={closeModal} />
+          {modalType === "approve" && (
+            <CoordinatorAdminApproveUserModal user={selectedUser} onClose={closeModal} />
+          )}
+          {modalType === "reject" && (
+            <CoordinatorAdminRejectUserModal user={selectedUser} onClose={closeModal} />
+          )}
         </ModalWrapper>
       )}
     </>

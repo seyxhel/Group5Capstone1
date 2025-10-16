@@ -1,5 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
+import { backendTicketService } from '../../../services/backend/ticketService';
+import authService from '../../../utilities/service/authService';
 import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
@@ -13,8 +15,8 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
 
   useEffect(() => {
     reset({
-      priorityLevel: ticket.priorityLevel || "",
-      department: ticket.department || "",
+      priorityLevel: ticket.priorityLevel || ticket.priority || ticket.priority_level || "",
+      department: ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || "",
       comment: "",
     });
   }, [ticket, reset]);
@@ -22,19 +24,37 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      const ticketId = ticket.id || ticket.ticket_id || ticket.ticketId || null;
+      if (!ticketId) throw new Error('Ticket id missing');
 
-      toast.success(`Ticket #${ticket.ticketNumber} approved successfully.`, {
+      // Map frontend priority values to backend expected values
+      const priorityMap = {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical'
+      };
+      const selectedPriority = (data.priorityLevel || ticket.priority || ticket.priority_level || '').toString();
+      const mappedPriority = priorityMap[selectedPriority.toLowerCase()] || (ticket.priority || ticket.priority_level || 'Low');
+
+      // Use the backend approve endpoint to set status -> Open and persist priority/department
+      await backendTicketService.approveTicket(ticketId, {
+        priority: mappedPriority,
+        department: data.department || ticket.department || ticket.assignedDepartment,
+        approval_notes: data.comment || ''
+      });
+
+      toast.success(`Ticket #${ticket.ticketNumber} opened successfully.`, {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
       });
-
       onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
       onClose();
     } catch (err) {
+      console.error('OpenTicket error:', err);
       toast.error("Failed to approve ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
@@ -48,7 +68,12 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Approve Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+        {(() => {
+          const ownerName = (ticket.employee && (ticket.employee.first_name || ticket.employee.firstName))
+            ? `${ticket.employee.first_name || ticket.employee.firstName} ${ticket.employee.last_name || ticket.employee.lastName}`.trim()
+            : ticket.employee_name || ticket.employeeName || ticket.createdBy?.name || '';
+          return ownerName ? `Approve Ticket ${ticket.ticketNumber} for ${ownerName}` : `Approve Ticket ${ticket.ticketNumber}`;
+        })()}
       </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>

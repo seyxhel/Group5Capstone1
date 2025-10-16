@@ -89,6 +89,28 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+
+class EmployeeLog(models.Model):
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('role_updated', 'Role Updated'),
+        ('other', 'Other'),
+    ]
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='logs')
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    details = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.employee.company_id} - {self.action} @ {self.timestamp}"
+
 PRIORITY_LEVELS = [
     ('Critical', 'Critical'),
     ('High', 'High'),
@@ -185,10 +207,23 @@ from .tasks import push_ticket_to_workflow
 def send_ticket_to_workflow(sender, instance, created, **kwargs):
     # Only trigger when status is set to "Open" (and not just created)
     if not created and instance.status == "Open":
-        from .tasks import push_ticket_to_workflow  # Import here!
-        from .serializers import TicketSerializer   # Import here!
-        data = TicketSerializer(instance).data
-        push_ticket_to_workflow.delay(data)
+        # Delay pushing to external workflow; do not allow broker/worker errors
+        # to crash the request/DB transaction (e.g., when RabbitMQ is down).
+        try:
+            from .tasks import push_ticket_to_workflow  # Import here!
+            from .serializers import TicketSerializer   # Import here!
+            data = TicketSerializer(instance).data
+            try:
+                push_ticket_to_workflow.delay(data)
+            except Exception as enqueue_err:
+                # Log the enqueue failure and continue — do not re-raise
+                import logging, traceback
+                logger = logging.getLogger(__name__)
+                logger.exception("Failed to enqueue push_ticket_to_workflow: %s", enqueue_err)
+        except Exception:
+            # If importing or serializing fails, log and continue
+            import logging
+            logging.getLogger(__name__).exception("Error preparing push_ticket_to_workflow task")
         
 class TicketAttachment(models.Model):
     ticket = models.ForeignKey('Ticket', on_delete=models.CASCADE, related_name='attachments')

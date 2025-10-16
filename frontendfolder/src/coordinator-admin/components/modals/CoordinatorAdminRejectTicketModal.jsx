@@ -19,7 +19,8 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      const { backendTicketService } = await import("../../../services/backend/ticketService.js");
+      await backendTicketService.updateTicketStatus(ticket.id || ticket.ticketId, "Rejected", comment);
 
       toast.success(`Ticket #${ticket.ticketNumber} rejected successfully.`, {
         position: "top-right",
@@ -42,7 +43,12 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Reject Ticket {ticket.ticketNumber} by {ticket.createdBy?.name || "User"}
+        {(() => {
+          const ownerName = (ticket.employee && (ticket.employee.first_name || ticket.employee.firstName))
+            ? `${ticket.employee.first_name || ticket.employee.firstName} ${ticket.employee.last_name || ticket.employee.lastName}`.trim()
+            : ticket.employee_name || ticket.employeeName || ticket.createdBy?.name || '';
+          return ownerName ? `Reject Ticket ${ticket.ticketNumber} for ${ownerName}` : `Reject Ticket ${ticket.ticketNumber}`;
+        })()}
       </h2>
 
       <div className={styles.field}>

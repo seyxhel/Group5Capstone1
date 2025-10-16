@@ -134,7 +134,8 @@ export const addEmployeeUser = (userData) => {
   const newUser = {
     id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
     ...userData,
-    status: "Active",
+    // Allow callers to set initial status (e.g., 'Pending'); default to 'Active'
+    status: userData.status || "Active",
     dateJoined: new Date().toISOString(),
     lastLogin: null,
   };
