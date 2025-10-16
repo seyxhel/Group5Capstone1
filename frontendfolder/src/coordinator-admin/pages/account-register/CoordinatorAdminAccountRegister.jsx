@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import LoadingButton from '../../../shared/buttons/LoadingButton';
-import TopPageSectionHeader from '../../../shared/section-header/TopPageSectionHeader';
+import Breadcrumb from '../../../shared/components/Breadcrumb';
+import FormCard from '../../../shared/components/FormCard';
+import InputField from '../../../shared/components/InputField';
+import ProfileImageUpload from '../../../shared/components/ProfileImageUpload';
+import Button from '../../../shared/components/Button';
 import styles from './CoordinatorAdminAccountRegister.module.css';
+import formActions from '../../../shared/styles/formActions.module.css';
+import FormActions from '../../../shared/components/FormActions';
 import { getEmployeeUsers, addEmployeeUser } from '../../../utilities/storages/employeeUserStorage';
 
 const departments = [
@@ -119,10 +124,13 @@ const CoordinatorAdminAccountRegister = () => {
         break;
       
       case 'profileImage':
-        if (value && !value.startsWith('http')) {
-          error = 'Profile Image must be a valid URL';
-        }
-        break;
+          // Profile image is required for this page
+          if (!value) {
+            error = 'Profile image is required';
+          } else if (value && value.error) {
+            error = value.error;
+          }
+          break;
       
       default:
         break;
@@ -184,7 +192,8 @@ const CoordinatorAdminAccountRegister = () => {
       'role',
       'email',
       'password',
-      'confirmPassword'
+      'confirmPassword',
+      'profileImage'
     ];
 
     fieldsToValidate.forEach(field => {
@@ -260,203 +269,175 @@ const CoordinatorAdminAccountRegister = () => {
 
   return (
     <main className={styles.registration}>
-      <TopPageSectionHeader
+      <Breadcrumb
         root="User Management"
         currentPage="Create Account"
         rootNavigatePage="/admin/user-access/all-users"
         title="Create New User Account"
       />
 
-      <section className={styles.registrationForm}>
-        <form onSubmit={handleSubmit}>
-          <FormField
-            id="companyId"
-            label="Company ID"
-            required
-            error={errors.companyId}
-            render={() => (
-              <input
-                type="text"
-                placeholder="e.g., IT0001"
-                value={formData.companyId}
-                onChange={handleInputChange('companyId')}
-                onBlur={handleBlur('companyId')}
-              />
-            )}
-          />
+      <section>
+  <FormCard>
+          <form onSubmit={handleSubmit}>
+          {/* Personal Information */}
+          <fieldset>
+            <legend className={styles.fieldsetLegend}>
+              Personal Information
+            </legend>
+            
+            <InputField
+              label="Company ID"
+              placeholder="e.g., IT0001"
+              value={formData.companyId}
+              onChange={handleInputChange('companyId')}
+              onBlur={handleBlur('companyId')}
+              required
+              error={errors.companyId}
+            />
+            
+            <InputField
+              label="First Name"
+              placeholder="Enter first name"
+              value={formData.firstName}
+              onChange={handleInputChange('firstName')}
+              onBlur={handleBlur('firstName')}
+              required
+              error={errors.firstName}
+            />
 
-          <FormField
-            id="firstName"
-            label="First Name"
-            required
-            error={errors.firstName}
-            render={() => (
-              <input
-                type="text"
-                placeholder="Enter first name"
-                value={formData.firstName}
-                onChange={handleInputChange('firstName')}
-                onBlur={handleBlur('firstName')}
-              />
-            )}
-          />
+            <InputField
+              label="Last Name"
+              placeholder="Enter last name"
+              value={formData.lastName}
+              onChange={handleInputChange('lastName')}
+              onBlur={handleBlur('lastName')}
+              required
+              error={errors.lastName}
+            />
+          </fieldset>
 
-          <FormField
-            id="lastName"
-            label="Last Name"
-            required
-            error={errors.lastName}
-            render={() => (
-              <input
-                type="text"
-                placeholder="Enter last name"
-                value={formData.lastName}
-                onChange={handleInputChange('lastName')}
-                onBlur={handleBlur('lastName')}
-              />
-            )}
-          />
-
-          <FormField
-            id="department"
-            label="Department"
-            required
-            error={errors.department}
-            render={() => (
+          {/* Department and Role */}
+          <fieldset>
+            <legend className={styles.fieldsetLegend}>
+              Department & Role
+            </legend>
+            
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Department <span className={styles.required}>*</span>
+              </label>
               <select
                 value={formData.department}
                 onChange={handleInputChange('department')}
                 onBlur={handleBlur('department')}
+                className={errors.department ? styles.inputError : ''}
               >
                 <option value="">Select Department</option>
                 {departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
-            )}
-          />
+              {errors.department && (
+                <div className={styles.errorMessage}>
+                  {errors.department}
+                </div>
+              )}
+            </div>
 
-          <FormField
-            id="role"
-            label="Role"
-            required
-            error={errors.role}
-            render={() => (
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Role <span className={styles.required}>*</span>
+              </label>
               <select
                 value={formData.role}
                 onChange={handleInputChange('role')}
                 onBlur={handleBlur('role')}
+                className={errors.role ? styles.inputError : ''}
               >
                 <option value="">Select Role</option>
                 {roles.map(role => (
                   <option key={role} value={role}>{role}</option>
                 ))}
               </select>
-            )}
-          />
+              {errors.role && (
+                <div className={styles.errorMessage}>
+                  {errors.role}
+                </div>
+              )}
+            </div>
+          </fieldset>
 
-          <FormField
-            id="email"
-            label="Email Address"
-            required
-            error={errors.email}
-            render={() => (
-              <input
-                type="email"
-                placeholder="e.g., user@example.com"
-                value={formData.email}
-                onChange={handleInputChange('email')}
-                onBlur={handleBlur('email')}
-              />
-            )}
-          />
+          {/* Account Information */}
+          <fieldset>
+            <legend className={styles.fieldsetLegend}>
+              Account Information
+            </legend>
+            
+            <InputField
+              type="email"
+              label="Email Address"
+              placeholder="e.g., user@example.com"
+              value={formData.email}
+              onChange={handleInputChange('email')}
+              onBlur={handleBlur('email')}
+              required
+              error={errors.email}
+            />
 
-          <FormField
-            id="password"
-            label="Password"
-            required
-            error={errors.password}
-            render={() => (
-              <input
-                type="password"
-                placeholder="Enter password"
-                value={formData.password}
-                onChange={handleInputChange('password')}
-                onBlur={handleBlur('password')}
-              />
-            )}
-          />
+            <InputField
+              type="password"
+              label="Password"
+              placeholder="Enter password (min 6 characters)"
+              value={formData.password}
+              onChange={handleInputChange('password')}
+              onBlur={handleBlur('password')}
+              required
+              error={errors.password}
+            />
 
-          <FormField
-            id="confirmPassword"
-            label="Confirm Password"
-            required
-            error={errors.confirmPassword}
-            render={() => (
-              <input
-                type="password"
-                placeholder="Confirm password"
-                value={formData.confirmPassword}
-                onChange={handleInputChange('confirmPassword')}
-                onBlur={handleBlur('confirmPassword')}
-              />
-            )}
-          />
+            <InputField
+              type="password"
+              label="Confirm Password"
+              placeholder="Re-enter password"
+              value={formData.confirmPassword}
+              onChange={handleInputChange('confirmPassword')}
+              onBlur={handleBlur('confirmPassword')}
+              required
+              error={errors.confirmPassword}
+            />
+          </fieldset>
 
-          <FormField
-            id="profileImage"
-            label="Profile Image URL (Optional)"
-            error={errors.profileImage}
-            render={() => (
-              <input
-                type="text"
-                placeholder="https://example.com/image.jpg"
+          {/* Optional Profile Image */}
+          <fieldset>
+            <legend className={styles.fieldsetLegend}>
+              Profile 
+            </legend>
+
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Profile Picture <span className={styles.required}>*</span>
+              </label>
+              <ProfileImageUpload
                 value={formData.profileImage}
                 onChange={handleInputChange('profileImage')}
-                onBlur={handleBlur('profileImage')}
+                error={errors.profileImage}
               />
-            )}
+            </div>
+          </fieldset>
+
+          {/* Action Buttons */}
+          <FormActions
+            onCancel={() => navigate('/admin/user-access/all-users')}
+            cancelLabel="Cancel"
+            submitLabel={isSubmitting ? 'Creating...' : 'Create Account'}
+            submitDisabled={isSubmitting}
+            submitVariant="primary"
           />
-
-          <div className={styles.buttonGroup}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => navigate('/admin/user-access/all-users')}
-            >
-              Cancel
-            </button>
-            
-            <button
-              type="button"
-              className={styles.resetBtn}
-              onClick={resetForm}
-            >
-              Reset
-            </button>
-
-            <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-              {isSubmitting && <LoadingButton />}
-              {isSubmitting ? 'Creating...' : 'Create Account'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </FormCard>
       </section>
     </main>
   );
 };
-
-function FormField({ id, label, required = false, error, render }) {
-  return (
-    <fieldset>
-      <label htmlFor={id}>
-        {label}
-        {required && <span className={styles.required}>*</span>}
-      </label>
-      {render()}
-      {error && <span className={styles.errorMessage}>{error}</span>}
-    </fieldset>
-  );
-}
 
 export default CoordinatorAdminAccountRegister;

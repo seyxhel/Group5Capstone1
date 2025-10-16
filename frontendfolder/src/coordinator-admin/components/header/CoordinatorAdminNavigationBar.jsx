@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import useScrollShrink from '../../../shared/hooks/useScrollShrink.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { FiMenu, FiX } from 'react-icons/fi';
 import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
-import systemAdminData from '../../../utilities/storages/systemAdminMarites';
+import authService from '../../../utilities/service/authService';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -33,8 +35,11 @@ const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
+  const currentUser = authService.getCurrentUser();
   const [openDropdown, setOpenDropdown] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // temporarily set threshold to 0 and enable debug to observe scroll events during testing
+  const scrolled = useScrollShrink(0, { debug: true });
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
@@ -110,6 +115,15 @@ const CoordinatorAdminNavBar = () => {
         { label: 'Ticket Reports', path: '/admin/reports/tickets' },
         { label: 'SLA Compliance', path: '/admin/reports/sla' }
       ]
+    },
+    {
+      key: 'kb',
+      label: 'Knowledge Base',
+      basePath: '/admin/knowledge',
+      links: [
+        { label: 'Articles', path: '/admin/knowledge/articles' },
+        { label: 'Archived Articles', path: '/admin/knowledge/archived' }
+      ]
     }
   ];
 
@@ -120,26 +134,13 @@ const CoordinatorAdminNavBar = () => {
   };
 
   return (
-    <nav className={styles['main-nav-bar']} ref={navRef}>
+    <nav className={`${styles['main-nav-bar']} ${scrolled ? styles.scrolled : ''}`} ref={navRef}>
       {/* Logo & Brand (Desktop: Left, Mobile: Right) */}
       <section className={styles['logo-placeholder']}>
-        {/* Hamburger Menu (Mobile Only) */}
-        <div
-          className={`${styles.hamburger} ${isMobileMenuOpen ? styles.open : ''}`}
-          onClick={toggleMobileMenu}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleMobileMenu()}
-        >
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+          <span className={styles['admin-badge']}>{currentUser?.role}</span>
         </div>
       </section>
 
@@ -150,14 +151,14 @@ const CoordinatorAdminNavBar = () => {
           <li className={styles['mobile-profile-section']}>
             <div className={styles['profile-avatar-large']}>
               <img 
-                src={systemAdminData.profileImage} 
+                src={currentUser?.profileImage} 
                 alt="Profile" 
                 className={styles['avatar-image']} 
               />
             </div>
             <div className={styles['mobile-profile-info']}>
-              <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
-              <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+              <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
+              <span className={styles['admin-badge']}>{currentUser?.role}</span>
               <div className={styles['mobile-profile-actions']}>
                 <button 
                   className={styles['mobile-settings-btn']}
@@ -225,6 +226,16 @@ const CoordinatorAdminNavBar = () => {
 
       {/* Right Section: Notifications & Profile (Desktop Only) */}
       <section className={styles['nav-right-section']}>
+        {/* Hamburger on the right for mobile */}
+        <button
+          className={`${styles.hamburgerBtn} ${isMobileMenuOpen ? styles.open : ''}`}
+          onClick={toggleMobileMenu}
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          {isMobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+        </button>
+
         <div
           className={`${styles['notification-icon-container']} ${
             openDropdown === 'notifications' ? styles['open'] : ''
@@ -251,17 +262,17 @@ const CoordinatorAdminNavBar = () => {
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
+            <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <img src={systemAdminData.profileImage} alt="Profile" className={styles['avatar-image']} />
+                  <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${systemAdminData.firstName} ${systemAdminData.lastName}`}</h3>
-                  <span className={styles['admin-badge']}>{systemAdminData.role}</span>
+                  <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
+                  <span className={styles['admin-badge']}>{currentUser?.role}</span>
                 </div>
               </div>
               <div className={styles['profile-menu']}>

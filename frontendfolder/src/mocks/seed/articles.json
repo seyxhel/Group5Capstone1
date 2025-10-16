@@ -1,0 +1,29 @@
+[
+  {
+    "id": 101,
+    "title": "How to reset your password",
+    "content": "Step 1: Go to password reset...\nStep 2: Follow the instructions",
+    "category_id": 5,
+    "visibility": "Employee",
+    "author": "System Admin",
+    "date_modified": "2025-10-01"
+  },
+  {
+    "id": 102,
+    "title": "Requesting equipment",
+    "content": "Submit a ticket and include the asset type.",
+    "category_id": 1,
+    "visibility": "Employee",
+    "author": "System Admin",
+    "date_modified": "2025-09-20"
+  },
+  {
+    "id": 103,
+    "title": "Admin: Server maintenance windows",
+    "content": "Servers will be down every Sunday 2-4 AM.",
+    "category_id": 3,
+    "visibility": "System Admin",
+    "author": "System Admin",
+    "date_modified": "2025-10-10"
+  }
+]

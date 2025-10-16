@@ -1,31 +1,24 @@
-import employeeBonjingData from "../storages/employeeBonjing";
-import ticketCoordinatorKenneth from "../storages/ticketCoordinatorKenneth";
-import systemAdminMarites from "../storages/systemAdminMarites";
+import { getEmployeeUsers } from "../storages/employeeUserStorage";
 
 const USER_KEY = "loggedInUser";
-
-const mockUsers = [
-  employeeBonjingData,
-  ticketCoordinatorKenneth,
-  systemAdminMarites,
-];
 
 const authService = {
   login: async (email, password) => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        const matchedUser = mockUsers.find(
-          (user) => user.email === email && user.password === password
+        const users = getEmployeeUsers();
+        const matchedUser = users.find(
+          (user) => user.email.toLowerCase() === email.toLowerCase() && user.password === password
         );
 
         if (matchedUser) {
-          const { password, ...userWithoutPassword } = matchedUser;
+          const { password: _, ...userWithoutPassword } = matchedUser;
           localStorage.setItem(USER_KEY, JSON.stringify(userWithoutPassword));
           resolve(userWithoutPassword);
         } else {
           resolve(null);
         }
-      }, 800);
+      }, 500);
     });
   },
 
@@ -36,6 +29,15 @@ const authService = {
   getCurrentUser: () => {
     const storedUser = localStorage.getItem(USER_KEY);
     return storedUser ? JSON.parse(storedUser) : null;
+  },
+
+  isAuthenticated: () => {
+    return localStorage.getItem(USER_KEY) !== null;
+  },
+
+  getUserRole: () => {
+    const user = authService.getCurrentUser();
+    return user?.role || null;
   },
 };
 

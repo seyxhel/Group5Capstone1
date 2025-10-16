@@ -29,6 +29,7 @@ import styles from './CoordinatorAdminDashboard.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
+import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -282,7 +283,7 @@ const CoordinatorAdminDashboard = () => {
   const tabRefs = useRef([]);
   const navigate = useNavigate();
 
-  const tabs = ['tickets', 'users'];
+  const tabs = ['tickets', 'users', 'kb'];
 
   // Measure and position the sliding indicator under the active tab
   const updateIndicator = () => {
@@ -495,47 +496,61 @@ const CoordinatorAdminDashboard = () => {
         </div>
 
 
-        <div className={styles.tabContent}>
+          <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid}>
-            {(activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
-              <StatCard
-                key={i}
-                {...stat}
-                onClick={() => stat.path && navigate(stat.path)}
-              />
-            ))}
+            {activeTab === 'kb' ? (
+              // KB tab could show quick KB stats; reuse placeholder stat cards
+              [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
+                <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
+              ))
+            ) : (
+              (activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
+                <StatCard
+                  key={i}
+                  {...stat}
+                  onClick={() => stat.path && navigate(stat.path)}
+                />
+              ))
+            )}
           </div>
+            {activeTab === 'kb' ? (
+              <div style={{ padding: 12 }}>
+                <KnowledgeDashboard />
+              </div>
+            ) : (
+              <>
+                <DataTable
+                  title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
+                  buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'}
+                  headers={
+                    activeTab === 'tickets'
+                      ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
+                      : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+                  }
+                  data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
+                  onButtonClick={() =>
+                    navigate(
+                      activeTab === 'tickets'
+                        ? '/admin/ticket-management/all-tickets'
+                        : '/admin/users/all-users'
+                    )
+                  }
+                />
 
-          <DataTable
-            title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
-            buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'}
-            headers={
-              activeTab === 'tickets'
-                ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
-                : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
-            }
-            data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
-            onButtonClick={() =>
-              navigate(
-                activeTab === 'tickets'
-                  ? '/admin/ticket-management/all-tickets'
-                  : '/admin/users/all-users'
-              )
-            }
-          />
-
-          <div className={chartStyles.chartsGrid}>
-            <StatusPieChart
-              data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
-              title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
-              activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
-            />
-            <TrendLineChart
-              data={activeTab === 'tickets' ? ticketData.lineData : userData.lineData}
-              title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'}
-              isTicketChart={activeTab === 'tickets'}
-            />
-          </div>
+                <div className={chartStyles.chartsGrid}>
+                  <StatusPieChart
+                    data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
+                    title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
+                    activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
+                  />
+                  <TrendLineChart
+                    data={activeTab === 'tickets' ? ticketData.lineData : userData.lineData}
+                    title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'}
+                    isTicketChart={activeTab === 'tickets'}
+                  />
+                </div>
+              </>
+            )}
         </div>
       </div>
     </div>

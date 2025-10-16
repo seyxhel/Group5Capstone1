@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
+import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
+import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
 
 import TablePagination from "../../../shared/table/TablePagination";
-import FilterPanel from "../../../shared/table/FilterPanel";
+import EmployeeTicketFilter, { ACTIVE_TICKET_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
 import EmployeeActiveTicketsWithdrawTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal";
 import EmployeeActiveTicketsCloseTicketModal from "../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal";
 import styles from './EmployeeActiveTickets.module.css';
@@ -112,14 +113,17 @@ const EmployeeActiveTickets = () => {
   const [selectedClose, setSelectedClose] = useState(null);
 
   useEffect(() => {
-    const tickets = getEmployeeTickets();
+    // Get current logged-in user and only fetch their tickets
+    const currentUser = authService.getCurrentUser();
+    const tickets = getEmployeeTickets(currentUser?.id);
     setAllActiveTickets(tickets);
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
-    category: null,
     status: null,
     priority: null,
+    category: null,
+    subCategory: null,
     startDate: "",
     endDate: "",
   });
@@ -145,6 +149,13 @@ const EmployeeActiveTickets = () => {
     if (activeFilters.category) {
       filtered = filtered.filter(
         ticket => ticket.category === activeFilters.category.label
+      );
+    }
+
+    // Apply sub-category filter
+    if (activeFilters.subCategory) {
+      filtered = filtered.filter(
+        ticket => ticket.subCategory === activeFilters.subCategory.label
       );
     }
 
@@ -214,38 +225,20 @@ const EmployeeActiveTickets = () => {
 
       {/* Filter Panel - outside table section */}
       {showFilter && (
-        <FilterPanel
-          hideToggleButton={true}
+        <EmployeeTicketFilter
+          statusOptions={ACTIVE_TICKET_STATUS_OPTIONS}
           onApply={setActiveFilters}
           onReset={() => {
             setActiveFilters({
-              category: null,
               status: null,
               priority: null,
+              category: null,
+              subCategory: null,
               startDate: "",
               endDate: "",
             });
             setCurrentPage(1);
           }}
-          categoryOptions={[
-            { label: "Hardware", category: "IT" },
-            { label: "Software", category: "IT" },
-            { label: "Network", category: "IT" },
-            { label: "Account", category: "Access" },
-            { label: "Other", category: "General" },
-          ]}
-          statusOptions={[
-            { label: "Pending", category: "Active" },
-            { label: "In Progress", category: "Active" },
-            { label: "On Hold", category: "Active" },
-            { label: "Resolved", category: "Complete" },
-          ]}
-          priorityOptions={[
-            { label: "Critical", category: "Urgent" },
-            { label: "High", category: "Important" },
-            { label: "Medium", category: "Normal" },
-            { label: "Low", category: "Minor" },
-          ]}
           initialFilters={activeFilters}
         />
       )}

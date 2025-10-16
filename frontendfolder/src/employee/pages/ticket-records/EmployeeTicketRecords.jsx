@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeTickets } from "../../../utilities/storages/employeeTicketStorageBonjing";
+import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
+import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
 
 import TablePagination from "../../../shared/table/TablePagination";
-import FilterPanel from "../../../shared/table/FilterPanel";
+import EmployeeTicketFilter, { TICKET_RECORD_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
 import styles from './EmployeeTicketRecords.module.css';
 
 const headingMap = {
@@ -93,14 +94,17 @@ const EmployeeTicketRecords = () => {
   const normalizedFilter = filter.replace("-ticket-records", "").toLowerCase();
 
   useEffect(() => {
-    const tickets = getEmployeeTickets();
+    // Get current logged-in user and only fetch their tickets
+    const currentUser = authService.getCurrentUser();
+    const tickets = getEmployeeTickets(currentUser?.id);
     setAllTickets(tickets);
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
-    category: null,
     status: null,
     priority: null,
+    category: null,
+    subCategory: null,
     startDate: "",
     endDate: "",
   });
@@ -126,6 +130,13 @@ const EmployeeTicketRecords = () => {
     if (activeFilters.category) {
       filtered = filtered.filter(
         ticket => ticket.category === activeFilters.category.label
+      );
+    }
+
+    // Apply sub-category filter
+    if (activeFilters.subCategory) {
+      filtered = filtered.filter(
+        ticket => ticket.subCategory === activeFilters.subCategory.label
       );
     }
 
@@ -185,37 +196,20 @@ const EmployeeTicketRecords = () => {
 
       {/* Filter Panel - outside table section */}
       {showFilter && (
-        <FilterPanel
-          hideToggleButton={true}
+        <EmployeeTicketFilter
+          statusOptions={TICKET_RECORD_STATUS_OPTIONS}
           onApply={setActiveFilters}
           onReset={() => {
             setActiveFilters({
-              category: null,
               status: null,
               priority: null,
+              category: null,
+              subCategory: null,
               startDate: "",
               endDate: "",
             });
             setCurrentPage(1);
           }}
-          categoryOptions={[
-            { label: "Hardware", category: "IT" },
-            { label: "Software", category: "IT" },
-            { label: "Network", category: "IT" },
-            { label: "Account", category: "Access" },
-            { label: "Other", category: "General" },
-          ]}
-          statusOptions={[
-            { label: "Closed", category: "Completed" },
-            { label: "Rejected", category: "Completed" },
-            { label: "Withdrawn", category: "Completed" },
-          ]}
-          priorityOptions={[
-            { label: "Critical", category: "Urgent" },
-            { label: "High", category: "Important" },
-            { label: "Medium", category: "Normal" },
-            { label: "Low", category: "Minor" },
-          ]}
           initialFilters={activeFilters}
         />
       )}

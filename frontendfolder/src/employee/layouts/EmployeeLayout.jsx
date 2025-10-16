@@ -1,8 +1,9 @@
 import { Outlet, useLocation, matchPath } from 'react-router-dom';
 import EmployeeNavBar from '../components/header/EmployeeNavigationBar';
-import TopPageSectionHeader from '../../shared/section-header/TopPageSectionHeader';
-import { getEmployeeTickets } from '../../utilities/storages/employeeTicketStorageBonjing';
+import Breadcrumb from '../../shared/components/Breadcrumb';
+import { getEmployeeTickets } from '../../utilities/storages/ticketStorage';
 import { isActiveStatus } from '../../utilities/helpers/statusMapper';
+import authService from '../../utilities/service/authService';
 import PageLayout from '../../shared/layouts/PageLayout';
 
 const getHeaderConfig = (path) => {
@@ -10,7 +11,8 @@ const getHeaderConfig = (path) => {
 
   if (ticketMatch) {
     const ticketNumber = ticketMatch.params.ticketNumber;
-    const tickets = getEmployeeTickets();
+    const currentUser = authService.getCurrentUser();
+    const tickets = getEmployeeTickets(currentUser?.id);
     const ticket = tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
     const isActive = ticket && isActiveStatus(ticket.status);
 
@@ -49,7 +51,7 @@ const EmployeeLayout = () => {
   return (
     <PageLayout Navbar={EmployeeNavBar}>
       {headerConfig && (
-        <TopPageSectionHeader
+        <Breadcrumb
           root={headerConfig.root}
           currentPage={headerConfig.currentPage}
           rootNavigatePage={headerConfig.rootNavigatePage}

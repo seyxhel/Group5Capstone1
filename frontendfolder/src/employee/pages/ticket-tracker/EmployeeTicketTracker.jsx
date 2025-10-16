@@ -1,8 +1,9 @@
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/employeeTicketStorageBonjing';
+import { getEmployeeTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
+import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import Button from '../../../shared/components/Button';
@@ -85,9 +86,14 @@ export default function EmployeeTicketTracker() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
-  const tickets = getEmployeeTickets();
+  // Get current logged-in user
+  const currentUser = authService.getCurrentUser();
   
-  console.log('🎫 All Tickets:', tickets);
+  // Get only the current user's tickets
+  const tickets = getEmployeeTickets(currentUser?.id);
+  
+  console.log('👤 Current User:', currentUser);
+  console.log('🎫 User Tickets:', tickets);
   console.log('🔢 Ticket Number from URL:', ticketNumber);
 
   const ticket = ticketNumber
@@ -163,6 +169,12 @@ export default function EmployeeTicketTracker() {
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
+        {/* Breadcrumb Navigation */}
+        <div className={styles.pageHeader}>
+          <p className={styles.breadcrumb}>Ticket Records / Ticket Tracker</p>
+          <h1 className={styles.pageTitle}>{number}</h1>
+        </div>
+
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}

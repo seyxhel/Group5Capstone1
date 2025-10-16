@@ -9,8 +9,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 0 10px #d3d3d3;
+  box-shadow: none;
   z-index: 1000;
+  transition: height 200ms ease, box-shadow 200ms ease;
 }
 
 .main-nav-bar > section:last-child {
@@ -30,10 +31,33 @@
 }
 
 .logo-image {
-  width: 72px;
-  height: 72px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   object-fit: contain;
+  transition: width 180ms ease, height 180ms ease, transform 180ms ease;
+}
+
+/* scrolled state */
+.main-nav-bar.scrolled {
+  height: 52px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Shrink child elements when navbar is scrolled */
+.main-nav-bar.scrolled .logo-image {
+  width: 30px;
+  height: 30px;
+}
+
+.main-nav-bar.scrolled .brand-name {
+  font-size: 1rem;
+}
+
+.main-nav-bar.scrolled .avatar-image,
+.main-nav-bar.scrolled .avatar-placeholder {
+  width: 28px;
+  height: 28px;
 }
 
 .brand-wrapper {
@@ -46,6 +70,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--primary-color);
+  transition: font-size 180ms ease, transform 180ms ease;
 }
 
 .admin-badge {
@@ -67,6 +92,11 @@
   height: 24px;
   cursor: pointer;
   padding: 4px;
+}
+
+/* hide hamburger icon by default; shown only inside the mobile media query */
+.hamburgerBtn {
+  display: none;
 }
 
 .hamburger span {
@@ -298,6 +328,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: width 180ms ease, height 180ms ease, transform 180ms ease;
 }
 
 .profile-avatar-large .avatar-placeholder,
@@ -398,8 +429,19 @@
 @media (max-width: 768px) {
   /* Show hamburger inside logo section on mobile */
   .hamburger {
-    display: flex;
-    margin-right: 15px;
+    display: none;
+  }
+
+  .hamburgerBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    margin-left: 10px;
+    cursor: pointer;
+    color: var(--text-color);
   }
 
   /* Logo section adjustments for mobile */
@@ -411,6 +453,15 @@
     padding-left: 0;
     padding-right: 15px;
     gap: 8px;
+  }
+
+  /* Ensure right section (notifications/profile/hamburger) sits on the right */
+  .nav-right-section {
+    order: 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
   }
 
   /* Hide desktop profile and notifications on mobile */

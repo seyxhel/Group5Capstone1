@@ -39,21 +39,17 @@ const SmartSupportLogIn = () => {
         return;
       }
 
-      const role = user.role?.trim().toLowerCase(); // normalize role
+      const role = user.role?.trim().toLowerCase();
 
-      switch (role) {
-        case "employee":
-          navigate("/employee/home");
-          break;
-        case "ticket coordinator":
-        case "system admin":
-          navigate("/admin/dashboard");
-          break;
-        default:
-          navigate("/unauthorized");
+      if (role === "employee") {
+        navigate("/employee/home");
+      } else if (role === "ticket coordinator" || role === "system admin") {
+        navigate("/admin/dashboard");
+      } else {
+        setErrorMessage("Invalid user role. Please contact administrator.");
       }
     } catch (err) {
-      console.error("Login failed:", err);
+      console.error("Login error:", err);
       setErrorMessage("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);

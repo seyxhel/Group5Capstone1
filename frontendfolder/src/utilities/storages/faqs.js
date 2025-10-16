@@ -1,79 +1,103 @@
 const faqs = [
   {
-    question: "Who is the CEO of MAP Active Philippines?",
-    answer: "Elizabeth Marcelo Tinio is the CEO of MAP Active Philippines."
+    id: 1,
+    question: "How do I submit a new ticket?",
+    answer: "To submit a new ticket, click on the ''Submit Ticket'' button on your home page or navigate to the ticket submission form from the navigation menu. Fill in all required fields including subject, category, priority, and description, then click Submit."
   },
   {
-    question: "Who are the decision makers in Map Active Philippines?",
-    answer: "The decision makers in Map Active Philippines are Anton Gonzalez, Anton Gonzalez, Belinda Cueto-buenaventura, etc. Click to Find Map Active Philippines decision makers emails."
+    id: 2,
+    question: "How long does it take to get a response to my ticket?",
+    answer: "Response times depend on the priority level: Critical tickets get a response within 4 hours, High priority within 24 hours, Medium within 48 hours, and Low priority within 72 hours during business hours."
   },
   {
-    question: "Where is MAP ACTIVE PHILIPPINES INC. located?",
-    answer: "MAP ACTIVE PHILIPPINES INC. is located at 19th, 20th and 21st Floors 1 Proscenium Estrella Drive corner JP Rizal Street, Rockwell Center, Makati, Metro Manila, 1211 Philippines"
+    id: 3,
+    question: "Can I track the status of my ticket?",
+    answer: "Yes! You can track your tickets in the ''Active Tickets'' section. Each ticket shows its current status (New, In Progress, On Hold, Resolved) and you can view detailed information by clicking on the ticket number."
   },
   {
-    question: "What services does Map Active Philippines offer?",
-    answer: "Map Active Philippines specializes in brand distribution and brand marketing. We provide a comprehensive range of services that include logistics management, retail distribution, and marketing strategies tailored to enhance brand visibility and consumer engagement. Our expertise allows us to effectively connect brands with their target audiences across various platforms."
+    id: 4,
+    question: "What do the different ticket statuses mean?",
+    answer: "New: Just submitted and awaiting review. In Progress: Being actively worked on by IT staff. On Hold: Temporarily paused, waiting for additional information or resources. Resolved: Issue has been fixed and awaiting your confirmation. Closed: Ticket is complete and archived."
   },
   {
-    question: "Which industries does Map Active serve?",
-    answer: "Map Active serves a diverse range of industries, including consumer goods, fashion, electronics, and food and beverages. Our extensive experience in brand distribution allows us to cater to the unique needs of each sector, ensuring that our clients achieve optimal market penetration and brand loyalty."
+    id: 5,
+    question: "How do I close a resolved ticket?",
+    answer: "Once your ticket is marked as ''Resolved'', you will receive a notification. Review the resolution notes, and if you are satisfied with the solution, you can close the ticket by submitting a Customer Satisfaction (CSAT) rating and optional feedback."
   },
   {
-    question: "How does Map Active ensure effective brand marketing?",
-    answer: "We employ a multi-faceted approach to brand marketing that includes market research, targeted advertising, promotional campaigns, and strategic partnerships. Our team of marketing professionals utilizes data-driven insights to create customized marketing strategies that resonate with consumers and drive sales."
+    id: 6,
+    question: "Can I reopen a closed ticket?",
+    answer: "No, closed tickets cannot be reopened. If the issue persists or returns, please submit a new ticket and reference the previous ticket number in the description for faster resolution."
   },
   {
-    question: "Can Map Active assist with logistics and supply chain management?",
-    answer: "Yes, Map Active offers logistics and supply chain management services as part of our brand distribution solutions. We manage the entire supply chain process, from warehousing to transportation, ensuring that products are delivered efficiently and effectively to meet market demand."
+    id: 7,
+    question: "What is the CSAT rating?",
+    answer: "CSAT (Customer Satisfaction) is a 1-5 star rating system where you can rate the quality of service you received. This helps us improve our support services and recognize excellent performance from our IT team."
   },
   {
-    question: "What is the process for partnering with Map Active?",
-    answer: "To partner with Map Active, interested brands can reach out through our website or contact our business development team directly. We will conduct an initial consultation to understand your brand's needs and objectives, followed by a tailored proposal outlining how we can support your brand's growth through our distribution and marketing services."
+    id: 8,
+    question: "Can I attach files to my ticket?",
+    answer: "Yes, you can attach screenshots, documents, or other relevant files when submitting a ticket. Supported file types include images (JPG, PNG), documents (PDF, DOCX), and compressed files (ZIP). Maximum file size is 10MB per attachment."
   },
   {
-    question: "Does Map Active provide support for new product launches?",
-    answer: "Absolutely! Map Active has extensive experience in supporting new product launches. We offer services that include market analysis, promotional strategies, and distribution planning to ensure a successful introduction of your product to the market. Our team works closely with clients to create impactful launch campaigns that drive awareness and sales."
+    id: 9,
+    question: "How do I update my profile information?",
+    answer: "Click on your profile avatar in the top right corner, select ''Settings'' from the dropdown menu, and you can update your contact information, notification preferences, and password."
   },
   {
-    question: "What kind of retail stores does MAP Active operate?",
-    answer: "MAP Active operates a wide variety of retail stores, including Planet Sports, Sports Warehouse, New Balance Store, Rookie USA, and Foot Locker."
+    id: 10,
+    question: "What should I do if I forgot my password?",
+    answer: "On the login page, click ''Forgot Password'' and enter your email address. You will receive a password reset link via email. Follow the instructions to create a new password."
   },
   {
-    question: "Is MAP Active a distributor?",
-    answer: "Yes, they are the official distributor for several brands, including New Balance, Converse, Fitflop, and Skechers."
+    id: 11,
+    question: "Can I see the history of all my tickets?",
+    answer: "Yes! Navigate to ''Ticket Records'' in the menu to view all your past tickets, including closed, rejected, and withdrawn tickets. You can filter by status, date range, or search by ticket number."
   },
   {
-    question: "What are some of the popular brands they carry?",
-    answer: "Some popular brands include Starbucks, Zara, Apple, Marks & Spencer, SOGO, SEIBU, Oshkosh B'Gosh, and Reebok, among others."
+    id: 12,
+    question: "What is SLA and why does it matter?",
+    answer: "SLA (Service Level Agreement) is the guaranteed response and resolution time for your ticket based on its priority. Meeting SLA ensures you get timely support. You can see if your ticket is ''On Time'', ''Due Soon'', or ''Overdue'' in the ticket details."
   },
   {
-    question: "How do I create a ticket?",
-    answer: "You can create a ticket by clicking +Submit a Ticket at the dashboard or adding a new ticket at the ticket list"
+    id: 13,
+    question: "Can I communicate with the IT staff about my ticket?",
+    answer: "Yes, you can add comments and updates to your ticket through the ticket tracker page. The assigned IT staff will receive notifications and can respond to your questions or provide updates."
   },
   {
-    question: "What information do I need to include in my ticket?",
-    answer: "Subject, Category, Sub-category are required and description and file attachments are optional"
+    id: 14,
+    question: "What happens if I withdraw a ticket?",
+    answer: "If you no longer need assistance, you can withdraw your ticket. Withdrawn tickets are moved to your Ticket Records and cannot be reactivated. If you need help later, please submit a new ticket."
   },
   {
-    question: "Can I update my ticket after it's been submitted?",
-    answer: "Yes, you can update or add additional information to your ticket at any time"
+    id: 15,
+    question: "Who will be assigned to my ticket?",
+    answer: "Tickets are reviewed by the Ticket Coordinator who assigns them to the most appropriate IT staff member based on expertise, workload, and the nature of your issue. You will be notified once your ticket is assigned."
   },
   {
-    question: "Will I receive notifications about my ticket?",
-    answer: "Yes, you will receive email notifications whenever there is an update on your ticket. This includes when your ticket is assigned, resolved, or requires additional action."
+    id: 16,
+    question: "Can I change the priority of my ticket after submission?",
+    answer: "Priority levels are set during submission based on the urgency and impact of your issue. If circumstances change, you can add a comment requesting a priority change, which will be reviewed by the Ticket Coordinator."
   },
   {
-    question: "What happens if my issue is not resolved?",
-    answer: "If your issue cannot be resolved in the expected time frame, it will be escalated to higher-level support. We will inform you of the next steps or alternative solutions."
+    id: 17,
+    question: "What if my issue is urgent?",
+    answer: "For urgent issues, select ''Critical'' or ''High'' priority when submitting your ticket. Critical issues (system-wide outages, security breaches) receive immediate attention. For emergencies outside business hours, contact the IT helpdesk directly."
   },
   {
-    question: "Is there a way to cancel or delete a ticket?",
-    answer: "Tickets cannot be deleted once they are created, but if you no longer need support, you can withdraw the ticket."
+    id: 18,
+    question: "How do I know if there are updates to my ticket?",
+    answer: "You will receive notifications when your ticket status changes, when staff add comments, or when your ticket is resolved. You can also check the notification bell icon in the navigation bar for recent updates."
   },
   {
-    question: "What if my ticket has been marked as resolved but the issue isn't fixed?",
-    answer: "If the issue persists after your ticket has been marked as resolved, you can follow up the ticket and the agents will investigate further to ensure the issue is properly addressed"
+    id: 19,
+    question: "Can I see who is working on my ticket?",
+    answer: "Yes, once your ticket is assigned, you can see the name and profile of the IT staff member handling your case in the ticket details page. This ensures transparency and accountability."
+  },
+  {
+    id: 20,
+    question: "What categories of issues can I submit tickets for?",
+    answer: "You can submit tickets for various categories including IT Support (hardware, software, network), Access Requests (system access, permissions), Software Requests (new software, licenses), and Hardware Issues (printer, computer, peripherals)."
   }
 ];
 

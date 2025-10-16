@@ -1,0 +1,2 @@
+.container { display:flex; gap:8px; flex-wrap:wrap; }
+.categoryBtn { background:var(--gray-300); border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
