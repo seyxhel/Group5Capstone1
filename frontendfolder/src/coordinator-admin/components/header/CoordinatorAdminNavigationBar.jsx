@@ -52,8 +52,16 @@ const CoordinatorAdminNavBar = () => {
   };
 
   const handleLogout = () => {
-    navigate('/');
+    // Clear all auth-related localStorage items
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('user');
+    localStorage.removeItem('chatbotMessages');
+    
     setIsMobileMenuOpen(false);
+    navigate('/');
+    window.location.reload();
   };
 
   useEffect(() => {

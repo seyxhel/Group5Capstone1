@@ -130,8 +130,8 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role in ['System Admin', 'Ticket Coordinator']:
-            return Ticket.objects.all()  # Admins and coordinators can see everything
-        return Ticket.objects.filter(employee=user)  # Regular employees see their own
+            return Ticket.objects.all().order_by('-submit_date')  # Admins see all, newest first
+        return Ticket.objects.filter(employee=user).order_by('-submit_date')  # Employees see their own, newest first
     
     def create(self, request, *args, **kwargs):
         # Extract the initial priority based on the category and subcategory
@@ -621,7 +621,8 @@ def claim_ticket(request, ticket_id):
         if ticket.assigned_to and ticket.status != 'Open':
             return Response({'error': 'Ticket is already claimed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        ticket.status = 'On Process'  # or "In Progress"
+        # Mark ticket as in progress and assign to the claimant
+        ticket.status = 'In Progress'
         ticket.assigned_to = request.user
         ticket.save()
 
@@ -652,12 +653,15 @@ def update_ticket_status(request, ticket_id):
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
         
-        # Check if user has permission to update tickets
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
+        # Read requested status and comment first
         new_status = request.data.get('status')
         comment_text = request.data.get('comment', '').strip()
+
+        # Check if user has permission to update tickets
+        # Allow the ticket owner to close their own ticket (when new_status == 'Closed')
+        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
+            if not (new_status == 'Closed' and ticket.employee == request.user):
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         if not new_status:
             return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -695,6 +699,54 @@ def update_ticket_status(request, ticket_id):
             'ticket_id': ticket.id,
             'old_status': old_status,
             'new_status': new_status
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def withdraw_ticket(request, ticket_id):
+    """
+    Allow employees to withdraw their own tickets
+    """
+    try:
+        ticket = get_object_or_404(Ticket, id=ticket_id)
+        
+        # Check if user is the ticket owner
+        if ticket.employee != request.user:
+            return Response({'error': 'You can only withdraw your own tickets'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if ticket can be withdrawn (not already closed, withdrawn, or resolved)
+        if ticket.status in ['Closed', 'Withdrawn', 'Resolved']:
+            return Response({'error': f'Cannot withdraw ticket with status: {ticket.status}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        reason = request.data.get('reason', '').strip()
+        if not reason:
+            return Response({'error': 'Withdrawal reason is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        old_status = ticket.status
+        ticket.status = 'Withdrawn'
+        ticket.time_closed = timezone.now()
+        if ticket.submit_date:
+            ticket.resolution_time = timezone.now() - ticket.submit_date
+        ticket.save()
+        
+        # Create comment for withdrawal
+        withdrawal_comment = f"Ticket withdrawn by {request.user.first_name} {request.user.last_name}. Reason: {reason}"
+        
+        TicketComment.objects.create(
+            ticket=ticket,
+            user=request.user,
+            comment=withdrawal_comment,
+            is_internal=False
+        )
+        
+        return Response({
+            'message': 'Ticket withdrawn successfully',
+            'ticket_id': ticket.id,
+            'old_status': old_status,
+            'new_status': 'Withdrawn'
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
@@ -853,9 +905,14 @@ def change_password(request):
 @parser_classes([MultiPartParser, FormParser])
 def upload_profile_image(request):
     user = request.user
+    print(f"Upload request from user: {user.email} (ID: {user.id})")
+    
     image_file = request.FILES.get('image')
     if not image_file:
+        print("No image file in request.FILES")
         return Response({'detail': 'No image provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    print(f"Received image: {image_file.name}, size: {image_file.size}, type: {image_file.content_type}")
 
     # Validate file type
     if not image_file.content_type in ['image/png', 'image/jpeg', 'image/jpg']:
@@ -865,6 +922,16 @@ def upload_profile_image(request):
     if image_file.size > 2 * 1024 * 1024:
         return Response({'detail': 'File size exceeds 2MB.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Delete old image if it exists and is not the default
+    if user.image and not user.image.name.endswith('default-profile.png'):
+        old_image_path = user.image.path
+        if os.path.exists(old_image_path):
+            try:
+                os.remove(old_image_path)
+                print(f"Deleted old image: {old_image_path}")
+            except Exception as e:
+                print(f"Could not delete old image: {e}")
+
     # Resize image to 1024x1024
     try:
         img = Image.open(image_file)
@@ -873,11 +940,22 @@ def upload_profile_image(request):
         buffer = BytesIO()
         img.save(buffer, format='JPEG')
         file_content = ContentFile(buffer.getvalue())
-        user.image.save(f"profile_{user.id}.jpg", file_content)
-        user.save()
-        return Response({'detail': 'Image uploaded successfully.'})
+        
+        # Save with a consistent filename to avoid duplicates
+        filename = f"profile_{user.id}.jpg"
+        user.image.save(filename, file_content, save=True)
+        
+        print(f"Image saved successfully to: {user.image.url}")
+        
+        return Response({
+            'detail': 'Image uploaded successfully.',
+            'image_url': user.image.url
+        })
     except Exception as e:
-        return Response({'detail': 'Failed to process image.'}, status=status.HTTP_400_BAD_REQUEST)
+        print(f"Error processing image: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'detail': f'Failed to process image: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

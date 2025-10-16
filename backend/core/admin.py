@@ -126,8 +126,8 @@ class TicketAdminForm(forms.ModelForm):
             self.fields[field_name].disabled = True
 
     def clean_scheduled_date(self):
-        scheduled_date = self.cleaned_data['scheduled_date']
-        if scheduled_date < timezone.now().date():
+        scheduled_date = self.cleaned_data.get('scheduled_date')
+        if scheduled_date and scheduled_date < timezone.now().date():
             raise forms.ValidationError("Scheduled date cannot be in the past.")
         return scheduled_date
 

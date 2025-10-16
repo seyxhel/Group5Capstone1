@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
-import { getEmployeeTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
@@ -37,42 +37,78 @@ const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
 
 // Generate logs based on ticket data (start with any persisted logs)
-const generateLogs = (ticket) => {
+// Accept currentUser to decide labels for certain status changes
+const generateLogs = (ticket, currentUser) => {
   const logs = Array.isArray(ticket?.logs) ? ticket.logs.map((l, idx) => ({
     id: l.id || idx + 1,
     user: l.user || 'You',
     action: l.action || `Status changed to ${ticket.status}`,
-    timestamp: l.timestamp || ticket.lastUpdated || ticket.dateCreated,
+    timestamp: l.timestamp || ticket.update_date || ticket.submit_date,
   })) : [];
 
   // System-created entry
   logs.push({
     id: logs.length + 1,
     user: 'System',
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
-    timestamp: ticket.dateCreated,
+    action: `Ticket #${ticket.ticket_number} created - ${ticket.category}`,
+    timestamp: ticket.submit_date,
   });
 
   // Handle assignedTo as object or string
-  const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
+  const assignedToName = typeof ticket.assigned_to === 'object' ? ticket.assigned_to?.name : ticket.assigned_to;
   if (assignedToName) {
     logs.push({
       id: logs.length + 1,
       user: assignedToName,
       action: `Assigned to ${ticket.department} department`,
-      timestamp: ticket.dateCreated,
+      timestamp: ticket.submit_date,
     });
   }
 
-    // Add a Coordinator-generated status change log for non-withdrawn statuses
-    if (ticket.status !== 'New' && ticket.status !== 'Pending' && ticket.status !== 'Withdrawn') {
+  // Add status change log for Withdrawn
+  if (ticket.status === 'Withdrawn') {
     logs.push({
       id: logs.length + 1,
-      user: 'Coordinator',
-      action: `Status changed to ${ticket.status}`,
-      timestamp: ticket.lastUpdated,
+      user: 'You',
+      action: `Status changed to Withdrawn`,
+      timestamp: ticket.time_closed || ticket.update_date,
     });
   }
+
+  // Add a generated status change log for other statuses (not New, Pending, or Withdrawn)
+  if (ticket.status !== 'New' && ticket.status !== 'Pending' && ticket.status !== 'Withdrawn') {
+    let userLabel = 'Coordinator';
+
+    if ([ 'Resolved', 'In Progress', 'On Hold' ].includes(ticket.status)) {
+      userLabel = 'Agent';
+    } else if (ticket.status === 'Rejected') {
+      userLabel = 'Coordinator';
+    } else if (ticket.status === 'Closed') {
+      // If the viewing user is the ticket owner, assume they closed it -> 'You'
+      // Otherwise assume system auto-closed -> 'System'
+      try {
+        const ownerId = ticket.employee && (ticket.employee.id || ticket.employee);
+        const viewerId = currentUser && (currentUser.id || currentUser);
+        userLabel = ownerId && viewerId && Number(ownerId) === Number(viewerId) ? 'You' : 'System';
+      } catch (e) {
+        userLabel = 'System';
+      }
+    }
+
+    logs.push({
+      id: logs.length + 1,
+      user: userLabel,
+      action: `Status changed to ${ticket.status}`,
+      timestamp: ticket.update_date,
+    });
+  }
+
+  // Sort logs by timestamp (latest to oldest)
+  logs.sort((a, b) => {
+    const dateA = new Date(a.timestamp);
+    const dateB = new Date(b.timestamp);
+    return dateB - dateA; // Descending order (newest first)
+  });
 
   // Map timestamps into formatted strings for display
   return logs.map((l) => ({ ...l, timestamp: formatDate(l.timestamp) }));
@@ -90,7 +126,7 @@ const mapCommentsToMessages = (comments, currentUserId) => {
       message: c.comment || c.message || '',
       timestamp: formatDate(c.created_at || c.createdAt || c.createdAt)
     };
-  }).reverse(); // API returns oldest-first in get_ticket_detail; reverse to show oldest->newest
+  }); // API returns oldest-first, keep chronological order (oldest at top, newest at bottom)
 };
 
 export default function EmployeeTicketTracker() {
@@ -100,23 +136,97 @@ export default function EmployeeTicketTracker() {
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const loadedKeyRef = useRef(null);
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Get current logged-in user
   const currentUser = authService.getCurrentUser();
   
-  // Get only the current user's tickets
-  const tickets = getEmployeeTickets(currentUser?.id);
-  
-  console.log('👤 Current User:', currentUser);
-  console.log('🎫 User Tickets:', tickets);
-  console.log('🔢 Ticket Number from URL:', ticketNumber);
+  // Fetch ticket from backend
+  useEffect(() => {
+    let isMounted = true;
 
-  const ticket = ticketNumber
-    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
-    : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+    const fetchTicket = async () => {
+      if (!ticketNumber) {
+        setLoading(false);
+        return;
+      }
 
-  console.log('✅ Selected Ticket:', ticket);
+      try {
+        setLoading(true);
+        console.log('🔢 Fetching ticket number:', ticketNumber);
+        
+        // Fetch ticket by number from backend
+        const fetchedTicket = await backendTicketService.getTicketByNumber(ticketNumber);
+        
+        if (!isMounted) return;
+
+        console.log('✅ Fetched ticket:', fetchedTicket);
+        setTicket(fetchedTicket);
+      } catch (error) {
+        console.error('Error fetching ticket:', error);
+        if (isMounted) setTicket(null);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchTicket();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ticketNumber]);
+
+  // Load persisted comments/messages for this ticket from backend (if available)
+  useEffect(() => {
+    if (!ticket || !ticket.id) {
+      setMessages([]);
+      return;
+    }
+
+    const loadComments = async () => {
+      try {
+        // Fetch ticket details with comments
+        const data = await backendTicketService.getTicketById(ticket.id);
+        const currentUserId = currentUser?.id;
+        let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
+        
+        // Ensure the initial system message exists
+        const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
+        const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
+        
+        if (!hasSystem) {
+          mapped = [{
+            id: 'sys-1',
+            sender: 'Support Team',
+            message: systemMessageText,
+            timestamp: formatDate(ticket.submit_date || new Date().toISOString())
+          }, ...mapped];
+        }
+        
+        setMessages(mapped);
+      } catch (e) {
+        console.error('Failed to load ticket comments:', e);
+        setMessages([]);
+      }
+    };
+
+    // Reset messages for a fresh ticket view
+    setMessages([]);
+    loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket?.ticket_number, ticket?.id]);
+
+  if (loading) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>Loading...</h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!ticket) {
     return (
@@ -132,19 +242,19 @@ export default function EmployeeTicketTracker() {
   }
 
   const {
-    ticketNumber: number,
+    ticket_number: number,
     subject,
     category,
-    subCategory,
+    sub_category: subCategory,
     status: originalStatus,
-    dateCreated,
-    lastUpdated,
+    submit_date: dateCreated,
+    update_date: lastUpdated,
     description,
-    fileUploaded,
-    priorityLevel,
+    file_uploaded: fileUploaded,
+    priority: priorityLevel,
     department,
-    assignedTo,
-    scheduledRequest,
+    assigned_to: assignedTo,
+    scheduled_date: scheduledRequest,
   } = ticket;
 
   // Convert status to employee view (New/Open -> Pending)
@@ -153,89 +263,7 @@ export default function EmployeeTicketTracker() {
   const isClosable = status === 'Resolved';
 
   // Generate dynamic data based on ticket
-  const ticketLogs = generateLogs(ticket);
-  // Load persisted comments/messages for this ticket from backend (if available)
-  const loadComments = async () => {
-    try {
-      // If ticket has an `id` field (backend numeric ticket id), fetch details
-      if (ticket && (ticket.id || ticket.id === 0)) {
-        const backendTicketId = ticket.id || ticket.ticketId;
-        const data = await ticketService.getTicketById(backendTicketId);
-  const currentUser = authService.getCurrentUser();
-  const currentUserId = currentUser?.id;
-  let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
-        // Ensure the initial system message exists (do not duplicate if server already has a similar message)
-        const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
-        const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
-        if (!hasSystem) {
-          mapped = [{
-            id: 'sys-1',
-            sender: 'Support Team',
-            message: systemMessageText,
-            timestamp: formatDate(ticket.dateCreated || ticket.submit_date || new Date().toISOString())
-          }, ...mapped];
-        }
-        setMessages(mapped);
-        return;
-      }
-
-      // If ticket does not have numeric id, try looking it up by ticket_number on backend
-      if (ticket && ticket.ticketNumber) {
-        try {
-          const data = await ticketService.getTicketByNumber(ticket.ticketNumber);
-          const currentUser = authService.getCurrentUser();
-          const currentUserId = currentUser?.id;
-          let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
-          const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
-          const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
-          if (!hasSystem) {
-            mapped = [{
-              id: 'sys-1',
-              sender: 'Support Team',
-              message: systemMessageText,
-              timestamp: formatDate(data.submit_date || data.dateCreated || ticket.dateCreated || new Date().toISOString())
-            }, ...mapped];
-          }
-          setMessages(mapped);
-
-          // Update local ticket object with backend id so future createComment can persist
-          const updatedTickets = tickets.map((t) => t.ticketNumber === ticket.ticketNumber ? { ...t, id: data.id } : t);
-          setTickets(updatedTickets);
-          saveEmployeeTickets(updatedTickets);
-          return;
-        } catch (err) {
-          // If lookup fails, continue to local fallback
-          console.warn('Lookup by ticket number failed:', err);
-        }
-      }
-
-      // Fallback: if ticket has `comments` from local storage/mock, use those
-      if (ticket && Array.isArray(ticket.comments) && ticket.comments.length > 0) {
-        const currentUser = authService.getCurrentUser();
-        const currentUserId = currentUser?.id;
-        const mapped = mapCommentsToMessages(ticket.comments, currentUserId);
-        setMessages(mapped);
-        return;
-      }
-
-      // If no comments, clear messages (do not inject a default 'You' message)
-      setMessages([]);
-    } catch (e) {
-      console.error('Failed to load ticket comments:', e);
-      // Keep existing messages if any
-    }
-  };
-
-  // Run loadComments whenever the selected ticket changes
-  useEffect(() => {
-    if (!ticket) return;
-    // Reset messages for a fresh ticket view
-    setMessages([]);
-    // Reset loadedKey so loadComments runs even if ticketNumber/id is unchanged in value reference
-    loadedKeyRef.current = null;
-    loadComments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket?.ticketNumber, ticket?.id]);
+  const ticketLogs = generateLogs(ticket, currentUser);
 
   // Handle sending a new message
   const handleSendMessage = () => {
@@ -244,7 +272,7 @@ export default function EmployeeTicketTracker() {
         try {
           // If this ticket has a backend id, persist the comment
           if (ticket && (ticket.id || ticket.id === 0)) {
-            const created = await ticketService.createComment(ticket.id, newMessage, false);
+            const created = await backendTicketService.createComment(ticket.id, newMessage, false);
             // Map single returned comment to message format
             const currentUser = authService.getCurrentUser();
             const currentUserId = currentUser?.id;
@@ -284,34 +312,17 @@ export default function EmployeeTicketTracker() {
   };
 
   // Handler for successful withdraw action from modal
-  const handleWithdrawSuccess = (ticketNum, newStatus) => {
+  const handleWithdrawSuccess = async (ticketNum, newStatus) => {
     try {
-      const nowIso = new Date().toISOString();
-      const updatedTickets = tickets.map((t) => {
-        if (String(t.ticketNumber) === String(ticketNum)) {
-          const existingLogs = Array.isArray(t.logs) ? [...t.logs] : [];
-          const nextId = existingLogs.length ? Math.max(...existingLogs.map(l => l.id || 0)) + 1 : 1;
-          const userLog = {
-            id: nextId,
-            user: 'You',
-            action: `Status changed to ${newStatus}`,
-            timestamp: nowIso,
-          };
-          return {
-            ...t,
-            status: newStatus,
-            lastUpdated: nowIso,
-            logs: [...existingLogs, userLog],
-          };
-        }
-        return t;
-      });
-
-      setTickets(updatedTickets);
-      saveEmployeeTickets(updatedTickets);
+      // Refresh the ticket data from backend after withdrawal
+      if (ticketNumber) {
+        const updatedTicket = await backendTicketService.getTicketByNumber(ticketNumber);
+        setTicket(updatedTicket);
+      }
       setShowWithdrawModal(false);
     } catch (e) {
-      console.error('Failed to withdraw ticket locally:', e);
+      console.error('Failed to refresh ticket after withdrawal:', e);
+      setShowWithdrawModal(false);
     }
   };
 

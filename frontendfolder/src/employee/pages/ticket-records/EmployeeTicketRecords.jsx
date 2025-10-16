@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
+import { backendTicketService } from "../../../services/backend/ticketService";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
@@ -86,6 +86,7 @@ const EmployeeTicketRecords = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allTickets, setAllTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,11 +94,48 @@ const EmployeeTicketRecords = () => {
 
   const normalizedFilter = filter.replace("-ticket-records", "").toLowerCase();
 
+  // Fetch tickets from backend
   useEffect(() => {
-    // Get current logged-in user and only fetch their tickets
-    const currentUser = authService.getCurrentUser();
-    const tickets = getEmployeeTickets(currentUser?.id);
-    setAllTickets(tickets);
+    let isMounted = true;
+
+    const fetchTickets = async () => {
+      try {
+        setLoading(true);
+        // Fetch all tickets from backend (will be filtered by employee on backend)
+        const tickets = await backendTicketService.getAllTickets();
+        
+        if (!isMounted) return;
+
+        // Normalize ticket data to handle backend field names
+        const normalizedTickets = tickets.map(ticket => ({
+          id: ticket.id,
+          ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+          subject: ticket.subject,
+          status: ticket.status,
+          priorityLevel: ticket.priority || ticket.priorityLevel,
+          category: ticket.category,
+          subCategory: ticket.sub_category || ticket.subCategory,
+          dateCreated: ticket.submit_date || ticket.dateCreated,
+          lastUpdated: ticket.update_date || ticket.lastUpdated,
+          description: ticket.description,
+          assignedTo: ticket.assigned_to || ticket.assignedTo,
+          department: ticket.department
+        }));
+
+        setAllTickets(normalizedTickets);
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
+        if (isMounted) setAllTickets([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchTickets();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
@@ -237,7 +275,13 @@ const EmployeeTicketRecords = () => {
               <TableHeader />
             </thead>
             <tbody>
-              {displayedTickets.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className={styles.emptyMessage}>
+                    Loading tickets...
+                  </td>
+                </tr>
+              ) : displayedTickets.length > 0 ? (
                 displayedTickets.map((ticket, index) => (
                   <TableItem 
                     key={index} 

@@ -46,13 +46,15 @@ export const backendAuthService = {
         throw lastError || new Error('Login failed');
       }
       
-      // Store authentication tokens
+      // Store authentication tokens (trim to remove any whitespace)
       if (data.access) {
-        localStorage.setItem('access_token', data.access);
+        localStorage.setItem('access_token', data.access.trim());
       }
       if (data.refresh) {
-        localStorage.setItem('refresh_token', data.refresh);
+        localStorage.setItem('refresh_token', data.refresh.trim());
       }
+      
+      console.log('Tokens stored successfully');
       
       return data;
     } catch (error) {

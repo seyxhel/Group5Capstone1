@@ -3,6 +3,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeActiveTicketsWithdrawTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { backendTicketService } from "../../../../services/backend/ticketService";
 
 const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -19,17 +20,18 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated API call
+      // Call backend API to withdraw ticket
+      await backendTicketService.withdrawTicket(ticket.id, comment.trim());
 
-      toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
+      toast.success(`Ticket #${ticket.ticket_number || ticket.ticketNumber} withdrawn successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Withdrawn");
+      onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Withdrawn");
       onClose();
     } catch (err) {
-      toast.error("Failed to withdraw ticket. Please try again.", {
+      toast.error(err.message || "Failed to withdraw ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -42,7 +44,7 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Withdraw Ticket {ticket.ticketNumber}
+        Withdraw Ticket {ticket.ticket_number || ticket.ticketNumber}
       </h2>
 
       <div className={styles.field}>

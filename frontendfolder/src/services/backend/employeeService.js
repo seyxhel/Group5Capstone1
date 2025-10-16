@@ -1,5 +1,6 @@
 // Backend employee service
 import { API_CONFIG } from '../../config/environment.js';
+import { backendAuthService } from './authService.js';
 
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
@@ -9,20 +10,45 @@ const getAuthHeaders = () => {
   const headers = {};
   // Only set JSON content-type when sending JSON body
   headers['Content-Type'] = 'application/json';
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    // Trim any whitespace that might have been stored accidentally
+    headers['Authorization'] = `Bearer ${token.trim()}`;
+  }
   return headers;
+};
+
+// Helper function to handle API calls with token expiration check
+const fetchWithAuth = async (url, options = {}) => {
+  let response = await fetch(url, options);
+  
+  // If we get a 401 (unauthorized), immediately log out and redirect to login
+  if (response.status === 401) {
+    console.log('Session expired. Logging out...');
+    // Clear all auth data
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('user');
+    // Redirect to login page
+    window.location.href = '/';
+    throw new Error('Session expired. Please log in again.');
+  }
+  
+  return response;
 };
 
 export const backendEmployeeService = {
   async getAllEmployees() {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employees/`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch employees');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch employees:', errorData);
+        throw new Error(errorData.detail || 'Failed to fetch employees');
       }
 
       return await response.json();
@@ -34,7 +60,7 @@ export const backendEmployeeService = {
 
   async getEmployeeById(employeeId) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employees/${employeeId}/`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -52,7 +78,7 @@ export const backendEmployeeService = {
 
   async getCurrentEmployee() {
     try {
-      const response = await fetch(`${BASE_URL}/api/employee/profile/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employee/profile/`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -71,7 +97,7 @@ export const backendEmployeeService = {
   async verifyCurrentPassword(currentPassword) {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE_URL}/api/employee/verify-password/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employee/verify-password/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +120,7 @@ export const backendEmployeeService = {
 
   async updateEmployee(employeeId, employeeData) {
     try {
-      let response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
+      let response = await fetchWithAuth(`${BASE_URL}/api/employees/${employeeId}/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(employeeData),
@@ -103,7 +129,7 @@ export const backendEmployeeService = {
       // If the route doesn't exist (404) some deployments don't expose /api/employees/:id/
       // so fall back to updating the current authenticated user at /api/employee/profile/
       if (response.status === 404) {
-        response = await fetch(`${BASE_URL}/api/employee/profile/`, {
+        response = await fetchWithAuth(`${BASE_URL}/api/employee/profile/`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
           body: JSON.stringify(employeeData),
@@ -111,17 +137,6 @@ export const backendEmployeeService = {
       }
 
       if (!response.ok) {
-        // When parsing error body, use separate clones to avoid reading the same stream twice
-        if (response.status === 401) {
-          // Unauthorized - likely missing/expired token
-          try {
-            const errJson = await response.clone().json();
-            throw new Error(errJson.detail || errJson.message || 'Unauthorized');
-          } catch (_) {
-            const txt = await response.clone().text();
-            throw new Error(txt || 'Unauthorized');
-          }
-        }
 
         try {
           const errorData = await response.clone().json();
@@ -167,7 +182,7 @@ export const backendEmployeeService = {
 
   async deleteEmployee(employeeId) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employees/${employeeId}/`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -185,7 +200,7 @@ export const backendEmployeeService = {
 
   async getEmployeesByDepartment(department) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/?department=${department}`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employees/?department=${department}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -203,7 +218,7 @@ export const backendEmployeeService = {
 
   async updateEmployeeStatus(employeeId, status) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employees/${employeeId}/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employees/${employeeId}/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status }),
@@ -227,30 +242,46 @@ export const backendEmployeeService = {
       formData.append('image', imageFile);
 
       const token = localStorage.getItem('access_token');
+      console.log('Uploading image for employee:', employeeId);
+      console.log('Image file:', imageFile.name, imageFile.type, imageFile.size);
+      
       // Backend endpoint expects authenticated user and does not require an employeeId in the path
-      const response = await fetch(`${BASE_URL}/api/employee/upload-image/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employee/upload-image/`, {
         method: 'POST',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
+          // DO NOT set Content-Type for FormData - browser sets it automatically with boundary
+          'Authorization': token ? `Bearer ${token.trim()}` : '',
         },
         body: formData,
       });
 
       if (!response.ok) {
-        const clone = response.clone();
+        // Read the response once and handle both JSON and text
+        const contentType = response.headers.get('content-type');
+        let errorMessage = 'Failed to upload image';
+        
         try {
-          const err = await clone.json();
-          throw new Error(err.message || err.detail || 'Failed to upload image');
+          if (contentType && contentType.includes('application/json')) {
+            const err = await response.json();
+            errorMessage = err.message || err.detail || err.error || errorMessage;
+          } else {
+            const txt = await response.text();
+            errorMessage = txt || errorMessage;
+          }
         } catch (_) {
-          const txt = await clone.text();
-          throw new Error(txt || 'Failed to upload image');
+          // If reading fails, use default message
         }
+        
+        console.error('Upload failed:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       try {
-        return await response.json();
+        const result = await response.json();
+        console.log('Upload successful:', result);
+        return result;
       } catch (_) {
-        return {};
+        return { success: true };
       }
     } catch (error) {
       console.error('Error uploading employee image:', error);
@@ -260,7 +291,7 @@ export const backendEmployeeService = {
 
   async changePassword(currentPassword, newPassword) {
     try {
-      const response = await fetch(`${BASE_URL}/api/employee/change-password/`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/employee/change-password/`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({

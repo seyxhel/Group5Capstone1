@@ -54,6 +54,11 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['email'] = user.email
         data['role'] = user.role if hasattr(user, 'role') else 'Unknown'
         data['first_name'] = user.first_name
+        data['middle_name'] = user.middle_name if hasattr(user, 'middle_name') else ''
+        data['last_name'] = user.last_name
+        data['suffix'] = user.suffix if hasattr(user, 'suffix') else ''
+        data['company_id'] = user.company_id if hasattr(user, 'company_id') else ''
+        data['department'] = user.department if hasattr(user, 'department') else ''
         data['dateCreated'] = user.date_created
 
         return data
@@ -70,6 +75,11 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['email'] = user.email
         data['role'] = getattr(user, 'role', 'Unknown')
         data['first_name'] = user.first_name
+        data['middle_name'] = getattr(user, 'middle_name', '')
+        data['last_name'] = user.last_name
+        data['suffix'] = getattr(user, 'suffix', '')
+        data['company_id'] = getattr(user, 'company_id', '')
+        data['department'] = getattr(user, 'department', '')
 
         return data
 

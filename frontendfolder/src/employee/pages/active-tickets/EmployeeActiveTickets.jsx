@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
+import { backendTicketService } from "../../../services/backend/ticketService";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
@@ -22,8 +22,8 @@ const headingMap = {
 // Map employee filter URLs to actual ticket statuses (stored as admin statuses)
 // Employee sees "Pending" for both "New" and "Open" admin statuses
 const statusMap = {
-  "all-active-tickets": ["New", "Open", "In Progress", "On Hold", "Resolved"],
-  "pending-tickets": ["New", "Open"], // Employee "Pending" = Admin "New" or "Open"
+  "all-active-tickets": ["New", "Open", "In Progress", "Pending", "On Hold", "Resolved"],
+  "pending-tickets": ["New", "Open", "Pending"], // Employee "Pending" = Admin "New", "Open" or "Pending"
   "in-progress-tickets": ["In Progress"],
   "on-hold-tickets": ["On Hold"],
   "resolved-tickets": ["Resolved"],
@@ -51,7 +51,7 @@ function TableItem({ ticket, onView, onWithdraw, onClose }) {
   const displayStatus = toEmployeeStatus(ticket.status);
   
   const isWithdrawAllowed = () => {
-    const allowed = ["pending", "in progress", "on hold"];
+  const allowed = ["pending", "in progress", "on hold"];
     return allowed.includes(displayStatus.toLowerCase());
   };
 
@@ -103,6 +103,7 @@ const EmployeeActiveTickets = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allActiveTickets, setAllActiveTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,11 +113,48 @@ const EmployeeActiveTickets = () => {
   const [selectedWithdraw, setSelectedWithdraw] = useState(null);
   const [selectedClose, setSelectedClose] = useState(null);
 
+  // Fetch tickets from backend
   useEffect(() => {
-    // Get current logged-in user and only fetch their tickets
-    const currentUser = authService.getCurrentUser();
-    const tickets = getEmployeeTickets(currentUser?.id);
-    setAllActiveTickets(tickets);
+    let isMounted = true;
+
+    const fetchTickets = async () => {
+      try {
+        setLoading(true);
+        // Fetch all tickets from backend (will be filtered by employee on backend)
+        const tickets = await backendTicketService.getAllTickets();
+        
+        if (!isMounted) return;
+
+        // Normalize ticket data to handle backend field names
+        const normalizedTickets = tickets.map(ticket => ({
+          id: ticket.id,
+          ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+          subject: ticket.subject,
+          status: ticket.status,
+          priorityLevel: ticket.priority || ticket.priorityLevel,
+          category: ticket.category,
+          subCategory: ticket.sub_category || ticket.subCategory,
+          dateCreated: ticket.submit_date || ticket.dateCreated,
+          lastUpdated: ticket.update_date || ticket.lastUpdated,
+          description: ticket.description,
+          assignedTo: ticket.assigned_to || ticket.assignedTo,
+          department: ticket.department
+        }));
+
+        setAllActiveTickets(normalizedTickets);
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
+        if (isMounted) setAllActiveTickets([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchTickets();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
@@ -210,6 +248,14 @@ const EmployeeActiveTickets = () => {
   };
 
   const [showFilter, setShowFilter] = useState(false);
+
+  if (loading) {
+    return (
+      <div className={styles.pageContainer}>
+        <div className={styles.loadingMessage}>Loading tickets...</div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.pageContainer}>

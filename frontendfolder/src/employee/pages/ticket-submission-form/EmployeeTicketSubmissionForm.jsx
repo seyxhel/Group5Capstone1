@@ -9,7 +9,7 @@ import coordinatorStyles from '../../../coordinator-admin/pages/account-register
 import formActions from '../../../shared/styles/formActions.module.css';
 import FormActions from '../../../shared/components/FormActions';
 import FormCard from '../../../shared/components/FormCard';
-import { createTicket } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
 import ITSupportForm from './ITSupportForm';
 import AssetCheckInForm, { mockAssets } from './AssetCheckInForm';
@@ -348,70 +348,90 @@ export default function EmployeeTicketSubmissionForm() {
     try {
       const finalCategory = formData.category === 'Others' ? 'General Request' : formData.category;
 
-      const ticketData = {
-        subject: formData.subject,
-        category: finalCategory,
-        subCategory: formData.subCategory,
-        description: formData.description,
-        priority: 'Medium',
-        urgency: 'Medium',
-        status: 'Open',
-        employeeId: currentUser?.id || 1,
-        employeeName: currentUser?.name || 'Unknown User',
-        employeeDepartment: currentUser?.department || 'Unknown Department',
-        createdAt: new Date().toISOString(),
-        fileAttachments: selectedFiles.map((file, index) => ({
-          name: file.name,
-          url: `/uploads/${file.name}`,
-          size: `${(file.size / 1024).toFixed(0)} KB`,
-          uploadedAt: new Date().toISOString()
-        })),
-        scheduleRequest: formData.schedule ? {
-          date: formData.schedule,
-          time: '',
-          notes: ''
-        } : null
-      };
+      // Create FormData to handle file uploads
+      const formDataToSend = new FormData();
+      
+      // Add basic fields
+      formDataToSend.append('subject', formData.subject);
+      formDataToSend.append('category', finalCategory);
+      formDataToSend.append('sub_category', formData.subCategory || '');
+      formDataToSend.append('description', formData.description || '');
+      // Don't set priority initially - it will be assigned by coordinator/admin
+      
+      // Add file attachments
+      selectedFiles.forEach((file) => {
+        formDataToSend.append('attachments', file);
+      });
+
+      // Add dynamic data as JSON string for category-specific fields
+      const dynamicData = {};
 
       // Add IT Support specific data
       if (isITSupport) {
-        ticketData.deviceType = showCustomDeviceType ? formData.customDeviceType : formData.deviceType;
-        ticketData.softwareAffected = formData.softwareAffected;
-      }
-
-      // Add category-specific data
-      if (isAnyAssetCategory) {
-        ticketData.assetName = formData.assetName;
-        ticketData.serialNumber = formData.serialNumber;
-        ticketData.location = formData.location;
-      }
-
-      if (isAssetCheckOut) {
-        ticketData.expectedReturnDate = formData.expectedReturnDate;
-      }
-
-      if (isAssetCheckIn) {
-        ticketData.issueType = formData.issueType;
-        if (formData.issueType === 'Other') {
-          ticketData.otherIssue = formData.otherIssue;
+        dynamicData.deviceType = showCustomDeviceType ? formData.customDeviceType : formData.deviceType;
+        dynamicData.softwareAffected = formData.softwareAffected;
+        if (formData.schedule) {
+          dynamicData.scheduleRequest = {
+            date: formData.schedule,
+            time: '',
+            notes: ''
+          };
         }
       }
 
-      if (isBudgetProposal) {
-        ticketData.budgetItems = budgetItems;
-        ticketData.totalBudget = calculateTotalBudget();
-        ticketData.performanceStartDate = formData.performanceStartDate;
-        ticketData.performanceEndDate = formData.performanceEndDate;
-        ticketData.preparedBy = formData.preparedBy;
+      // Add Asset category-specific data
+      if (isAnyAssetCategory) {
+        dynamicData.assetName = formData.assetName;
+        dynamicData.serialNumber = formData.serialNumber;
+        dynamicData.location = formData.location;
       }
 
-      const newTicket = createTicket(ticketData);
+      if (isAssetCheckOut) {
+        dynamicData.expectedReturnDate = formData.expectedReturnDate;
+      }
 
+      if (isAssetCheckIn) {
+        dynamicData.issueType = formData.issueType;
+        if (formData.issueType === 'Other') {
+          dynamicData.otherIssue = formData.otherIssue;
+        }
+      }
+
+      // Add Budget Proposal specific data
+      if (isBudgetProposal) {
+        dynamicData.budgetItems = budgetItems;
+        dynamicData.totalBudget = calculateTotalBudget();
+        dynamicData.performanceStartDate = formData.performanceStartDate;
+        dynamicData.performanceEndDate = formData.performanceEndDate;
+        dynamicData.preparedBy = formData.preparedBy;
+      }
+
+      // Add dynamic data as JSON string
+      if (Object.keys(dynamicData).length > 0) {
+        formDataToSend.append('dynamic_data', JSON.stringify(dynamicData));
+      }
+
+      console.log('Submitting ticket with FormData:', {
+        subject: formData.subject,
+        category: finalCategory,
+        subCategory: formData.subCategory,
+        files: selectedFiles.length,
+        dynamicData
+      });
+
+      // Submit to backend
+      const newTicket = await backendTicketService.createTicket(formDataToSend);
+
+      console.log('Ticket created successfully:', newTicket);
       toast.success('Ticket submitted successfully!');
       resetForm();
-      setTimeout(() => navigate(`/employee/ticket-tracker/${newTicket.ticketNumber}`), 1500);
+      
+      // Navigate to ticket tracker using the ticket number from response
+      const ticketNumber = newTicket.ticket_number || newTicket.ticketNumber || newTicket.id;
+      setTimeout(() => navigate(`/employee/ticket-tracker/${ticketNumber}`), 1500);
     } catch (error) {
-      toast.error('Failed to submit ticket. Please try again.');
+      console.error('Error submitting ticket:', error);
+      toast.error(error.message || 'Failed to submit ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

@@ -9,31 +9,69 @@ import {
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
-import { getEmployeeTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const currentUser = authService.getCurrentUser();
 
   useEffect(() => {
-    if (!currentUser) return;
-    
-    const allTickets = getEmployeeTickets(currentUser.id);
+    let isMounted = true; // Prevent state updates if component unmounts
 
-    const activeTickets = allTickets.filter(ticket => {
-      const status = ticket.status.toLowerCase();
-      return !['closed', 'rejected', 'withdrawn'].includes(status);
-    });
+    const fetchRecentTickets = async () => {
+      // Check if user is authenticated before making API calls
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error('No access token found. User may need to log in again.');
+        if (isMounted) {
+          setRecentTickets([]);
+          setLoading(false);
+        }
+        return;
+      }
+      
+      try {
+        if (isMounted) setLoading(true);
+        
+        // Fetch all tickets from backend (will filter by employee on backend)
+        const allTickets = await backendTicketService.getAllTickets();
+        
+        if (!isMounted) return; // Don't update state if component unmounted
 
-    const sorted = activeTickets
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 5);
+        console.log('Fetched tickets from backend:', allTickets);
 
-    setRecentTickets(sorted);
-  }, [currentUser]);
+        // Filter for active tickets (exclude only closed, include withdrawn and rejected)
+        const activeTickets = allTickets.filter(ticket => {
+          const status = (ticket.status || '').toLowerCase();
+          return status !== 'closed';
+        });
+
+        // Sort by creation date (most recent first) and take top 5
+        const sorted = activeTickets
+          .sort((a, b) => new Date(b.submit_date || b.dateCreated) - new Date(a.submit_date || a.dateCreated))
+          .slice(0, 5);
+
+        console.log('Recent active tickets:', sorted);
+        setRecentTickets(sorted);
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
+        if (isMounted) setRecentTickets([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchRecentTickets();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array - only fetch once on mount
 
   const handleSubmitTicket = () => {
     navigate('/employee/submit-ticket');
@@ -53,6 +91,21 @@ const EmployeeHome = () => {
 
   const handleViewDetails = (ticketNumber) => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
+  };
+
+  // Normalize ticket data to handle both backend field names (snake_case) and frontend (camelCase)
+  const normalizeTicket = (ticket) => {
+    return {
+      ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+      status: ticket.status,
+      subject: ticket.subject,
+      category: ticket.category,
+      subCategory: ticket.sub_category || ticket.subCategory,
+      priorityLevel: ticket.priority || ticket.priorityLevel,
+      assignedTo: ticket.assigned_to || ticket.assignedTo,
+      lastUpdated: ticket.update_date || ticket.lastUpdated,
+      dateCreated: ticket.submit_date || ticket.dateCreated
+    };
   };
 
   return (
@@ -108,22 +161,25 @@ const EmployeeHome = () => {
 
         {recentTickets.length === 0 ? (
           <div className={styles.noTickets}>
-            <p>No active tickets to display.</p>
-            <Button variant="primary" onClick={handleSubmitTicket}>
-              Submit a Ticket
-            </Button>
+            <p>{loading ? 'Loading tickets...' : 'No active tickets to display.'}</p>
+            {!loading && (
+              <Button variant="primary" onClick={handleSubmitTicket}>
+                Submit a Ticket
+              </Button>
+            )}
           </div>
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {
+              const normalized = normalizeTicket(ticket);
               // Convert status to employee view (New/Open -> Pending)
-              const displayStatus = toEmployeeStatus(ticket.status);
+              const displayStatus = toEmployeeStatus(normalized.status);
               const statusKey = displayStatus.replace(/\s/g, '').toLowerCase();
               return (
-                <div key={ticket.ticketNumber} className={styles.ticketItem}>
+                <div key={normalized.ticketNumber} className={styles.ticketItem}>
                   <div className={styles.ticketInfo}>
                     <div className={styles.ticketHeader}>
-                      <div className={styles.ticketNumber}>#{ticket.ticketNumber}</div>
+                      <div className={styles.ticketNumber}>#{normalized.ticketNumber}</div>
                       <span
                         className={styles.statusBadge}
                         style={{
@@ -138,21 +194,21 @@ const EmployeeHome = () => {
                       <div>
                         <div className={styles.ticketLabel}>Assigned Agent</div>
                         <div className={styles.ticketValue}>
-                          {ticket.assignedTo?.name || 'Unassigned'}
+                          {normalized.assignedTo?.name || normalized.assignedTo || 'Unassigned'}
                         </div>
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Subject</div>
-                        <div className={styles.ticketValue}>{ticket.subject}</div>
+                        <div className={styles.ticketValue}>{normalized.subject}</div>
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Priority Level</div>
-                        <div className={styles.ticketValue}>{ticket.priorityLevel || 'Not Set'}</div>
+                        <div className={styles.ticketValue}>{normalized.priorityLevel || 'Not Set'}</div>
                       </div>
                       <div>
                         <div className={styles.ticketLabel}>Category & Sub-category</div>
                         <div className={styles.ticketValue}>
-                          {ticket.category} &gt; {ticket.subCategory}
+                          {normalized.category} {normalized.subCategory ? `> ${normalized.subCategory}` : ''}
                         </div>
                       </div>
                     </div>
@@ -160,12 +216,12 @@ const EmployeeHome = () => {
 
                  <div className={styles.ticketActions}>
                   <div className={styles.lastUpdated}>
-                    Last Updated {new Date(ticket.lastUpdated || ticket.dateCreated).toLocaleDateString()}
+                    Last Updated {new Date(normalized.lastUpdated || normalized.dateCreated).toLocaleDateString()}
                   </div>
                   <Button
                     variant="secondary"
                     size="small"
-                    onClick={() => handleViewDetails(ticket.ticketNumber)}
+                    onClick={() => handleViewDetails(normalized.ticketNumber)}
                   >
                     View Details <IoChevronForward />
                   </Button>

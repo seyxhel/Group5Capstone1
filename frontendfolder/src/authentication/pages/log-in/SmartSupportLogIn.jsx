@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import authService from "../../../utilities/service/authService";
+import { backendAuthService } from '../../../services/backend/authService';
 import Alert from "../../../shared/alert/Alert";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
 
@@ -32,21 +32,47 @@ const SmartSupportLogIn = () => {
     setErrorMessage("");
 
     try {
-      const user = await authService.login(email, password);
+      // Use backend auth (JWT). The backendAuthService will try both
+      // /api/token/employee/ and /api/token/admin/ and return the token
+      // response (including extra fields like `role` and `first_name`).
+      const data = await backendAuthService.login({ email, password });
 
-      if (!user) {
+      if (!data) {
         setErrorMessage("Invalid credentials. Please try again.");
         return;
       }
 
-      const role = user.role?.trim().toLowerCase();
+      // Debug: log the response data to see what backend returns
+      console.log('Login response data:', data);
 
-      if (role === "employee") {
-        navigate("/employee/home");
-      } else if (role === "ticket coordinator" || role === "system admin") {
-        navigate("/admin/dashboard");
+      // Persist a frontend-friendly loggedInUser object so other parts
+      // of the app (which read `loggedInUser`) keep working.
+      const tokenUser = backendAuthService.getCurrentUser();
+      const storedUser = {
+        id: tokenUser?.id || null,
+        email: tokenUser?.email || email,
+        role: (data.role || '').trim() || null,
+        firstName: data.first_name || '',
+        middleName: data.middle_name || '',
+        lastName: data.last_name || '',
+        suffix: data.suffix || '',
+        companyId: data.company_id || '',
+        department: data.department || '',
+      };
+      
+      // Debug: log what we're storing
+      console.log('Storing user data:', storedUser);
+      localStorage.setItem('loggedInUser', JSON.stringify(storedUser));
+
+      const role = storedUser.role?.trim().toLowerCase();
+
+      if (role === 'employee') {
+        navigate('/employee/home');
+      } else if (role === 'ticket coordinator' || role === 'system admin') {
+        navigate('/admin/dashboard');
       } else {
-        setErrorMessage("Invalid user role. Please contact administrator.");
+        // If backend didn't return a role, fallback to JWT claims or show error
+        setErrorMessage('Invalid user role. Please contact administrator.');
       }
     } catch (err) {
       console.error("Login error:", err);

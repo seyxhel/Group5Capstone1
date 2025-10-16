@@ -13,13 +13,34 @@ const getAuthHeaders = () => {
   };
 };
 
+// Helper to handle 401 errors by logging out immediately
+const handleAuthError = (response) => {
+  if (response.status === 401) {
+    console.log('Session expired. Logging out...');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+    throw new Error('Session expired. Please log in again.');
+  }
+};
+
 export const backendTicketService = {
   async getAllTickets() {
     try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error('No access token found');
+        return []; // Return empty array instead of throwing to prevent infinite loop
+      }
+
       const response = await fetch(`${BASE_URL}/api/tickets/`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
+
+      handleAuthError(response);
 
       if (!response.ok) {
         throw new Error('Failed to fetch tickets');
@@ -28,7 +49,8 @@ export const backendTicketService = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching tickets:', error);
-      throw error;
+      // Return empty array to prevent infinite retry loop
+      return [];
     }
   },
 
@@ -38,6 +60,8 @@ export const backendTicketService = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
+
+      handleAuthError(response);
 
       if (!response.ok) {
         throw new Error('Failed to fetch ticket');
@@ -214,17 +238,17 @@ export const backendTicketService = {
     }
   },
 
-  async updateTicketStatus(ticketId, status) {
+  async updateTicketStatus(ticketId, status, comment = '') {
     try {
-      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {
-        method: 'PATCH',
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/update-status/`, {
+        method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, comment }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update ticket status');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.detail || 'Failed to update ticket status');
       }
 
       return await response.json();
@@ -271,6 +295,29 @@ export const backendTicketService = {
       return await response.json();
     } catch (error) {
       console.error('Error creating comment:', error);
+      throw error;
+    }
+  },
+
+  // Withdraw a ticket (employee can withdraw their own tickets)
+  async withdrawTicket(ticketId, reason) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/withdraw/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason })
+      });
+
+      handleAuthError(response);
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to withdraw ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error withdrawing ticket:', error);
       throw error;
     }
   }

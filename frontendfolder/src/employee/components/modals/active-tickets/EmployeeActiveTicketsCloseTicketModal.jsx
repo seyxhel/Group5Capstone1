@@ -3,6 +3,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeActiveTicketsCloseTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { backendTicketService } from '../../../../services/backend/ticketService';
 
 const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -11,14 +12,24 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
   const handleClose = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // simulate API
+      // Update ticket status on backend
+      let id = ticket.id || ticket.ticketId;
+      // If numeric id not available, try to resolve by ticket number
+      if (!id) {
+        const ticketNumber = ticket.ticket_number || ticket.ticketNumber;
+        if (!ticketNumber) throw new Error('Ticket identifier not found');
+        const ticketData = await backendTicketService.getTicketByNumber(ticketNumber);
+        id = ticketData.id;
+      }
+
+      await backendTicketService.updateTicketStatus(id, 'Closed', comment || '');
 
       toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Closed");
+      onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Closed");
       onClose();
     } catch (err) {
       toast.error("Failed to close the ticket. Please try again.", {

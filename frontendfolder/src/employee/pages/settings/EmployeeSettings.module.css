@@ -73,6 +73,14 @@ input[disabled] {
   cursor: not-allowed;
 }
 
+/* Read-only fields styling */
+.readOnlyField {
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
+  border-color: #e5e7eb !important;
+}
+
 /* Submit Buttons */
 .saveButton {
   height: 48px;

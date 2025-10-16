@@ -6,6 +6,12 @@ import styles from './EmployeeNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import EmployeeNotification from '../popups/EmployeeNotification';
 import authService from '../../../utilities/service/authService';
+import { backendAuthService } from '../../../services/backend/authService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { API_CONFIG } from '../../../config/environment';
+
+// Fallback profile image
+const DEFAULT_PROFILE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23e0e0e0"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" font-size="40" fill="%23666"%3E?%3C/text%3E%3C/svg%3E';
 
 const NotificationIcon = () => (
   <svg
@@ -47,7 +53,41 @@ const EmployeeNavBar = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(DEFAULT_PROFILE_IMAGE);
+  const [backendAvailable, setBackendAvailable] = useState(true); // Always assume backend is available
   const scrolled = useScrollShrink(0, { debug: true });
+
+  // Fetch employee profile with image on mount
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      try {
+        const profile = await backendEmployeeService.getCurrentEmployee();
+        console.log('Fetched employee profile:', profile);
+        
+        if (profile.image) {
+          // Build the full image URL
+          const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+          let imageUrl = profile.image;
+          
+          // If image is a relative path, prepend the base URL
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+            imageUrl = `${BASE_URL}${imageUrl}`;
+          }
+          
+          console.log('Profile image URL:', imageUrl);
+          setProfileImageUrl(imageUrl);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile image:', error);
+        // Keep using the default image on error
+      }
+    };
+
+    if (currentUser) {
+      fetchProfileImage();
+    }
+  }, [currentUser]);
 
   const dropdowns = {
     active: {
@@ -83,6 +123,33 @@ const EmployeeNavBar = () => {
     setShowProfileMenu((prev) => !prev);
     setOpenDropdown(null);
     setShowNotification(false);
+  };
+
+  const handleLogout = () => {
+    // Clear all auth-related localStorage items
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('user');
+    localStorage.removeItem('chatbotMessages');
+    
+    // Close any open menus
+    setShowProfileMenu(false);
+    setIsMobileMenuOpen(false);
+    
+    // Navigate to login page and force reload to clear component state
+    navigate('/');
+    window.location.reload();
+  };
+
+  const getFullName = () => {
+    if (!currentUser) return '';
+    const firstName = currentUser.firstName || currentUser.first_name || '';
+    const middleName = currentUser.middleName || currentUser.middle_name || '';
+    const lastName = currentUser.lastName || currentUser.last_name || '';
+    
+    // Build full name with middle name only if it exists
+    return `${firstName}${middleName ? ' ' + middleName : ''} ${lastName}`.trim();
   };
 
   const resolveUser = () => (authService.getCurrentUser ? authService.getCurrentUser() : null);
@@ -287,14 +354,14 @@ const EmployeeNavBar = () => {
           {/* Mobile profile section - mirrors Coordinator mobile layout */}
           <li className={styles['mobile-profile-section']}>
             <div className={styles['profile-avatar-large']}>
-              <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
+              <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} />
             </div>
             <div className={styles['mobile-profile-info']}>
-              <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
+              <h3>{getFullName()}</h3>
               <span className={styles['role-badge']}>{currentUser?.role}</span>
               <div className={styles['mobile-profile-actions']}>
-                <button className={styles['mobile-settings-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/employee/settings'); }}>Settings</button>
-                <button className={styles['mobile-logout-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }}>Log Out</button>
+                <button className={styles['mobile-settings-btn']} onClick={() => { setIsMobileMenuOpen(false); setTimeout(() => navigate('/employee/settings'), 0); }}>Settings</button>
+                <button className={styles['mobile-logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>
           </li>
@@ -370,7 +437,7 @@ const EmployeeNavBar = () => {
                 }}
               >
                 <img
-                  src={currentUser?.profileImage}
+                  src={profileImageUrl}
                   alt="Profile"
                   className={styles['avatar-placeholder']}
                 />
@@ -380,13 +447,13 @@ const EmployeeNavBar = () => {
                   <div className={styles['profile-header']}>
                     <div className={styles['profile-avatar-large']}>
                       <img
-                        src={currentUser?.profileImage}
+                        src={profileImageUrl}
                         alt="Profile"
                         className={styles['avatar-image']}
                       />
                     </div>
                     <div className={styles['profile-info']}>
-                      <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
+                      <h3>{getFullName()}</h3>
                       <span className={styles['role-badge']}>{currentUser?.role}</span>
                     </div>
                   </div>
@@ -394,17 +461,15 @@ const EmployeeNavBar = () => {
                     <button
                       onClick={() => {
                         setShowProfileMenu(false);
-                        navigate('/employee/settings');
+                        // Small delay to ensure menu closes before navigation
+                        setTimeout(() => navigate('/employee/settings'), 0);
                       }}
                     >
                       Settings
                     </button>
                     <button
                       className={styles['logout-btn']}
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        navigate('/');
-                      }}
+                      onClick={handleLogout}
                     >
                       Log Out
                     </button>
