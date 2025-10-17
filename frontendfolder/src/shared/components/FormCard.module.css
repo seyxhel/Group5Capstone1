@@ -17,3 +17,25 @@
   width: 100%;
   box-sizing: border-box;
 }
+
+/* View-specific container: same margins as formContainer but allows full-width white card inside */
+.viewContainer {
+  /* Use padding like breadcrumb container so inner width aligns with breadcrumb divider */
+  margin: 8px 0 0 0; /* small top margin only */
+  padding: 0 38px; /* same side padding as breadcrumb */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Inner card for view pages: white background, full width of the container */
+.viewCard {
+  /* Transparent placeholder for view pages. Outer container (.viewContainer)
+     still provides side margins; inner card is intentionally minimal. */
+  background: transparent;
+  border-radius: 12px;
+  border: none;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: none;
+}

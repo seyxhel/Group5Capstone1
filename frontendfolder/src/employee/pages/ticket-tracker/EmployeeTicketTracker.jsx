@@ -6,7 +6,9 @@ import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
+import TicketActivity from './TicketActivity';
 import Button from '../../../shared/components/Button';
+import ViewCard from '../../../shared/components/ViewCard';
 
 // Employee-side status progression (5 steps)
 // Step 1: Pending (when admin sets New or Open)
@@ -169,14 +171,10 @@ export default function EmployeeTicketTracker() {
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
-        {/* Breadcrumb Navigation */}
-        <div className={styles.pageHeader}>
-          <p className={styles.breadcrumb}>Ticket Records / Ticket Tracker</p>
-          <h1 className={styles.pageTitle}>{number}</h1>
-        </div>
+  <ViewCard>
 
-        {/* Two Column Layout */}
-        <div className={styles.contentGrid}>
+  {/* Two Column Layout */}
+  <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}
           <div className={styles.leftColumn}>
             <section className={styles.ticketCard}>
@@ -262,67 +260,11 @@ export default function EmployeeTicketTracker() {
               </button>
             )}
 
-            {/* Tabs: Logs / Message */}
-            <div className={styles.tabsContainer}>
-                <div className={styles.tabs}>
-                  <button 
-                    className={`${styles.tab} ${activeTab === 'logs' ? styles.activeTab : ''}`}
-                    onClick={() => setActiveTab('logs')}
-                  >
-                    Logs
-                  </button>
-                  <button 
-                    className={`${styles.tab} ${activeTab === 'message' ? styles.activeTab : ''}`}
-                    onClick={() => setActiveTab('message')}
-                  >
-                    Message
-                  </button>
-                </div>
-                <div className={styles.tabContent}>
-                  {activeTab === 'logs' ? (
-                  <div className={styles.logsContent}>
-                    {ticketLogs.map((log) => (
-                      <div key={log.id} className={styles.logEntry}>
-                        <div className={styles.logUser}>{log.user}</div>
-                        <div className={styles.logAction}>{log.action}</div>
-                        <div className={styles.logTimestamp}>{log.timestamp}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.messageSection}>
-                    <div className={styles.messagesContent}>
-                      {messages.map((msg) => (
-                        <div key={msg.id} className={`${styles.messageEntry} ${msg.sender === 'You' ? styles.myMessage : styles.theirMessage}`}>
-                          <div className={styles.messageSender}>{msg.sender}</div>
-                          <div className={styles.messageText}>{msg.message}</div>
-                          <div className={styles.messageTimestamp}>{msg.timestamp}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={styles.messageInputContainer}>
-                      <textarea
-                        className={styles.messageInput}
-                        placeholder="Type your message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        rows={2}
-                      />
-                      <button 
-                        className={styles.sendButton}
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                      >
-                        Send
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* Ticket activity: logs + messages extracted into component */}
+            <TicketActivity ticketLogs={ticketLogs} initialMessages={ticketMessages} />
             </div>
-          </div>
         </div>
+        </ViewCard>
       </main>
 
       {/* Modals */}
