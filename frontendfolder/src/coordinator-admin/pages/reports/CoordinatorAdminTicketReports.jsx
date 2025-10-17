@@ -33,22 +33,23 @@ const CoordinatorAdminTicketReports = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Get tickets data
-  const allTickets = getEmployeeTickets();
+  const allTickets = getAllTickets() || [];
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {
     let tickets = [...allTickets];
     const now = new Date();
 
+    // Note: tickets in local storage use `createdAt`
     if (dateRange === 'week') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= weekAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= weekAgo);
     } else if (dateRange === 'month') {
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= monthAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= monthAgo);
     } else if (dateRange === 'quarter') {
       const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= quarterAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= quarterAgo);
     }
 
     if (selectedCategory !== 'all') {
@@ -218,7 +219,7 @@ const CoordinatorAdminTicketReports = () => {
   };
 
   // Get unique categories
-  const categories = ['all', ...new Set(allTickets.map(t => t.category).filter(Boolean))];
+  const categories = ['all', ...new Set((allTickets || []).map(t => t.category).filter(Boolean))];
 
   // Summary stats
   const stats = useMemo(() => {

@@ -6,6 +6,8 @@ import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/Coo
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { API_CONFIG } from '../../../config/environment';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -36,6 +38,52 @@ const CoordinatorAdminNavBar = () => {
   const location = useLocation();
   const navRef = useRef(null);
   const currentUser = authService.getCurrentUser();
+  const DEFAULT_PROFILE_IMAGE = '/media/employee_images/default-profile.png'; // relative path on backend (matches backend filename)
+  const BACKEND_BASE_URL = 'http://localhost:8000';
+  // Inline SVG fallback used if the PNG looks wrong or fails to load
+  const FALLBACK_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23007bff"/%3E%3Ctext x="50" y="55" text-anchor="middle" font-size="36" fill="%23fff"%3E%3C/tspan%3E%3C/text%3E%3C/svg%3E';
+
+  // Helper to get correct image URL (always return absolute URL pointing to backend)
+  const getProfileImageUrl = (user) => {
+    let image = user?.profileImage;
+    if (!image || image === '' || image === null) {
+      // Return backend absolute URL for default image
+      return `${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE.startsWith('/') ? DEFAULT_PROFILE_IMAGE : `/${DEFAULT_PROFILE_IMAGE}`}`;
+    }
+    // If image is a relative path, prepend backend base URL
+    if (!image.startsWith('http')) {
+      image = image.startsWith('/') ? image : `/${image}`;
+      return `${BACKEND_BASE_URL}${image}`;
+    }
+    return image;
+  };
+
+  // State to hold the actual profile image URL fetched from backend
+  const [profileImageUrl, setProfileImageUrl] = useState(`${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE}`);
+
+  // Fetch current employee profile from backend to get freshest image path
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      try {
+        const profile = await backendEmployeeService.getCurrentEmployee();
+        // profile.image may be a relative path like 'employee_images/xyz.jpg'
+        if (profile?.image) {
+          const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+          let imageUrl = profile.image;
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+            imageUrl = `${BASE_URL}${imageUrl}`;
+          }
+          setProfileImageUrl(imageUrl);
+        }
+      } catch (err) {
+        // keep default on error
+        console.error('Failed to fetch admin profile image:', err);
+      }
+    };
+
+    if (currentUser) fetchProfileImage();
+  }, [currentUser]);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // temporarily set threshold to 0 and enable debug to observe scroll events during testing
@@ -159,7 +207,8 @@ const CoordinatorAdminNavBar = () => {
           <li className={styles['mobile-profile-section']}>
             <div className={styles['profile-avatar-large']}>
               <img 
-                src={currentUser?.profileImage} 
+                src={profileImageUrl || getProfileImageUrl(currentUser)} 
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }}
                 alt="Profile" 
                 className={styles['avatar-image']} 
               />
@@ -270,13 +319,13 @@ const CoordinatorAdminNavBar = () => {
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
+            <img src={profileImageUrl || getProfileImageUrl(currentUser)} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  <img src={currentUser?.profileImage} alt="Profile" className={styles['avatar-image']} />
+                  <img src={profileImageUrl || getProfileImageUrl(currentUser)} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
                 </div>
                 <div className={styles['profile-info']}>
                   <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>

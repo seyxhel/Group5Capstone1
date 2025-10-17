@@ -611,27 +611,21 @@ const CoordinatorAdminDashboard = () => {
     });
 
     const activities = allLogs.slice(0, 4).map(l => {
-      let performedLabel = null;
-      if (l.performed_by) {
-        const actor = companyIdToUser[l.performed_by] || fetched.find(x => x.company_id === l.performed_by || x.companyId === l.performed_by);
-        if (actor) performedLabel = `${actor.company_id || actor.companyId || ''} — ${actor.first_name || actor.firstName || ''} ${actor.last_name || actor.lastName || ''}`.trim();
-        else performedLabel = l.performed_by;
-      }
-
-      // Use employee.company_id to create a more informative message for 'created' events
+      // Use employee.company_id to create a more informative message for 'created', 'approved', 'rejected' events
       const emp = l.employee || {};
       const empCompanyId = emp.company_id || emp.companyId || emp.id || '';
-
       let actionText = '';
       const actionNormalized = (l.action || '').toString().toLowerCase();
       if (actionNormalized === 'created' || actionNormalized === 'account created') {
         actionText = empCompanyId ? `User ${empCompanyId} account created` : 'Account created';
+      } else if (actionNormalized === 'approved' || actionNormalized === 'account approved') {
+        actionText = empCompanyId ? `User ${empCompanyId} account approved` : 'Account approved';
+      } else if (actionNormalized === 'rejected' || actionNormalized === 'account rejected') {
+        actionText = empCompanyId ? `User ${empCompanyId} account rejected` : 'Account rejected';
       } else {
         actionText = l.action || l.details || 'Updated';
       }
-
-      const byText = performedLabel ? ` by ${performedLabel}` : '';
-      return { time: formatShortTime(l.timestamp), action: `${actionText}${byText}` };
+      return { time: formatShortTime(l.timestamp), action: actionText };
     });
 
     // Keep a simple monthly placeholder for now; will refine later

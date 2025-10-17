@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-q2(fx!vo0@(tbkky-_qdeo=%f)5xub45y+&cyx$5!$uo=*ta+v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -204,6 +204,9 @@ AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'
 
 # Celery
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
 CELERY_BROKER_URL = 'amqp://GY6Jx5nsXW5edoIB:DGHuVF0tWCZgWnO~T51D._6viJWc7U_B@ballast.proxy.rlwy.net:48690//'
 CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']

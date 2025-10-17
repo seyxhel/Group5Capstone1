@@ -18,7 +18,12 @@ def deny_employee(request, pk):
         return Response({'detail': 'Already denied.'}, status=status.HTTP_400_BAD_REQUEST)
     employee.status = 'Denied'
     employee.save()
-    # Optionally log or send email here
+    # Log rejection action
+    try:
+        from .models import EmployeeLog
+        EmployeeLog.objects.create(employee=employee, action='rejected', performed_by=request.user, details='Account rejected by admin')
+    except Exception:
+        pass
     return Response({'detail': 'Employee denied.'}, status=status.HTTP_200_OK)
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -110,40 +115,50 @@ class CreateEmployeeView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CreateAdminEmployeeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
 
     def post(self, request, *args, **kwargs):
+        print("[DEBUG] request.user:", request.user)
+        print("[DEBUG] request.user.is_authenticated:", getattr(request.user, 'is_authenticated', None))
+        print("[DEBUG] request.user.role:", getattr(request.user, 'role', None))
+        print("[DEBUG] request.auth:", request.auth)
         data = request.data.copy()
 
-        # Auto-generate Company ID
-        last_employee = Employee.objects.filter(company_id__startswith='MA').order_by('company_id').last()
-        if last_employee:
-            last_num = int(last_employee.company_id[2:])
-            new_num = last_num + 1
-        else:
-            new_num = 1
+        # Auto-generate Company ID (find lowest available MA number)
+        existing_ids = Employee.objects.filter(company_id__startswith='MA').values_list('company_id', flat=True)
+        used_numbers = set()
+        for cid in existing_ids:
+            try:
+                used_numbers.add(int(cid[2:]))
+            except Exception:
+                pass
+        # Find the lowest unused number
+        new_num = 1
+        while new_num in used_numbers:
+            new_num += 1
         data['company_id'] = f"MA{new_num:04d}"
 
         # Set default password
         data['password'] = "1234"
 
-        # Set default status
-        data['status'] = "Pending"
+        # Set status to Approved
+        data['status'] = "Approved"
 
-        # Remove image field if not present
-        if 'image' not in data:
-            data['image'] = ''  # Will use model default
+        # Remove image field if not present or empty, so model default is used
+        if not data.get('image'):
+            data.pop('image', None)
 
         serializer = EmployeeSerializer(data=data)
         if serializer.is_valid():
             employee = serializer.save()
-            # Log admin-created employee
+            # Log admin-created and approved employee
             try:
                 EmployeeLog.objects.create(employee=employee, action='created', performed_by=request.user, details='Account created by admin')
+                EmployeeLog.objects.create(employee=employee, action='approved', performed_by=request.user, details='Account automatically approved by admin')
             except Exception:
                 pass
             return Response({
-                "message": "Employee account created successfully",
+                "message": "Employee account created and approved successfully",
                 "company_id": employee.company_id
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

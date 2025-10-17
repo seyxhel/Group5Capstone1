@@ -224,22 +224,7 @@ const EmployeeSettings = () => {
         <div className={styles.fieldGroup}>
           <label>Upload Profile Picture</label>
           <input ref={fileRef} type="file" accept="image/png, image/jpeg, image/jpg" onChange={handleFileChange} />
-          {imagePreview && (
-            <div style={{ marginTop: '10px' }}>
-              <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>Preview:</p>
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                style={{ 
-                  width: '150px', 
-                  height: '150px', 
-                  borderRadius: '8px', 
-                  objectFit: 'cover',
-                  border: '2px solid #e5e7eb'
-                }} 
-              />
-            </div>
-          )}
+          {/* Preview removed by request: keep imagePreview state for upload but do not render it */}
         </div>
         <button className={styles.saveButton} onClick={handleSave} disabled={saving || !imagePreview}>
           {saving ? 'Uploading...' : 'Upload Profile Picture'}

@@ -10,20 +10,15 @@ import styles from './CoordinatorAdminAccountRegister.module.css';
 import formActions from '../../../shared/styles/formActions.module.css';
 import FormActions from '../../../shared/components/FormActions';
 import { getEmployeeUsers, addEmployeeUser } from '../../../utilities/storages/employeeUserStorage';
+import { API_CONFIG } from '../../../config/environment';
 
 const departments = [
-  'IT Support',
-  'Budget Department',
-  'Finance Department',
-  'Admin Department',
-  'HR Department',
-  'Operations Department',
-  'Sales Department',
-  'Marketing Department'
+  'IT Department',
+  'Asset Department',
+  'Budget Department'
 ];
 
 const roles = [
-  'Employee',
   'Ticket Coordinator',
   'System Admin'
 ];
@@ -32,15 +27,13 @@ const CoordinatorAdminAccountRegister = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    companyId: '',
     lastName: '',
     firstName: '',
+    middleName: '',
+    suffix: '',
     department: '',
     role: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    profileImage: ''
+    email: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -49,22 +42,7 @@ const CoordinatorAdminAccountRegister = () => {
 
   const validateField = (field, value) => {
     let error = '';
-    
-    switch (field) {
-      case 'companyId':
-        if (!value.trim()) {
-          error = 'Company ID is required';
-        } else if (value.trim().length < 3) {
-          error = 'Company ID must be at least 3 characters';
-        } else {
-          // Check if Company ID already exists
-          const existingUsers = getEmployeeUsers();
-          if (existingUsers.some(user => user.companyId === value.trim())) {
-            error = 'Company ID already exists';
-          }
-        }
-        break;
-      
+  switch (field) {
       case 'lastName':
         if (!value.trim()) {
           error = 'Last Name is required';
@@ -72,7 +50,6 @@ const CoordinatorAdminAccountRegister = () => {
           error = 'Last Name must be at least 2 characters';
         }
         break;
-      
       case 'firstName':
         if (!value.trim()) {
           error = 'First Name is required';
@@ -80,62 +57,37 @@ const CoordinatorAdminAccountRegister = () => {
           error = 'First Name must be at least 2 characters';
         }
         break;
-      
+      case 'middleName':
+        // Middle Name is optional, no validation
+        break;
+      case 'suffix':
+        // Suffix is optional, no validation
+        break;
       case 'department':
         if (!value) {
           error = 'Department is required';
         }
         break;
-      
       case 'role':
         if (!value) {
           error = 'Role is required';
         }
         break;
-      
       case 'email':
         if (!value.trim()) {
           error = 'Email is required';
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
           error = 'Invalid email format';
         } else {
-          // Check if email already exists
           const existingUsers = getEmployeeUsers();
           if (existingUsers.some(user => user.email === value.trim())) {
             error = 'Email already exists';
           }
         }
         break;
-      
-      case 'password':
-        if (!value) {
-          error = 'Password is required';
-        } else if (value.length < 6) {
-          error = 'Password must be at least 6 characters';
-        }
-        break;
-      
-      case 'confirmPassword':
-        if (!value) {
-          error = 'Please confirm password';
-        } else if (value !== formData.password) {
-          error = 'Passwords do not match';
-        }
-        break;
-      
-      case 'profileImage':
-          // Profile image is required for this page
-          if (!value) {
-            error = 'Profile image is required';
-          } else if (value && value.error) {
-            error = value.error;
-          }
-          break;
-      
       default:
         break;
     }
-    
     return error;
   };
 
@@ -184,16 +136,16 @@ const CoordinatorAdminAccountRegister = () => {
     const newErrors = {};
     const newTouched = {};
     
+
+
     const fieldsToValidate = [
-      'companyId',
       'lastName',
       'firstName',
+      'middleName',
+      'suffix',
       'department',
       'role',
-      'email',
-      'password',
-      'confirmPassword',
-      'profileImage'
+      'email'
     ];
 
     fieldsToValidate.forEach(field => {
@@ -221,47 +173,55 @@ const CoordinatorAdminAccountRegister = () => {
       toast.error('Please fix the errors in the form before submitting.');
       return;
     }
-
-    setIsSubmitting(true);
-
     try {
-      // Create new user object
-      const newUserData = {
-        companyId: formData.companyId.trim(),
-        lastName: formData.lastName.trim(),
-        firstName: formData.firstName.trim(),
+  // Some login flows store tokens under 'access_token' (generic) while
+  // dev utilities or older code may use 'admin_access_token'. Prefer
+  // admin-specific key but fall back to generic 'access_token'.
+  const token = localStorage.getItem('admin_access_token') || localStorage.getItem('access_token'); 
+      const payload = {
+        last_name: formData.lastName.trim(),
+        first_name: formData.firstName.trim(),
+        middle_name: formData.middleName.trim(),
+        suffix: formData.suffix.trim(),
         department: formData.department,
         role: formData.role,
-        email: formData.email.trim(),
-        profileImage: formData.profileImage || undefined,
-        password: formData.password
+        email: formData.email.trim()
       };
-
-      // Add user using helper function
-      addEmployeeUser(newUserData);
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast.success('User account created successfully!');
+      // Only add image if a file is uploaded (not used in admin form, but future-proof)
+      // if (formData.profileImage) {
+      //   payload.image = formData.profileImage;
+      // }
+  const res = await fetch(`${API_CONFIG.BACKEND.BASE_URL}/api/admin/create-employee/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || err.message || 'Failed to create user account.');
+        setIsSubmitting(false);
+        return;
+      }
+      toast.success('User account created and approved successfully!');
       setTimeout(() => navigate('/admin/user-access/all-users'), 1500);
     } catch (error) {
       toast.error('Failed to create user account. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   const resetForm = () => {
     setFormData({
-      companyId: '',
       lastName: '',
       firstName: '',
+      middleName: '',
+      suffix: '',
       department: '',
       role: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      profileImage: ''
+      email: ''
     });
     setErrors({});
     setTouched({});
@@ -275,164 +235,121 @@ const CoordinatorAdminAccountRegister = () => {
         rootNavigatePage="/admin/user-access/all-users"
         title="Create New User Account"
       />
-
       <section>
-  <FormCard>
+        <FormCard>
           <form onSubmit={handleSubmit}>
-          {/* Personal Information */}
-          <fieldset>
-            <legend className={styles.fieldsetLegend}>
-              Personal Information
-            </legend>
-            
-            <InputField
-              label="Company ID"
-              placeholder="e.g., IT0001"
-              value={formData.companyId}
-              onChange={handleInputChange('companyId')}
-              onBlur={handleBlur('companyId')}
-              required
-              error={errors.companyId}
-            />
-            
-            <InputField
-              label="First Name"
-              placeholder="Enter first name"
-              value={formData.firstName}
-              onChange={handleInputChange('firstName')}
-              onBlur={handleBlur('firstName')}
-              required
-              error={errors.firstName}
-            />
-
-            <InputField
-              label="Last Name"
-              placeholder="Enter last name"
-              value={formData.lastName}
-              onChange={handleInputChange('lastName')}
-              onBlur={handleBlur('lastName')}
-              required
-              error={errors.lastName}
-            />
-          </fieldset>
-
-          {/* Department and Role */}
-          <fieldset>
-            <legend className={styles.fieldsetLegend}>
-              Department & Role
-            </legend>
-            
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>
-                Department <span className={styles.required}>*</span>
-              </label>
-              <select
-                value={formData.department}
-                onChange={handleInputChange('department')}
-                onBlur={handleBlur('department')}
-                className={errors.department ? styles.inputError : ''}
-              >
-                <option value="">Select Department</option>
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              {errors.department && (
-                <div className={styles.errorMessage}>
-                  {errors.department}
-                </div>
-              )}
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>
-                Role <span className={styles.required}>*</span>
-              </label>
-              <select
-                value={formData.role}
-                onChange={handleInputChange('role')}
-                onBlur={handleBlur('role')}
-                className={errors.role ? styles.inputError : ''}
-              >
-                <option value="">Select Role</option>
-                {roles.map(role => (
-                  <option key={role} value={role}>{role}</option>
-                ))}
-              </select>
-              {errors.role && (
-                <div className={styles.errorMessage}>
-                  {errors.role}
-                </div>
-              )}
-            </div>
-          </fieldset>
-
-          {/* Account Information */}
-          <fieldset>
-            <legend className={styles.fieldsetLegend}>
-              Account Information
-            </legend>
-            
-            <InputField
-              type="email"
-              label="Email Address"
-              placeholder="e.g., user@example.com"
-              value={formData.email}
-              onChange={handleInputChange('email')}
-              onBlur={handleBlur('email')}
-              required
-              error={errors.email}
-            />
-
-            <InputField
-              type="password"
-              label="Password"
-              placeholder="Enter password (min 6 characters)"
-              value={formData.password}
-              onChange={handleInputChange('password')}
-              onBlur={handleBlur('password')}
-              required
-              error={errors.password}
-            />
-
-            <InputField
-              type="password"
-              label="Confirm Password"
-              placeholder="Re-enter password"
-              value={formData.confirmPassword}
-              onChange={handleInputChange('confirmPassword')}
-              onBlur={handleBlur('confirmPassword')}
-              required
-              error={errors.confirmPassword}
-            />
-          </fieldset>
-
-          {/* Optional Profile Image */}
-          <fieldset>
-            <legend className={styles.fieldsetLegend}>
-              Profile 
-            </legend>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>
-                Profile Picture <span className={styles.required}>*</span>
-              </label>
-              <ProfileImageUpload
-                value={formData.profileImage}
-                onChange={handleInputChange('profileImage')}
-                error={errors.profileImage}
+            {/* Personal Information */}
+            <fieldset>
+              <legend className={styles.fieldsetLegend}>
+                Personal Information
+              </legend>
+              <InputField
+                label="Last Name"
+                placeholder="Enter last name"
+                value={formData.lastName}
+                onChange={handleInputChange('lastName')}
+                onBlur={handleBlur('lastName')}
+                required
+                error={errors.lastName}
               />
-            </div>
-          </fieldset>
-
-          {/* Action Buttons */}
-          <FormActions
-            onCancel={() => navigate('/admin/user-access/all-users')}
-            cancelLabel="Cancel"
-            submitLabel={isSubmitting ? 'Creating...' : 'Create Account'}
-            submitDisabled={isSubmitting}
-            submitVariant="primary"
-          />
+              <InputField
+                label="First Name"
+                placeholder="Enter first name"
+                value={formData.firstName}
+                onChange={handleInputChange('firstName')}
+                onBlur={handleBlur('firstName')}
+                required
+                error={errors.firstName}
+              />
+              <InputField
+                label="Middle Name"
+                placeholder="Enter middle name"
+                value={formData.middleName}
+                onChange={handleInputChange('middleName')}
+                onBlur={handleBlur('middleName')}
+                error={errors.middleName}
+              />
+              <InputField
+                label="Suffix"
+                placeholder="e.g., Jr., Sr., III"
+                value={formData.suffix}
+                onChange={handleInputChange('suffix')}
+                onBlur={handleBlur('suffix')}
+                error={errors.suffix}
+              />
+            </fieldset>
+            {/* Department */}
+            <fieldset>
+              <legend className={styles.fieldsetLegend}>
+                Department
+              </legend>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Department <span className={styles.required}>*</span>
+                </label>
+                <select
+                  value={formData.department}
+                  onChange={handleInputChange('department')}
+                  onBlur={handleBlur('department')}
+                  className={errors.department ? styles.inputError : ''}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+                {errors.department && (
+                  <div className={styles.errorMessage}>
+                    {errors.department}
+                  </div>
+                )}
+              </div>
+            </fieldset>
+            {/* Role and Account Information */}
+            <fieldset>
+              <legend className={styles.fieldsetLegend}>
+                Role & Account Information
+              </legend>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Role <span className={styles.required}>*</span>
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={handleInputChange('role')}
+                  onBlur={handleBlur('role')}
+                  className={errors.role ? styles.inputError : ''}
+                >
+                  <option value="">Select Role</option>
+                  {roles.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+                {errors.role && (
+                  <div className={styles.errorMessage}>
+                    {errors.role}
+                  </div>
+                )}
+              </div>
+              <InputField
+                type="email"
+                label="Email Address"
+                placeholder="e.g., user@example.com"
+                value={formData.email}
+                onChange={handleInputChange('email')}
+                onBlur={handleBlur('email')}
+                required
+                error={errors.email}
+              />
+            </fieldset>
+            {/* Action Buttons */}
+            <FormActions
+              onCancel={() => navigate('/admin/user-access/all-users')}
+              cancelLabel="Cancel"
+              submitLabel={isSubmitting ? 'Creating...' : 'Create Account'}
+              submitDisabled={isSubmitting}
+              submitVariant="primary"
+            />
           </form>
         </FormCard>
       </section>

@@ -29,7 +29,7 @@ const CoordinatorAdminSLAReports = () => {
   const [selectedPriority, setSelectedPriority] = useState('all');
 
   // Get tickets data
-  const allTickets = getEmployeeTickets();
+  const allTickets = getAllTickets() || [];
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {
@@ -48,13 +48,13 @@ const CoordinatorAdminSLAReports = () => {
     const slaLimit = SLA_LIMITS[ticket.priorityLevel];
     if (!slaLimit) return 'N/A';
 
-    const createdDate = new Date(ticket.dateCreated);
+  const createdDate = new Date(ticket.createdAt);
     const now = new Date();
     const hoursElapsed = (now - createdDate) / (1000 * 60 * 60);
 
     // If ticket is resolved or closed, check resolution time
     if (['Resolved', 'Closed'].includes(ticket.status)) {
-      const resolvedDate = ticket.dateResolved ? new Date(ticket.dateResolved) : now;
+      const resolvedDate = ticket.resolvedAt ? new Date(ticket.resolvedAt) : now;
       const resolutionTime = (resolvedDate - createdDate) / (1000 * 60 * 60);
       return resolutionTime <= slaLimit ? 'Met' : 'Breached';
     }
@@ -76,15 +76,16 @@ const CoordinatorAdminSLAReports = () => {
     let tickets = [...allTickets];
     const now = new Date();
 
+    // Note: tickets in local storage use `createdAt`
     if (dateRange === 'week') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= weekAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= weekAgo);
     } else if (dateRange === 'month') {
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= monthAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= monthAgo);
     } else if (dateRange === 'quarter') {
       const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      tickets = tickets.filter(t => new Date(t.dateCreated) >= quarterAgo);
+      tickets = tickets.filter(t => new Date(t.createdAt) >= quarterAgo);
     }
 
     if (selectedPriority !== 'all') {
