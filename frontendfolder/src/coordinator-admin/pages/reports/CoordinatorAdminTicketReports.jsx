@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -33,12 +33,13 @@ const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [priorityRange, setPriorityRange] = useState('auto');
+  const [categoryRange, setCategoryRange] = useState('auto');
 
   // Get tickets data (load from backend instead of mock storage)
   const [allTickets, setAllTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useMemo(() => {
+  useEffect(() => {
     let mounted = true;
     (async () => {
       try {
@@ -155,22 +156,76 @@ const CoordinatorAdminTicketReports = () => {
 
   // Category breakdown (exclude 'New')
   const categoryData = useMemo(() => {
-    const categoryCount = {};
+    // Ensure the X axis always shows all categories available in the ticket form
+    const labels = TICKET_CATEGORIES;
+    // Tickets stored as 'General Request' correspond to the 'Others' label in the form
+    const storageKeyFor = (label) => (label === 'Others' ? 'General Request' : label);
+
+    const counts = {};
     (filteredTicketsForCharts || []).forEach(ticket => {
-      const category = ticket.category || 'Unknown';
-      categoryCount[category] = (categoryCount[category] || 0) + 1;
+      const cat = ticket.category || 'Unknown';
+      counts[cat] = (counts[cat] || 0) + 1;
     });
 
+    const data = labels.map(l => counts[storageKeyFor(l)] || 0);
+
     return {
-      labels: Object.keys(categoryCount),
+      labels,
       datasets: [{
         label: 'Tickets by Category',
-        data: Object.values(categoryCount),
+        data,
         backgroundColor: '#3b82f6',
         borderRadius: 6,
       }]
     };
   }, [filteredTicketsForCharts]);
+
+  // Chart options (base bar options used by category/priority charts)
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context) => `Tickets: ${context.parsed?.y ?? context.parsed}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 }
+      }
+    }
+  };
+
+  // Category chart options (allow fixed or auto Y range like Priority)
+  const categoryBarOptions = useMemo(() => {
+    const dataMax = (categoryData?.datasets?.[0]?.data || []).reduce((a, b) => Math.max(a, b), 0);
+
+    let yMax = null;
+    if (categoryRange !== 'auto') {
+      const parts = categoryRange.split('-').map(s => parseInt(s.replace(/,/g, ''), 10));
+      if (parts.length === 2 && !isNaN(parts[1])) yMax = parts[1];
+    }
+
+    const suggestedMax = categoryRange === 'auto' ? Math.max(10, Math.ceil(dataMax / 10) * 10) : undefined;
+
+    return {
+      ...barOptions,
+      scales: {
+        x: {},
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 },
+          ...(yMax ? { max: yMax } : {}),
+          ...(suggestedMax ? { suggestedMax } : {})
+        }
+      }
+    };
+  }, [categoryRange, categoryData]);
+
 
   // Tickets over time (compute from actual createdAt/resolvedAt dates)
   const timelineData = useMemo(() => {
@@ -260,26 +315,6 @@ const CoordinatorAdminTicketReports = () => {
       }
     }
   };
-
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (context) => `Tickets: ${context.parsed.y}`
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1 }
-      }
-    }
-  };
-
   // Dynamic priority chart options depending on selected priorityRange
   const priorityBarOptions = useMemo(() => {
     // compute data max from priorityData
@@ -400,6 +435,21 @@ const CoordinatorAdminTicketReports = () => {
             <option value="10000-100000">10,000 - 100,000</option>
           </select>
         </div>
+        <div className={styles.filterGroup}>
+          <label>Category Range:</label>
+          <select
+            value={categoryRange}
+            onChange={(e) => setCategoryRange(e.target.value)}
+            className={styles.filterSelect}
+          >
+            <option value="auto">Auto</option>
+            <option value="0-50">0 - 50</option>
+            <option value="50-100">50 - 100</option>
+            <option value="100-1000">100 - 1,000</option>
+            <option value="1000-10000">1,000 - 10,000</option>
+            <option value="10000-100000">10,000 - 100,000</option>
+          </select>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -452,13 +502,18 @@ const CoordinatorAdminTicketReports = () => {
         </div>
         
         <div className={styles.chartsGrid}>
-          <div className={styles.chartCard}>
-            <h3 className={styles.chartTitle}>Tickets by Category</h3>
-            <div className={styles.chartContainer}>
-              <Bar data={categoryData} options={barOptions} />
+          {/* Show Tickets by Category only when 'All Categories' is selected */}
+          {selectedCategory === 'all' ? (
+            <div className={styles.chartCard}>
+              <h3 className={styles.chartTitle}>Tickets by Category</h3>
+              <div className={styles.chartContainer}>
+                <Bar data={categoryData} options={categoryBarOptions} />
+              </div>
             </div>
-          </div>
-          <div className={styles.chartCard}>
+          ) : null}
+
+          {/* Timeline should expand to take the remaining space when category chart is hidden */}
+          <div className={styles.chartCard} style={{ gridColumn: selectedCategory === 'all' ? 'auto' : 'span 2' }}>
             <h3 className={styles.chartTitle}>Ticket Trends Over Time</h3>
             <div className={styles.chartContainer}>
               <Line data={timelineData} options={lineOptions} />
