@@ -89,9 +89,13 @@ const KnowledgeArchived = () => {
 
   const handleDelete = async (article) => {
     if (!window.confirm(`Delete "${article.title}" permanently? This cannot be undone.`)) return;
-    await kbService.updateArticle(article.id, { deleted: true });
-    window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
-    setArticles(prev => prev.filter(p => p.id !== article.id));
+    try {
+      await kbService.deleteArticle(article.id);
+      window.dispatchEvent(new CustomEvent('kb:articleDeleted', { detail: { id: article.id } }));
+      setArticles(prev => prev.filter(p => p.id !== article.id));
+    } catch (error) {
+      alert('Failed to delete article. Please try again.');
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -34,6 +34,7 @@ const CoordinatorAdminTicketReports = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [priorityRange, setPriorityRange] = useState('auto');
   const [categoryRange, setCategoryRange] = useState('auto');
+  
 
   // Get tickets data (load from backend instead of mock storage)
   const [allTickets, setAllTickets] = useState([]);
@@ -58,6 +59,8 @@ const CoordinatorAdminTicketReports = () => {
     })();
     return () => { mounted = false; };
   }, []);
+
+  
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {
@@ -366,6 +369,9 @@ const CoordinatorAdminTicketReports = () => {
   // Use the full list of categories from the ticket form (so all options are visible)
   const categories = ['all', ...TICKET_CATEGORIES];
 
+  // Ref for charts grid container (used for potential measurements/animations)
+  const chartsGridRef = useRef(null);
+
   // Summary stats
   const stats = useMemo(() => {
   // Total tickets should reflect all tickets except 'New' tickets (exclude 'New' from total)
@@ -451,6 +457,7 @@ const CoordinatorAdminTicketReports = () => {
           </select>
         </div>
       </div>
+      
 
       {/* Summary Stats */}
       <div className={styles.statsGrid}>
@@ -486,7 +493,7 @@ const CoordinatorAdminTicketReports = () => {
 
       {/* Charts Section */}
       <div className={styles.section}>
-        <div className={styles.chartsGrid}>
+  <div className={styles.chartsGrid} ref={chartsGridRef}>
           <div className={styles.chartCard}>
             <h3 className={styles.chartTitle}>Status Distribution</h3>
             <div className={styles.chartContainer}>
@@ -503,17 +510,24 @@ const CoordinatorAdminTicketReports = () => {
         
         <div className={styles.chartsGrid}>
           {/* Show Tickets by Category only when 'All Categories' is selected */}
-          {selectedCategory === 'all' ? (
-            <div className={styles.chartCard}>
-              <h3 className={styles.chartTitle}>Tickets by Category</h3>
-              <div className={styles.chartContainer}>
-                <Bar data={categoryData} options={categoryBarOptions} />
-              </div>
+          {/** Tickets by Category: collapsible with smooth transition **/}
+          {/* Tickets by Category: fades out when a specific category is selected */}
+          <div
+            className={styles.chartCard}
+            aria-hidden={selectedCategory === 'all' ? 'false' : 'true'}
+            style={{ display: selectedCategory === 'all' ? 'block' : 'none', gridRow: 1 }}
+          >
+            <h3 className={styles.chartTitle}>Tickets by Category</h3>
+            <div className={styles.chartContainer}>
+              <Bar data={categoryData} options={categoryBarOptions} />
             </div>
-          ) : null}
+          </div>
 
-          {/* Timeline should expand to take the remaining space when category chart is hidden */}
-          <div className={styles.chartCard} style={{ gridColumn: selectedCategory === 'all' ? 'auto' : 'span 2' }}>
+          {/* Timeline acts as the sliding door/gate: expands from its slot to span two columns */}
+          <div
+            className={`${styles.chartCard} ${styles['slidingDoor']}`}
+            style={{ gridColumn: selectedCategory === 'all' ? 'auto' : '1 / span 2', gridRow: 1 }}
+          >
             <h3 className={styles.chartTitle}>Ticket Trends Over Time</h3>
             <div className={styles.chartContainer}>
               <Line data={timelineData} options={lineOptions} />

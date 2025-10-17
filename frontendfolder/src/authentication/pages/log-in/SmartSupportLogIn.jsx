@@ -115,7 +115,7 @@ const SmartSupportLogIn = () => {
             <fieldset>
               <label>Email:</label>
               {errors.email && (
-                <span>{errors.email.message || "Please fill in the required field"}</span>
+                <span>{errors.email.message || "Please fill in the required field."}</span>
               )}
               <input
                 type="text"
@@ -124,7 +124,7 @@ const SmartSupportLogIn = () => {
                   required: true,
                   pattern: {
                     value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
-                    message: "Invalid email format",
+                    message: "Invalid email format.",
                   },
                 })}
               />
@@ -132,11 +132,12 @@ const SmartSupportLogIn = () => {
 
             <fieldset>
               <label>Password:</label>
-              {errors.password && <span>Please fill in the required field</span>}
+              {errors.password && <span>Please fill in the required field.</span>}
               <div className="password-container">
                 <input
                   type={isShowPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  autoComplete="off"
                   {...register("password", { required: true })}
                 />
                 {password && (
@@ -159,7 +160,7 @@ const SmartSupportLogIn = () => {
           <a onClick={() => navigate("/forgot-password")}>Forgot Password?</a>
 
           <p>
-            Don’t have an account as an Employee?{" "}
+            Don't have an account as an Employee?{" "}
             <span className="create-account-link" onClick={() => navigate("/create-account")}>
               Create account
             </span>

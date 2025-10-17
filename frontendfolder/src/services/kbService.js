@@ -1,13 +1,19 @@
-// Lightweight mock service for Knowledgebase frontend (seeded)
-import categoriesSeed from '../mocks/seed/categories.json';
-import articlesSeed from '../mocks/seed/articles.json';
-import feedbackSeed from '../mocks/seed/feedback.json';
+// Knowledge Base Service - Backend Adapter
+// This adapts the backend article API to match the expected kbService interface
+import { backendArticleService } from './backend/articleService';
+import { TICKET_CATEGORIES } from '../shared/constants/ticketCategories';
 
-let mockCategories = JSON.parse(JSON.stringify(categoriesSeed));
-let mockArticles = JSON.parse(JSON.stringify(articlesSeed));
-let mockFeedback = JSON.parse(JSON.stringify(feedbackSeed));
+// Helper to capitalize visibility string
+const capitalizeVisibility = (visibility) => {
+  const map = {
+    'employee': 'Employee',
+    'ticket coordinator': 'Ticket Coordinator',
+    'system admin': 'System Admin'
+  };
+  return map[visibility.toLowerCase()] || 'Employee';
+};
 
-// Normalize visibility labels in mockArticles to canonical forms
+// Helper to normalize visibility from backend
 const normalizeVisibility = (v) => {
   if (!v) return v;
   const s = String(v).trim().toLowerCase();
@@ -17,79 +23,167 @@ const normalizeVisibility = (v) => {
   return v.replace(/\b\w/g, c => c.toUpperCase());
 };
 
-mockArticles = mockArticles.map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
-
 export const listCategories = async () => {
-  // simulate async
-  return new Promise((res) => setTimeout(() => res([...mockCategories]), 120));
+  // Return categories in the format expected by the UI
+  return TICKET_CATEGORIES.map((name, index) => ({
+    id: index + 1,
+    name: name
+  }));
 };
 
 export const listArticles = async (filters = {}) => {
-  // filters: { category_id, query, visibility }
-  return new Promise((res) => {
-    setTimeout(() => {
-      let results = [...mockArticles];
-      if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id);
-      if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
-      if (filters.query) {
-        const q = filters.query.toLowerCase();
-        results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
-      }
-      res(results);
-    }, 150);
-  });
+  try {
+    const articles = await backendArticleService.getAllArticles();
+    
+    // Map backend article format to UI format
+    return articles.map(article => ({
+      id: article.id,
+      title: article.subject,
+      content: article.description,
+      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
+      visibility: normalizeVisibility(article.visibility),
+      author: article.created_by_name || 'Unknown',
+      date_created: article.created_at,
+      date_modified: article.updated_at,
+      archived: article.is_archived
+    }));
+  } catch (error) {
+    console.error('Failed to list articles:', error);
+    return [];
+  }
 };
 
 export const getArticle = async (id) => {
-  return new Promise((res) => setTimeout(() => res(mockArticles.find(a => a.id === Number(id)) || null), 100));
+  try {
+    const article = await backendArticleService.getArticleById(id);
+    
+    return {
+      id: article.id,
+      title: article.subject,
+      content: article.description,
+      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
+      visibility: article.visibility.toLowerCase(),
+      author: article.created_by_name || 'Unknown',
+      date_created: article.created_at,
+      date_modified: article.updated_at,
+      archived: article.is_archived
+    };
+  } catch (error) {
+    console.error('Failed to get article:', error);
+    throw error;
+  }
 };
 
-export const submitArticle = async (article) => {
-  // naive push
-  const id = mockArticles.length ? Math.max(...mockArticles.map(a => a.id)) + 1 : 1001;
-  const newArticle = { id, ...article };
-  mockArticles.push(newArticle);
-  return new Promise((res) => setTimeout(() => res(newArticle), 150));
+export const submitArticle = async (data) => {
+  try {
+    // Map UI format to backend format
+    const backendData = {
+      subject: data.title,
+      description: data.content,
+      category: TICKET_CATEGORIES[(data.category_id || 1) - 1] || 'Others',
+      visibility: capitalizeVisibility(data.visibility || 'employee')
+    };
+    
+    const article = await backendArticleService.createArticle(backendData);
+    
+    return {
+      id: article.id,
+      title: article.subject,
+      content: article.description,
+      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
+      visibility: normalizeVisibility(article.visibility),
+      author: article.created_by_name || 'Unknown',
+      date_created: article.created_at,
+      date_modified: article.updated_at,
+      archived: article.is_archived
+    };
+  } catch (error) {
+    console.error('Failed to submit article:', error);
+    throw error;
+  }
 };
 
-export const updateArticle = async (id, patch = {}) => {
-  const idx = mockArticles.findIndex(a => a.id === Number(id));
-  if (idx === -1) return null;
-  mockArticles[idx] = { ...mockArticles[idx], ...patch, date_modified: new Date().toISOString().slice(0,10) };
-  return new Promise((res) => setTimeout(() => res(mockArticles[idx]), 120));
+export const updateArticle = async (id, data) => {
+  try {
+    // Handle both UI format updates and direct property updates (like { archived: true })
+    if (data.archived !== undefined || data.deleted !== undefined) {
+      // Special case for archive/delete operations
+      if (data.archived) {
+        await backendArticleService.archiveArticle(id);
+      } else if (data.archived === false) {
+        await backendArticleService.restoreArticle(id);
+      }
+      
+      // Fetch the updated article
+      const article = await backendArticleService.getArticleById(id);
+      return {
+        id: article.id,
+        title: article.subject,
+        content: article.description,
+        category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
+        visibility: normalizeVisibility(article.visibility),
+        author: article.created_by_name || 'Unknown',
+        date_created: article.created_at,
+        date_modified: article.updated_at,
+        archived: article.is_archived
+      };
+    } else {
+      // Regular update
+      const backendData = {};
+      if (data.title) backendData.subject = data.title;
+      if (data.content) backendData.description = data.content;
+      if (data.category_id) backendData.category = TICKET_CATEGORIES[data.category_id - 1] || 'Others';
+      if (data.visibility) backendData.visibility = capitalizeVisibility(data.visibility);
+      
+      const article = await backendArticleService.updateArticle(id, backendData);
+      
+      return {
+        id: article.id,
+        title: article.subject,
+        content: article.description,
+        category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
+        visibility: normalizeVisibility(article.visibility),
+        author: article.created_by_name || 'Unknown',
+        date_created: article.created_at,
+        date_modified: article.updated_at,
+        archived: article.is_archived
+      };
+    }
+  } catch (error) {
+    console.error('Failed to update article:', error);
+    throw error;
+  }
 };
 
 export const listPublishedArticles = async (filters = {}) => {
-  // With status removed, 'published' articles are the ones visible according to visibility rules.
-  return new Promise((res) => {
-    setTimeout(() => {
-      let results = [...mockArticles];
-      if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id);
-      if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
-      if (filters.query) {
-        const q = filters.query.toLowerCase();
-        results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
-      }
-      res(results);
-    }, 120);
-  });
-};
-
-export const resetSeeds = () => {
-  mockCategories = JSON.parse(JSON.stringify(categoriesSeed));
-  mockArticles = JSON.parse(JSON.stringify(articlesSeed));
-  mockFeedback = JSON.parse(JSON.stringify(feedbackSeed));
+  // For now, same as listArticles
+  return listArticles(filters);
 };
 
 export const listFeedback = async (articleId) => {
-  return new Promise((res) => setTimeout(() => res(mockFeedback.filter(f => f.articleId === Number(articleId))), 120));
+  // Stub for now - returns empty array (not implemented in backend yet)
+  return [];
 };
 
 export const submitFeedback = async ({ articleId, helpful, comment }) => {
-  const id = mockFeedback.length ? Math.max(...mockFeedback.map(f => f.id)) + 1 : 1;
-  const entry = { id, articleId: Number(articleId), helpful: !!helpful, comment: comment || '', date: new Date().toISOString() };
-  mockFeedback.push(entry);
-  return new Promise((res) => setTimeout(() => res(entry), 120));
+  // Stub for now - not implemented in backend yet
+  console.warn('submitFeedback not implemented in backend yet');
+  return { id: Date.now(), articleId, helpful, comment, date: new Date().toISOString() };
+};
+
+export const deleteArticle = async (id) => {
+  try {
+    await backendArticleService.deleteArticle(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete article:', error);
+    throw error;
+  }
+};
+
+export const resetSeeds = () => {
+  // No-op for backend service
+  console.warn('resetSeeds is not applicable for backend service');
 };
 
 // default export includes main conveniences for imports that use default
@@ -102,5 +196,6 @@ export default {
   updateArticle,
   listFeedback,
   submitFeedback,
+  deleteArticle,
   resetSeeds,
 };

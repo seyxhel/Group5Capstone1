@@ -1094,3 +1094,37 @@ def finalize_ticket(request, ticket_id):
         return Response({'detail': 'Ticket finalized and sent to workflow.'})
     except Ticket.DoesNotExist:
         return Response({'detail': 'Ticket not found.'}, status=404)
+
+
+# Knowledge Article ViewSet
+from rest_framework.decorators import action
+from .serializers import KnowledgeArticleSerializer
+from .models import KnowledgeArticle
+
+class KnowledgeArticleViewSet(viewsets.ModelViewSet):
+    serializer_class = KnowledgeArticleSerializer
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
+    
+    def get_queryset(self):
+        """Return all articles for listing; filtering happens in the view layer"""
+        return KnowledgeArticle.objects.all().order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Set the created_by field to the current user"""
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=True, methods=['post'], url_path='archive')
+    def archive(self, request, pk=None):
+        """Archive an article"""
+        article = self.get_object()
+        article.is_archived = True
+        article.save()
+        return Response({'detail': 'Article archived successfully.'}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        """Restore an archived article"""
+        article = self.get_object()
+        article.is_archived = False
+        article.save()
+        return Response({'detail': 'Article restored successfully.'}, status=status.HTTP_200_OK)

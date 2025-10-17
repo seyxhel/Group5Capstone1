@@ -65,6 +65,7 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+
 /* Stats Grid */
 .statsGrid {
   display: grid;
@@ -177,9 +178,16 @@
 /* Charts Grid */
 .chartsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  /* Use two fixed columns so panels occupy consistent slots and can be spanned */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   margin-bottom: 24px;
+}
+
+/* Dense packing to avoid empty gaps when an item spans columns */
+.chartsGrid {
+  grid-auto-flow: dense;
+  align-items: start;
 }
 
 .chartCard {
@@ -187,6 +195,21 @@
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth collapsible behavior for charts */
+
+
+/* Sliding door behavior for the timeline card */
+.slidingDoor {
+  overflow: visible;
+  transition: all 320ms ease;
+}
+ 
+
+.chartCard {
+  display: flex;
+  flex-direction: column;
 }
 
 .chartTitle {

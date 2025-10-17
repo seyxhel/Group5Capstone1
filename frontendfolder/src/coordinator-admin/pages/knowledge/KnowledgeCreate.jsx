@@ -29,7 +29,7 @@ const KnowledgeCreate = () => {
       // load article
       kbService.getArticle(editId).then(a => {
         if (a) {
-          setEditorData({ title: a.title || '', content: a.content || '', category_id: a.category_id || null, visibility: a.visibility || 'employee' });
+          setEditorData({ title: a.title || '', content: a.content || '', category_id: a.category_id || null, visibility: a.visibility || 'Employee' });
         }
       }).catch(()=>{});
     }
@@ -50,7 +50,7 @@ const KnowledgeCreate = () => {
           title: data.title,
           content: data.content,
           category_id: data.category_id || null,
-          visibility: data.visibility || 'employee',
+          visibility: data.visibility || 'Employee',
           author: 'Current Admin',
           date_modified: new Date().toISOString().slice(0,10)
         });
@@ -66,7 +66,7 @@ const KnowledgeCreate = () => {
     }
   };
 
-  const [editorData, setEditorData] = useState({ title: '', content: '', category_id: null, visibility: 'employee' });
+  const [editorData, setEditorData] = useState({ title: '', content: '', category_id: null, visibility: 'Employee' });
   const [validationErrors, setValidationErrors] = useState({});
 
   const onCancel = () => navigate('/admin/knowledge/articles');

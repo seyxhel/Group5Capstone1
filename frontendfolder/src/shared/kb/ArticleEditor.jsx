@@ -7,7 +7,7 @@ import inputStyles from '../components/InputField.module.css';
 
 
 const ArticleEditor = ({
-  initial = { title: '', content: '', category_id: null, visibility: 'employee' },
+  initial = { title: '', content: '', category_id: null, visibility: 'Employee' },
   categories = [],
   onSave,
   disabled = false,
@@ -17,7 +17,7 @@ const ArticleEditor = ({
   const [title, setTitle] = useState(initial.title);
   const [content, setContent] = useState(initial.content);
   const [categoryId, setCategoryId] = useState(initial.category_id || '');
-  const [visibility, setVisibility] = useState(initial.visibility || 'employee');
+  const [visibility, setVisibility] = useState(initial.visibility || 'Employee');
   const [errors, setErrors] = useState({});
 
   // sync when parent provides a new initial prop
@@ -100,9 +100,9 @@ const ArticleEditor = ({
           aria-required="true"
         >
           <option value="">— Select visibility —</option>
-          <option value="employee">Employee</option>
-          <option value="coordinator">Coordinator</option>
-          <option value="admin">Admin</option>
+          <option value="Employee">Employee</option>
+          <option value="Ticket Coordinator">Ticket Coordinator</option>
+          <option value="System Admin">System Admin</option>
         </select>
         {errors.visibility && <div className={inputStyles.errorMessage}>{errors.visibility}</div>}
       </div>

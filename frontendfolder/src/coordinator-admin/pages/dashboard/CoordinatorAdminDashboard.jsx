@@ -32,6 +32,7 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
+import kbService from '../../../services/kbService';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -304,6 +305,7 @@ const CoordinatorAdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
   const [, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
+  const [kbStats, setKbStats] = useState({ totalArticles: 0, totalCategories: 0 });
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const containerRef = useRef(null);
   const tabRefs = useRef([]);
@@ -374,6 +376,36 @@ const CoordinatorAdminDashboard = () => {
     };
 
     fetchUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch knowledge base stats
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchKBStats = async () => {
+      try {
+        const [articles, categories] = await Promise.all([
+          kbService.listArticles({}),
+          kbService.listCategories()
+        ]);
+        if (!isMounted) return;
+        
+        // Count total articles (excluding archived)
+        const totalArticles = (articles || []).filter(a => !a.archived).length;
+        const totalCategories = (categories || []).length;
+        
+        setKbStats({ totalArticles, totalCategories });
+      } catch (err) {
+        console.error('Error fetching KB stats for dashboard:', err);
+        if (isMounted) setKbStats({ totalArticles: 0, totalCategories: 0 });
+      }
+    };
+
+    fetchKBStats();
 
     return () => {
       isMounted = false;
@@ -729,8 +761,11 @@ const CoordinatorAdminDashboard = () => {
           <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid}>
             {activeTab === 'kb' ? (
-              // KB tab could show quick KB stats; reuse placeholder stat cards
-              [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
+              // KB tab shows real stats from backend
+              [
+                { label: 'Articles', count: kbStats.totalArticles }, 
+                { label: 'Categories', count: kbStats.totalCategories }
+              ].map((stat, i) => (
                 <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
               ))
             ) : (

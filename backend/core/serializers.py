@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Employee, Ticket, TicketAttachment
+from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
@@ -266,3 +266,20 @@ def ticket_to_dict(ticket):
     print("Serialized ticket data:", data)  # <-- Debug print statement
 
     return data
+
+
+class KnowledgeArticleSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = KnowledgeArticle
+        fields = [
+            'id', 'subject', 'category', 'visibility', 'description',
+            'is_archived', 'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return f"{obj.created_by.first_name} {obj.created_by.last_name}"
+        return None

@@ -249,3 +249,40 @@ class TicketComment(models.Model):
     
     def __str__(self):
         return f"Comment on {self.ticket.ticket_number} by {self.user}"
+
+
+VISIBILITY_CHOICES = [
+    ('Employee', 'Employee'),
+    ('Ticket Coordinator', 'Ticket Coordinator'),
+    ('System Admin', 'System Admin'),
+]
+
+ARTICLE_CATEGORY_CHOICES = [
+    ('IT Support', 'IT Support'),
+    ('Asset Check In', 'Asset Check In'),
+    ('Asset Check Out', 'Asset Check Out'),
+    ('New Budget Proposal', 'New Budget Proposal'),
+    ('Others', 'Others'),
+]
+
+
+class KnowledgeArticle(models.Model):
+    subject = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, choices=ARTICLE_CATEGORY_CHOICES)
+    visibility = models.CharField(max_length=50, choices=VISIBILITY_CHOICES)
+    description = models.TextField()
+    is_archived = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_articles'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.subject} ({self.category})"

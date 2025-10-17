@@ -4,6 +4,7 @@ from .views import (
     EmployeeTokenObtainPairView,
     AdminTokenObtainPairView,
     TicketViewSet,
+    KnowledgeArticleViewSet,
     CreateAdminEmployeeView,
     employee_profile_view,
     approve_ticket,
@@ -34,6 +35,7 @@ from .tasks import push_ticket_to_workflow
 
 router = DefaultRouter()
 router.register(r'tickets', TicketViewSet, basename='ticket')
+router.register(r'articles', KnowledgeArticleViewSet, basename='article')
 
 urlpatterns = [
     path('', custom_api_root, name='api-root'),  # <-- put this FIRST
