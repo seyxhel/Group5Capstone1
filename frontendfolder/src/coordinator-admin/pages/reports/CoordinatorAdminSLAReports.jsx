@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 
 // Register Chart.js components
 ChartJS.register(
@@ -28,8 +29,24 @@ const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
 
-  // Get tickets data
-  const allTickets = getAllTickets() || [];
+  // Get tickets data (load from backend)
+  const [allTickets, setAllTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useMemo(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await backendTicketService.getAllTickets();
+        if (mounted && Array.isArray(data)) setAllTickets(data);
+      } catch (e) {
+        console.error('Failed to load tickets for SLA report', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {
@@ -239,6 +256,11 @@ const CoordinatorAdminSLAReports = () => {
 
   return (
     <div className={styles.reportsPage}>
+      {loading && (
+        <div className={styles.loadingOverlay}>
+          <div>Loading SLA reports...</div>
+        </div>
+      )}
       {/* Page Header */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>⏱️ SLA Compliance</h1>

@@ -13,7 +13,8 @@ import {
   Legend
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
+import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
 
 // Register Chart.js components
 ChartJS.register(
@@ -31,9 +32,31 @@ ChartJS.register(
 const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [priorityRange, setPriorityRange] = useState('auto');
 
-  // Get tickets data
-  const allTickets = getAllTickets() || [];
+  // Get tickets data (load from backend instead of mock storage)
+  const [allTickets, setAllTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useMemo(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await backendTicketService.getAllTickets();
+        if (mounted && Array.isArray(data)) {
+          setAllTickets(data);
+          // Debug counts
+          const counts = data.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
+          console.info('Loaded tickets counts (by status):', counts, 'total:', data.length);
+        }
+      } catch (e) {
+        console.error('Failed to load tickets from backend', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {
@@ -53,69 +76,87 @@ const CoordinatorAdminTicketReports = () => {
     }
 
     if (selectedCategory !== 'all') {
-      tickets = tickets.filter(t => t.category === selectedCategory);
+      // The ticket form shows 'Others' but stored tickets use 'General Request'.
+      const filterCategory = selectedCategory === 'Others' ? 'General Request' : selectedCategory;
+      tickets = tickets.filter(t => t.category === filterCategory);
     }
 
     return tickets;
   }, [allTickets, dateRange, selectedCategory]);
 
-  // Status Distribution
+  // For charts we must exclude 'New' tickets per requirement
+  const filteredTicketsForCharts = useMemo(() => {
+    return (filteredTickets || []).filter(t => t.status !== 'New');
+  }, [filteredTickets]);
+
+  // Status Distribution (exclude 'New' tickets)
   const statusData = useMemo(() => {
+    const tickets = filteredTicketsForCharts || [];
     const statusCount = {};
-    filteredTickets.forEach(ticket => {
+    tickets.forEach(ticket => {
       const status = ticket.status || 'Unknown';
       statusCount[status] = (statusCount[status] || 0) + 1;
     });
 
+    const labels = Object.keys(statusCount);
+    const defaultColors = [
+      '#2563eb', // New (shouldn't appear because we excluded it)
+      '#0284c7', // Open
+      '#7c3aed', // In Progress
+      '#b35000', // On Hold
+      '#059669', // Resolved
+      '#16a34a', // Closed
+      '#dc2626', // Rejected
+      '#6b7280', // Withdrawn
+    ];
+    const backgroundColor = labels.map((_, i) => defaultColors[i % defaultColors.length]);
+
     return {
-      labels: Object.keys(statusCount),
+      labels,
       datasets: [{
         data: Object.values(statusCount),
-        backgroundColor: [
-          '#2563eb', // New
-          '#0284c7', // Open
-          '#7c3aed', // In Progress
-          '#b35000', // On Hold
-          '#059669', // Resolved
-          '#16a34a', // Closed
-          '#dc2626', // Rejected
-          '#6b7280', // Withdrawn
-        ],
+        backgroundColor,
         borderWidth: 2,
         borderColor: '#ffffff'
       }]
     };
-  }, [filteredTickets]);
+  }, [filteredTicketsForCharts]);
 
-  // Priority Distribution
+  // Priority Distribution (based on currently filtered tickets and excluding 'New')
   const priorityData = useMemo(() => {
-    const priorityCount = { Critical: 0, High: 0, Medium: 0, Low: 0, 'Not Set': 0 };
-    filteredTickets.forEach(ticket => {
-      const priority = ticket.priorityLevel || 'Not Set';
-      priorityCount[priority] = (priorityCount[priority] || 0) + 1;
+    const tickets = filteredTicketsForCharts || [];
+    const counts = {};
+    tickets.forEach(ticket => {
+      const priority = ticket.priorityLevel || ticket.priority || 'Not Set';
+      counts[priority] = (counts[priority] || 0) + 1;
     });
 
-    return {
-      labels: Object.keys(priorityCount),
-      datasets: [{
-        label: 'Tickets',
-        data: Object.values(priorityCount),
-        backgroundColor: [
-          '#991b1b', // Critical
-          '#dc2626', // High
-          '#d97706', // Medium
-          '#16a34a', // Low
-          '#6b7280', // Not Set
-        ],
-        borderRadius: 6,
-      }]
+    const priorityOrder = ['Critical', 'High', 'Medium', 'Low', 'Not Set'];
+    const colorMap = {
+      Critical: '#991b1b',
+      High: '#dc2626',
+      Medium: '#d97706',
+      Low: '#16a34a',
+      'Not Set': '#6b7280'
     };
-  }, [filteredTickets]);
 
-  // Category breakdown
+    // Always use the fixed priority order for X axis; missing entries show as 0
+    const labels = priorityOrder;
+    const data = labels.map(l => counts[l] || 0);
+    const backgroundColor = labels.map(l => colorMap[l] || '#6b7280');
+
+    return {
+      labels,
+      datasets: [{ label: 'Tickets', data, backgroundColor, borderRadius: 6 }]
+    };
+  }, [filteredTicketsForCharts]);
+
+  
+
+  // Category breakdown (exclude 'New')
   const categoryData = useMemo(() => {
     const categoryCount = {};
-    filteredTickets.forEach(ticket => {
+    (filteredTicketsForCharts || []).forEach(ticket => {
       const category = ticket.category || 'Unknown';
       categoryCount[category] = (categoryCount[category] || 0) + 1;
     });
@@ -129,28 +170,69 @@ const CoordinatorAdminTicketReports = () => {
         borderRadius: 6,
       }]
     };
-  }, [filteredTickets]);
+  }, [filteredTicketsForCharts]);
 
-  // Tickets over time (mock data for demonstration)
-  const timelineData = {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [
-      {
-        label: 'Created',
-        data: [12, 19, 15, 22],
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4,
-      },
-      {
-        label: 'Resolved',
-        data: [8, 14, 12, 18],
-        borderColor: '#16a34a',
-        backgroundColor: 'rgba(22, 163, 74, 0.1)',
-        tension: 0.4,
-      }
-    ]
-  };
+  // Tickets over time (compute from actual createdAt/resolvedAt dates)
+  const timelineData = useMemo(() => {
+    // Bucket by week labels based on the filteredTickets range
+    if (!filteredTickets || filteredTickets.length === 0) {
+      return {
+        labels: [],
+        datasets: [
+          { label: 'Created', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.4 },
+          { label: 'Resolved', data: [], borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.4 }
+        ]
+      };
+    }
+
+  // Determine date buckets (weeks) across filteredTicketsForCharts
+  const createdDates = filteredTicketsForCharts.map(t => new Date(t.createdAt));
+  const resolvedDates = filteredTicketsForCharts.map(t => t.resolvedAt ? new Date(t.resolvedAt) : null).filter(Boolean);
+
+    const minDate = new Date(Math.min(...createdDates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...createdDates.map(d => d.getTime())));
+
+    // Create weekly buckets from minDate to maxDate
+    const buckets = [];
+    const labels = [];
+    const startOfWeek = (d) => {
+      const copy = new Date(d);
+      copy.setHours(0,0,0,0);
+      const day = copy.getDay();
+      const diff = copy.getDate() - day + (day === 0 ? -6 : 1); // Monday as start
+      copy.setDate(diff);
+      return copy;
+    };
+
+    let cursor = startOfWeek(minDate);
+    const endCursor = startOfWeek(maxDate);
+    while (cursor <= endCursor) {
+      const next = new Date(cursor);
+      next.setDate(next.getDate() + 7);
+      labels.push(`${cursor.toLocaleDateString()} - ${new Date(next.getTime()-1).toLocaleDateString()}`);
+      buckets.push({ start: new Date(cursor), end: new Date(next.getTime()-1) });
+      cursor = next;
+    }
+
+    const createdCounts = buckets.map(b => filteredTicketsForCharts.filter(t => {
+      const dt = new Date(t.createdAt);
+      return dt >= b.start && dt <= b.end;
+    }).length);
+
+    const resolvedCounts = buckets.map(b => filteredTicketsForCharts.filter(t => {
+      if (!t.resolvedAt) return false;
+      const dt = new Date(t.resolvedAt);
+      return dt >= b.start && dt <= b.end;
+    }).length);
+
+    return {
+      labels,
+      datasets: [
+        { label: 'Created', data: createdCounts, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.4 },
+        { label: 'Resolved', data: resolvedCounts, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.4 }
+      ]
+    };
+  }, [filteredTickets]);
 
   // Chart options
   const pieOptions = {
@@ -198,6 +280,34 @@ const CoordinatorAdminTicketReports = () => {
     }
   };
 
+  // Dynamic priority chart options depending on selected priorityRange
+  const priorityBarOptions = useMemo(() => {
+    // compute data max from priorityData
+    const dataMax = (priorityData?.datasets?.[0]?.data || []).reduce((a, b) => Math.max(a, b), 0);
+
+    let yMax = null;
+    if (priorityRange !== 'auto') {
+      const parts = priorityRange.split('-').map(s => parseInt(s.replace(/,/g, ''), 10));
+      if (parts.length === 2 && !isNaN(parts[1])) yMax = parts[1];
+    }
+
+    // If auto, set suggestedMax to a rounded value of dataMax (for nicer ticks)
+    const suggestedMax = priorityRange === 'auto' ? Math.max(10, Math.ceil(dataMax / 10) * 10) : undefined;
+
+    return {
+      ...barOptions,
+      scales: {
+        x: {},
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 },
+          ...(yMax ? { max: yMax } : {}),
+          ...(suggestedMax ? { suggestedMax } : {})
+        }
+      }
+    };
+  }, [priorityRange, priorityData]);
+
   const lineOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -218,13 +328,14 @@ const CoordinatorAdminTicketReports = () => {
     }
   };
 
-  // Get unique categories
-  const categories = ['all', ...new Set((allTickets || []).map(t => t.category).filter(Boolean))];
+  // Use the full list of categories from the ticket form (so all options are visible)
+  const categories = ['all', ...TICKET_CATEGORIES];
 
   // Summary stats
   const stats = useMemo(() => {
-    const total = filteredTickets.length;
-    const open = filteredTickets.filter(t => ['New', 'Open', 'In Progress'].includes(t.status)).length;
+  // Total tickets should reflect all tickets except 'New' tickets (exclude 'New' from total)
+  const total = filteredTickets.filter(t => t.status !== 'New').length;
+  const open = filteredTickets.filter(t => t.status === 'Open').length;
     const resolved = filteredTickets.filter(t => t.status === 'Resolved').length;
     const closed = filteredTickets.filter(t => t.status === 'Closed').length;
 
@@ -233,6 +344,11 @@ const CoordinatorAdminTicketReports = () => {
 
   return (
     <div className={styles.reportsPage}>
+      {loading && (
+        <div className={styles.loadingOverlay}>
+          <div>Loading ticket reports...</div>
+        </div>
+      )}
       {/* Page Header */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>📊 Ticket Reports</h1>
@@ -266,6 +382,22 @@ const CoordinatorAdminTicketReports = () => {
                 {cat === 'all' ? 'All Categories' : cat}
               </option>
             ))}
+          </select>
+        </div>
+        
+        <div className={styles.filterGroup}>
+          <label>Priority Range:</label>
+          <select
+            value={priorityRange}
+            onChange={(e) => setPriorityRange(e.target.value)}
+            className={styles.filterSelect}
+          >
+            <option value="auto">Auto</option>
+            <option value="0-50">0 - 50</option>
+            <option value="50-100">50 - 100</option>
+            <option value="100-1000">100 - 1,000</option>
+            <option value="1000-10000">1,000 - 10,000</option>
+            <option value="10000-100000">10,000 - 100,000</option>
           </select>
         </div>
       </div>
@@ -314,7 +446,7 @@ const CoordinatorAdminTicketReports = () => {
           <div className={styles.chartCard}>
             <h3 className={styles.chartTitle}>Priority Breakdown</h3>
             <div className={styles.chartContainer}>
-              <Bar data={priorityData} options={barOptions} />
+              <Bar data={priorityData} options={priorityBarOptions} />
             </div>
           </div>
         </div>

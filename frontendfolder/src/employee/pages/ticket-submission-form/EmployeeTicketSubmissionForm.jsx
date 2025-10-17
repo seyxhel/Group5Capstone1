@@ -27,14 +27,7 @@ const ALLOWED_FILE_TYPES = [
   'text/csv',
 ];
 
-// Main ticket categories
-const ticketCategories = [
-  'IT Support',
-  'Asset Check In',
-  'Asset Check Out',
-  'New Budget Proposal',
-  'Others'
-];
+import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
 
 export default function EmployeeTicketSubmissionForm() {
   const navigate = useNavigate();
@@ -499,7 +492,7 @@ export default function EmployeeTicketSubmissionForm() {
                 onBlur={handleBlur('category')}
               >
                 <option value="">Select Category</option>
-                {ticketCategories.map(cat => (
+                {TICKET_CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
