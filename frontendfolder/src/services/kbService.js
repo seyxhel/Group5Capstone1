@@ -33,7 +33,7 @@ export const listCategories = async () => {
 
 export const listArticles = async (filters = {}) => {
   try {
-    const articles = await backendArticleService.getAllArticles();
+  const articles = await backendArticleService.getAllArticles();
     
     // Map backend article format to UI format
     return articles.map(article => ({

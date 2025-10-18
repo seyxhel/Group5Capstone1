@@ -6,10 +6,9 @@ const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 // Helper function to get auth headers
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-  };
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
 };
 
 // Helper to handle 401 errors by logging out immediately
@@ -31,12 +30,6 @@ export const backendArticleService = {
    */
   async getAllArticles() {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        console.error('No access token found');
-        return [];
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/`, {
         method: 'GET',
         headers: getAuthHeaders(),

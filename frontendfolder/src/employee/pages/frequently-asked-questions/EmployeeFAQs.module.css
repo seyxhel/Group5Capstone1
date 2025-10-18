@@ -51,6 +51,14 @@
   gap: 1rem;
 }
 
+/* Stronger overrides for cases where theme or global styles make text transparent */
+.faqList,
+.faqList * {
+  color: inherit !important;
+  -webkit-text-fill-color: unset !important;
+  opacity: 1 !important;
+}
+
 .faqItem {
   border-bottom: 1px solid #f0f0f0;
   padding: 0.75rem 0;
@@ -63,7 +71,8 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
-  color: var(--text-color);
+  /* Use explicit color to avoid theme overrides making text invisible */
+  color: #0c0c0c;
   transition: color 0.2s ease;
 }
 
@@ -80,7 +89,8 @@
 
 .faqAnswer {
   margin-top: 0.5rem;
-  color: var(--secondary-text-color);
+  /* explicit secondary color for readability */
+  color: #475569;
   line-height: 1.5;
   font-size: 0.95rem;
   animation: fadeIn 0.2s ease;
@@ -89,10 +99,15 @@
 }
 
 .noResults {
-  color: var(--secondary-text-color);
+  color: #64748b;
   padding: 1rem 0;
   font-style: italic;
   font-size: 0.95rem;
+}
+
+/* Ensure search placeholder is visible */
+.searchInput::placeholder {
+  color: #94a3b8;
 }
 
 @keyframes fadeIn {

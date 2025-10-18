@@ -1098,17 +1098,31 @@ def finalize_ticket(request, ticket_id):
 
 # Knowledge Article ViewSet
 from rest_framework.decorators import action
+from rest_framework.permissions import SAFE_METHODS, AllowAny
 from .serializers import KnowledgeArticleSerializer
 from .models import KnowledgeArticle
 
+
 class KnowledgeArticleViewSet(viewsets.ModelViewSet):
     serializer_class = KnowledgeArticleSerializer
+    # default permission for unsafe methods; we'll override for safe methods in get_permissions
     permission_classes = [IsAuthenticated, IsSystemAdmin]
-    
+
+    def get_permissions(self):
+        """Allow safe (read-only) methods to be accessible without System Admin permission.
+        Unsafe methods (create/update/delete) still require IsAuthenticated and IsSystemAdmin.
+        """
+        # If it's a safe method, allow public read access.
+        if self.request.method in SAFE_METHODS:
+            return [AllowAny()]
+        return [perm() for perm in self.permission_classes]
+
+    # Use default list/retrieve implementations from ModelViewSet (no debug prints)
+
     def get_queryset(self):
         """Return all articles for listing; filtering happens in the view layer"""
         return KnowledgeArticle.objects.all().order_by('-created_at')
-    
+
     def perform_create(self, serializer):
         """Set the created_by field to the current user"""
         serializer.save(created_by=self.request.user)

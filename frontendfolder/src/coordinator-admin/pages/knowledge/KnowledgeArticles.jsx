@@ -53,6 +53,21 @@ const KnowledgeArticles = () => {
     return c ? c.name : 'Uncategorized';
   };
 
+  const normalizeAuthorLabel = (author) => {
+    if (!author) return '';
+    const s = String(author).toLowerCase();
+    if (s.includes('system admin') || s.includes('system administrator') || s.includes('administrator')) return 'System Admin';
+    return author;
+  };
+
+  const truncate = (text, max = 29) => {
+    if (!text) return '';
+    const str = String(text);
+    if (str.length <= max) return str;
+    // show max chars = max (including dots). keep max-3 characters then '...'
+    return str.slice(0, Math.max(0, max - 3)) + '...';
+  };
+
   const formatArticleDate = (a) => {
     const dateStr = a.date_created || a.date_modified || '';
     if (!dateStr) return '';
@@ -219,9 +234,9 @@ const KnowledgeArticles = () => {
                 paginated.map((a, idx) => (
                   <tr key={a.id || idx}>
                     <td>
-                      <div className={userStyles.subjectCell}>
-                        <div style={{ fontWeight: 600 }}>{a.title}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{a.author} • {formatArticleDate(a)}</div>
+                      <div className={userStyles.subjectCell} title={a.title}>
+                        <div style={{ fontWeight: 600 }}>{truncate(a.title, 29)}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{normalizeAuthorLabel(a.author)} • {formatArticleDate(a)}</div>
                       </div>
                     </td>
                     <td>{getCategoryName(a.category_id)}</td>
