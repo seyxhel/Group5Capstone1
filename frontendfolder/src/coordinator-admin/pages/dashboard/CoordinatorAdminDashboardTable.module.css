@@ -52,6 +52,78 @@
 
 .tableHead {
   background-color: #f0f1f2;
+
+  /* Lock the first column so it stays visible when horizontally scrolling */
+  .table tbody td:first-child,
+  .table thead th:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 3; /* higher than header to avoid overlap artifacts when scrolling vertically */
+  }
+
+  /* Add a subtle right border to the locked column to visually separate it */
+  .table tbody td:first-child {
+    border-right: 1px solid #e5e7eb;
+  }
+
+  /* Utilities to lock multiple left columns. Assumes typical column widths; adjust if needed. */
+  .lockLeft1 .table tbody td:nth-child(1),
+  .lockLeft1 .table thead th:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: #fff;
+  }
+
+  .lockLeft2 .table tbody td:nth-child(1),
+  .lockLeft2 .table thead th:nth-child(1) {
+    position: sticky; left: 0; z-index: 4; background: #fff;
+  }
+  .lockLeft2 .table tbody td:nth-child(2),
+  .lockLeft2 .table thead th:nth-child(2) {
+    position: sticky; left: 140px; z-index: 4; background: #fff;
+  }
+
+  .lockLeft3 .table tbody td:nth-child(1),
+  .lockLeft3 .table thead th:nth-child(1) { position: sticky; left: 0; z-index: 4; background: #fff; }
+  .lockLeft3 .table tbody td:nth-child(2),
+  .lockLeft3 .table thead th:nth-child(2) { position: sticky; left: 140px; z-index: 4; background: #fff; }
+  .lockLeft3 .table tbody td:nth-child(3),
+  .lockLeft3 .table thead th:nth-child(3) { position: sticky; left: 280px; z-index: 4; background: #fff; }
+
+  .lockLeft4 .table tbody td:nth-child(1),
+  .lockLeft4 .table thead th:nth-child(1) { position: sticky; left: 0; z-index: 4; background: #fff; }
+  .lockLeft4 .table tbody td:nth-child(2),
+  .lockLeft4 .table thead th:nth-child(2) { position: sticky; left: 140px; z-index: 4; background: #fff; }
+  .lockLeft4 .table tbody td:nth-child(3),
+  .lockLeft4 .table thead th:nth-child(3) { position: sticky; left: 280px; z-index: 4; background: #fff; }
+  .lockLeft4 .table tbody td:nth-child(4),
+  .lockLeft4 .table thead th:nth-child(4) { position: sticky; left: 420px; z-index: 4; background: #fff; }
+
+  .lockLeft5 .table tbody td:nth-child(1),
+  .lockLeft5 .table thead th:nth-child(1) { position: sticky; left: 0; z-index: 4; background: #fff; }
+  .lockLeft5 .table tbody td:nth-child(2),
+  .lockLeft5 .table thead th:nth-child(2) { position: sticky; left: 140px; z-index: 4; background: #fff; }
+  .lockLeft5 .table tbody td:nth-child(3),
+  .lockLeft5 .table thead th:nth-child(3) { position: sticky; left: 280px; z-index: 4; background: #fff; }
+  .lockLeft5 .table tbody td:nth-child(4),
+  .lockLeft5 .table thead th:nth-child(4) { position: sticky; left: 420px; z-index: 4; background: #fff; }
+  .lockLeft5 .table tbody td:nth-child(5),
+  .lockLeft5 .table thead th:nth-child(5) { position: sticky; left: 560px; z-index: 4; background: #fff; }
+
+  .lockLeft6 .table tbody td:nth-child(1),
+  .lockLeft6 .table thead th:nth-child(1) { position: sticky; left: 0; z-index: 4; background: #fff; }
+  .lockLeft6 .table tbody td:nth-child(2),
+  .lockLeft6 .table thead th:nth-child(2) { position: sticky; left: 140px; z-index: 4; background: #fff; }
+  .lockLeft6 .table tbody td:nth-child(3),
+  .lockLeft6 .table thead th:nth-child(3) { position: sticky; left: 280px; z-index: 4; background: #fff; }
+  .lockLeft6 .table tbody td:nth-child(4),
+  .lockLeft6 .table thead th:nth-child(4) { position: sticky; left: 420px; z-index: 4; background: #fff; }
+  .lockLeft6 .table tbody td:nth-child(5),
+  .lockLeft6 .table thead th:nth-child(5) { position: sticky; left: 560px; z-index: 4; background: #fff; }
+  .lockLeft6 .table tbody td:nth-child(6),
+  .lockLeft6 .table thead th:nth-child(6) { position: sticky; left: 700px; z-index: 4; background: #fff; }
 }
 
 .tableHeaderCell {

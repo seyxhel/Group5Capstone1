@@ -15,13 +15,8 @@ SUFFIX_CHOICES = [
 
 DEPARTMENT_CHOICES = [
     ('IT Department', 'IT Department'),
-    ('Asset Management', 'Asset Management'),
-    ('Document Control', 'Document Control'),
-    ('Finance & Budgeting', 'Finance & Budgeting'),
-    ('Operations', 'Operations'),
-    ('Facilities & Maintenance', 'Facilities & Maintenance'),
-    ('Human Resources', 'Human Resources'),
-    ('Administration', 'Administration'),
+    ('Asset Department', 'Asset Department'),
+    ('Budget Department', 'Budget Department'),
 ]
 
 ROLE_CHOICES = [
@@ -131,16 +126,25 @@ STATUS_CHOICES = [
 ]
 
 CATEGORY_CHOICES = [
-    ('Software', 'Software'),
-    ('Hardware', 'Hardware'),
-    ('Network', 'Network'),
-    # Add more as needed
+    ('IT Support', 'IT Support'),
+    ('Asset Check In', 'Asset Check In'),
+    ('Asset Check Out', 'Asset Check Out'),
+    ('New Budget Proposal', 'New Budget Proposal'),
+    ('Others', 'Others'),
 ]
 
+# IT support sub-categories
 SUBCATEGORY_CHOICES = [
-    ('Unauthorized App', 'Unauthorized App'),
-    ('Application Error', 'Application Error'),
-    # Add more as needed
+    ('Technical Assistance', 'Technical Assistance'),
+    ('Software Installation/Update', 'Software Installation/Update'),
+    ('Hardware Troubleshooting', 'Hardware Troubleshooting'),
+    ('Email/Account Access Issue', 'Email/Account Access Issue'),
+    ('Internet/Network Connectivity Issue', 'Internet/Network Connectivity Issue'),
+    ('Printer/Scanner Setup or Issue', 'Printer/Scanner Setup or Issue'),
+    ('System Performance Issue', 'System Performance Issue'),
+    ('Virus/Malware Check', 'Virus/Malware Check'),
+    ('IT Consultation Request', 'IT Consultation Request'),
+    ('Data Backup/Restore', 'Data Backup/Restore'),
 ]
 def generate_unique_ticket_number():
     from .models import Ticket  # safe import for migrations

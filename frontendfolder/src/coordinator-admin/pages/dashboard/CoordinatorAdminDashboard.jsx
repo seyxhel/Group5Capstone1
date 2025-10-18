@@ -79,13 +79,13 @@ const StatCard = ({ label, count, isHighlight, position, onClick }) => {
   );
 };
 
-const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows }) => {
+const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows, lockLeftCount }) => {
   // approximate row height in px (used to compute max height for scrollable area)
   const approximateRowHeight = 52; // tweak if CSS changes
   const overflowStyle = maxRows ? { maxHeight: `${approximateRowHeight * maxRows}px`, overflowY: 'auto' } : undefined;
 
   return (
-    <div className={tableStyles.tableContainer}>
+  <div className={`${tableStyles.tableContainer} ${lockLeftCount ? tableStyles[`lockLeft${lockLeftCount}`] : ''}`}>
       <div className={tableStyles.tableHeader}>
         <h3 className={tableStyles.tableTitle}>{title}</h3>
         <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
@@ -774,6 +774,7 @@ const CoordinatorAdminDashboard = () => {
                   key={i}
                   {...stat}
                   onClick={() => stat.path && navigate(stat.path)}
+                // make Users approval table also limited to 5 visible rows and scrollable
                 />
               ))
             )}
@@ -800,8 +801,9 @@ const CoordinatorAdminDashboard = () => {
                         : '/admin/user-access/all-users'
                     )
                   }
-                  // limit visible rows and make table scrollable for tickets list
-                  maxRows={activeTab === 'tickets' ? 5 : undefined}
+                  // limit visible rows and make table scrollable: tickets=5, users=6
+                  maxRows={activeTab === 'tickets' ? 5 : activeTab === 'users' ? 6 : undefined}
+                  lockLeftCount={activeTab === 'users' ? 6 : undefined}
                 />
 
                 <div className={chartStyles.chartsGrid}>
