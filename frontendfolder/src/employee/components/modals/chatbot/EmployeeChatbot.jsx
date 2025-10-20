@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { FiPaperclip, FiSend } from "react-icons/fi";
 import MapLogo from "../../../../shared/assets/MapLogo.png";
 import styles from "./EmployeeChatbot.module.css";
 import { marked } from "marked";
+import axios from "axios";
+import { API_CONFIG } from '../../../../config/environment.js';
 
 function buildFAQPrompt(faqs) {
   let prompt = "You are a support assistant for SmartSupport. Only answer questions based on the following FAQs:\n";
@@ -12,87 +14,6 @@ function buildFAQPrompt(faqs) {
   prompt += "If you don't know the answer, say 'Please refer to our support team.'";
   return prompt;
 }
-
-const faqs = [
-  {
-    question: "Who is the CEO of MAP Active Philippines?",
-    answer: "Elizabeth Marcelo Tinio is the CEO of MAP Active Philippines."
-  },
-  {
-    question: "Who are the decision makers in Map Active Philippines?",
-    answer: "The decision makers in Map Active Philippines are Anton Gonzalez, Anton Gonzalez, Belinda Cueto-buenaventura, etc. Click to Find Map Active Philippines decision makers emails."
-  },
-  {
-    question: "Where is MAP ACTIVE PHILIPPINES INC. located?",
-    answer: "MAP ACTIVE PHILIPPINES INC. is located at 19th, 20th and 21st Floors 1 Proscenium Estrella Drive corner JP Rizal Street, Rockwell Center, Makati, Metro Manila, 1211 Philippines"
-  },
-  {
-    question: "What services does Map Active Philippines offer?",
-    answer: "Map Active Philippines specializes in brand distribution and brand marketing. We provide a comprehensive range of services that include logistics management, retail distribution, and marketing strategies tailored to enhance brand visibility and consumer engagement. Our expertise allows us to effectively connect brands with their target audiences across various platforms."
-  },
-  {
-    question: "Which industries does Map Active serve?",
-    answer: "Map Active serves a diverse range of industries, including consumer goods, fashion, electronics, and food and beverages. Our extensive experience in brand distribution allows us to cater to the unique needs of each sector, ensuring that our clients achieve optimal market penetration and brand loyalty."
-  },
-  {
-    question: "How does Map Active ensure effective brand marketing?",
-    answer: "We employ a multi-faceted approach to brand marketing that includes market research, targeted advertising, promotional campaigns, and strategic partnerships. Our team of marketing professionals utilizes data-driven insights to create customized marketing strategies that resonate with consumers and drive sales."
-  },
-  {
-    question: "Can Map Active assist with logistics and supply chain management?",
-    answer: "Yes, Map Active offers logistics and supply chain management services as part of our brand distribution solutions. We manage the entire supply chain process, from warehousing to transportation, ensuring that products are delivered efficiently and effectively to meet market demand."
-  },
-  {
-    question: "What is the process for partnering with Map Active?",
-    answer: "To partner with Map Active, interested brands can reach out through our website or contact our business development team directly. We will conduct an initial consultation to understand your brand's needs and objectives, followed by a tailored proposal outlining how we can support your brand's growth through our distribution and marketing services."
-  },
-  {
-    question: "Does Map Active provide support for new product launches?",
-    answer: "Absolutely! Map Active has extensive experience in supporting new product launches. We offer services that include market analysis, promotional strategies, and distribution planning to ensure a successful introduction of your product to the market. Our team works closely with clients to create impactful launch campaigns that drive awareness and sales."
-  },
-  {
-    question: "What kind of retail stores does MAP Active operate?",
-    answer: "MAP Active operates a wide variety of retail stores, including Planet Sports, Sports Warehouse, New Balance Store, Rookie USA, and Foot Locker."
-  },
-  {
-    question: "Is MAP Active a distributor?",
-    answer: "Yes, they are the official distributor for several brands, including New Balance, Converse, Fitflop, and Skechers."
-  },
-  {
-    question: "What are some of the popular brands they carry?",
-    answer: "Some popular brands include Starbucks, Zara, Apple, Marks & Spencer, SOGO, SEIBU, Oshkosh B'Gosh, and Reebok, among others."
-  },
-  {
-    question: "How do I create a ticket?",
-    answer: "You can create a ticket by clicking +Submit a Ticket at the dashboard or adding a new ticket at the ticket list"
-  },
-  {
-    question: "What information do I need to include in my ticket?",
-    answer: "Subject, Category, Sub-category are required and description and file attachments are optional"
-  },
-  {
-    question: "Can I update my ticket after it's been submitted?",
-    answer: "Yes, you can update or add additional information to your ticket at any time"
-  },
-  {
-    question: "Will I receive notifications about my ticket?",
-    answer: "Yes, you will receive email notifications whenever there is an update on your ticket. This includes when your ticket is assigned, resolved, or requires additional action."
-  },
-  {
-    question: "What happens if my issue is not resolved?",
-    answer: "If your issue cannot be resolved in the expected time frame, it will be escalated to higher-level support. We will inform you of the next steps or alternative solutions."
-  },
-  {
-    question: "Is there a way to cancel or delete a ticket?",
-    answer: "Tickets cannot be deleted once they are created, but if you no longer need support, you can withdraw the ticket."
-  },
-  {
-    question: "What if my ticket has been marked as resolved but the issue isn't fixed?",
-    answer: "If the issue persists after your ticket has been marked as resolved, you can follow up the ticket and the agents will investigate further to ensure the issue is properly addressed"
-  }
-];
-
-const FAQ_SYSTEM_PROMPT = buildFAQPrompt(faqs);
 
 const defaultMessages = [
   {
@@ -121,6 +42,7 @@ const EmployeeChatbot = ({ closeModal }) => {
     return defaultMessages;
   });
 
+  const [faqs, setFaqs] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
@@ -143,6 +65,81 @@ const EmployeeChatbot = ({ closeModal }) => {
       // ignore storage errors
     }
   }, [messages]);
+
+  useEffect(() => {
+    const fetchFAQs = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          console.error("No access token found. Please log in.");
+          return;
+        }
+
+    const baseUrl = API_CONFIG.BACKEND.BASE_URL || '';
+    const articlesUrl = `${baseUrl.replace(/\/$/, '')}/api/articles/`;
+
+    // If BASE_URL is empty string, fall back to relative path
+    const requestUrl = baseUrl ? articlesUrl : '/api/articles/';
+
+    const response = await axios.get(requestUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          validateStatus: (status) => status < 500, // Accept all 2xx and 4xx responses
+        });
+
+        console.log("Full API Response:", response);
+        console.log("Request Config:", response.config);
+        console.log("Response Headers:", response.headers);
+
+        // Check if the response is HTML (indicating an error or redirect)
+        if (typeof response.data === "string" && response.data.startsWith("<!doctype html>")) {
+          console.error("Received HTML response instead of JSON. Possible redirect or error page:", response.data);
+          if (response.request?.res?.responseUrl) {
+            console.error("Redirected to:", response.request.res.responseUrl);
+          }
+          return;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          console.error("Authentication error. Please check your access token.");
+          return;
+        }
+
+        if (response.headers["content-type"]?.includes("application/json")) {
+          // Map backend KnowledgeArticle fields to the front-end FAQ shape and
+          // normalize visibility check (backend uses 'Employee' capitalization).
+          const mapped = response.data
+            .map((a) => ({
+              id: a.id,
+              question: a.subject || '',
+              answer: a.description || '',
+              visibility: a.visibility || '',
+              is_archived: !!a.is_archived,
+            }))
+            .filter((faq) => !faq.is_archived && (faq.visibility || '').toLowerCase() === 'employee');
+
+          console.log('Loaded FAQs count=', mapped.length);
+          console.debug('Loaded FAQs (summary):', mapped.map(f => ({ id: f.id, question: f.question?.slice(0,80), visibility: f.visibility, is_archived: f.is_archived })));
+          setFaqs(mapped);
+        } else {
+          console.error("Unexpected response format. Expected JSON but received:", response.data);
+        }
+      } catch (error) {
+        if (error.response) {
+          console.error("Error response from server:", error.response);
+        } else if (error.request) {
+          console.error("No response received from server:", error.request);
+        } else {
+          console.error("Error setting up the request:", error.message);
+        }
+      }
+    };
+
+    fetchFAQs();
+  }, []);
+
+  const FAQ_SYSTEM_PROMPT = useMemo(() => buildFAQPrompt(faqs), [faqs]);
 
   const formatTime = (date) => {
     const hours = date.getHours();
@@ -168,6 +165,20 @@ const EmployeeChatbot = ({ closeModal }) => {
     if (!userMessage) return null;
     const text = userMessage.toLowerCase();
 
+    // Avoid matching tiny inputs like "hi" against FAQ content.
+    // Short strings often appear inside other words (e.g. 'hi' in 'this')
+    // which causes accidental matches. For short greetings, return the
+    // default greeting instead of searching the KB.
+    const trimmed = userMessage.trim();
+    if (trimmed.length < 3) {
+      const greetingRe = /^(hi|hello|hey|hey there|good morning|good afternoon|good evening)[.!]?$/i;
+      if (greetingRe.test(trimmed)) {
+        console.debug('Detected greeting, returning canned greeting.');
+        return defaultMessages[0].text;
+      }
+      return null;
+    }
+
     // Exact substring match against question or answer
     for (const faq of faqs) {
       const q = faq.question.toLowerCase();
@@ -175,25 +186,83 @@ const EmployeeChatbot = ({ closeModal }) => {
       if (q.includes(text) || a.includes(text) || text.includes(q)) return faq.answer;
     }
 
-    // Token match: count overlapping long tokens
-    const tokens = text.split(/\W+/).filter(t => t.length > 3);
+    // Token match: count overlapping tokens (allow shorter tokens to help match brief questions)
+    const tokens = text.split(/\W+/).filter(t => t.length > 2);
     if (tokens.length === 0) return null;
     let best = { score: 0, answer: null };
     for (const faq of faqs) {
-      const q = faq.question.toLowerCase() + ' ' + faq.answer.toLowerCase();
+      const q = (faq.question || '').toLowerCase() + ' ' + (faq.answer || '').toLowerCase();
       let score = 0;
       for (const tok of tokens) if (q.includes(tok)) score++;
+      // log each faq's score for this query (debug level)
+      console.debug('FAQ score', { id: faq.id, question: faq.question, score });
       if (score > best.score) best = { score, answer: faq.answer };
     }
-    // require at least two token matches to accept
-    return best.score >= 2 ? best.answer : null;
+    // require at least one token match to accept (lenient)
+    if (best.score >= 1) {
+      console.debug('FAQ matcher: matched tokens=', tokens, 'score=', best.score, 'answer=', best.answer?.slice(0, 120));
+      return best.answer;
+    }
+    console.debug('FAQ matcher: no good local match', { tokens, best });
+    return null;
   };
 
   const fetchOpenRouterResponse = async (userMessage) => {
-    // If we don't have an API key, attempt local FAQ lookup first
+    // Try local FAQ lookup first — quicker and avoids external API if we already know the answer
+    // If the user explicitly asks to list FAQs, return a list from the loaded `faqs`.
+    const listFaqsRe = /\b(list|show|display|what are)\b.*\b(faqs|faq|knowledge articles|articles|knowledge base)\b/i;
+    if (listFaqsRe.test(userMessage)) {
+      if (!faqs || faqs.length === 0) return "There are no knowledge base articles available right now.";
+      // Return a friendly bullet list (short subjects)
+      const items = faqs.map((f, i) => `${i + 1}. ${f.question}`);
+      return `Here are the available knowledge base articles:\n\n${items.join('\n')}`;
+    }
+
+    const localFirst = findFAQAnswer(userMessage);
+    // If we have a local FAQ hit, attempt to paraphrase it so responses feel fresh
+    if (localFirst) {
+      console.log('Local FAQ hit — attempting paraphrase via OpenRouter');
+      // If no API key, return the raw local answer
+      if (!apiKey) {
+        return localFirst;
+      }
+
+      // Build a paraphrase prompt that keeps technical tokens intact
+      const paraphraseSystem = `You are a helpful assistant that rewrites support FAQ answers into a friendly, conversational single-paragraph response appropriate for an employee. Preserve any technical tokens (code snippets, commands, filenames, product names, acronyms, URLs, tokens with slashes or dots, words in ALL CAPS, or anything enclosed in backticks) verbatim; do NOT translate or alter them. Only paraphrase the human-readable sentences around those technical tokens. Keep the meaning identical and the length similar. Use natural variation (synonyms, alternate sentence order) so repeated questions get slightly different phrasing.`;
+
+      try {
+        const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: paraphraseSystem },
+              { role: "user", content: `Question: ${userMessage}\n\nFAQ answer:\n${localFirst}` },
+            ],
+          }),
+        });
+
+        const data = await resp.json();
+        if (data?.choices?.[0]?.message?.content) {
+          const paraphrased = data.choices[0].message.content.trim();
+          // Safety: if paraphrase is suspiciously short/empty, fallback to original
+          if (paraphrased.length < 10) return localFirst;
+          return paraphrased;
+        }
+        return localFirst;
+      } catch (e) {
+        console.error('Paraphrase request failed, returning original FAQ answer', e);
+        return localFirst;
+      }
+    }
+
+    // If we don't have an OpenRouter API key and no local match, fall back to a generic message
     if (!apiKey) {
-      const local = findFAQAnswer(userMessage);
-      return local || "Please refer to our support team.";
+      return "Please refer to our support team.";
     }
 
     try {
