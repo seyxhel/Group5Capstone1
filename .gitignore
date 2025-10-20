@@ -10,3 +10,11 @@ node_modules/
 dist
 dist-ssr
 *.local
+
+# Ignore Gmail OAuth client secret and token files
+# These files contain sensitive credentials and should never be committed.
+client_secret_*.json
+backend/client_secret_*.json
+token.json
+backend/token.json
+backend/.secrets/

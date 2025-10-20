@@ -5,6 +5,7 @@ from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from .models import Employee, Ticket, TicketAttachment
 from django.utils import timezone
+from django.conf import settings
 
 # Custom form for creating users
 class EmployeeCreationForm(forms.ModelForm):
@@ -89,20 +90,24 @@ class EmployeeAdmin(UserAdmin):
                 obj.status == 'Approved' and
                 not obj.notified
             ):
-                send_mail(
-                    subject='Account Approved',
-                    message=(
-                        "Dear Employee,\n\n"
-                        "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
-                        "http://localhost:3000/login/employee\n\n"
-                        "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
-                        "Respectfully,\n"
-                        "SmartSupport Help Desk Team"
-                    ),
-                    from_email='sethpelagio20@gmail.com',
-                    recipient_list=[obj.email],
-                    fail_silently=False,
-                )
+                # send notification email using unified sender (Gmail API when
+                # enabled). Use the same HTML template used by the view for
+                # consistency.
+                try:
+                    from .gmail_utils import send_email
+                    # Attempt to build HTML using the same template helper in views
+                    from .views import send_account_approved_email
+                    html = send_account_approved_email(obj)
+                    send_email(
+                        to=obj.email,
+                        subject='Employee account approved',
+                        body=html,
+                        is_html=True,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                    )
+                except Exception as e:
+                    # don't block admin save on email errors
+                    print(f"[EmployeeAdmin.save_model] email send failed: {e}")
                 obj.notified = True
         super().save_model(request, obj, form, change)
 

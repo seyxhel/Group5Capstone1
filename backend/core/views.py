@@ -24,6 +24,21 @@ def deny_employee(request, pk):
         EmployeeLog.objects.create(employee=employee, action='rejected', performed_by=request.user, details='Account rejected by admin')
     except Exception:
         pass
+    
+    # Send rejection email (non-blocking). Uses unified sender (Gmail API when enabled).
+    try:
+        from .gmail_utils import send_email
+        html = send_account_rejected_email(employee)
+        result = send_email(
+            to=employee.email,
+            subject='Account Rejected',
+            body=html,
+            is_html=True,
+            from_email=None
+        )
+        print(f"[deny_employee] send_email result: {result}")
+    except Exception as e:
+        print(f"[deny_employee] Email send failed: {e}")
     return Response({'detail': 'Employee denied.'}, status=status.HTTP_200_OK)
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -103,6 +118,26 @@ class CreateEmployeeView(APIView):
                     EmployeeLog.objects.create(employee=employee, action='created', performed_by=request.user if hasattr(request, 'user') and request.user.is_authenticated else None, details='Account registered via public create endpoint')
                 except Exception:
                     pass
+                # Send pending-approval email to the registrant (non-blocking)
+                try:
+                    from .gmail_utils import send_email
+                    # Build HTML from the template helper in this module
+                    pending_html = send_account_pending_email(employee)
+                    # Prefer DEFAULT_FROM_EMAIL if configured
+                    try:
+                        from django.conf import settings
+                        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+                    except Exception:
+                        from_email = None
+                    send_email(
+                        to=employee.email,
+                        subject='Account Creation Pending Approval',
+                        body=pending_html,
+                        is_html=True,
+                        from_email=from_email or 'mapactivephsmartsupport@gmail.com'
+                    )
+                except Exception as e:
+                    print(f"[CreateEmployeeView] pending email send failed: {e}")
                 # Return serialized employee data so frontend can persist profile (image URL, names, etc.)
                 serialized = EmployeeSerializer(employee).data
                 return Response(
@@ -1053,21 +1088,23 @@ def approve_employee(request, pk):
     except Exception:
         pass
 
-    # Send approval email
-    send_mail(
-        subject='Account Approved',
-        message=(
-            f"Dear {employee.first_name},\n\n"
-            "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
-            "http://localhost:3000/login/employee\n\n"
-            "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
-            "Respectfully,\n"
-            "SmartSupport Help Desk Team"
-        ),
-        from_email='sethpelagio20@gmail.com',
-        recipient_list=[employee.email],
-        fail_silently=False,
-    )
+    # Send approval email using the unified email sender. This will use the
+    # Gmail API if EMAIL_USE_GMAIL_API env var is true (default), otherwise
+    # will fall back to Django's SMTP send_mail.
+    try:
+        from .gmail_utils import send_email
+        html = send_account_approved_email(employee)
+        result = send_email(
+            to=employee.email,
+            subject='Your Account is Ready!',
+            body=html,
+            is_html=True,
+            from_email='sethpelagio20@gmail.com'
+        )
+        print(f"[approve_employee] send_email result: {result}")
+    except Exception as e:
+        # Log but don't fail approval
+        print(f"[approve_employee] Email send failed: {e}")
 
     return Response({'detail': 'Employee approved and email sent.'}, status=status.HTTP_200_OK)
 
@@ -1081,6 +1118,143 @@ class ApproveEmployeeView(APIView):
             return Response({'message': 'Employee approved.'}, status=status.HTTP_200_OK)
         except Employee.DoesNotExist:
             return Response({'error': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+def send_account_approved_email(employee):
+        logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
+        site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+        html_content = f"""
+        <html>
+            <body style="background:#f6f8fa;padding:32px 0;">
+                <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
+                    <div style="padding:40px 32px 32px 32px;text-align:center;">
+                        <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
+                        <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
+                            Account Approved!
+                        </div>
+                        <div style="text-align:left;margin:0 auto 24px auto;">
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                Hi {employee.first_name},
+                            </p>
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                Your account has been approved! You can now log in using the credentials you signed up with.
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                                If you need help, contact us at:<br>
+                                <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;font-family:Verdana, Geneva, sans-serif;">mapactivephsmartsupport@gmail.com</a>
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
+                                Best regards,<br>
+                                MAP Active PH SmartSupport
+                            </p>
+                        </div>
+                        <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
+                            Visit site
+                        </a>
+                        <div style="margin-top:18px;text-align:left;">
+                            <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
+                                SmartSupport
+                            </span>
+                        </div>
+                    </div>
+                    <div style="height:5px;background:#2563eb;"></div>
+                </div>
+            </body>
+        </html>
+        """
+        return html_content
+
+
+def send_account_rejected_email(employee):
+        logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
+        site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+        html_content = f"""
+        <html>
+            <body style="background:#f6f8fa;padding:32px 0;">
+                <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
+                    <div style="padding:40px 32px 32px 32px;text-align:center;">
+                        <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
+                        <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
+                            Account Rejected
+                        </div>
+                        <div style="text-align:left;margin:0 auto 24px auto;">
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                Hi {employee.first_name},
+                            </p>
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                We couldn’t create your account. Please double-check the information you’ve entered to ensure everything is correct. If you'd like, feel free to try creating your account again.
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                                If you need help, contact us at:<br>
+                                <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;font-family:Verdana, Geneva, sans-serif;">mapactivephsmartsupport@gmail.com</a>
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
+                                Best regards,<br>
+                                MAP Active PH SmartSupport
+                            </p>
+                        </div>
+                        <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
+                            Visit site
+                        </a>
+                        <div style="margin-top:18px;text-align:left;">
+                            <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
+                                SmartSupport
+                            </span>
+                        </div>
+                    </div>
+                    <div style="height:5px;background:#2563eb;"></div>
+                </div>
+            </body>
+        </html>
+        """
+        return html_content
+
+
+def send_account_pending_email(employee):
+        logo_url = "https://smartsupport-hdts-frontend.up.railway.app/MapLogo.png"
+        site_url = "https://smartsupport-hdts-frontend.up.railway.app/"
+        html_content = f"""
+        <html>
+            <body style="background:#f6f8fa;padding:32px 0;">
+                <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #0001;overflow:hidden;border:1px solid #e0e0e0;">
+                    <div style="padding:40px 32px 32px 32px;text-align:center;">
+                        <img src="{logo_url}" alt="SmartSupport Logo" style="width:90px;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" />
+                        <div style="font-size:1.6rem;margin-bottom:28px;margin-top:8px;font-family:Verdana, Geneva, sans-serif;">
+                            Account Creation Pending Approval
+                        </div>
+                        <div style="text-align:left;margin:0 auto 24px auto;">
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                Hi {employee.first_name},
+                            </p>
+                            <p style="font-size:16px;color:#222;margin:0 0 14px 0;font-family:Verdana, Geneva, sans-serif;">
+                                Thank you for signing up with MAP Active PH! Your account has been successfully created, but it is currently awaiting approval. You’ll receive a confirmation email once your account has been approved.
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                                If you have any questions, don’t hesitate to reach out to us.
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:14px;font-family:Verdana, Geneva, sans-serif;">
+                                If you did not create this account, please contact us immediately at: <a href="mailto:mapactivephsmartsupport@gmail.com" style="color:#2563eb;text-decoration:none;">mapactivephsmartsupport@gmail.com</a>
+                            </p>
+                            <p style="font-size:15px;color:#444;margin-bottom:18px;font-family:Verdana, Geneva, sans-serif;">
+                                Best regards,<br>
+                                MAP Active PH SmartSupport
+                            </p>
+                        </div>
+                        <a href="{site_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;font-size:16px;font-family:Verdana, Geneva, sans-serif;margin-bottom:24px;">
+                            Visit site
+                        </a>
+                        <div style="margin-top:18px;text-align:left;">
+                            <span style="font-size:1.5rem;font-weight:bold;color:#3b82f6;font-family:Verdana, Geneva, sans-serif;letter-spacing:1px;">
+                                SmartSupport
+                            </span>
+                        </div>
+                    </div>
+                    <div style="height:5px;background:#2563eb;"></div>
+                </div>
+            </body>
+        </html>
+        """
+        return html_content
 
 
 @api_view(['POST'])
