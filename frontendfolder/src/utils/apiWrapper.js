@@ -40,9 +40,15 @@ apiClient.interceptors.response.use(
     } else {
       // Handle backend API errors
       if (error.response?.status === 401) {
-        // Handle unauthorized access
-        localStorage.clear();
-        window.location.href = '/';
+        // Instead of redirecting here, dispatch a global event so the UI
+        // can show a modal and let the user confirm before going to login.
+        try {
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        } catch (e) {
+          // Fallback: clear storage and redirect
+          localStorage.clear();
+          window.location.href = '/';
+        }
       }
     }
     return Promise.reject(error);

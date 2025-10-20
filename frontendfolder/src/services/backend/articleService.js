@@ -14,12 +14,16 @@ const getAuthHeaders = () => {
 // Helper to handle 401 errors by logging out immediately
 const handleAuthError = (response) => {
   if (response.status === 401) {
-    console.log('Session expired. Logging out...');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('user');
-    window.location.href = '/';
+    console.log('Session expired (articleService). Dispatching auth:expired event.');
+    try {
+      window.dispatchEvent(new CustomEvent('auth:expired'));
+    } catch (e) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('loggedInUser');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
     throw new Error('Session expired. Please log in again.');
   }
 };

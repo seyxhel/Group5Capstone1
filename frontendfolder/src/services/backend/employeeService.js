@@ -23,14 +23,17 @@ const fetchWithAuth = async (url, options = {}) => {
   
   // If we get a 401 (unauthorized), immediately log out and redirect to login
   if (response.status === 401) {
-    console.log('Session expired. Logging out...');
-    // Clear all auth data
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('user');
-    // Redirect to login page
-    window.location.href = '/';
+    console.log('Session expired (employeeService). Dispatching auth:expired event.');
+    try {
+      window.dispatchEvent(new CustomEvent('auth:expired'));
+    } catch (e) {
+      // Fallback behavior
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('loggedInUser');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
     throw new Error('Session expired. Please log in again.');
   }
   

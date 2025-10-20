@@ -33,6 +33,25 @@
   margin-bottom: 1rem;
 }
 
+/* Header row to hold title and optional select beside it */
+.chartHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0.5rem; /* keep title and chart spacing consistent */
+}
+
+.headerYRangeSelect {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 0.9rem;
+  min-width: 96px; /* slightly smaller */
+  max-width: 160px;
+}
+
 /* === Chart Content: Pie + Timeline Side-by-Side === */
 .chartContent {
   flex: 1;
@@ -101,6 +120,57 @@
 
 .browseButton:hover {
   background-color: var(--primary-color-hover);
+}
+
+/* Year navigation buttons for TrendLineChart */
+.yearNavBtn {
+  background: transparent;
+  border: 1px solid var(--muted-border-color, #e5e7eb);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.yearNavBtn:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+/* Year controls container shown beneath the chart and centered */
+.yearControlsContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  position: relative; /* allow absolute child for right-aligned dropdown */
+}
+.yearNavRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+.yearLabel {
+  min-width: 84px;
+  text-align: center;
+  font-weight: 700;
+}
+.yearControlsRight {
+  position: absolute;
+  right: 12px;
+  top: -6px; /* nudge to align vertically with year row */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.yRangeLabel {
+  font-size: 0.875rem;
+  color: var(--muted-text, #6b7280);
+}
+.yRangeSelect {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
 }
 
 /* === Responsive Adjustments === */
