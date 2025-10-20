@@ -31,10 +31,10 @@ def deny_employee(request, pk):
         html = send_account_rejected_email(employee)
         result = send_email(
             to=employee.email,
-            subject='Account Rejected',
+                subject='Account Creation Unsuccessful',
             body=html,
             is_html=True,
-            from_email=None
+                from_email='noreply.mapactivephteam@gmail.com'
         )
         print(f"[deny_employee] send_email result: {result}")
     except Exception as e:
@@ -1094,14 +1094,15 @@ def approve_employee(request, pk):
     try:
         from .gmail_utils import send_email
         html = send_account_approved_email(employee)
+        subject = 'Account Creation Successful'
         result = send_email(
             to=employee.email,
-            subject='Your Account is Ready!',
+            subject=subject,
             body=html,
             is_html=True,
-            from_email='sethpelagio20@gmail.com'
+            from_email='noreply.mapactivephteam@gmail.com'
         )
-        print(f"[approve_employee] send_email result: {result}")
+        print(f"[approve_employee] to={employee.email} name={employee.first_name} subject={subject} result={result}")
     except Exception as e:
         # Log but don't fail approval
         print(f"[approve_employee] Email send failed: {e}")
