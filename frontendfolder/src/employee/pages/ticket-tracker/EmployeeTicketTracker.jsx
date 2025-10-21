@@ -10,6 +10,7 @@ import TicketActivity from './TicketActivity';
 import TicketMessaging from './TicketMessaging';
 import Button from '../../../shared/components/Button';
 import ViewCard from '../../../shared/components/ViewCard';
+import Tabs from '../../../shared/components/Tabs';
 import { 
   FaFileImage, 
   FaFilePdf, 
@@ -19,6 +20,7 @@ import {
   FaFile,
   FaDownload 
 } from 'react-icons/fa';
+import { convertToSecureUrl, extractFilePathFromUrl, getAccessToken } from '../../../utilities/secureMedia';
 
 // Employee-side status progression (5 steps)
 // Step 1: Pending (when admin sets New or Open)
@@ -57,6 +59,14 @@ const DetailField = ({ label, value }) => (
 
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+
+// Format number with thousands separators and two decimal places
+const formatMoney = (value) => {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  const num = Number(value);
+  if (!isFinite(num)) return value;
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+};
 
 // Generate logs based on ticket data
 const generateLogs = (ticket) => {
@@ -132,19 +142,70 @@ const renderAttachments = (files) => {
     return <FaFile />;
   };
 
+  // We no longer fetch blobs client-side; filenames are linked to secure URLs
+
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+
+  const openAttachment = (rawUrl) => {
+    const secure = convertToSecureUrl(rawUrl);
+    if (secure) {
+      window.open(secure, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Try to compute a backend media URL from the path
+    const filePath = extractFilePathFromUrl(rawUrl) || (typeof rawUrl === 'string' ? rawUrl.split('?')[0] : null);
+    if (filePath) {
+      const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      let backendUrl = `${MEDIA_URL}${clean}`;
+      const token = getAccessToken();
+      if (token) {
+        backendUrl = `${backendUrl}?token=${encodeURIComponent(token)}`;
+      }
+      window.open(backendUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Fallback to opening the original url
+    window.open(rawUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className={styles.attachmentList}>
       {fileArray.map((f, idx) => {
         const name = f?.name || f?.filename || f;
         const url = f?.url || f?.downloadUrl || '#';
+        // compute secure/backend URL to avoid opening local dev server paths
+        let secureOrBackend = convertToSecureUrl(url) || null;
+        if (!secureOrBackend) {
+          // try to extract a file path
+          let filePath = extractFilePathFromUrl(url);
+          if (!filePath && typeof url === 'string' && url.startsWith('http')) {
+            try {
+              const parsed = new URL(url);
+              filePath = parsed.pathname || null;
+            } catch (e) {
+              filePath = null;
+            }
+          }
+          if (filePath) {
+            const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+            const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+            secureOrBackend = `${MEDIA_URL}${clean}`;
+            const token = getAccessToken();
+            if (token) secureOrBackend = `${secureOrBackend}?token=${encodeURIComponent(token)}`;
+          }
+        }
+        // final fallback to original url
+        if (!secureOrBackend) secureOrBackend = url;
         return (
           <div key={idx} className={styles.attachmentItem}>
             <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
             <div style={{ flex: 1 }}>
-              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
             </div>
-            <div>
-              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
                 <FaDownload />
               </a>
             </div>
@@ -160,6 +221,7 @@ export default function EmployeeTicketTracker() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
+  // preview state removed - attachments now open in a new tab
 
   // Get current logged-in user
   const currentUser = authService.getCurrentUser();
@@ -299,9 +361,9 @@ export default function EmployeeTicketTracker() {
                   <div className={`${styles.detailItem} ${styles.attachmentsRow}`}>
                     <div className={styles.detailLabel}>Attachments</div>
                     <div className={styles.detailValue}>
-                      {attachments && attachments.length > 0
-                        ? renderAttachments(attachments)
-                        : 'None'}
+                        {attachments && attachments.length > 0
+                          ? renderAttachments(attachments)
+                          : 'None'}
                     </div>
                   </div>
                 </div>
@@ -393,7 +455,7 @@ export default function EmployeeTicketTracker() {
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Total Budget</div>
-                          <div className={styles.detailValue}>{ticket.totalBudget || ticket.total_budget || 'N/A'}</div>
+                          <div className={styles.detailValue}>{formatMoney(ticket.totalBudget ?? ticket.total_budget)}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Budget Items</div>
@@ -438,20 +500,31 @@ export default function EmployeeTicketTracker() {
           <div className={styles.rightColumn}>
             {/* Action Button */}
             {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
-              <button
-                className={isClosable ? styles.closeButton : styles.withdrawButton}
+              <Button
+                variant="primary"
                 onClick={() =>
                   isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
                 }
+                className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
               >
                 {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
-              </button>
+              </Button>
             )}
 
-            {/* Ticket activity: logs extracted into component */}
-            <TicketActivity ticketLogs={ticketLogs} />
-            {/* Ticket messaging: now a separate component */}
-            <TicketMessaging initialMessages={ticketMessages} />
+            <Tabs
+              tabs={[
+                { label: 'Logs', value: 'logs' },
+                { label: 'Messages', value: 'messages' },
+              ]}
+              active={activeTab}
+              onChange={setActiveTab}
+            >
+              {activeTab === 'logs' ? (
+                <TicketActivity ticketLogs={ticketLogs} />
+              ) : (
+                <TicketMessaging initialMessages={ticketMessages} />
+              )}
+            </Tabs>
             </div>
         </div>
   
@@ -471,6 +544,7 @@ export default function EmployeeTicketTracker() {
           onClose={() => setShowCloseModal(false)}
         />
       )}
+      {/* DocumentViewer removed; attachments open in a new tab instead */}
     </>
   );
 }

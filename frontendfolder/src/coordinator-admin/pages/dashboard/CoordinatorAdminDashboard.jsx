@@ -26,6 +26,7 @@ ChartJS.register(
 );
 
 import styles from './CoordinatorAdminDashboard.module.css';
+import Tabs from '../../../shared/components/Tabs';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
@@ -278,34 +279,12 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
 // === Main Component ===
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-  const containerRef = useRef(null);
-  const tabRefs = useRef([]);
   const navigate = useNavigate();
-
-  const tabs = ['tickets', 'users', 'kb'];
-
-  // Measure and position the sliding indicator under the active tab
-  const updateIndicator = () => {
-    const idx = tabs.indexOf(activeTab);
-    const container = containerRef.current;
-    const btn = tabRefs.current[idx];
-    if (!container || !btn) return;
-    const containerRect = container.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    setIndicator({
-      left: btnRect.left - containerRect.left,
-      width: btnRect.width
-    });
-  };
-
-  useEffect(() => {
-    updateIndicator();
-    const onResize = () => updateIndicator();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  const dashboardTabs = [
+    { label: 'Tickets', value: 'tickets' },
+    { label: 'Users', value: 'users' },
+    { label: 'KB', value: 'kb' },
+  ];
 
   const ticketData = {
     stats: ticketPaths.map((item, i) => ({
@@ -357,27 +336,24 @@ const CoordinatorAdminDashboard = () => {
         dateCreated: '06/08/2025 8:15AM'
       }
     ],
+    // Pie and line data for ticket charts (placeholder/demo values)
     pieData: [
-      { name: 'New', value: 15, fill: '#1E90FF' },           // Blue
-      { name: 'Open', value: 25, fill: '#14B8A6' },          // Teal
-      { name: 'In Progress', value: 20, fill: '#FB923C' },   // Orange
-      { name: 'On Hold', value: 10, fill: '#A855F7' },       // Purple
-      { name: 'Withdrawn', value: 8, fill: '#9CA3AF' },      // Gray
-      { name: 'Closed', value: 12, fill: '#2563EB' },        // Dark Blue
-      { name: 'Rejected', value: 5, fill: '#EF4444' }        // Red
+      { name: 'New', value: 10, fill: '#3B82F6' },
+      { name: 'Open', value: 8, fill: '#06B6D4' },
+      { name: 'In Progress', value: 5, fill: '#F59E0B' },
+      { name: 'On Hold', value: 3, fill: '#EF4444' }
     ],
     lineData: [
-      { month: 'Jan', dataset1: 45, dataset2: 38 },
-      { month: 'Feb', dataset1: 52, dataset2: 45 },
-      { month: 'Mar', dataset1: 48, dataset2: 42 },
-      { month: 'Apr', dataset1: 60, dataset2: 55 },
-      { month: 'May', dataset1: 58, dataset2: 50 },
-      { month: 'Jun', dataset1: 65, dataset2: 60 }
-    ]
+      { month: 'Jan', dataset1: 20, dataset2: 12 },
+      { month: 'Feb', dataset1: 25, dataset2: 18 },
+      { month: 'Mar', dataset1: 30, dataset2: 22 },
+      { month: 'Apr', dataset1: 28, dataset2: 24 },
+      { month: 'May', dataset1: 35, dataset2: 30 },
+      { month: 'Jun', dataset1: 40, dataset2: 36 }
+    ],
   };
 
   const userData = {
-    // Only include Pending Users as requested
     stats: [
       "Pending Users"
     ].map((label, i) => ({
@@ -412,6 +388,7 @@ const CoordinatorAdminDashboard = () => {
       { month: 'Jun', dataset1: 40, dataset2: 38 }
     ]
   };
+  
 
   const activityTimeline = [
     { time: "10:30 AM", action: "Ticket TX0001 submitted", type: "ticket" },
@@ -446,57 +423,12 @@ const CoordinatorAdminDashboard = () => {
       <div className={styles.dashboardContent}>
         <h1 className={styles.title}>Dashboard</h1>
 
-        {/* Tabs with sliding underline and keyboard navigation */}
-        <div
-          className={styles.tabContainer}
-          ref={containerRef}
-          role="tablist"
-          aria-label="Dashboard Tabs"
-        >
-          {tabs.map((tab, idx) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                ref={(el) => (tabRefs.current[idx] = el)}
-                role="tab"
-                aria-selected={isActive}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => setActiveTab(tab)}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowRight') {
-                    const next = (idx + 1) % tabs.length;
-                    tabRefs.current[next]?.focus();
-                    setActiveTab(tabs[next]);
-                  } else if (e.key === 'ArrowLeft') {
-                    const prev = (idx - 1 + tabs.length) % tabs.length;
-                    tabRefs.current[prev]?.focus();
-                    setActiveTab(tabs[prev]);
-                  } else if (e.key === 'Home') {
-                    tabRefs.current[0]?.focus();
-                    setActiveTab(tabs[0]);
-                  } else if (e.key === 'End') {
-                    tabRefs.current[tabs.length - 1]?.focus();
-                    setActiveTab(tabs[tabs.length - 1]);
-                  }
-                }}
-                className={`${styles.tab} ${isActive ? styles.tabActive : styles.tabInactive}`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            );
-          })}
-
-          {/* Sliding underline indicator */}
-          <div
-            className={styles.tabIndicator}
-            style={{ left: indicator.left, width: indicator.width }}
-            aria-hidden="true"
-          />
-        </div>
-
-
-          <div className={styles.tabContent}>
+        <Tabs
+          tabs={dashboardTabs}
+          active={activeTab}
+          onChange={setActiveTab}
+        />
+        <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid}>
             {activeTab === 'kb' ? (
               // KB tab could show quick KB stats; reuse placeholder stat cards
@@ -555,6 +487,6 @@ const CoordinatorAdminDashboard = () => {
       </div>
     </div>
   );
-};
+  };
 
 export default CoordinatorAdminDashboard;

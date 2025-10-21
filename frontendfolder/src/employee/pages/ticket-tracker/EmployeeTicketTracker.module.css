@@ -615,36 +615,36 @@ fieldset p {
   top: 20px;
 }
 
-/* Action Buttons */
-.withdrawButton,
+/* Ticket Action Button Base Styles */
+.ticketActionButton {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  border-radius: 8px !important;
+  text-transform: capitalize !important;
+  transition: all 0.2s ease !important;
+  margin-bottom: 1rem;
+}
+
+/* Withdraw Button - Using withdrawn gray colors */
+.withdrawButton {
+  background-color: var(--withdrawn-text) !important; /* #9CA3AF */
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.withdrawButton:hover:not(:disabled) {
+  background-color: #6B7280 !important; /* Darker gray for hover */
+}
+
+/* Close Button - Green */
 .closeButton {
-  width: 100%;
-  padding: 14px 20px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: #3b82f6;
-  color: #ffffff;
-  text-transform: capitalize;
+  background-color: var(--success-color) !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-.withdrawButton:hover,
-.closeButton:hover {
-  background-color: #2563eb;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.closeButton {
-  background-color: #059669;
-}
-
-.closeButton:hover {
-  background-color: #047857;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+.closeButton:hover:not(:disabled) {
+  background-color: var(--success-hover) !important;
 }
 
 /* Not Found Message */

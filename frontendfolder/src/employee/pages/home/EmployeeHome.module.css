@@ -263,23 +263,11 @@
 }
 
 /* Simple Button in Ticket Card */
+/* Use the shared Button component for sizing and styles. Avoid overriding font-size/padding here to keep consistency across the app. */
 .ticketActions .viewDetails {
-  background: var(--primary-color);
-  border: none;
-  color: white;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 0.8125rem;
-  transition: all 0.2s ease;
-  text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.ticketActions .viewDetails:hover {
-  background: #2563eb;
 }
 
 /* === EMPTY STATE === */

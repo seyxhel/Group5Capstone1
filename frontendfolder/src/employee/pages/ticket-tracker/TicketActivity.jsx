@@ -37,21 +37,6 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
 
   return (
     <div className={styles.tabsContainer}>
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${activeTab === 'logs' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('logs')}
-        >
-          Logs
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'message' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('message')}
-        >
-          Message
-        </button>
-      </div>
-
       <div className={styles.tabContent}>
         {activeTab === 'logs' ? (
           <div className={styles.logsContent}>
