@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import styles from './EmployeeTicketTracker.module.css';
+import styles from './TicketActivity.module.css';
 
 export default function TicketActivity({ ticketLogs = [], initialMessages = [] }) {
   const [activeTab, setActiveTab] = useState('logs');

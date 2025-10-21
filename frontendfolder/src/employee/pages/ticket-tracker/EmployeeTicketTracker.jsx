@@ -7,8 +7,18 @@ import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import TicketActivity from './TicketActivity';
+import TicketMessaging from './TicketMessaging';
 import Button from '../../../shared/components/Button';
 import ViewCard from '../../../shared/components/ViewCard';
+import { 
+  FaFileImage, 
+  FaFilePdf, 
+  FaFileWord, 
+  FaFileExcel, 
+  FaFileCsv, 
+  FaFile,
+  FaDownload 
+} from 'react-icons/fa';
 
 // Employee-side status progression (5 steps)
 // Step 1: Pending (when admin sets New or Open)
@@ -28,15 +38,25 @@ const getStatusSteps = (status) =>
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
 
+// Convert a key or phrase to Title Case (capitalize each word)
+const toTitleCase = (str) => {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
 const DetailField = ({ label, value }) => (
   <fieldset>
-    <label>{label}</label>
-    <p>{value || 'N/A'}</p>
+    <label>{toTitleCase(label)}</label>
+    <p>{value || 'None'}</p>
   </fieldset>
 );
 
 const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
 
 // Generate logs based on ticket data
 const generateLogs = (ticket) => {
@@ -80,13 +100,66 @@ const generateMessages = (ticket) => {
   ];
 };
 
+// Render attachments in a consistent card/list style
+const renderAttachments = (files) => {
+  if (!files) return <div className={styles.detailValue}>No attachments</div>;
+
+  // Normalize to array
+  const fileArray = Array.isArray(files) ? files : [files];
+
+  const getFileIcon = (file) => {
+    const mimeType = file?.type || file?.mimeType;
+    const name = file?.name || file?.filename || file;
+    
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) return <FaFileImage />;
+      if (mimeType === 'application/pdf') return <FaFilePdf />;
+      if (mimeType.includes('word') || mimeType.includes('document')) return <FaFileWord />;
+      if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return <FaFileExcel />;
+      if (mimeType === 'text/csv') return <FaFileCsv />;
+    }
+    
+    // Fallback based on file extension
+    if (typeof name === 'string') {
+      const extension = name.split('.').pop()?.toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'].includes(extension)) return <FaFileImage />;
+      if (extension === 'pdf') return <FaFilePdf />;
+      if (['doc', 'docx'].includes(extension)) return <FaFileWord />;
+      if (['xls', 'xlsx'].includes(extension)) return <FaFileExcel />;
+      if (extension === 'csv') return <FaFileCsv />;
+    }
+    
+    return <FaFile />;
+  };
+
+  return (
+    <div className={styles.attachmentList}>
+      {fileArray.map((f, idx) => {
+        const name = f?.name || f?.filename || f;
+        const url = f?.url || f?.downloadUrl || '#';
+        return (
+          <div key={idx} className={styles.attachmentItem}>
+            <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
+            <div style={{ flex: 1 }}>
+              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
+            </div>
+            <div>
+              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
+                <FaDownload />
+              </a>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
 
   // Get current logged-in user
   const currentUser = authService.getCurrentUser();
@@ -94,16 +167,15 @@ export default function EmployeeTicketTracker() {
   // Get only the current user's tickets
   const tickets = getEmployeeTickets(currentUser?.id);
   
-  console.log('👤 Current User:', currentUser);
-  console.log('🎫 User Tickets:', tickets);
-  console.log('🔢 Ticket Number from URL:', ticketNumber);
+  // hide verbose runtime logs in UI
 
   const ticket = ticketNumber
     ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
-    : tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+    : tickets && tickets.length > 0
+    ? tickets[tickets.length - 1]
+    : null;
 
-  console.log('✅ Selected Ticket:', ticket);
-
+  // selected ticket ready for render
   if (!ticket) {
     return (
       <div className={styles.employeeTicketTrackerPage}>
@@ -133,6 +205,12 @@ export default function EmployeeTicketTracker() {
     scheduledRequest,
   } = ticket;
 
+  // Normalize attachments across different seed/property names
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+
+  // Categories that come from the ticket submission form (keep only these)
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+
   // Convert status to employee view (New/Open -> Pending)
   const status = toEmployeeStatus(originalStatus);
   const statusSteps = getStatusSteps(status);
@@ -141,40 +219,14 @@ export default function EmployeeTicketTracker() {
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
   const ticketMessages = generateMessages(ticket);
-  
-  // Initialize messages from generated data
-  if (messages.length === 0 && ticketMessages.length > 0) {
-    setMessages(ticketMessages);
-  }
-  
-  // Handle sending a new message
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
-        sender: 'You',
-        message: newMessage,
-        timestamp: formatDate(new Date().toISOString())
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage('');
-    }
-  };
-  
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
 
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
-  <ViewCard>
+        <ViewCard>
 
-  {/* Two Column Layout */}
-  <div className={styles.contentGrid}>
+        {/* Two Column Layout */}
+        <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}
           <div className={styles.leftColumn}>
             <section className={styles.ticketCard}>
@@ -184,65 +236,201 @@ export default function EmployeeTicketTracker() {
                   <div className={`${styles.priorityBadge} ${styles[`priority${priorityLevel || 'NotSet'}`]}`}>
                     {priorityLevel || 'Not Set'}
                   </div>
-                  <h2 className={styles.ticketNumber}>Ticket No. {number}</h2>
+                  <h2 className={styles.ticketSubject}>{subject || `Ticket No. ${number}`}</h2>
                 </div>
                 <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
                   {status}
                 </div>
               </div>
 
-              {/* Subject */}
-              <div className={styles.subjectSection}>
-                <h3 className={styles.sectionTitle}>{subject}</h3>
-                <div className={styles.subjectMeta}>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Category:</span>
-                    <span className={styles.metaValue}>{category} - {subCategory}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Department:</span>
-                    <span className={styles.metaValue}>{department || 'N/A'}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Assigned To:</span>
-                    <span className={styles.metaValue}>
-                      {typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}
-                    </span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Date Created:</span>
-                    <span className={styles.metaValue}>{formatDate(dateCreated)}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Last Updated:</span>
-                    <span className={styles.metaValue}>{formatDate(lastUpdated)}</span>
-                  </div>
+              {/* Ticket meta: compact metadata shown under header */}
+              <div className={styles.ticketMeta}>
+                <div className={styles.ticketMetaItem}>
+                  <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreated)}</span> </span> 
+                </div>
+                <div className={styles.ticketMetaItem}>
+                  <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdated)}</span> </span>
                 </div>
               </div>
 
-              {/* Description */}
-              <div className={styles.descriptionSection}>
-                <h4 className={styles.descriptionLabel}>Description</h4>
-                <p className={styles.descriptionText}>
-                  {description || 'No description provided.'}
-                </p>
-              </div>
+              {/* Ticket Details - consolidated and always present */}
+              <div className={styles.detailsGrid}>
+                {formCategories.includes(category) && (
+                  <div className={`${styles.detailItem}`}>
+                    <div className={styles.detailLabel}>Category</div>
+                    <div className={styles.detailValue}>{category || 'None'}</div>
+                  </div>
+                )}
 
-              {/* Attachments */}
-              {fileUploaded && (
-                <div className={styles.attachmentSection}>
-                  <h4 className={styles.attachmentLabel}>Attachments</h4>
-                  <div className={styles.attachmentGrid}>
-                    <div className={styles.attachmentCard}>
-                      <div className={styles.attachmentIcon}>📄</div>
-                      <div className={styles.attachmentInfo}>
-                        <p className={styles.attachmentName}>{fileUploaded}</p>
-                        <button className={styles.attachmentDownload}>Download</button>
-                      </div>
+                {formCategories.includes(category) && (
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Sub-Category</div>
+                    <div className={styles.detailValue}>
+                      {category === 'Others' ? (
+                        'None'
+                      ) : (
+                        subCategory || 'None'
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className={styles.detailItem}>
+                  <div className={styles.detailLabel}>Assigned Agent</div>
+                  <div className={styles.detailValue}>{typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}</div>
+                </div>
+
+                <div className={styles.detailItem}>
+                  <div className={styles.detailLabel}>Department</div>
+                  <div className={styles.detailValue}>{department || 'None'}</div>
+                </div>
+
+                <div className={styles.singleColumnGroup}>
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Description</div>
+                    <div className={styles.detailValue}>{description || 'No description provided.'}</div>
+                  </div>
+
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Schedule Request</div>
+                    <div className={styles.detailValue}>{scheduledRequest || 'None'}</div>
+                  </div>
+
+                  <div className={`${styles.detailItem} ${styles.attachmentsRow}`}>
+                    <div className={styles.detailLabel}>Attachments</div>
+                    <div className={styles.detailValue}>
+                      {attachments && attachments.length > 0
+                        ? renderAttachments(attachments)
+                        : 'None'}
                     </div>
                   </div>
                 </div>
+
+              {category !== 'Others' && (
+                <div className={styles.categoryDivider}></div>
               )}
+
+                {/* Category-specific dynamic details inserted inside detailsGrid as fullWidth */}
+                <div className={styles.fullWidth}>
+                  {/* IT Support */}
+                  {category === 'IT Support' && (
+                    <>
+                      <div className={styles.categoryDetails}>IT Support Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Device Type</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.device_type || ticket.deviceType || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Asset Name</div>
+                          <div className={styles.detailValue}>{ticket.asset_name || ticket.assetName || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Serial Number</div>
+                          <div className={styles.detailValue}>{ticket.serial_number || ticket.serialNumber || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Location</div>
+                          <div className={styles.detailValue}>{ticket.location || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Specify Issue</div>
+                          <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Software Affected</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.softwareAffected || ticket.softwareAffected || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Notes</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.notes || ticket.notes || 'None'}</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {/* Asset Check In/Out */}
+                  {(category === 'Asset Check In' || category === 'Asset Check Out') && (
+                    <>
+                      <div className={styles.categoryDetails}>Asset Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Asset Name</div>
+                          <div className={styles.detailValue}>{ticket.asset_name || ticket.assetName || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Serial Number</div>
+                          <div className={styles.detailValue}>{ticket.serial_number || ticket.serialNumber || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Location</div>
+                          <div className={styles.detailValue}>{ticket.location || 'N/A'}</div>
+                        </div>
+                        {category === 'Asset Check Out' && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Expected Return</div>
+                            <div className={styles.detailValue}>{ticket.expectedReturnDate || ticket.expected_return_date || ticket.expectedReturn || 'N/A'}</div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {/* New Budget Proposal */}
+                  {category === 'New Budget Proposal' && (
+                    <>
+                      <div className={styles.categoryDetails}>Budget Proposal Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Prepared By</div>
+                          <div className={styles.detailValue}>{ticket.preparedBy || ticket.prepared_by || ticket.preparedByName || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Performance Start</div>
+                          <div className={styles.detailValue}>{ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Performance End</div>
+                          <div className={styles.detailValue}>{ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Total Budget</div>
+                          <div className={styles.detailValue}>{ticket.totalBudget || ticket.total_budget || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Budget Items</div>
+                          <div className={styles.detailValue}>
+                            {(ticket.budgetItems || ticket.budget_items || []).length > 0 ? (
+                              (ticket.budgetItems || ticket.budget_items || []).map((item, idx) => (
+                                <div key={idx}>
+                                  {`${item.costElement || item.cost_element || item.name || 'Item'} — ${item.estimatedCost || item.estimated_cost || ''}`}
+                                </div>
+                              ))
+                            ) : (
+                              'No budget items provided'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {/* Fallback: dynamic_data */}
+                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && ticket.dynamic_data && Object.keys(ticket.dynamic_data).length > 0 && (
+                    <div className={styles.dynamicDetailsGrid}>
+                      <div className={styles.detailItem}>
+                        <div className={styles.detailLabel}>Additional Details</div>
+                        <div className={styles.detailValue}></div>
+                      </div>
+                      {Object.entries(ticket.dynamic_data).map(([key, val]) => (
+                        <div className={styles.detailItem} key={key}>
+                          <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
+                          <div className={styles.detailValue}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
             </section>
           </div>
 
@@ -260,10 +448,13 @@ export default function EmployeeTicketTracker() {
               </button>
             )}
 
-            {/* Ticket activity: logs + messages extracted into component */}
-            <TicketActivity ticketLogs={ticketLogs} initialMessages={ticketMessages} />
+            {/* Ticket activity: logs extracted into component */}
+            <TicketActivity ticketLogs={ticketLogs} />
+            {/* Ticket messaging: now a separate component */}
+            <TicketMessaging initialMessages={ticketMessages} />
             </div>
         </div>
+  
         </ViewCard>
       </main>
 
