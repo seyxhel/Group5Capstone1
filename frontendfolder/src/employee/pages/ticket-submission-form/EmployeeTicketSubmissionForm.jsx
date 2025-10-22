@@ -372,6 +372,11 @@ export default function EmployeeTicketSubmissionForm() {
         }
       }
 
+      // If a user provided a schedule field in the form for any category, include it so backend can persist it
+      if (formData.schedule && !dynamicData.scheduleRequest) {
+        dynamicData.scheduleRequest = { date: formData.schedule, time: '', notes: '' };
+      }
+
       // Add Asset category-specific data
       if (isAnyAssetCategory) {
         dynamicData.assetName = formData.assetName;

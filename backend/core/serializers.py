@@ -210,6 +210,27 @@ class TicketSerializer(serializers.ModelSerializer):
                 if key in dynamic and dynamic[key] is not None:
                     validated_data[field] = dynamic[key]
 
+            # Map schedule fields from dynamic_data into the explicit scheduled_date field
+            try:
+                if isinstance(dynamic, dict):
+                    # direct camelCase key
+                    if 'scheduledDate' in dynamic and dynamic.get('scheduledDate'):
+                        validated_data['scheduled_date'] = dynamic.get('scheduledDate')
+                    # nested scheduleRequest object { date: 'YYYY-MM-DD', ... }
+                    elif 'scheduleRequest' in dynamic and isinstance(dynamic.get('scheduleRequest'), dict):
+                        sched = dynamic.get('scheduleRequest', {})
+                        if sched.get('date'):
+                            validated_data['scheduled_date'] = sched.get('date')
+                    # snake_case variants
+                    elif 'scheduled_date' in dynamic and dynamic.get('scheduled_date'):
+                        validated_data['scheduled_date'] = dynamic.get('scheduled_date')
+                    elif 'schedule_request' in dynamic and isinstance(dynamic.get('schedule_request'), dict):
+                        sched = dynamic.get('schedule_request', {})
+                        if sched.get('date'):
+                            validated_data['scheduled_date'] = sched.get('date')
+            except Exception:
+                pass
+
         ticket = Ticket.objects.create(employee=user, dynamic_data=dynamic, **validated_data)
         return ticket
     

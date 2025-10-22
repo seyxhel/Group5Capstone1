@@ -58,8 +58,84 @@ const DetailField = ({ label, value }) => (
   </fieldset>
 );
 
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+const formatDate = (date) => {
+  if (!date) return 'None';
+  try {
+    // If it's already a Date
+    if (date instanceof Date) {
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    // Normalize strings like 'YYYY-MM-DD' which can be parsed inconsistently across browsers
+    if (typeof date === 'string') {
+      const trimmed = date.trim();
+      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
+      const m = ymd.exec(trimmed);
+      if (m) {
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10) - 1;
+        const d = parseInt(m[3], 10);
+        const dt = new Date(y, mo, d);
+        return dt.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+      }
+
+      // Fallback to Date parsing for ISO and other formats
+      const parsed = new Date(trimmed);
+      if (isNaN(parsed.getTime())) return 'Invalid Date';
+      return parsed.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    // Fallback: attempt to create Date from number
+    const asNum = Number(date);
+    if (!isNaN(asNum)) {
+      const parsed = new Date(asNum);
+      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    return 'Invalid Date';
+  } catch (e) {
+    return 'Invalid Date';
+  }
+};
+
+// Date-only formatter (no time) used for schedule displays
+const formatDateOnly = (date) => {
+  if (!date) return 'None';
+  try {
+    if (date instanceof Date) {
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+
+    if (typeof date === 'string') {
+      const trimmed = date.trim();
+      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
+      const m = ymd.exec(trimmed);
+      if (m) {
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10) - 1;
+        const d = parseInt(m[3], 10);
+        const dt = new Date(y, mo, d);
+        return dt.toLocaleString('en-US', { dateStyle: 'short' });
+      }
+
+      const parsed = new Date(trimmed);
+      if (isNaN(parsed.getTime())) return 'Invalid Date';
+      return parsed.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+
+    const asNum = Number(date);
+    if (!isNaN(asNum)) {
+      const parsed = new Date(asNum);
+      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+
+    return 'Invalid Date';
+  } catch (e) {
+    return 'Invalid Date';
+  }
+};
 
 // Format number with thousands separators and two decimal places
 const formatMoney = (value) => {
@@ -252,6 +328,7 @@ export default function EmployeeTicketTracker() {
   // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow (latest ticket)
   const [ticket, setTicket] = useState(null);
   const [loadingTicket, setLoadingTicket] = useState(false);
+  const [showRawTicket, setShowRawTicket] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -339,6 +416,39 @@ export default function EmployeeTicketTracker() {
   const softwareAffectedField = ticket.softwareAffected || getDyn(['softwareAffected', 'software_affected']) || null;
   const notesField = ticket.notes || getDyn(['notes', 'note']) || null;
 
+  // Budget proposal fields (prefer values inside dynamic_data)
+  const preparedByField = ticket.preparedBy || ticket.prepared_by || getDyn(['preparedBy', 'prepared_by', 'preparedByName', 'prepared_by_name']) || null;
+  const performanceStartField = ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || getDyn(['performanceStartDate', 'performance_start_date', 'performanceStart']) || null;
+  const performanceEndField = ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || getDyn(['performanceEndDate', 'performance_end_date', 'performanceEnd']) || null;
+  const totalBudgetField = (ticket.totalBudget ?? ticket.total_budget) ?? getDyn(['totalBudget', 'total_budget', 'requestedBudget', 'requested_budget', 'requested_budget_value']);
+  const budgetItemsField = ticket.budgetItems || ticket.budget_items || getDyn(['budgetItems', 'budget_items']) || [];
+
+  // Normalize scheduled request: explicit scheduled_date, or dynamic_data scheduled keys or nested scheduleRequest
+  // Broader fallback check for schedule fields stored in dynamic_data in various shapes
+  let scheduledRaw = ticket.scheduled_date || getDyn(['scheduledDate', 'scheduled_date']) || null;
+
+  if (!scheduledRaw) {
+    // Try common dynamic_data shapes: scheduleRequest or schedule_request (objects or strings)
+    const possible = getDyn(['schedule', 'schedule_request', 'scheduleRequest']);
+    if (possible) {
+      if (typeof possible === 'string') {
+        scheduledRaw = possible;
+      } else if (typeof possible === 'object') {
+        scheduledRaw = possible.date || possible.datetime || possible.scheduledDate || possible.scheduled_date || null;
+      }
+    }
+
+    // Also check explicit nested keys if present
+    if (!scheduledRaw && dyn && dyn.scheduleRequest && typeof dyn.scheduleRequest === 'object') {
+      scheduledRaw = dyn.scheduleRequest.date || dyn.scheduleRequest.datetime || null;
+    }
+    if (!scheduledRaw && dyn && dyn.schedule_request && typeof dyn.schedule_request === 'object') {
+      scheduledRaw = dyn.schedule_request.date || dyn.schedule_request.datetime || null;
+    }
+  }
+
+  const scheduledRequestDisplay = scheduledRaw ? formatDateOnly(scheduledRaw) : null;
+
   // Categories that come from the ticket submission form (keep only these)
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
 
@@ -353,6 +463,15 @@ export default function EmployeeTicketTracker() {
 
   return (
     <>
+      {/* Dev-only raw ticket viewer */}
+      <div style={{ position: 'fixed', right: 12, top: 80, zIndex: 9999 }}>
+        <button onClick={() => setShowRawTicket(!showRawTicket)} style={{ padding: 6, fontSize: 12 }} aria-label="Toggle raw ticket view">{showRawTicket ? 'Hide' : 'Show'} Raw Ticket</button>
+      </div>
+      {showRawTicket && ticket && (
+        <div style={{ position: 'fixed', right: 12, top: 120, zIndex: 9999, width: 420, maxHeight: '70vh', overflow: 'auto', background: '#fff', border: '1px solid #ddd', padding: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12 }}>{JSON.stringify(ticket, null, 2)}</pre>
+        </div>
+      )}
       <main className={styles.employeeTicketTrackerPage}>
         <ViewCard>
 
@@ -424,7 +543,7 @@ export default function EmployeeTicketTracker() {
 
                   <div className={styles.detailItem}>
                     <div className={styles.detailLabel}>Schedule Request</div>
-                    <div className={styles.detailValue}>{scheduledRequest || 'None'}</div>
+                    <div className={styles.detailValue}>{scheduledRequestDisplay || 'None'}</div>
                   </div>
 
                   <div className={`${styles.detailItem} ${styles.attachmentsRow}`}>
@@ -512,27 +631,27 @@ export default function EmployeeTicketTracker() {
                       <div className={styles.dynamicDetailsGrid}>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Prepared By</div>
-                          <div className={styles.detailValue}>{ticket.preparedBy || ticket.prepared_by || ticket.preparedByName || 'N/A'}</div>
+                          <div className={styles.detailValue}>{preparedByField || 'N/A'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Performance Start</div>
-                          <div className={styles.detailValue}>{ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || 'N/A'}</div>
+                          <div className={styles.detailValue}>{performanceStartField || 'N/A'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Performance End</div>
-                          <div className={styles.detailValue}>{ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || 'N/A'}</div>
+                          <div className={styles.detailValue}>{performanceEndField || 'N/A'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Total Budget</div>
-                          <div className={styles.detailValue}>{formatMoney(ticket.totalBudget ?? ticket.total_budget)}</div>
+                          <div className={styles.detailValue}>{formatMoney(totalBudgetField)}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Budget Items</div>
                           <div className={styles.detailValue}>
-                            {(ticket.budgetItems || ticket.budget_items || []).length > 0 ? (
-                              (ticket.budgetItems || ticket.budget_items || []).map((item, idx) => (
+                            {(budgetItemsField || []).length > 0 ? (
+                              (budgetItemsField || []).map((item, idx) => (
                                 <div key={idx}>
-                                  {`${item.costElement || item.cost_element || item.name || 'Item'} — ${item.estimatedCost || item.estimated_cost || ''}`}
+                                  {`${item.costElement || item.cost_element || item.name || 'Item'} — ${item.estimatedCost || item.estimated_cost || item.estimated_cost_range || ''}`}
                                 </div>
                               ))
                             ) : (
