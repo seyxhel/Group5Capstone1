@@ -21,6 +21,7 @@ import {
   FaDownload 
 } from 'react-icons/fa';
 import { convertToSecureUrl, extractFilePathFromUrl, getAccessToken } from '../../../utilities/secureMedia';
+import { getEmployeeTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 
 // Employee-side status progression (5 steps)
 // Step 1: Pending (when admin sets New or Open)
@@ -190,8 +191,10 @@ const renderAttachments = (files) => {
   return (
     <div className={styles.attachmentList}>
       {fileArray.map((f, idx) => {
-        const name = f?.name || f?.filename || f;
-        const url = f?.url || f?.downloadUrl || '#';
+        // Support multiple shapes: backend returns { file: url, file_name },
+        // older local mocks may use { name, url }, or sometimes just a URL string.
+        const name = f?.file_name || f?.name || f?.filename || (typeof f === 'string' ? f.split('/').pop() : f);
+        const url = f?.file || f?.url || f?.downloadUrl || f?.download_url || (typeof f === 'string' ? f : '#');
         // compute secure/backend URL to avoid opening local dev server paths
         let secureOrBackend = convertToSecureUrl(url) || null;
         if (!secureOrBackend) {
@@ -245,14 +248,46 @@ export default function EmployeeTicketTracker() {
   
   // Get only the current user's tickets
   const tickets = getEmployeeTickets(currentUser?.id);
-  
-  // hide verbose runtime logs in UI
 
-  const ticket = ticketNumber
-    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
-    : tickets && tickets.length > 0
-    ? tickets[tickets.length - 1]
-    : null;
+  // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow (latest ticket)
+  const [ticket, setTicket] = useState(null);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const findLocal = () => {
+      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
+    };
+
+    const local = findLocal();
+    if (local) {
+      setTicket(local);
+      return () => { mounted = false; };
+    }
+
+    // If not found locally and we have a ticketNumber, fetch from backend
+    if (ticketNumber) {
+      setLoadingTicket(true);
+      (async () => {
+        try {
+          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+          if (mounted) setTicket(fetched || null);
+        } catch (err) {
+          console.error('Error fetching ticket by number:', err);
+          if (mounted) setTicket(null);
+        } finally {
+          if (mounted) setLoadingTicket(false);
+        }
+      })();
+    } else {
+      setTicket(local);
+    }
+
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketNumber, JSON.stringify(tickets)]);
 
   // selected ticket ready for render
   if (!ticket) {
@@ -286,6 +321,23 @@ export default function EmployeeTicketTracker() {
 
   // Normalize attachments across different seed/property names
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+
+  // Normalize IT Support dynamic fields (prefer explicit fields then dynamic_data keys in both camelCase and snake_case)
+  const dyn = ticket.dynamic_data || {};
+  const getDyn = (keys) => {
+    for (const k of keys) {
+      if (dyn && Object.prototype.hasOwnProperty.call(dyn, k) && (dyn[k] !== null && dyn[k] !== undefined && dyn[k] !== '')) return dyn[k];
+    }
+    return null;
+  };
+
+  const deviceType = ticket.device_type || ticket.deviceType || getDyn(['deviceType', 'device_type', 'customDeviceType', 'custom_device_type']) || null;
+  const assetName = ticket.asset_name || ticket.assetName || getDyn(['assetName', 'asset_name']) || null;
+  const serialNumber = ticket.serial_number || ticket.serialNumber || getDyn(['serialNumber', 'serial_number']) || null;
+  const locationField = ticket.location || getDyn(['location']) || null;
+  const issueTypeField = ticket.issue_type || ticket.issueType || getDyn(['issueType', 'issue_type']) || null;
+  const softwareAffectedField = ticket.softwareAffected || getDyn(['softwareAffected', 'software_affected']) || null;
+  const notesField = ticket.notes || getDyn(['notes', 'note']) || null;
 
   // Categories that come from the ticket submission form (keep only these)
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
@@ -398,31 +450,31 @@ export default function EmployeeTicketTracker() {
                       <div className={styles.dynamicDetailsGrid}>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Device Type</div>
-                          <div className={styles.detailValue}>{ticket.dynamic_data?.device_type || ticket.deviceType || 'None'}</div>
+                          <div className={styles.detailValue}>{deviceType || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Asset Name</div>
-                          <div className={styles.detailValue}>{ticket.asset_name || ticket.assetName || 'None'}</div>
+                          <div className={styles.detailValue}>{assetName || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Serial Number</div>
-                          <div className={styles.detailValue}>{ticket.serial_number || ticket.serialNumber || 'None'}</div>
+                          <div className={styles.detailValue}>{serialNumber || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Location</div>
-                          <div className={styles.detailValue}>{ticket.location || 'None'}</div>
+                          <div className={styles.detailValue}>{locationField || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Specify Issue</div>
-                          <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || 'None'}</div>
+                          <div className={styles.detailValue}>{issueTypeField || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Software Affected</div>
-                          <div className={styles.detailValue}>{ticket.dynamic_data?.softwareAffected || ticket.softwareAffected || 'None'}</div>
+                          <div className={styles.detailValue}>{softwareAffectedField || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Notes</div>
-                          <div className={styles.detailValue}>{ticket.dynamic_data?.notes || ticket.notes || 'None'}</div>
+                          <div className={styles.detailValue}>{notesField || 'None'}</div>
                         </div>
                       </div>
                     </>

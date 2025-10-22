@@ -361,9 +361,7 @@ const CoordinatorAdminDashboard = () => {
   };
   
 
-    const userData = computeUserData();
-
-    const activityTimeline = [ { time: '10:30 AM', action: 'Ticket TX0001 submitted', type: 'ticket' }, { time: '11:00 AM', action: 'User MAP0001 account created', type: 'user' }, { time: '02:15 PM', action: 'Ticket TX0002 resolved', type: 'ticket' }, { time: '04:20 PM', action: 'User MAP0001 approved by Admin', type: 'user' } ];
+  const activityTimeline = [ { time: '10:30 AM', action: 'Ticket TX0001 submitted', type: 'ticket' }, { time: '11:00 AM', action: 'User MAP0001 account created', type: 'user' }, { time: '02:15 PM', action: 'Ticket TX0002 resolved', type: 'ticket' }, { time: '04:20 PM', action: 'User MAP0001 approved by Admin', type: 'user' } ];
 
     const userActivityTimeline = [ { time: '09:15 AM', action: 'User MAP0002 account created', type: 'user' }, { time: '10:45 AM', action: 'User MAP0003 account rejected', type: 'user' }, { time: '01:20 PM', action: 'User MAP0004 approved by Admin', type: 'user' }, { time: '03:05 PM', action: 'User MAP0005 role updated', type: 'user' } ];
 

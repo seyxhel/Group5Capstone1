@@ -351,9 +351,9 @@ export default function EmployeeTicketSubmissionForm() {
       formDataToSend.append('description', formData.description || '');
       // Don't set priority initially - it will be assigned by coordinator/admin
       
-      // Add file attachments
+      // Add file attachments using the key expected by backend (files[])
       selectedFiles.forEach((file) => {
-        formDataToSend.append('attachments', file);
+        formDataToSend.append('files[]', file);
       });
 
       // Add dynamic data as JSON string for category-specific fields

@@ -313,18 +313,35 @@ class TicketViewSet(viewsets.ModelViewSet):
         instance = self.perform_create(serializer)
 
         # Process multiple file attachments
+        created_attachments = []
         for file in files:
-            TicketAttachment.objects.create(
+            ta = TicketAttachment.objects.create(
                 ticket=instance,
                 file=file,
                 file_name=file.name,
-                file_type=file.content_type,
-                file_size=file.size,
+                file_type=getattr(file, 'content_type', '') or '',
+                file_size=getattr(file, 'size', 0) or 0,
                 uploaded_by=request.user
             )
+            created_attachments.append(ta)
 
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        # Debug logging to help verify file uploads in dev
+        try:
+            print(f"[TicketViewSet.create] received {len(files)} files, created {len(created_attachments)} attachments for ticket id={instance.id}")
+            for ta in created_attachments:
+                print(f"  - attachment: {ta.file_name} -> {getattr(ta.file, 'url', None)}")
+        except Exception:
+            pass
+
+        # Re-serialize the instance so the response includes the newly created attachments
+        try:
+            from .serializers import TicketSerializer
+            serialized = TicketSerializer(instance, context={'request': request}).data
+        except Exception:
+            serialized = serializer.data
+
+        headers = self.get_success_headers(serialized)
+        return Response(serialized, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
         return serializer.save()
@@ -475,6 +492,25 @@ def get_ticket_detail(request, ticket_id):
                 } for comment in comments
             ]
         }
+        # Include dynamic and explicit IT/asset fields so frontend can display IT Support form values
+        try:
+            ticket_data['dynamic_data'] = ticket.dynamic_data
+        except Exception:
+            ticket_data['dynamic_data'] = None
+
+        # explicit fields mapped by serializer/create
+        ticket_data.update({
+            'asset_name': ticket.asset_name,
+            'serial_number': ticket.serial_number,
+            'location': ticket.location,
+            'expected_return_date': ticket.expected_return_date,
+            'issue_type': ticket.issue_type,
+            'other_issue': ticket.other_issue,
+            'performance_start_date': ticket.performance_start_date,
+            'performance_end_date': ticket.performance_end_date,
+            'cost_items': ticket.cost_items,
+            'requested_budget': ticket.requested_budget,
+        })
         
         return Response(ticket_data, status=status.HTTP_200_OK)
         
@@ -542,6 +578,24 @@ def get_ticket_by_number(request, ticket_number):
                 } for comment in comments
             ]
         }
+        # Expose dynamic and explicit IT/asset fields for frontend
+        try:
+            ticket_data['dynamic_data'] = ticket.dynamic_data
+        except Exception:
+            ticket_data['dynamic_data'] = None
+
+        ticket_data.update({
+            'asset_name': ticket.asset_name,
+            'serial_number': ticket.serial_number,
+            'location': ticket.location,
+            'expected_return_date': ticket.expected_return_date,
+            'issue_type': ticket.issue_type,
+            'other_issue': ticket.other_issue,
+            'performance_start_date': ticket.performance_start_date,
+            'performance_end_date': ticket.performance_end_date,
+            'cost_items': ticket.cost_items,
+            'requested_budget': ticket.requested_budget,
+        })
 
         return Response(ticket_data, status=status.HTTP_200_OK)
     except Exception as e:
