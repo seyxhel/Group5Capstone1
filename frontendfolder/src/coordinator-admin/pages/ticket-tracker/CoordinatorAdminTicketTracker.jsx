@@ -5,6 +5,7 @@ import { backendTicketService } from '../../../services/backend/ticketService';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
+import ViewCard from '../../../shared/components/ViewCard';
 
 // Coordinator/Admin-side status progression (4 steps)
 // Step 1: New (newly submitted, awaiting review)
@@ -213,8 +214,9 @@ export default function CoordinatorAdminTicketTracker() {
           rootNavigatePage="/admin/ticket-management/all"
           title={`Ticket No. ${number}`}
         />
-        {/* Two Column Layout */}
-        <div className={styles.contentGrid}>
+        <ViewCard>
+  {/* Two Column Layout */}
+  <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}
           <div className={styles.leftColumn}>
             <section className={styles.ticketCard}>
@@ -327,6 +329,7 @@ export default function CoordinatorAdminTicketTracker() {
             </div>
           </div>
         </div>
+        </ViewCard>
       </main>
 
       {showOpenModal && (

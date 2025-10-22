@@ -26,6 +26,7 @@ ChartJS.register(
 );
 
 import styles from './CoordinatorAdminDashboard.module.css';
+import Tabs from '../../../shared/components/Tabs';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
@@ -246,136 +247,119 @@ import kbService from '../../../services/kbService';
     );
   };
 
-  // === Main Component ===
-  const CoordinatorAdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState('tickets');
-    const [tickets, setTickets] = useState([]);
-    const [ticketYear, setTicketYear] = useState(new Date().getFullYear());
-    const [ticketYRange, setTicketYRange] = useState('auto');
-    const [, setLoading] = useState(true);
-    const [users, setUsers] = useState([]);
-    const [kbStats, setKbStats] = useState({ totalArticles: 0, totalCategories: 0 });
-    const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-    const containerRef = useRef(null);
-    const tabRefs = useRef([]);
-    const navigate = useNavigate();
+// === Main Component ===
+const CoordinatorAdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState('tickets');
+  const navigate = useNavigate();
+  const dashboardTabs = [
+    { label: 'Tickets', value: 'tickets' },
+    { label: 'Users', value: 'users' },
+    { label: 'KB', value: 'kb' },
+  ];
 
-    const tabs = ['tickets', 'users', 'kb'];
+  const ticketData = {
+    stats: ticketPaths.map((item, i) => ({
+      label: item.label,
+      count: 5,
+      isHighlight: i >= 7,
+      position: i,
+      path: item.path
+    })),
+    tableData: [
+      {
+        ticketNumber: 'TX0001',
+        subject: 'Asset Replacement',
+        category: 'IT Support',
+        subCategory: 'Hardware',
+        status: { text: 'Open', statusClass: 'statusOpen' },
+        dateCreated: '06/12/2025 11:00AM'
+      },
+      {
+        ticketNumber: 'TX0002',
+        subject: 'Network Problem',
+        category: 'IT Support',
+        subCategory: 'Network Issue',
+        status: { text: 'New', statusClass: 'statusNew' },
+        dateCreated: '06/11/2025 1:05PM'
+      },
+      {
+        ticketNumber: 'TX0003',
+        subject: 'Software License Request',
+        category: 'IT Support',
+        subCategory: 'Software',
+        status: { text: 'In Progress', statusClass: 'statusInProgress' },
+        dateCreated: '06/10/2025 9:20AM'
+      },
+      {
+        ticketNumber: 'TX0004',
+        subject: 'Email Issue',
+        category: 'IT Support',
+        subCategory: 'Email',
+        status: { text: 'On Hold', statusClass: 'statusOnHold' },
+        dateCreated: '06/09/2025 2:45PM'
+      },
+      {
+        ticketNumber: 'TX0005',
+        subject: 'Password Reset',
+        category: 'IT Support',
+        subCategory: 'Account',
+        status: { text: 'New', statusClass: 'statusNew' },
+        dateCreated: '06/08/2025 8:15AM'
+      }
+    ],
+    // Pie and line data for ticket charts (placeholder/demo values)
+    pieData: [
+      { name: 'New', value: 10, fill: '#3B82F6' },
+      { name: 'Open', value: 8, fill: '#06B6D4' },
+      { name: 'In Progress', value: 5, fill: '#F59E0B' },
+      { name: 'On Hold', value: 3, fill: '#EF4444' }
+    ],
+    lineData: [
+      { month: 'Jan', dataset1: 20, dataset2: 12 },
+      { month: 'Feb', dataset1: 25, dataset2: 18 },
+      { month: 'Mar', dataset1: 30, dataset2: 22 },
+      { month: 'Apr', dataset1: 28, dataset2: 24 },
+      { month: 'May', dataset1: 35, dataset2: 30 },
+      { month: 'Jun', dataset1: 40, dataset2: 36 }
+    ],
+  };
 
-    const updateIndicator = () => {
-      const idx = tabs.indexOf(activeTab);
-      const container = containerRef.current;
-      const btn = tabRefs.current[idx];
-      if (!container || !btn) return;
-      const containerRect = container.getBoundingClientRect();
-      const btnRect = btn.getBoundingClientRect();
-      setIndicator({ left: btnRect.left - containerRect.left, width: btnRect.width });
-    };
-
-    useEffect(() => { updateIndicator(); const onResize = () => updateIndicator(); window.addEventListener('resize', onResize); return () => window.removeEventListener('resize', onResize); }, [activeTab]);
-
-    useEffect(() => {
-      let isMounted = true;
-      const fetchTickets = async () => {
-        try {
-          setLoading(true);
-          const all = await backendTicketService.getAllTickets();
-          if (!isMounted) return;
-          setTickets(all || []);
-        } catch (err) { console.error('Error fetching tickets for dashboard:', err); if (isMounted) setTickets([]); }
-        finally { if (isMounted) setLoading(false); }
-      };
-      fetchTickets();
-      return () => { isMounted = false; };
-    }, []);
-
-    useEffect(() => {
-      let isMounted = true;
-      const fetchUsers = async () => {
-        try { const all = await backendEmployeeService.getAllEmployees(); if (!isMounted) return; setUsers(all || []); } catch (err) { console.error('Error fetching employees for dashboard:', err); if (isMounted) setUsers([]); }
-      };
-      fetchUsers();
-      return () => { isMounted = false; };
-    }, []);
-
-    useEffect(() => {
-      let isMounted = true;
-      const fetchKBStats = async () => {
-        try {
-          const [articles, categories] = await Promise.all([ kbService.listArticles({}), kbService.listCategories() ]);
-          if (!isMounted) return;
-          const totalArticles = (articles || []).filter(a => !a.archived).length;
-          const totalCategories = (categories || []).length;
-          setKbStats({ totalArticles, totalCategories });
-        } catch (err) { console.error('Error fetching KB stats for dashboard:', err); if (isMounted) setKbStats({ totalArticles: 0, totalCategories: 0 }); }
-      };
-      fetchKBStats();
-      return () => { isMounted = false; };
-    }, []);
-
-    const computeTicketStats = () => {
-      const counts = { New: 0, Open: 0, 'In Progress': 0, 'On Hold': 0, Withdrawn: 0, Closed: 0, Rejected: 0 };
-      const ticketsToReview = [];
-      const latestLogs = [];
-      tickets.forEach(t => {
-        const status = t.status || t.ticket_status || '';
-        if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
-        if (status === 'New') ticketsToReview.push({ ticketNumber: t.ticket_number || t.ticketNumber, subject: t.subject, category: t.category, subCategory: t.sub_category || t.subCategory, status: { text: 'New', statusClass: 'statusNew' }, dateCreatedRaw: t.submit_date || t.dateCreated || null, dateCreated: (t.submit_date || t.dateCreated) ? new Date(t.submit_date || t.dateCreated).toLocaleString() : '' });
-        let latest = null;
-        if (Array.isArray(t.comments) && t.comments.length > 0) {
-          latest = t.comments.reduce((a, b) => { const ta = new Date(a.created_at || a.created || a.time_created || a.time || 0).getTime(); const tb = new Date(b.created_at || b.created || b.time_created || b.time || 0).getTime(); return ta > tb ? a : b; });
-        } else if (Array.isArray(t.dynamic_data) && t.dynamic_data.length > 0) {
-          latest = t.dynamic_data.reduce((a, b) => { const ta = new Date(a.time || a.created_at || 0).getTime(); const tb = new Date(b.time || b.created_at || 0).getTime(); return ta > tb ? a : b; });
-        }
-        if (latest) {
-          const time = new Date(latest.created_at || latest.created || latest.time_created || latest.time || latest.timestamp || null);
-          latestLogs.push({ ticketNumber: t.ticket_number || t.ticketNumber, time: isNaN(time.getTime()) ? '' : time.toLocaleString(), timestamp: isNaN(time.getTime()) ? 0 : time.getTime(), action: latest.comment || latest.text || latest.action || latest.summary || 'Updated' });
-        } else if (t.time_closed || t.submit_date || t.dateCreated) {
-          const time = new Date(t.time_closed || t.submit_date || t.dateCreated || null);
-          latestLogs.push({ ticketNumber: t.ticket_number || t.ticketNumber, time: isNaN(time.getTime()) ? '' : time.toLocaleString(), timestamp: isNaN(time.getTime()) ? 0 : time.getTime(), action: `Ticket ${t.ticket_number || t.ticketNumber} (${t.status || ''})` });
-        }
-      });
-      ticketsToReview.sort((a, b) => { const ta = a.dateCreatedRaw ? new Date(a.dateCreatedRaw).getTime() : 0; const tb = b.dateCreatedRaw ? new Date(b.dateCreatedRaw).getTime() : 0; return tb - ta; });
-      const ticketsToReviewClean = ticketsToReview.map(obj => { const copy = { ...obj }; delete copy.dateCreatedRaw; return copy; });
-      latestLogs.sort((a, b) => b.timestamp - a.timestamp);
-      const formatShortTime = (timeStr, timestamp) => { const d = timestamp && timestamp > 0 ? new Date(timestamp) : new Date(timeStr); if (isNaN(d.getTime())) return ''; let hours = d.getHours(); const minutes = d.getMinutes(); const ampm = hours >= 12 ? 'PM' : 'AM'; hours = hours % 12; if (hours === 0) hours = 12; return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`; };
-      const activities = latestLogs.slice(0, 4).map(l => ({ time: formatShortTime(l.time, l.timestamp), action: l.action }));
-      const stats = ticketPaths.map(p => ({ label: p.label, count: p.label === 'New Tickets' ? counts['New'] : p.label === 'Open Tickets' ? counts['Open'] : p.label === 'In Progress Tickets' ? counts['In Progress'] : p.label === 'On Hold Tickets' ? counts['On Hold'] : 0, isHighlight: false, position: 0, path: p.path }));
-      const pieData = [ { name: 'New', value: counts['New'], fill: '#1E90FF' }, { name: 'Open', value: counts['Open'], fill: '#14B8A6' }, { name: 'In Progress', value: counts['In Progress'], fill: '#FB923C' }, { name: 'On Hold', value: counts['On Hold'], fill: '#A855F7' }, { name: 'Withdrawn', value: counts['Withdrawn'], fill: '#9CA3AF' }, { name: 'Closed', value: counts['Closed'], fill: '#2563EB' }, { name: 'Rejected', value: counts['Rejected'], fill: '#EF4444' } ];
-
-      // Build year->month buckets
-      const yearMonthMap = {};
-      tickets.forEach(t => { const d = new Date(t.submit_date || t.dateCreated || Date.now()); const y = d.getFullYear(); const m = d.getMonth(); yearMonthMap[y] = yearMonthMap[y] || {}; yearMonthMap[y][m] = yearMonthMap[y][m] || { submitted: 0, closed: 0 }; yearMonthMap[y][m].submitted += 1; if (t.status === 'Closed') yearMonthMap[y][m].closed += 1; });
-      const months = {};
-      Object.keys(yearMonthMap).forEach(y => { Object.keys(yearMonthMap[y]).forEach(mIdx => { const key = new Date(Number(y), Number(mIdx), 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }); months[key] = yearMonthMap[y][mIdx]; }); });
-      const lineData = Object.keys(months).map(m => ({ month: m, dataset1: months[m].submitted, dataset2: months[m].closed }));
-      return { stats, tableData: ticketsToReviewClean, pieData, lineData, activities };
-    };
-
-    const ticketData = computeTicketStats();
-
-    const buildMonthlyDataForYear = (year) => {
-      const monthsArr = Array.from({ length: 12 }).map((_, i) => ({ month: new Date(year, i, 1).toLocaleString('en-US', { month: 'short' }), dataset1: 0, dataset2: 0 }));
-      tickets.forEach(t => { const d = new Date(t.submit_date || t.dateCreated || Date.now()); const y = d.getFullYear(); if (y !== year) return; const m = d.getMonth(); monthsArr[m].dataset1 += 1; if (t.status === 'Closed') monthsArr[m].dataset2 += 1; });
-      return monthsArr;
-    };
-
-    const computeUserData = () => {
-      const fetched = Array.isArray(users) ? users : [];
-      const pendingUsers = fetched.filter(u => (u.status || '').toLowerCase() === 'pending');
-      const pendingEmployees = pendingUsers.filter(u => (u.role || '').toLowerCase() === 'employee');
-      const stats = [{ label: 'Pending Users', count: pendingUsers.length, isHighlight: false, position: 0, path: userPaths.find(p => p.label === 'Pending Accounts')?.path }];
-      const tableData = pendingEmployees.map(u => ({ companyId: u.company_id || u.companyId || u.id || '', lastName: u.last_name || u.lastName || '', firstName: u.first_name || u.firstName || '', department: u.department || '', role: u.role || '', status: { text: 'Pending', statusClass: 'statusPending' } }));
-      const pieData = [ { name: 'Active Users', value: fetched.filter(u => (u.status || '').toLowerCase() === 'approved').length, fill: '#22C55E' }, { name: 'Pending', value: pendingUsers.length, fill: '#FBBF24' }, { name: 'Rejected', value: fetched.filter(u => (u.status || '').toLowerCase() === 'rejected').length, fill: '#EF4444' }, { name: 'Inactive', value: fetched.filter(u => (u.status || '').toLowerCase() === 'inactive').length, fill: '#9CA3AF' } ];
-      const allLogs = [];
-      fetched.forEach(u => { const logs = Array.isArray(u.recent_logs) ? u.recent_logs : []; logs.forEach(l => { const ts = l.timestamp || l.time || l.created_at || null; let numericTs = 0; try { if (ts) { const parsed = Date.parse(ts); numericTs = !isNaN(parsed) ? parsed : new Date(ts).getTime(); if (isNaN(numericTs)) numericTs = 0; } } catch (err) { void err; numericTs = 0; } allLogs.push({ employee: u, action: l.action || l.details || 'Updated', details: l.details || '', performed_by: l.performed_by || null, timestamp: numericTs }); }); });
-      allLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      const formatShortTime = (ts) => { const d = ts ? new Date(ts) : null; if (!d || isNaN(d.getTime())) return ''; let hours = d.getHours(); const minutes = d.getMinutes(); const ampm = hours >= 12 ? 'PM' : 'AM'; hours = hours % 12; if (hours === 0) hours = 12; return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`; };
-      const companyIdToUser = {}; fetched.forEach(u => { if (u.company_id) companyIdToUser[u.company_id] = u; if (u.companyId) companyIdToUser[u.companyId] = u; });
-      const activities = allLogs.slice(0, 4).map(l => { const emp = l.employee || {}; const empCompanyId = emp.company_id || emp.companyId || emp.id || ''; let actionText = ''; const actionNormalized = (l.action || '').toString().toLowerCase(); if (actionNormalized === 'created' || actionNormalized === 'account created') { actionText = empCompanyId ? `User ${empCompanyId} account created` : 'Account created'; } else if (actionNormalized === 'approved' || actionNormalized === 'account approved') { actionText = empCompanyId ? `User ${empCompanyId} account approved` : 'Account approved'; } else if (actionNormalized === 'rejected' || actionNormalized === 'account rejected') { actionText = empCompanyId ? `User ${empCompanyId} account rejected` : 'Account rejected'; } else { actionText = l.action || l.details || 'Updated'; } return { time: formatShortTime(l.timestamp), action: actionText }; });
-      const lineData = [ { month: 'Jan', dataset1: 12, dataset2: 8 }, { month: 'Feb', dataset1: 18, dataset2: 15 }, { month: 'Mar', dataset1: 22, dataset2: 18 }, { month: 'Apr', dataset1: 28, dataset2: 25 }, { month: 'May', dataset1: 35, dataset2: 30 }, { month: 'Jun', dataset1: 40, dataset2: 38 } ];
-      return { stats, tableData, pieData, lineData, activities };
-    };
+  const userData = {
+    stats: [
+      "Pending Users"
+    ].map((label, i) => ({
+      label,
+      count: 5,
+      isHighlight: false,
+      position: i,
+      path: userPaths.find(p => p.label === label)?.path
+    })),
+    tableData: [
+      {
+        companyId: 'MAP0001',
+        lastName: 'Park',
+        firstName: 'Sunghoon',
+        department: 'Finance Department',
+        role: 'Accountant',
+        status: { text: 'Pending', statusClass: 'statusPending' }
+      }
+    ],
+    pieData: [
+      { name: 'Active Users', value: 120, fill: '#22C55E' },      // Green
+      { name: 'Pending', value: 15, fill: '#FBBF24' },            // Amber
+      { name: 'Rejected', value: 8, fill: '#EF4444' },            // Red
+      { name: 'Inactive', value: 5, fill: '#9CA3AF' }             // Gray
+    ],
+    lineData: [
+      { month: 'Jan', dataset1: 12, dataset2: 8 },
+      { month: 'Feb', dataset1: 18, dataset2: 15 },
+      { month: 'Mar', dataset1: 22, dataset2: 18 },
+      { month: 'Apr', dataset1: 28, dataset2: 25 },
+      { month: 'May', dataset1: 35, dataset2: 30 },
+      { month: 'Jun', dataset1: 40, dataset2: 38 }
+    ]
+  };
+  
 
     const userData = computeUserData();
 
@@ -390,35 +374,75 @@ import kbService from '../../../services/kbService';
       </div>
     );
 
-    return (
-      <div className={styles.dashboardContainer}>
-        <div className={styles.dashboardContent}>
-          <h1 className={styles.title}>Dashboard</h1>
-          <div className={styles.tabContainer} ref={containerRef} role="tablist" aria-label="Dashboard Tabs">
-            {tabs.map((tab, idx) => {
-              const isActive = activeTab === tab;
-              return (<button key={tab} ref={(el) => (tabRefs.current[idx] = el)} role="tab" aria-selected={isActive} tabIndex={isActive ? 0 : -1} onClick={() => setActiveTab(tab)} className={`${styles.tab} ${isActive ? styles.tabActive : styles.tabInactive}`}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>);
-            })}
-            <div className={styles.tabIndicator} style={{ left: indicator.left, width: indicator.width }} aria-hidden="true" />
+  return (
+    <div className={styles.dashboardContainer}>
+      <div className={styles.dashboardContent}>
+        <h1 className={styles.title}>Dashboard</h1>
+
+        <Tabs
+          tabs={dashboardTabs}
+          active={activeTab}
+          onChange={setActiveTab}
+        />
+        <div className={styles.tabContent}>
+          <div className={styles.statusCardsGrid}>
+            {activeTab === 'kb' ? (
+              // KB tab could show quick KB stats; reuse placeholder stat cards
+              [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
+                <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
+              ))
+            ) : (
+              (activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
+                <StatCard
+                  key={i}
+                  {...stat}
+                  onClick={() => stat.path && navigate(stat.path)}
+                />
+              ))
+            )}
           </div>
-
-          <div className={styles.tabContent}>
-            <div className={styles.statusCardsGrid}>
-              {activeTab === 'kb' ? [ { label: 'Articles', count: kbStats.totalArticles }, { label: 'Categories', count: kbStats.totalCategories } ].map((stat, i) => (<StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />)) : (activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (<StatCard key={i} {...stat} onClick={() => stat.path && navigate(stat.path)} />))}
-            </div>
-
-            {activeTab === 'kb' ? (<div style={{ padding: 12 }}><KnowledgeDashboard /></div>) : (<>
-              <DataTable title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'} buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'} headers={activeTab === 'tickets' ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created'] : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']} data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData} onButtonClick={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/user-access/all-users')} maxRows={activeTab === 'tickets' ? 5 : activeTab === 'users' ? 6 : undefined} lockLeftCount={activeTab === 'users' ? 6 : undefined} />
-
-              <div className={chartStyles.chartsGrid}>
-                <StatusPieChart data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData} title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'} activities={activeTab === 'tickets' ? ticketData.activities || activityTimeline : (userData.activities || userActivityTimeline)} />
-                <TrendLineChart data={activeTab === 'tickets' ? buildMonthlyDataForYear(ticketYear) : userData.lineData} title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'} isTicketChart={activeTab === 'tickets'} showYearControls={activeTab === 'tickets'} year={ticketYear} onPrevYear={() => setTicketYear(y => y - 1)} onNextYear={() => setTicketYear(y => y + 1)} yRange={ticketYRange} onYRangeChange={(v) => setTicketYRange(v)} />
+            {activeTab === 'kb' ? (
+              <div style={{ padding: 12 }}>
+                <KnowledgeDashboard />
               </div>
-            </>)}
-          </div>
+            ) : (
+              <>
+                <DataTable
+                  title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
+                  buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'}
+                  headers={
+                    activeTab === 'tickets'
+                      ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
+                      : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+                  }
+                  data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
+                  onButtonClick={() =>
+                    navigate(
+                      activeTab === 'tickets'
+                        ? '/admin/ticket-management/all-tickets'
+                        : '/admin/users/all-users'
+                    )
+                  }
+                />
+
+                <div className={chartStyles.chartsGrid}>
+                  <StatusPieChart
+                    data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
+                    title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
+                    activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
+                  />
+                  <TrendLineChart
+                    data={activeTab === 'tickets' ? ticketData.lineData : userData.lineData}
+                    title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'}
+                    isTicketChart={activeTab === 'tickets'}
+                  />
+                </div>
+              </>
+            )}
         </div>
       </div>
-    );
+    </div>
+  );
   };
 
   export default CoordinatorAdminDashboard;

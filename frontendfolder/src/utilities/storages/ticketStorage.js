@@ -394,7 +394,9 @@ const TICKETS = [
     subCategory: "Capital Expenses (CapEx)",
     priority: "High",
     description: "Requesting budget approval for upgrading our financial reporting software to the enterprise version. This will improve efficiency and provide better compliance reporting features.",
-    fileAttachments: [],
+    fileAttachments: [
+      { name: "parking_photo.jpg", url: "/uploads/parking_photo.jpg", size: "1.8 MB", uploadedAt: "2025-06-07T07:45:00" }
+    ],
     scheduleRequest: null,
     budgetItems: [
       { costElement: "Software (long-term value like MS Office, Adobe Suite, Antivirus)", estimatedCost: "₱500,001 - ₱1,000,000" },
@@ -465,16 +467,47 @@ const TICKETS = [
   },
 ];
 
-// FORCE RESET - Update tickets in localStorage (remove this line after first load if needed)
+// --- Migration / normalization helpers ---
+const CATEGORY_MAPPINGS = {
+  'Facilities & Equipment': 'Others',
+  'Facilities': 'Others',
+  // add other legacy -> canonical mappings here if needed
+};
+
+const normalizeCategory = (cat) => {
+  if (!cat) return cat;
+  return CATEGORY_MAPPINGS[cat] || cat;
+};
+
+const normalizeTicket = (t) => {
+  const ticket = { ...t };
+  // Normalize category
+  if (ticket.category) ticket.category = normalizeCategory(ticket.category);
+  // Normalize inconsistent subcategory key names (seed uses `subcategory` sometimes)
+  if (ticket.subcategory && !ticket.subCategory) ticket.subCategory = ticket.subcategory;
+  if (ticket.subCategory && !ticket.subcategory) ticket.subcategory = ticket.subCategory;
+  return ticket;
+};
+
+// FORCE RESET / seed localStorage with normalized tickets (remove after first load if desired)
 if (typeof window !== 'undefined') {
-  localStorage.setItem("tickets", JSON.stringify(TICKETS));
-  console.log("🔄 FORCE RESET: Updated tickets - now includes all new ticket types (IT Support, Asset Check In/Out, Budget Proposal, General Request)");
+  const normalized = TICKETS.map(normalizeTicket);
+  localStorage.setItem('tickets', JSON.stringify(normalized));
+  console.log('🔄 FORCE RESET: Seeded tickets (normalized categories)');
 }
 
 export const getEmployeeTickets = (employeeId) => {
-  const stored = localStorage.getItem("tickets");
-  const tickets = stored ? JSON.parse(stored) : TICKETS;
-  if (!stored) localStorage.setItem("tickets", JSON.stringify(TICKETS));
+  const stored = localStorage.getItem('tickets');
+  let tickets = stored ? JSON.parse(stored) : TICKETS;
+
+  // Normalize any legacy tickets and persist normalized version
+  const normalized = tickets.map(normalizeTicket);
+  // If normalization changed anything, write back
+  if (JSON.stringify(normalized) !== JSON.stringify(tickets)) {
+    localStorage.setItem('tickets', JSON.stringify(normalized));
+    tickets = normalized;
+  }
+
   return employeeId ? tickets.filter(t => t.employeeId === employeeId) : tickets;
 };
 

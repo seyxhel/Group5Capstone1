@@ -1,0 +1,46 @@
+/* TicketActivity styles */
+.activitySection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.logsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.logEntry {
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border-left: 4px solid #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.logEntry:hover {
+  background-color: #f3f4f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.logUser {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.logAction {
+  font-size: 0.875rem;
+  color: #374151;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.logTimestamp {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+}

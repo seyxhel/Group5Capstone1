@@ -129,6 +129,36 @@ export async function downloadSecureFile(url, filename) {
 }
 
 /**
+ * Fetch a secure file as a Blob without triggering an automatic download.
+ * Returns an object { blob, contentType }
+ */
+export async function fetchSecureBlob(url) {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Fetch failed: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const contentType = response.headers.get('Content-Type') || blob.type || '';
+    return { blob, contentType };
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw error;
+  }
+}
+
+/**
  * Check if a URL is already secure (has token parameter)
  * @param {string} url - The URL to check
  * @returns {boolean} - True if the URL has a token parameter

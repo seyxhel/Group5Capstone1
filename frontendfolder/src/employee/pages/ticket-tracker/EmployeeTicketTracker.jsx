@@ -6,7 +6,21 @@ import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
+import TicketActivity from './TicketActivity';
+import TicketMessaging from './TicketMessaging';
 import Button from '../../../shared/components/Button';
+import ViewCard from '../../../shared/components/ViewCard';
+import Tabs from '../../../shared/components/Tabs';
+import { 
+  FaFileImage, 
+  FaFilePdf, 
+  FaFileWord, 
+  FaFileExcel, 
+  FaFileCsv, 
+  FaFile,
+  FaDownload 
+} from 'react-icons/fa';
+import { convertToSecureUrl, extractFilePathFromUrl, getAccessToken } from '../../../utilities/secureMedia';
 
 // Employee-side status progression (5 steps)
 // Step 1: Pending (when admin sets New or Open)
@@ -26,15 +40,33 @@ const getStatusSteps = (status) =>
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
 
+// Convert a key or phrase to Title Case (capitalize each word)
+const toTitleCase = (str) => {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
 const DetailField = ({ label, value }) => (
   <fieldset>
-    <label>{label}</label>
-    <p>{value || 'N/A'}</p>
+    <label>{toTitleCase(label)}</label>
+    <p>{value || 'None'}</p>
   </fieldset>
 );
 
 const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+
+// Format number with thousands separators and two decimal places
+const formatMoney = (value) => {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  const num = Number(value);
+  if (!isFinite(num)) return value;
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+};
 
 // Generate logs based on ticket data (start with any persisted logs)
 // Accept currentUser to decide labels for certain status changes
@@ -74,59 +106,131 @@ const generateLogs = (ticket, currentUser) => {
       timestamp: ticket.time_closed || ticket.update_date,
     });
   }
-
-  // Add a generated status change log for other statuses (not New, Pending, or Withdrawn)
-  if (ticket.status !== 'New' && ticket.status !== 'Pending' && ticket.status !== 'Withdrawn') {
-    let userLabel = 'Coordinator';
-
-    if ([ 'Resolved', 'In Progress', 'On Hold' ].includes(ticket.status)) {
-      userLabel = 'Agent';
-    } else if (ticket.status === 'Rejected') {
-      userLabel = 'Coordinator';
-    } else if (ticket.status === 'Closed') {
-      // If the viewing user is the ticket owner, assume they closed it -> 'You'
-      // Otherwise assume system auto-closed -> 'System'
-      try {
-        const ownerId = ticket.employee && (ticket.employee.id || ticket.employee);
-        const viewerId = currentUser && (currentUser.id || currentUser);
-        userLabel = ownerId && viewerId && Number(ownerId) === Number(viewerId) ? 'You' : 'System';
-      } catch (e) {
-        userLabel = 'System';
-      }
-    }
-
-    logs.push({
-      id: logs.length + 1,
-      user: userLabel,
-      action: `Status changed to ${ticket.status}`,
-      timestamp: ticket.update_date,
+  
+  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
+    logs.push({ 
+      id: 3, 
+      user: 'Coordinator', 
+      action: `Status changed to ${ticket.status}`, 
+      timestamp: formatDate(ticket.lastUpdated) 
     });
   }
-
-  // Sort logs by timestamp (latest to oldest)
-  logs.sort((a, b) => {
-    const dateA = new Date(a.timestamp);
-    const dateB = new Date(b.timestamp);
-    return dateB - dateA; // Descending order (newest first)
-  });
-
-  // Map timestamps into formatted strings for display
-  return logs.map((l) => ({ ...l, timestamp: formatDate(l.timestamp) }));
+  
+  return logs;
 };
 
-// Convert API comment objects into message objects for the UI
-const mapCommentsToMessages = (comments, currentUserId) => {
-  if (!Array.isArray(comments)) return [];
-  return comments.map((c, idx) => {
-    const userId = c.user && (c.user.id || null);
-    const isCurrent = currentUserId && userId && Number(currentUserId) === Number(userId);
-    return {
-      id: c.id || idx + 1,
-      sender: isCurrent ? 'You' : (c.user ? `${c.user.first_name} ${c.user.last_name}` : 'Support Team'),
-      message: c.comment || c.message || '',
-      timestamp: formatDate(c.created_at || c.createdAt || c.createdAt)
-    };
-  }); // API returns oldest-first, keep chronological order (oldest at top, newest at bottom)
+// Generate messages based on ticket data
+const generateMessages = (ticket) => {
+  return [
+    { id: 1, sender: 'Support Team', message: `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`, timestamp: formatDate(ticket.dateCreated) },
+    { id: 2, sender: 'You', message: 'Thank you for the update. When can I expect this to be resolved?', timestamp: formatDate(ticket.dateCreated) },
+  ];
+};
+
+// Render attachments in a consistent card/list style
+const renderAttachments = (files) => {
+  if (!files) return <div className={styles.detailValue}>No attachments</div>;
+
+  // Normalize to array
+  const fileArray = Array.isArray(files) ? files : [files];
+
+  const getFileIcon = (file) => {
+    const mimeType = file?.type || file?.mimeType;
+    const name = file?.name || file?.filename || file;
+    
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) return <FaFileImage />;
+      if (mimeType === 'application/pdf') return <FaFilePdf />;
+      if (mimeType.includes('word') || mimeType.includes('document')) return <FaFileWord />;
+      if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return <FaFileExcel />;
+      if (mimeType === 'text/csv') return <FaFileCsv />;
+    }
+    
+    // Fallback based on file extension
+    if (typeof name === 'string') {
+      const extension = name.split('.').pop()?.toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'].includes(extension)) return <FaFileImage />;
+      if (extension === 'pdf') return <FaFilePdf />;
+      if (['doc', 'docx'].includes(extension)) return <FaFileWord />;
+      if (['xls', 'xlsx'].includes(extension)) return <FaFileExcel />;
+      if (extension === 'csv') return <FaFileCsv />;
+    }
+    
+    return <FaFile />;
+  };
+
+  // We no longer fetch blobs client-side; filenames are linked to secure URLs
+
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+
+  const openAttachment = (rawUrl) => {
+    const secure = convertToSecureUrl(rawUrl);
+    if (secure) {
+      window.open(secure, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Try to compute a backend media URL from the path
+    const filePath = extractFilePathFromUrl(rawUrl) || (typeof rawUrl === 'string' ? rawUrl.split('?')[0] : null);
+    if (filePath) {
+      const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      let backendUrl = `${MEDIA_URL}${clean}`;
+      const token = getAccessToken();
+      if (token) {
+        backendUrl = `${backendUrl}?token=${encodeURIComponent(token)}`;
+      }
+      window.open(backendUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Fallback to opening the original url
+    window.open(rawUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className={styles.attachmentList}>
+      {fileArray.map((f, idx) => {
+        const name = f?.name || f?.filename || f;
+        const url = f?.url || f?.downloadUrl || '#';
+        // compute secure/backend URL to avoid opening local dev server paths
+        let secureOrBackend = convertToSecureUrl(url) || null;
+        if (!secureOrBackend) {
+          // try to extract a file path
+          let filePath = extractFilePathFromUrl(url);
+          if (!filePath && typeof url === 'string' && url.startsWith('http')) {
+            try {
+              const parsed = new URL(url);
+              filePath = parsed.pathname || null;
+            } catch (e) {
+              filePath = null;
+            }
+          }
+          if (filePath) {
+            const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+            const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+            secureOrBackend = `${MEDIA_URL}${clean}`;
+            const token = getAccessToken();
+            if (token) secureOrBackend = `${secureOrBackend}?token=${encodeURIComponent(token)}`;
+          }
+        }
+        // final fallback to original url
+        if (!secureOrBackend) secureOrBackend = url;
+        return (
+          <div key={idx} className={styles.attachmentItem}>
+            <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
+            <div style={{ flex: 1 }}>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
+                <FaDownload />
+              </a>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export default function EmployeeTicketTracker() {
@@ -134,100 +238,23 @@ export default function EmployeeTicketTracker() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // preview state removed - attachments now open in a new tab
 
   // Get current logged-in user
   const currentUser = authService.getCurrentUser();
   
-  // Fetch ticket from backend
-  useEffect(() => {
-    let isMounted = true;
+  // Get only the current user's tickets
+  const tickets = getEmployeeTickets(currentUser?.id);
+  
+  // hide verbose runtime logs in UI
 
-    const fetchTicket = async () => {
-      if (!ticketNumber) {
-        setLoading(false);
-        return;
-      }
+  const ticket = ticketNumber
+    ? tickets.find((t) => String(t.ticketNumber) === String(ticketNumber))
+    : tickets && tickets.length > 0
+    ? tickets[tickets.length - 1]
+    : null;
 
-      try {
-        setLoading(true);
-        console.log('🔢 Fetching ticket number:', ticketNumber);
-        
-        // Fetch ticket by number from backend
-        const fetchedTicket = await backendTicketService.getTicketByNumber(ticketNumber);
-        
-        if (!isMounted) return;
-
-        console.log('✅ Fetched ticket:', fetchedTicket);
-        setTicket(fetchedTicket);
-      } catch (error) {
-        console.error('Error fetching ticket:', error);
-        if (isMounted) setTicket(null);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchTicket();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [ticketNumber]);
-
-  // Load persisted comments/messages for this ticket from backend (if available)
-  useEffect(() => {
-    if (!ticket || !ticket.id) {
-      setMessages([]);
-      return;
-    }
-
-    const loadComments = async () => {
-      try {
-        // Fetch ticket details with comments
-        const data = await backendTicketService.getTicketById(ticket.id);
-        const currentUserId = currentUser?.id;
-        let mapped = mapCommentsToMessages(data.comments || [], currentUserId);
-        
-        // Ensure the initial system message exists
-        const systemMessageText = `Your ticket regarding "${ticket.subject}" has been received and is being reviewed.`;
-        const hasSystem = mapped.some(m => m.sender === 'Support Team' && (m.message || '').includes('has been received'));
-        
-        if (!hasSystem) {
-          mapped = [{
-            id: 'sys-1',
-            sender: 'Support Team',
-            message: systemMessageText,
-            timestamp: formatDate(ticket.submit_date || new Date().toISOString())
-          }, ...mapped];
-        }
-        
-        setMessages(mapped);
-      } catch (e) {
-        console.error('Failed to load ticket comments:', e);
-        setMessages([]);
-      }
-    };
-
-    // Reset messages for a fresh ticket view
-    setMessages([]);
-    loadComments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket?.ticket_number, ticket?.id]);
-
-  if (loading) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>Loading...</h1>
-        </div>
-      </div>
-    );
-  }
-
+  // selected ticket ready for render
   if (!ticket) {
     return (
       <div className={styles.employeeTicketTrackerPage}>
@@ -257,83 +284,25 @@ export default function EmployeeTicketTracker() {
     scheduled_date: scheduledRequest,
   } = ticket;
 
+  // Normalize attachments across different seed/property names
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+
+  // Categories that come from the ticket submission form (keep only these)
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+
   // Convert status to employee view (New/Open -> Pending)
   const status = toEmployeeStatus(originalStatus);
   const statusSteps = getStatusSteps(status);
   const isClosable = status === 'Resolved';
 
   // Generate dynamic data based on ticket
-  const ticketLogs = generateLogs(ticket, currentUser);
-
-  // Handle sending a new message
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      (async () => {
-        try {
-          // If this ticket has a backend id, persist the comment
-          if (ticket && (ticket.id || ticket.id === 0)) {
-            const created = await backendTicketService.createComment(ticket.id, newMessage, false);
-            // Map single returned comment to message format
-            const currentUser = authService.getCurrentUser();
-            const currentUserId = currentUser?.id;
-            const isCurrent = created.user && currentUserId && Number(created.user.id) === Number(currentUserId);
-            const msg = {
-              id: created.id,
-              sender: isCurrent ? 'You' : (created.user ? `${created.user.first_name} ${created.user.last_name}` : 'You'),
-              message: created.comment || '',
-              timestamp: formatDate(created.created_at)
-            };
-            setMessages((prev) => [...prev, msg]);
-            setNewMessage('');
-            return;
-          }
-
-          // Fallback local behavior: append to in-memory messages
-          const newMsg = {
-            id: messages.length + 1,
-            sender: 'You',
-            message: newMessage,
-            timestamp: formatDate(new Date().toISOString())
-          };
-          setMessages([...messages, newMsg]);
-          setNewMessage('');
-        } catch (err) {
-          console.error('Failed to send message:', err);
-        }
-      })();
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // Handler for successful withdraw action from modal
-  const handleWithdrawSuccess = async (ticketNum, newStatus) => {
-    try {
-      // Refresh the ticket data from backend after withdrawal
-      if (ticketNumber) {
-        const updatedTicket = await backendTicketService.getTicketByNumber(ticketNumber);
-        setTicket(updatedTicket);
-      }
-      setShowWithdrawModal(false);
-    } catch (e) {
-      console.error('Failed to refresh ticket after withdrawal:', e);
-      setShowWithdrawModal(false);
-    }
-  };
+  const ticketLogs = generateLogs(ticket);
+  const ticketMessages = generateMessages(ticket);
 
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
-        {/* Breadcrumb Navigation */}
-        <div className={styles.pageHeader}>
-          <p className={styles.breadcrumb}>Ticket Records / Ticket Tracker</p>
-          <h1 className={styles.pageTitle}>{number}</h1>
-        </div>
+        <ViewCard>
 
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
@@ -346,65 +315,201 @@ export default function EmployeeTicketTracker() {
                   <div className={`${styles.priorityBadge} ${styles[`priority${priorityLevel || 'NotSet'}`]}`}>
                     {priorityLevel || 'Not Set'}
                   </div>
-                  <h2 className={styles.ticketNumber}>Ticket No. {number}</h2>
+                  <h2 className={styles.ticketSubject}>{subject || `Ticket No. ${number}`}</h2>
                 </div>
                 <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
                   {status}
                 </div>
               </div>
 
-              {/* Subject */}
-              <div className={styles.subjectSection}>
-                <h3 className={styles.sectionTitle}>{subject}</h3>
-                <div className={styles.subjectMeta}>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Category:</span>
-                    <span className={styles.metaValue}>{category} - {subCategory}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Department:</span>
-                    <span className={styles.metaValue}>{department || 'N/A'}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Assigned To:</span>
-                    <span className={styles.metaValue}>
-                      {typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}
-                    </span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Date Created:</span>
-                    <span className={styles.metaValue}>{formatDate(dateCreated)}</span>
-                  </div>
-                  <div className={styles.metaItem}>
-                    <span className={styles.metaLabel}>Last Updated:</span>
-                    <span className={styles.metaValue}>{formatDate(lastUpdated)}</span>
-                  </div>
+              {/* Ticket meta: compact metadata shown under header */}
+              <div className={styles.ticketMeta}>
+                <div className={styles.ticketMetaItem}>
+                  <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreated)}</span> </span> 
+                </div>
+                <div className={styles.ticketMetaItem}>
+                  <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdated)}</span> </span>
                 </div>
               </div>
 
-              {/* Description */}
-              <div className={styles.descriptionSection}>
-                <h4 className={styles.descriptionLabel}>Description</h4>
-                <p className={styles.descriptionText}>
-                  {description || 'No description provided.'}
-                </p>
-              </div>
+              {/* Ticket Details - consolidated and always present */}
+              <div className={styles.detailsGrid}>
+                {formCategories.includes(category) && (
+                  <div className={`${styles.detailItem}`}>
+                    <div className={styles.detailLabel}>Category</div>
+                    <div className={styles.detailValue}>{category || 'None'}</div>
+                  </div>
+                )}
 
-              {/* Attachments */}
-              {fileUploaded && (
-                <div className={styles.attachmentSection}>
-                  <h4 className={styles.attachmentLabel}>Attachments</h4>
-                  <div className={styles.attachmentGrid}>
-                    <div className={styles.attachmentCard}>
-                      <div className={styles.attachmentIcon}>📄</div>
-                      <div className={styles.attachmentInfo}>
-                        <p className={styles.attachmentName}>{fileUploaded}</p>
-                        <button className={styles.attachmentDownload}>Download</button>
-                      </div>
+                {formCategories.includes(category) && (
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Sub-Category</div>
+                    <div className={styles.detailValue}>
+                      {category === 'Others' ? (
+                        'None'
+                      ) : (
+                        subCategory || 'None'
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className={styles.detailItem}>
+                  <div className={styles.detailLabel}>Assigned Agent</div>
+                  <div className={styles.detailValue}>{typeof assignedTo === 'object' ? assignedTo?.name || 'Unassigned' : assignedTo || 'Unassigned'}</div>
+                </div>
+
+                <div className={styles.detailItem}>
+                  <div className={styles.detailLabel}>Department</div>
+                  <div className={styles.detailValue}>{department || 'None'}</div>
+                </div>
+
+                <div className={styles.singleColumnGroup}>
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Description</div>
+                    <div className={styles.detailValue}>{description || 'No description provided.'}</div>
+                  </div>
+
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Schedule Request</div>
+                    <div className={styles.detailValue}>{scheduledRequest || 'None'}</div>
+                  </div>
+
+                  <div className={`${styles.detailItem} ${styles.attachmentsRow}`}>
+                    <div className={styles.detailLabel}>Attachments</div>
+                    <div className={styles.detailValue}>
+                        {attachments && attachments.length > 0
+                          ? renderAttachments(attachments)
+                          : 'None'}
                     </div>
                   </div>
                 </div>
+
+              {category !== 'Others' && (
+                <div className={styles.categoryDivider}></div>
               )}
+
+                {/* Category-specific dynamic details inserted inside detailsGrid as fullWidth */}
+                <div className={styles.fullWidth}>
+                  {/* IT Support */}
+                  {category === 'IT Support' && (
+                    <>
+                      <div className={styles.categoryDetails}>IT Support Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Device Type</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.device_type || ticket.deviceType || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Asset Name</div>
+                          <div className={styles.detailValue}>{ticket.asset_name || ticket.assetName || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Serial Number</div>
+                          <div className={styles.detailValue}>{ticket.serial_number || ticket.serialNumber || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Location</div>
+                          <div className={styles.detailValue}>{ticket.location || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Specify Issue</div>
+                          <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Software Affected</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.softwareAffected || ticket.softwareAffected || 'None'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Notes</div>
+                          <div className={styles.detailValue}>{ticket.dynamic_data?.notes || ticket.notes || 'None'}</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {/* Asset Check In/Out */}
+                  {(category === 'Asset Check In' || category === 'Asset Check Out') && (
+                    <>
+                      <div className={styles.categoryDetails}>Asset Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Asset Name</div>
+                          <div className={styles.detailValue}>{ticket.asset_name || ticket.assetName || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Serial Number</div>
+                          <div className={styles.detailValue}>{ticket.serial_number || ticket.serialNumber || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Location</div>
+                          <div className={styles.detailValue}>{ticket.location || 'N/A'}</div>
+                        </div>
+                        {category === 'Asset Check Out' && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Expected Return</div>
+                            <div className={styles.detailValue}>{ticket.expectedReturnDate || ticket.expected_return_date || ticket.expectedReturn || 'N/A'}</div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {/* New Budget Proposal */}
+                  {category === 'New Budget Proposal' && (
+                    <>
+                      <div className={styles.categoryDetails}>Budget Proposal Details</div>
+                      <div className={styles.dynamicDetailsGrid}>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Prepared By</div>
+                          <div className={styles.detailValue}>{ticket.preparedBy || ticket.prepared_by || ticket.preparedByName || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Performance Start</div>
+                          <div className={styles.detailValue}>{ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Performance End</div>
+                          <div className={styles.detailValue}>{ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || 'N/A'}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Total Budget</div>
+                          <div className={styles.detailValue}>{formatMoney(ticket.totalBudget ?? ticket.total_budget)}</div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Budget Items</div>
+                          <div className={styles.detailValue}>
+                            {(ticket.budgetItems || ticket.budget_items || []).length > 0 ? (
+                              (ticket.budgetItems || ticket.budget_items || []).map((item, idx) => (
+                                <div key={idx}>
+                                  {`${item.costElement || item.cost_element || item.name || 'Item'} — ${item.estimatedCost || item.estimated_cost || ''}`}
+                                </div>
+                              ))
+                            ) : (
+                              'No budget items provided'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {/* Fallback: dynamic_data */}
+                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && ticket.dynamic_data && Object.keys(ticket.dynamic_data).length > 0 && (
+                    <div className={styles.dynamicDetailsGrid}>
+                      <div className={styles.detailItem}>
+                        <div className={styles.detailLabel}>Additional Details</div>
+                        <div className={styles.detailValue}></div>
+                      </div>
+                      {Object.entries(ticket.dynamic_data).map(([key, val]) => (
+                        <div className={styles.detailItem} key={key}>
+                          <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
+                          <div className={styles.detailValue}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
             </section>
           </div>
 
@@ -412,77 +517,35 @@ export default function EmployeeTicketTracker() {
           <div className={styles.rightColumn}>
             {/* Action Button */}
             {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
-              <button
-                className={isClosable ? styles.closeButton : styles.withdrawButton}
+              <Button
+                variant="primary"
                 onClick={() =>
                   isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
                 }
+                className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
               >
                 {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
-              </button>
+              </Button>
             )}
 
-            {/* Tabs: Logs / Message */}
-            <div className={styles.tabsContainer}>
-                <div className={styles.tabs}>
-                  <button 
-                    className={`${styles.tab} ${activeTab === 'logs' ? styles.activeTab : ''}`}
-                    onClick={() => setActiveTab('logs')}
-                  >
-                    Logs
-                  </button>
-                  <button 
-                    className={`${styles.tab} ${activeTab === 'message' ? styles.activeTab : ''}`}
-                    onClick={() => setActiveTab('message')}
-                  >
-                    Message
-                  </button>
-                </div>
-                <div className={styles.tabContent}>
-                  {activeTab === 'logs' ? (
-                  <div className={styles.logsContent}>
-                    {ticketLogs.map((log) => (
-                      <div key={log.id} className={styles.logEntry}>
-                        <div className={styles.logUser}>{log.user}</div>
-                        <div className={styles.logAction}>{log.action}</div>
-                        <div className={styles.logTimestamp}>{log.timestamp}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.messageSection}>
-                    <div className={styles.messagesContent}>
-                      {messages.map((msg) => (
-                        <div key={msg.id} className={`${styles.messageEntry} ${msg.sender === 'You' ? styles.myMessage : styles.theirMessage}`}>
-                          <div className={styles.messageSender}>{msg.sender}</div>
-                          <div className={styles.messageText}>{msg.message}</div>
-                          <div className={styles.messageTimestamp}>{msg.timestamp}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={styles.messageInputContainer}>
-                      <textarea
-                        className={styles.messageInput}
-                        placeholder="Type your message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        rows={2}
-                      />
-                      <button 
-                        className={styles.sendButton}
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                      >
-                        Send
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+            <Tabs
+              tabs={[
+                { label: 'Logs', value: 'logs' },
+                { label: 'Messages', value: 'messages' },
+              ]}
+              active={activeTab}
+              onChange={setActiveTab}
+            >
+              {activeTab === 'logs' ? (
+                <TicketActivity ticketLogs={ticketLogs} />
+              ) : (
+                <TicketMessaging initialMessages={ticketMessages} />
+              )}
+            </Tabs>
             </div>
-          </div>
         </div>
+  
+        </ViewCard>
       </main>
 
       {/* Modals */}
@@ -499,6 +562,7 @@ export default function EmployeeTicketTracker() {
           onClose={() => setShowCloseModal(false)}
         />
       )}
+      {/* DocumentViewer removed; attachments open in a new tab instead */}
     </>
   );
 }
