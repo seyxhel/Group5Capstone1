@@ -421,7 +421,8 @@ export default function EmployeeTicketTracker() {
   const performanceStartField = ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || getDyn(['performanceStartDate', 'performance_start_date', 'performanceStart']) || null;
   const performanceEndField = ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || getDyn(['performanceEndDate', 'performance_end_date', 'performanceEnd']) || null;
   const totalBudgetField = (ticket.totalBudget ?? ticket.total_budget) ?? getDyn(['totalBudget', 'total_budget', 'requestedBudget', 'requested_budget', 'requested_budget_value']);
-  const budgetItemsField = ticket.budgetItems || ticket.budget_items || getDyn(['budgetItems', 'budget_items']) || [];
+  // Support both old 'budgetItems' and new 'items' structure
+  const budgetItemsField = ticket.budgetItems || ticket.budget_items || getDyn(['items', 'budgetItems', 'budget_items']) || [];
 
   // Normalize scheduled request: explicit scheduled_date, or dynamic_data scheduled keys or nested scheduleRequest
   // Broader fallback check for schedule fields stored in dynamic_data in various shapes

@@ -53,7 +53,7 @@ export default function BudgetProposalForm({
   setBudgetItems 
 }) {
   const addBudgetItem = () => {
-    setBudgetItems([...budgetItems, { costElement: '', estimatedCost: '' }]);
+    setBudgetItems([...budgetItems, { cost_element: '', estimated_cost: '', description: '', account: 2 }]);
   };
 
   const removeBudgetItem = (index) => {
@@ -72,9 +72,9 @@ export default function BudgetProposalForm({
   // Calculate total budget
   const calculateTotalBudget = () => {
     return budgetItems.reduce((total, item) => {
-      if (!item.estimatedCost) return total;
+      if (!item.estimated_cost) return total;
       
-      const range = item.estimatedCost;
+      const range = item.estimated_cost;
       let maxValue = 0;
 
       if (range === '₱1,000,001 and above') {
@@ -129,13 +129,13 @@ export default function BudgetProposalForm({
           <div key={index} className={styles.budgetItem}>
             {/* Cost Element */}
             <FormField
-              id={`costElement-${index}`}
+              id={`cost_element-${index}`}
               label="Cost Element"
               render={() => (
                 <select
                   disabled={!formData.subCategory}
-                  value={item.costElement}
-                  onChange={(e) => updateBudgetItem(index, 'costElement', e.target.value)}
+                  value={item.cost_element}
+                  onChange={(e) => updateBudgetItem(index, 'cost_element', e.target.value)}
                 >
                   <option value="">
                     {formData.subCategory ? 'Select Cost Element' : 'Select Sub-Category first'}
@@ -149,12 +149,12 @@ export default function BudgetProposalForm({
 
             {/* Estimated Cost */}
             <FormField
-              id={`estimatedCost-${index}`}
+              id={`estimated_cost-${index}`}
               label="Estimated Cost"
               render={() => (
                 <select
-                  value={item.estimatedCost}
-                  onChange={(e) => updateBudgetItem(index, 'estimatedCost', e.target.value)}
+                  value={item.estimated_cost}
+                  onChange={(e) => updateBudgetItem(index, 'estimated_cost', e.target.value)}
                 >
                   <option value="">Select Cost Range</option>
                   {costRanges.map(range => (
@@ -163,6 +163,23 @@ export default function BudgetProposalForm({
                 </select>
               )}
             />
+
+            {/* Description */}
+            <FormField
+              id={`description-${index}`}
+              label="Description"
+              render={() => (
+                <textarea
+                  value={item.description || ''}
+                  onChange={(e) => updateBudgetItem(index, 'description', e.target.value)}
+                  placeholder="Enter description (optional)"
+                  rows={2}
+                />
+              )}
+            />
+
+            {/* Account - Hidden field with default value 2 */}
+            <input type="hidden" value={item.account || 2} />
 
             {/* Remove Button */}
             {budgetItems.length > 1 && (

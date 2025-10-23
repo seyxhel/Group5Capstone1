@@ -58,7 +58,7 @@ export default function EmployeeTicketSubmissionForm() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [budgetItems, setBudgetItems] = useState([{ costElement: '', estimatedCost: '' }]);
+  const [budgetItems, setBudgetItems] = useState([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
   const [showCustomDeviceType, setShowCustomDeviceType] = useState(false);
 
   // Determine actual category (if "Others", it's General Request)
@@ -204,7 +204,7 @@ export default function EmployeeTicketSubmissionForm() {
         performanceEndDate: '',
         preparedBy: ''
       }));
-      setBudgetItems([{ costElement: '', estimatedCost: '' }]);
+      setBudgetItems([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
     }
 
     // Reset asset name and serial number when sub-category changes
@@ -263,9 +263,9 @@ export default function EmployeeTicketSubmissionForm() {
   // Calculate total budget for Budget Proposal
   const calculateTotalBudget = () => {
     return budgetItems.reduce((total, item) => {
-      if (!item.estimatedCost) return total;
+      if (!item.estimated_cost) return total;
       
-      const range = item.estimatedCost;
+      const range = item.estimated_cost;
       let maxValue = 0;
 
       if (range === '₱1,000,001 and above') {
@@ -397,7 +397,7 @@ export default function EmployeeTicketSubmissionForm() {
 
       // Add Budget Proposal specific data
       if (isBudgetProposal) {
-        dynamicData.budgetItems = budgetItems;
+        dynamicData.items = budgetItems;
         dynamicData.totalBudget = calculateTotalBudget();
         dynamicData.performanceStartDate = formData.performanceStartDate;
         dynamicData.performanceEndDate = formData.performanceEndDate;
@@ -459,7 +459,7 @@ export default function EmployeeTicketSubmissionForm() {
     setTouched({});
     setSelectedFiles([]);
     setFileError('');
-    setBudgetItems([{ costElement: '', estimatedCost: '' }]);
+    setBudgetItems([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
     setShowCustomDeviceType(false);
   };
 

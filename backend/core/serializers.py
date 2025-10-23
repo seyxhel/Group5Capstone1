@@ -177,8 +177,8 @@ class TicketSerializer(serializers.ModelSerializer):
             'description', 'scheduled_date', 'priority', 'department',
                 'asset_name', 'serial_number', 'location', 'expected_return_date',
                 'issue_type', 'other_issue', 'performance_start_date', 'performance_end_date',
-                'approved_by', 'cost_items', 'requested_budget', 'dynamic_data',
-                'status', 'submit_date', 'update_date', 'assigned_to', 'attachments',
+                'approved_by', 'cost_items', 'requested_budget', 'fiscal_year', 'department_input',
+                'dynamic_data', 'status', 'submit_date', 'update_date', 'assigned_to', 'attachments',
                 'employee'
         ]
         read_only_fields = [
@@ -232,6 +232,15 @@ class TicketSerializer(serializers.ModelSerializer):
                 pass
 
         ticket = Ticket.objects.create(employee=user, dynamic_data=dynamic, **validated_data)
+        
+        # Set budget-specific defaults when category is "New Budget Proposal"
+        if validated_data.get('category') == 'New Budget Proposal':
+            if ticket.fiscal_year is None:
+                ticket.fiscal_year = 2
+            if ticket.department_input is None:
+                ticket.department_input = 2
+            ticket.save(update_fields=['fiscal_year', 'department_input'])
+        
         return ticket
     
 def ticket_to_dict(ticket):
