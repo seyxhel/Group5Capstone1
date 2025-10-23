@@ -291,6 +291,9 @@ def ticket_to_dict(ticket):
         "resolution_time": str(ticket.resolution_time) if hasattr(ticket, "resolution_time") and ticket.resolution_time else None,
         "time_closed": ticket.time_closed.isoformat() if hasattr(ticket, "time_closed") and ticket.time_closed else None,
         "rejection_reason": ticket.rejection_reason if hasattr(ticket, "rejection_reason") else None,
+        # Budget-specific metadata
+        "fiscal_year": ticket.fiscal_year,
+        "department_input": ticket.department_input,
     }
 
     print("Serialized ticket data:", data)  # <-- Debug print statement

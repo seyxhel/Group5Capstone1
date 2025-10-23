@@ -510,6 +510,9 @@ def get_ticket_detail(request, ticket_id):
             'performance_end_date': ticket.performance_end_date,
             'cost_items': ticket.cost_items,
             'requested_budget': ticket.requested_budget,
+            # Budget-specific metadata
+            'fiscal_year': ticket.fiscal_year,
+            'department_input': ticket.department_input,
         })
         
         return Response(ticket_data, status=status.HTTP_200_OK)
