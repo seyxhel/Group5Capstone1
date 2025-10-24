@@ -193,21 +193,15 @@ const CoordinatorAdminTicketManagement = () => {
     // Coordinators and System Admins see tickets from their department
     if (user) {
       if (user.role === 'Ticket Coordinator') {
-        // Coordinators see tickets from their department.
-        // Tickets in local/static storage may use different department fields
-        // (e.g., 'assignedDepartment', 'employeeDepartment', or 'department'),
-        // so check all of them when matching.
-        // If the page is the "all" status, show all tickets regardless of department.
-        // Otherwise restrict to the coordinator's department.
-        if (normalizedStatus !== 'all') {
-          ticketsToShow = ticketsToShow.filter(ticket => {
-            const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
-            const userDept = (user.department || '').toString();
-            return ticketDept && userDept && ticketDept === userDept;
-          });
-        }
-        // Debug sample
-        try { console.info('[TicketManagement] after dept filter sample:', ticketsToShow.slice(0,3)); } catch(e) { void e; }
+        // Coordinators should see tickets for their department, and also
+        // tickets assigned directly to them. Seeded tickets may use
+        // `assignedDepartment` or `department` - check both.
+        ticketsToShow = fetched.filter(ticket => {
+          const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+          const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+          const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+          return ticketDept === user.department || isAssignedToUser;
+        });
       } else if (user.role === 'System Admin') {
         // System Admins see all tickets
         ticketsToShow = fetched;

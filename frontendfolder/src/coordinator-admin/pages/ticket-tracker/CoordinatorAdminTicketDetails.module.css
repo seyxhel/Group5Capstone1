@@ -1,0 +1,196 @@
+.detailsPanel {
+  gap: 12px;
+}
+.peopleRow {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.personCard {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: auto auto; /* avatar spans two rows, name + meta are stacked */
+  gap: 8px 12px;
+  align-items: center;
+  flex: 1 1 50%;
+}
+.avatarWrap {
+  grid-row: 1 / span 2;
+}
+.personInfo {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+}
+.detailsPanel {
+  gap: 16px;
+}
+.section {
+  margin-bottom: 24px;
+}
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+  margin-bottom: 12px;
+}
+.userCardWrap {
+  display: block;
+}
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatarImageInner {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.userInfo {
+  flex: 1;
+}
+.userName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 4px;
+}
+.userMeta {
+  font-size: 14px;
+  color: #6c757d;
+  line-height: 1.6;
+}
+/* Timeline styles (replaces action card) */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.timelineItem {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.timelineDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.timelineContent {
+  background: var(--white);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+}
+.timelineUser {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.timelineAction {
+  color: var(--text-secondary);
+}
+.timelineTimestamp {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.noLogs {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Horizontal timeline */
+.horizontalTimelineWrap {
+  position: relative;
+  padding: 18px 10px 6px 10px;
+}
+.horizontalLine {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  height: 2px;
+  background: var(--gray-300);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+.horizontalDots {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+  padding: 0 20px;
+}
+.dot {
+  width: 14px;
+  height: 14px;
+  background: var(--gray-300);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.03) inset;
+}
+.activeDot {
+  background: var(--primary-color);
+  box-shadow: 0 0 0 6px rgba(0,0,0,0.04) inset;
+}
+
+@media (max-width: 600px) {
+  .section {
+    margin-bottom: 20px;
+  }
+}
+
+/* Panel root to ensure Details and Logs share same dynamic height */
+.panelRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.panelContent {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-right: 8px; /* small padding to avoid scrollbar overlap */
+}
+
+/* Coordinator-specific override to make the right column fill and allow
+   inner panels (Details / Logs) to stretch and scroll. We avoid changing
+   the global Employee styles and scope this to the coordinator pages. */
+.rightColumnFill {
+  position: static !important; /* remove sticky behavior so the column can size normally */
+  /* Stretch to match the grid row height (the taller column). We avoid
+     forcing a viewport height here so the grid naturally sizes to the
+     taller column and the right column matches it. */
+  align-self: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important; /* match the grid row's computed height */
+  min-height: 0 !important; /* allow children with overflow to work */
+}
+
+/* Optional: small helper if we need to target the Tabs container from here.
+   We'll leave it available for future tweaks. */
+.tabsFill {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}

@@ -3,16 +3,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaCheck, FaTimes, FaEye } from "react-icons/fa";
 
 import styles from "./CoordinatorAdminUserAccess.module.css";
+import ViewCard from "../../../shared/components/ViewCard";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import authService from "../../../utilities/service/authService";
-
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 
 import CoordinatorAdminApproveUserModal from "../../components/modals/CoordinatorAdminApproveUserModal";
 import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
+// 👇 Configuration for tab filtering
 const userAccessConfig = [
   { key: "all-users", label: "All Users" },
   { key: "employees", label: "Employees", filter: (u) => u.role?.toLowerCase() === "employee" },
@@ -45,79 +46,68 @@ const CoordinatorAdminUserAccess = () => {
   const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
   const title = statusConfig?.label || "User Access";
 
+  // 👇 Fetch users and current user
   useEffect(() => {
-    // Get current user
     const user = authService.getCurrentUser();
     setCurrentUser(user);
 
-    // Fetch all users from backend
-    import("../../../services/backend/employeeService").then(({ backendEmployeeService }) => {
-      backendEmployeeService.getAllEmployees().then(fetchedUsers => {
-        // Normalize backend fields to frontend keys
-        const normalizedUsers = fetchedUsers.map(u => ({
-          ...u,
-          companyId: u.companyId || u.company_id || u.companyID || '',
-          lastName: u.lastName || u.last_name || '',
-          firstName: u.firstName || u.first_name || '',
-        }));
-        // Filter users based on current user role and department
-        let usersToShow = normalizedUsers;
-        if (user) {
-          if (user.role === 'Ticket Coordinator') {
-            usersToShow = normalizedUsers.filter(u => u.department === user.department);
-          } else if (user.role === 'System Admin') {
-            usersToShow = normalizedUsers;
-          }
-        }
-        setAllUsers(usersToShow);
-      }).catch(() => setAllUsers([]));
-    });
+    const fetchedUsers = getEmployeeUsers() || [];
+
+    let usersToShow = fetchedUsers;
+    if (user) {
+      if (user.role === "Ticket Coordinator") {
+        usersToShow = fetchedUsers.filter((u) => u.department === user.department);
+      } else if (user.role === "System Admin") {
+        usersToShow = fetchedUsers;
+      }
+    }
+
+    setAllUsers(usersToShow);
   }, []);
 
+  // 👇 Combined filtering logic
   const filteredUsers = useMemo(() => {
     let users = [...allUsers];
 
-    // Apply URL-based filter
+    // Apply role/status filter from URL
     if (statusConfig?.filter) {
       users = users.filter(statusConfig.filter);
     }
 
-    // Apply search filter
+    // Search
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       users = users.filter(({ firstName, lastName, companyId }) =>
-        [firstName, lastName, companyId].some((val) =>
-          val?.toLowerCase().includes(term)
-        )
+        [firstName, lastName, companyId].some((val) => val?.toLowerCase().includes(term))
       );
     }
 
-    // Apply advanced filters from FilterPanel
+    // Advanced filters
     if (activeFilters.category) {
       users = users.filter(
-        user => user.department === activeFilters.category.label
+        (user) => user.department?.toLowerCase() === activeFilters.category.label.toLowerCase()
       );
     }
 
     if (activeFilters.status) {
       users = users.filter(
-        user => user.status === activeFilters.status.label
+        (user) => user.status?.toLowerCase() === activeFilters.status.label.toLowerCase()
       );
     }
 
     return users;
   }, [allUsers, statusConfig, searchTerm, activeFilters]);
 
-  // 👇 Slice based on page
+  // 👇 Paginate
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredUsers.slice(start, start + itemsPerPage);
   }, [filteredUsers, currentPage, itemsPerPage]);
 
-  // 👇 Reset page when filters/search change
+  // 👇 Reset pagination on filter/search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, normalizedStatus]);
+  }, [searchTerm, normalizedStatus, activeFilters]);
 
   const openModal = (type, user) => {
     setSelectedUser(user);
@@ -127,74 +117,45 @@ const CoordinatorAdminUserAccess = () => {
   const closeModal = (shouldRefresh) => {
     setSelectedUser(null);
     setModalType(null);
-    if (shouldRefresh) {
-      // Re-fetch users after approve/reject
-      import("../../../services/backend/employeeService").then(({ backendEmployeeService }) => {
-        backendEmployeeService.getAllEmployees().then(fetchedUsers => {
-          const normalizedUsers = fetchedUsers.map(u => ({
-            ...u,
-            companyId: u.companyId || u.company_id || u.companyID || '',
-            lastName: u.lastName || u.last_name || '',
-            firstName: u.firstName || u.first_name || '',
-          }));
-          let usersToShow = normalizedUsers;
-          if (currentUser) {
-            if (currentUser.role === 'Ticket Coordinator') {
-              usersToShow = normalizedUsers.filter(u => u.department === currentUser.department);
-            } else if (currentUser.role === 'System Admin') {
-              usersToShow = normalizedUsers;
-            }
-          }
-          setAllUsers(usersToShow);
-        }).catch(() => setAllUsers([]));
-      });
-    }
   };
-
-  const isActionable = (status) => status?.toLowerCase() === "pending";
-
-  const currentConfig = userAccessConfig.find((c) => c.key === status) || userAccessConfig[0];
 
   return (
     <>
       <div className={styles.pageContainer}>
-        {/* Top bar with Show Filter button */}
+        {/* Header Section */}
         <div className={styles.topBar}>
-          <button 
+          <button
             className={styles.showFilterButton}
-            onClick={() => setShowFilter(!showFilter)}
+            onClick={() => setShowFilter((prev) => !prev)}
           >
-            {showFilter ? 'Hide Filter' : 'Show Filter'}
+            {showFilter ? "Hide Filter" : "Show Filter"}
           </button>
         </div>
 
-        {/* Filter Panel - outside table section */}
+        {/* Filter Panel */}
         {showFilter && (
           <FilterPanel
-            hideToggleButton={true}
+            hideToggleButton
             showDateFilters={false}
             categoryLabel="Department"
             statusLabel="Status"
             onApply={setActiveFilters}
             onReset={() => {
-              setActiveFilters({
-                category: null,
-                status: null,
-              });
+              setActiveFilters({ category: null, status: null });
               setCurrentPage(1);
             }}
             categoryOptions={[
-              { label: "Human Resources", category: "Department" },
-              { label: "Information Technology", category: "Department" },
-              { label: "Finance", category: "Department" },
-              { label: "Operations", category: "Department" },
-              { label: "Marketing", category: "Department" },
+              { label: "Human Resources" },
+              { label: "Information Technology" },
+              { label: "Finance" },
+              { label: "Operations" },
+              { label: "Marketing" },
             ]}
             statusOptions={[
-              { label: "Active", category: "Status" },
-              { label: "Pending", category: "Status" },
-              { label: "Rejected", category: "Status" },
-              { label: "Inactive", category: "Status" },
+              { label: "Active" },
+              { label: "Pending" },
+              { label: "Rejected" },
+              { label: "Inactive" },
             ]}
             priorityOptions={[]}
             slaStatusOptions={[]}
@@ -203,117 +164,145 @@ const CoordinatorAdminUserAccess = () => {
           />
         )}
 
-        <div className={styles.tableSection}>
-          <div className={styles.tableHeader}>
-            <h2>{title}</h2>
-            <div className={styles.tableActions}>
-              <input
-                className={styles.searchBar}
-                type="search"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+        {/* Table Section */}
+        <ViewCard>
+          <div className={styles.tableSection}>
+            <div className={styles.tableHeader}>
+              <h2>{title}</h2>
+              <div className={styles.tableActions}>
+                <input
+                  className={styles.searchBar}
+                  type="search"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <button
+                  className={styles.registerButton}
+                  onClick={() => navigate("/admin/account-register")}
+                >
+                  Register User
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Company ID</th>
+                    <th>Last Name</th>
+                    <th>First Name</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedUsers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        style={{
+                          textAlign: "center",
+                          padding: 40,
+                          color: "#6b7280",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No users found for this category or search.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedUsers.map((user, idx) => (
+                      <tr key={user.companyId || idx}>
+                        <td>{user.companyId}</td>
+                        <td>{user.lastName}</td>
+                        <td>{user.firstName}</td>
+                        <td>{user.department}</td>
+                        <td>{user.role}</td>
+                        <td>
+                          <div
+                            className={
+                              styles[
+                                `status-${(user.status || "active")
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}`
+                              ]
+                            }
+                          >
+                            {user.status}
+                          </div>
+                        </td>
+                        <td>
+                          <div className={styles.actionButtonCont}>
+                            {user.status?.toLowerCase() === "pending" && (
+                              <>
+                                <button
+                                  title="Approve"
+                                  className={styles.actionButton}
+                                  onClick={() => openModal("approve", user)}
+                                >
+                                  <FaCheck />
+                                </button>
+                                <button
+                                  title="Reject"
+                                  className={styles.actionButton}
+                                  onClick={() => openModal("reject", user)}
+                                >
+                                  <FaTimes />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              title="View"
+                              className={styles.actionButton}
+                              onClick={() =>
+                                navigate(`/admin/user-profile/${user.companyId}`)
+                              }
+                            >
+                              <FaEye />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className={styles.tablePagination}>
+              <TablePagination
+                currentPage={currentPage}
+                totalItems={filteredUsers.length}
+                initialItemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                alwaysShow
               />
-              <button
-                className={styles.registerButton}
-                onClick={() => navigate('/admin/account-register')}
-              >
-                Register User
-              </button>
             </div>
           </div>
-
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Company ID</th>
-                <th>Last Name</th>
-                <th>First Name</th>
-                <th>Department</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: 40, color: "#6b7280", fontStyle: "italic" }}>
-                    No users found for this category or search.
-                  </td>
-                </tr>
-              ) : (
-                paginatedUsers.map((user, idx) => (
-                  <tr key={user.companyId || idx}>
-                    <td>{user.companyId}</td>
-                    <td>{user.lastName}</td>
-                    <td>{user.firstName}</td>
-                    <td>{user.department}</td>
-                    <td>{user.role}</td>
-                    <td>
-                      <div className={
-                        styles[`status-${(user.status || "active").replace(/\s+/g, "-").toLowerCase()}`]
-                      }>
-                        {user.status === 'Denied' ? 'Rejected' : user.status}
-                      </div>
-                    </td>
-                    <td>
-                      <div className={styles.actionButtonCont}>
-                        {user.status?.toLowerCase() === "pending" && (
-                          <button
-                            title="Approve"
-                            className={styles.actionButton}
-                            onClick={() => openModal("approve", user)}
-                          >
-                            <FaCheck />
-                          </button>
-                        )}
-                        {user.status?.toLowerCase() === "pending" && (
-                          <button
-                            title="Reject"
-                            className={styles.actionButton}
-                            onClick={() => openModal("reject", user)}
-                          >
-                            <FaTimes />
-                          </button>
-                        )}
-                        <button
-                          title="View"
-                          className={styles.actionButton}
-                          onClick={() => navigate(`/admin/user-profile/${user.companyId}`)}
-                        >
-                          <FaEye />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredUsers.length}
-            initialItemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
-            alwaysShow={true}
-          />
-        </div>
-      </div>
+        </ViewCard>
       </div>
 
-      {selectedUser && (
+      {/* Modals */}
+      {modalType === "approve" && selectedUser && (
         <ModalWrapper onClose={closeModal}>
-          {modalType === "approve" && (
-            <CoordinatorAdminApproveUserModal user={selectedUser} onClose={closeModal} />
-          )}
-          {modalType === "reject" && (
-            <CoordinatorAdminRejectUserModal user={selectedUser} onClose={closeModal} />
-          )}
+          <CoordinatorAdminApproveUserModal
+            user={selectedUser}
+            onClose={closeModal}
+          />
+        </ModalWrapper>
+      )}
+
+      {modalType === "reject" && selectedUser && (
+        <ModalWrapper onClose={closeModal}>
+          <CoordinatorAdminRejectUserModal
+            user={selectedUser}
+            onClose={closeModal}
+          />
         </ModalWrapper>
       )}
     </>

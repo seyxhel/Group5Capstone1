@@ -10,7 +10,7 @@ import styles from './Tabs.module.css';
  * - children: optional content (rendered in a single panel)
  * - className: optional extra class for container
  */
-export default function Tabs({ tabs = [], active, activeTab, onChange, onTabChange, children, className = '' }) {
+export default function Tabs({ tabs = [], active, activeTab, onChange, onTabChange, children, className = '', fullHeight = false }) {
   const current = active ?? activeTab;
   const handleChange = onChange ?? onTabChange ?? (() => {});
 
@@ -61,7 +61,7 @@ export default function Tabs({ tabs = [], active, activeTab, onChange, onTabChan
       </div>
 
       {children && (
-        <div className={styles.tabContent}>
+        <div className={`${styles.tabContent} ${fullHeight ? styles.fullHeight : ''}`.trim()}>
           <div id={`panel-${current}`} role="tabpanel" aria-labelledby={`tab-${current}`}>
             {children}
           </div>

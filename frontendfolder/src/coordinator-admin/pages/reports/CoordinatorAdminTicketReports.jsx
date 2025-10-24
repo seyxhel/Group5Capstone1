@@ -32,35 +32,9 @@ ChartJS.register(
 const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [priorityRange, setPriorityRange] = useState('auto');
-  const [categoryRange, setCategoryRange] = useState('auto');
-  
 
-  // Get tickets data (load from backend instead of mock storage)
-  const [allTickets, setAllTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await backendTicketService.getAllTickets();
-        if (mounted && Array.isArray(data)) {
-          setAllTickets(data);
-          // Debug counts
-          const counts = data.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
-          console.info('Loaded tickets counts (by status):', counts, 'total:', data.length);
-        }
-      } catch (e) {
-        console.error('Failed to load tickets from backend', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  
+  // Get tickets data
+  const allTickets = getAllTickets();
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {

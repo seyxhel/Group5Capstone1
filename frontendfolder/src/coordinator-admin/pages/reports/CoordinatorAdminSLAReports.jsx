@@ -29,24 +29,8 @@ const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
 
-  // Get tickets data (load from backend)
-  const [allTickets, setAllTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useMemo(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await backendTicketService.getAllTickets();
-        if (mounted && Array.isArray(data)) setAllTickets(data);
-      } catch (e) {
-        console.error('Failed to load tickets for SLA report', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  // Get tickets data
+  const allTickets = getAllTickets();
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {

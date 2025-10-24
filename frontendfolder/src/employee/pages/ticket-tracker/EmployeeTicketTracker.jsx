@@ -316,7 +316,7 @@ export default function EmployeeTicketTracker() {
   const { ticketNumber } = useParams();
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'message'
+  const [activeTab, setActiveTab] = useState('messages'); // 'logs' or 'messages'
   // preview state removed - attachments now open in a new tab
 
   // Get current logged-in user
@@ -573,18 +573,6 @@ export default function EmployeeTicketTracker() {
                           <div className={styles.detailValue}>{deviceType || 'None'}</div>
                         </div>
                         <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Asset Name</div>
-                          <div className={styles.detailValue}>{assetName || 'None'}</div>
-                        </div>
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Serial Number</div>
-                          <div className={styles.detailValue}>{serialNumber || 'None'}</div>
-                        </div>
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Location</div>
-                          <div className={styles.detailValue}>{locationField || 'None'}</div>
-                        </div>
-                        <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Specify Issue</div>
                           <div className={styles.detailValue}>{issueTypeField || 'None'}</div>
                         </div>
@@ -702,8 +690,8 @@ export default function EmployeeTicketTracker() {
 
             <Tabs
               tabs={[
-                { label: 'Logs', value: 'logs' },
                 { label: 'Messages', value: 'messages' },
+                { label: 'Logs', value: 'logs' },
               ]}
               active={activeTab}
               onChange={setActiveTab}
