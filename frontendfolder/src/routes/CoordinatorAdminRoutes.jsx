@@ -4,6 +4,7 @@ import CoordinatorAdminDashboard from '../coordinator-admin/pages/dashboard/Coor
 import CoordinatorAdminTicketManagement from '../coordinator-admin/pages/ticket-management/CoordinatorAdminTicketManagement';
 import CoordinatorAdminTicketTracker from '../coordinator-admin/pages/ticket-tracker/CoordinatorAdminTicketTracker';
 import CoordinatorAdminUserAccess from '../coordinator-admin/pages/user-management/CoordinatorAdminUserAccess';
+import CoordinatorAdminUserProfileView from '../coordinator-admin/pages/user-management/CoordinatorAdminUserProfileView';
 import CoordinatorAdminSettings from '../coordinator-admin/pages/settings/CoordinatorAdminSettings';
 import CoordinatorAdminAccountRegister from '../coordinator-admin/pages/account-register/CoordinatorAdminAccountRegister';
 import CoordinatorAdminTicketReports from '../coordinator-admin/pages/reports/CoordinatorAdminTicketReports';
@@ -35,6 +36,8 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Account Register */}
       <Route path="account-register" element={<CoordinatorAdminAccountRegister />} />
+  {/* User Profile View */}
+  <Route path="user-profile/:companyId" element={<CoordinatorAdminUserProfileView />} />
 
       {/* Reports */}
       <Route path="reports/tickets" element={<CoordinatorAdminTicketReports />} />

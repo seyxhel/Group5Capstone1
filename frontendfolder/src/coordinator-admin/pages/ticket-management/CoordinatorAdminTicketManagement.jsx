@@ -98,8 +98,15 @@ const CoordinatorAdminTicketManagement = () => {
     let ticketsToShow = fetched;
     if (user) {
       if (user.role === 'Ticket Coordinator') {
-        // Coordinators see tickets from their department
-        ticketsToShow = fetched.filter(ticket => ticket.department === user.department);
+        // Coordinators should see tickets for their department, and also
+        // tickets assigned directly to them. Seeded tickets may use
+        // `assignedDepartment` or `department` - check both.
+        ticketsToShow = fetched.filter(ticket => {
+          const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+          const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+          const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+          return ticketDept === user.department || isAssignedToUser;
+        });
       } else if (user.role === 'System Admin') {
         // System Admins see all tickets
         ticketsToShow = fetched;

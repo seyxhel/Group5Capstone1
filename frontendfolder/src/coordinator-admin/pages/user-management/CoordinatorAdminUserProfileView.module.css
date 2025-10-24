@@ -1,0 +1,67 @@
+.pageRoot {
+  width: 100%;
+}
+.container {
+  padding: 20px;
+}
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.backButton {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  cursor: pointer;
+}
+.notFound {
+  padding: 40px;
+  text-align: center;
+  color: #6b7280;
+}
+.profileGrid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.avatarWrap img {
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.avatarPlaceholder {
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: #9ca3af;
+}
+.field {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #eef2f7;
+}
+.label {
+  min-width: 140px;
+  color: #6b7280;
+  font-weight: 700;
+}
+.value {
+  color: #111827;
+  font-weight: 600;
+}

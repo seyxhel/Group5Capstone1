@@ -33,7 +33,7 @@ const CoordinatorAdminTicketReports = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Get tickets data
-  const allTickets = getEmployeeTickets();
+  const allTickets = getAllTickets();
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {

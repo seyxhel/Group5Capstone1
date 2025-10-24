@@ -29,7 +29,7 @@ const CoordinatorAdminSLAReports = () => {
   const [selectedPriority, setSelectedPriority] = useState('all');
 
   // Get tickets data
-  const allTickets = getEmployeeTickets();
+  const allTickets = getAllTickets();
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {

@@ -16,7 +16,8 @@
 }
 
 .tab {
-  flex: 1 1 auto;
+  /* Ensure equal-width tabs by distributing available space evenly. */
+  flex: 1 1 0%;
   min-width: 0;
   padding: 12px 0 16px 0; /* extra bottom padding so indicator doesn't overlap text */
   background: none;
@@ -32,6 +33,9 @@
   position: relative;
   z-index: 1110; /* above the tabList to ensure the button surface is clickable */
   pointer-events: auto; /* ensure clicks land on buttons */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab:hover {
@@ -68,6 +72,16 @@
   width: 100%;
 }
 
+/* When tab panels should fill the available vertical space (useful for layouts
+   where the right column should stretch and allow inner panels to scroll),
+   apply the fullHeight modifier. */
+.fullHeight {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0; /* allow children with overflow to work correctly */
+}
+
 /* Responsive behavior */
 @media (max-width: 640px) {
   .tabList {
@@ -77,8 +91,10 @@
     padding-bottom: 6px;
   }
 
+  /* On small screens we allow horizontal scrolling but keep tabs visually consistent.
+     Each tab will still try to take equal width but can shrink to fit within the scroll area. */
   .tab {
-    flex: 0 0 auto;
+    flex: 1 1 0%;
     padding: 10px 14px;
     white-space: nowrap;
   }

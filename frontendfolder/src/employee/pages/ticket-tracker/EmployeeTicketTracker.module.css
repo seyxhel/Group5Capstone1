@@ -625,6 +625,15 @@ fieldset p {
   margin-bottom: 1rem;
 }
 
+/* When two action buttons should sit side-by-side, override the
+   default full-width rule and allow flex layout. Use with a
+   parent container set to display:flex. */
+.ticketActionButtonRow {
+  width: auto !important;
+  flex: 1 1 0;
+  margin-bottom: 0 !important;
+}
+
 /* Withdraw Button - Using withdrawn gray colors */
 .withdrawButton {
   background-color: var(--withdrawn-text) !important; /* #9CA3AF */
@@ -645,6 +654,17 @@ fieldset p {
 
 .closeButton:hover:not(:disabled) {
   background-color: var(--success-hover) !important;
+}
+
+/* Reject Button - Red */
+.rejectButton {
+  background-color: var(--error-color) !important; /* red */
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.rejectButton:hover:not(:disabled) {
+  background-color: var(--error-hover) !important;
 }
 
 /* Not Found Message */
