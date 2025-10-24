@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
@@ -96,13 +97,17 @@ const renderAttachments = (files) => {
   return (
     <div className={styles.attachmentList}>
       {fileArray.map((f, idx) => {
-        const name = f?.name || f?.filename || f;
-        const url = f?.url || f?.downloadUrl || '#';
+        // Normalize attachment shape from different sources:
+        // - backend may return { id, file, file_name, file_type, ... }
+        // - older seeds may include { name, filename, url }
+        // - sometimes the item is just a string URL
+        const name = (f && (f.file_name || f.name || f.filename)) || (typeof f === 'string' ? f : null) || 'attachment';
+        const url = (f && (f.file && (f.file.url || f.file)) ) || f?.url || f?.downloadUrl || f?.download_url || (typeof f === 'string' ? f : '#');
         return (
           <div key={idx} className={styles.attachmentItem}>
             <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
             <div style={{ flex: 1 }}>
-              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
+              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentName}>{String(name)}</a>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
@@ -125,48 +130,62 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
   const tickets = getAllTickets();
-  const ticket = ticketNumber
-    ? getTicketByNumber(ticketNumber)
-    : tickets && tickets.length > 0
-    ? tickets[tickets.length - 1]
-    : null;
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
-    );
-  }
-  const {
-    ticketNumber: number,
-    subject,
-    category,
-    subCategory,
-    status: originalStatus,
-    dateCreated,
-    lastUpdated,
-    description,
-    fileUploaded,
-    priorityLevel,
-    department,
-    assignedTo,
-    scheduledRequest,
-  } = ticket;
-  // Convert "Submitted" to "New" for coordinator/admin view
-  const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
-  const statusSteps = getStatusSteps(status);
-  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
-  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
-  const ticketLogs = generateLogs(ticket);
-  const userRole = authService.getUserRole();
-  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const [ticket, setTicket] = useState(null);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const findLocal = () => {
+      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber || t.ticket_number || t.ticketId || t.id) === String(ticketNumber));
+    };
+
+    const local = findLocal();
+    if (local) {
+      setTicket(local);
+      return () => { mounted = false; };
+    }
+
+    if (ticketNumber) {
+      setLoadingTicket(true);
+      (async () => {
+        try {
+          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+          if (mounted) {
+            console.log('[CoordinatorTicket] fetched ticket by number:', fetched);
+            // Normalize fields to match local seed shape used by this component
+            const normalized = fetched ? {
+              ...fetched,
+              ticketNumber: fetched.ticket_number || fetched.ticketNumber || fetched.ticket_id || fetched.ticketId || fetched.id,
+              dateCreated: fetched.submit_date || fetched.createdAt || fetched.dateCreated || fetched.created_at || fetched.submitDate,
+              lastUpdated: fetched.update_date || fetched.updatedAt || fetched.dateUpdated || fetched.updated_at || fetched.updateDate,
+              subCategory: fetched.sub_category || fetched.subcategory || fetched.subCategory || '',
+              priorityLevel: fetched.priority || fetched.priorityLevel || fetched.priority_level || null,
+              fileUploaded: fetched.file_uploaded || fetched.attachments || fetched.fileAttachments || fetched.files || null,
+              assignedTo: fetched.assigned_to || fetched.assignedTo || fetched.assigned_to_name || fetched.assignedToName || fetched.assignedTo || null,
+              description: fetched.description || fetched.details || fetched.body || fetched.note || fetched.notes || fetched.description,
+            } : null;
+            console.log('[CoordinatorTicket] normalized ticket:', normalized);
+            setTicket(normalized || null);
+          }
+        } catch (err) {
+          console.error('Error fetching ticket by number:', err);
+          if (mounted) setTicket(null);
+        } finally {
+          if (mounted) setLoadingTicket(false);
+        }
+      })();
+    } else {
+      setTicket(local);
+    }
+
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketNumber, JSON.stringify(tickets)]);
 
   // Sync heights between left and right columns so both match the taller one.
+  // This effect is declared unconditionally so Hooks order remains stable
   useEffect(() => {
     let rAF = null;
     let resizeTimer = null;
@@ -259,6 +278,44 @@ export default function CoordinatorAdminTicketTracker() {
       if (rightColRef.current) rightColRef.current.style.minHeight = '';
     };
   }, [ticketNumber, ticket, activeTab]);
+
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  const {
+    ticketNumber: number,
+    subject,
+    category,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
+    description,
+    fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+    scheduledRequest,
+  } = ticket;
+  // Convert "Submitted" to "New" for coordinator/admin view
+  const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
+  const statusSteps = getStatusSteps(status);
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const ticketLogs = generateLogs(ticket);
+  const userRole = authService.getUserRole();
+  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+
+  
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>

@@ -137,9 +137,10 @@ const EmployeeNavBar = () => {
     setShowProfileMenu(false);
     setIsMobileMenuOpen(false);
     
-    // Navigate to login page and force reload to clear component state
-    navigate('/');
-    window.location.reload();
+    // Navigate to login page. Pass a flag so the login page can show a loading
+    // indicator immediately after logout (instead of showing it only when the
+    // login form is submitted). Avoid forcing a full page reload.
+    navigate('/', { state: { fromLogout: true } });
   };
 
   const getFullName = () => {

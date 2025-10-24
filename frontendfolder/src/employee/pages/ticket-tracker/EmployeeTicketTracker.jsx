@@ -8,6 +8,7 @@ import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/ac
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import TicketActivity from './TicketActivity';
 import TicketMessaging from './TicketMessaging';
+import ErrorBoundary from '../../../shared/components/ErrorBoundary';
 import Button from '../../../shared/components/Button';
 import ViewCard from '../../../shared/components/ViewCard';
 import Tabs from '../../../shared/components/Tabs';
@@ -137,6 +138,30 @@ const formatDateOnly = (date) => {
   }
 };
 
+// Format for logs: YYYY-MM-DD hh:mm AM/PM (e.g., 2025-10-24 02:51 PM)
+const formatLogTimestamp = (date) => {
+  if (!date) return 'None';
+  try {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours === 0 ? 12 : hours;
+    const hourStr = String(hours).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
+  } catch (e) {
+    return 'Invalid Date';
+  }
+};
+
 // Format number with thousands separators and two decimal places
 const formatMoney = (value) => {
   if (value === null || value === undefined || value === '') return 'N/A';
@@ -148,11 +173,13 @@ const formatMoney = (value) => {
 // Generate logs based on ticket data (start with any persisted logs)
 // Accept currentUser to decide labels for certain status changes
 const generateLogs = (ticket, currentUser) => {
+  // Collect logs and keep raw timestamps for sorting. We will format timestamps
+  // for display after sorting so we can order latest -> oldest.
   const logs = Array.isArray(ticket?.logs) ? ticket.logs.map((l, idx) => ({
     id: l.id || idx + 1,
     user: l.user || 'You',
     action: l.action || `Status changed to ${ticket.status}`,
-    timestamp: l.timestamp || ticket.update_date || ticket.submit_date,
+    rawTimestamp: l.timestamp || ticket.update_date || ticket.submit_date,
   })) : [];
 
   // System-created entry
@@ -160,7 +187,7 @@ const generateLogs = (ticket, currentUser) => {
     id: logs.length + 1,
     user: 'System',
     action: `Ticket #${ticket.ticket_number} created - ${ticket.category}`,
-    timestamp: ticket.submit_date,
+    rawTimestamp: ticket.submit_date,
   });
 
   // Handle assignedTo as object or string
@@ -170,30 +197,39 @@ const generateLogs = (ticket, currentUser) => {
       id: logs.length + 1,
       user: assignedToName,
       action: `Assigned to ${ticket.department} department`,
-      timestamp: ticket.submit_date,
+      rawTimestamp: ticket.submit_date,
     });
   }
 
-  // Add status change log for Withdrawn
+  // Add status change log for Withdrawn (attributed to the employee 'You')
   if (ticket.status === 'Withdrawn') {
     logs.push({
       id: logs.length + 1,
       user: 'You',
       action: `Status changed to Withdrawn`,
-      timestamp: ticket.time_closed || ticket.update_date,
+      rawTimestamp: ticket.time_closed || ticket.update_date,
     });
   }
-  
-  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
-    logs.push({ 
-      id: 3, 
-      user: 'Coordinator', 
-      action: `Status changed to ${ticket.status}`, 
-      timestamp: formatDate(ticket.lastUpdated) 
-    });
-  }
-  
-  return logs;
+
+  // Sort logs newest-first by timestamp
+  logs.sort((a, b) => {
+    const ta = a.rawTimestamp || a.timestamp;
+    const tb = b.rawTimestamp || b.timestamp;
+    const da = new Date(ta);
+    const db = new Date(tb);
+    if (isNaN(da.getTime()) && isNaN(db.getTime())) return 0;
+    if (isNaN(da.getTime())) return 1;
+    if (isNaN(db.getTime())) return -1;
+    return db.getTime() - da.getTime();
+  });
+
+  // Format timestamps for display and remove rawTimestamp
+  return logs.map((l) => ({
+    id: l.id,
+    user: l.user,
+    action: l.action,
+    timestamp: formatLogTimestamp(l.rawTimestamp || l.timestamp),
+  }));
 };
 
 // Generate messages based on ticket data
@@ -328,7 +364,6 @@ export default function EmployeeTicketTracker() {
   // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow (latest ticket)
   const [ticket, setTicket] = useState(null);
   const [loadingTicket, setLoadingTicket] = useState(false);
-  const [showRawTicket, setShowRawTicket] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -460,19 +495,64 @@ export default function EmployeeTicketTracker() {
 
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
-  const ticketMessages = generateMessages(ticket);
+
+  // Build messages from ticket.comments (persisted) and include a system "received" message.
+  const buildMessagesFromTicket = (tkt) => {
+    const msgs = [];
+
+    // System message about receipt
+    msgs.push({
+      id: 'system-received',
+      sender: 'Support Team',
+      message: `Your ticket regarding "${tkt.subject}" has been received and is being reviewed.`,
+      timestamp: formatDate(tkt.submit_date || tkt.dateCreated || tkt.created_at || tkt.createdAt),
+    });
+
+    // Comments may be at ticket.comments or ticket.comments_list; normalize
+    const comments = Array.isArray(tkt.comments) ? [...tkt.comments] : (Array.isArray(tkt.comment) ? [...tkt.comment] : []);
+
+    // Filter out internal comments (employees shouldn't see internal notes)
+    const visibleComments = comments.filter((c) => !c.is_internal && !c.isInternal);
+
+    // Sort ascending by created time
+    visibleComments.sort((a, b) => new Date(a.created_at || a.createdAt || a.timestamp || a.date || a.created) - new Date(b.created_at || b.createdAt || b.timestamp || b.date || b.created));
+
+    visibleComments.forEach((c, idx) => {
+      const createdAt = c.created_at || c.createdAt || c.timestamp || c.date || c.created || null;
+      let sender = 'Support Team';
+      // Determine if the comment was by the current user
+      try {
+        const commentUser = c.user || c.author || null;
+        if (commentUser) {
+          // If roles indicate staff, label Support Team
+          const role = (commentUser.role || commentUser.user_role || '').toString().toLowerCase();
+          if (role.includes('ticket') || role.includes('coordinator') || role.includes('admin') || role.includes('system')) {
+            sender = 'Support Team';
+          } else {
+            // If user's id/email matches currentUser, label as You
+            if ((currentUser && ((commentUser.id && currentUser.id && String(commentUser.id) === String(currentUser.id)) || (commentUser.email && currentUser.email && commentUser.email.toLowerCase() === currentUser.email.toLowerCase())))) {
+              sender = 'You';
+            } else {
+              // Otherwise use display name if available
+              const name = commentUser.first_name || commentUser.firstName || commentUser.name || commentUser.full_name || commentUser.fullName;
+              sender = name ? name : 'Support Team';
+            }
+          }
+        }
+      } catch (e) {}
+
+      const text = c.comment || c.message || c.body || '';
+      msgs.push({ id: c.id || `c-${idx}`, sender, message: text, timestamp: formatDate(createdAt) });
+    });
+
+    return msgs;
+  };
+
+  const ticketMessages = buildMessagesFromTicket(ticket);
 
   return (
     <>
-      {/* Dev-only raw ticket viewer */}
-      <div style={{ position: 'fixed', right: 12, top: 80, zIndex: 9999 }}>
-        <button onClick={() => setShowRawTicket(!showRawTicket)} style={{ padding: 6, fontSize: 12 }} aria-label="Toggle raw ticket view">{showRawTicket ? 'Hide' : 'Show'} Raw Ticket</button>
-      </div>
-      {showRawTicket && ticket && (
-        <div style={{ position: 'fixed', right: 12, top: 120, zIndex: 9999, width: 420, maxHeight: '70vh', overflow: 'auto', background: '#fff', border: '1px solid #ddd', padding: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12 }}>{JSON.stringify(ticket, null, 2)}</pre>
-        </div>
-      )}
+      
       <main className={styles.employeeTicketTrackerPage}>
         <ViewCard>
 
@@ -679,9 +759,13 @@ export default function EmployeeTicketTracker() {
             {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
               <Button
                 variant="primary"
-                onClick={() =>
-                  isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
-                }
+                onClick={() => {
+                  // log to help debug modal issues
+                  try {
+                    console.log('Action button clicked. isClosable=', isClosable, 'ticket=', ticket && (ticket.id || ticket.ticket_number || ticket.ticketNumber));
+                  } catch (e) {}
+                  isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true);
+                }}
                 className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
               >
                 {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
@@ -699,7 +783,21 @@ export default function EmployeeTicketTracker() {
               {activeTab === 'logs' ? (
                 <TicketActivity ticketLogs={ticketLogs} />
               ) : (
-                <TicketMessaging initialMessages={ticketMessages} />
+                <TicketMessaging
+                  ticketId={ticket.id || ticket.ticket_id || ticket.ticketNumber || ticket.ticket_number}
+                  initialMessages={ticketMessages}
+                  onCommentCreated={(created) => {
+                    // Merge newly created comment into ticket state so UI updates immediately
+                    try {
+                      const existing = ticket.comments ? [...ticket.comments] : [];
+                      existing.push(created);
+                      const updated = { ...ticket, comments: existing };
+                      setTicket(updated);
+                    } catch (e) {
+                      console.warn('Failed to merge created comment into ticket state', e);
+                    }
+                  }}
+                />
               )}
             </Tabs>
             </div>
@@ -709,12 +807,14 @@ export default function EmployeeTicketTracker() {
       </main>
 
       {/* Modals */}
-      {showWithdrawModal && (
-        <EmployeeActiveTicketsWithdrawTicketModal
-          ticket={ticket}
-          onClose={() => setShowWithdrawModal(false)}
-          onSuccess={handleWithdrawSuccess}
-        />
+      {showWithdrawModal && ticket && (ticket.id || ticket.ticket_number || ticket.ticketNumber) && (
+        <ErrorBoundary>
+          <EmployeeActiveTicketsWithdrawTicketModal
+            ticket={ticket}
+            onClose={() => setShowWithdrawModal(false)}
+            onSuccess={typeof handleWithdrawSuccess === 'function' ? handleWithdrawSuccess : undefined}
+          />
+        </ErrorBoundary>
       )}
       {showCloseModal && (
         <EmployeeActiveTicketsCloseTicketModal

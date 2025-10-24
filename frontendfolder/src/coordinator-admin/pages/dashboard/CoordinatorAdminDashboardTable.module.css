@@ -53,6 +53,11 @@
 .tableHead {
   background-color: #f0f1f2;
 
+  /* Make the table header stick to the top when the table content scrolls vertically */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+
   /* Lock the first column so it stays visible when horizontally scrolling */
   .table tbody td:first-child,
   .table thead th:first-child {

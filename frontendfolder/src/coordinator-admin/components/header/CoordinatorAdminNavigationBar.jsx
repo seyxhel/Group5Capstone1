@@ -108,8 +108,9 @@ const CoordinatorAdminNavBar = () => {
     localStorage.removeItem('chatbotMessages');
     
     setIsMobileMenuOpen(false);
-    navigate('/');
-    window.location.reload();
+    // Navigate to login and pass a flag so the login page can show a brief
+    // loading state after logout. Avoid forcing a full page reload.
+    navigate('/', { state: { fromLogout: true } });
   };
 
   useEffect(() => {

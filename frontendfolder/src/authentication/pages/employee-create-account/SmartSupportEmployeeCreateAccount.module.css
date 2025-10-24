@@ -9,6 +9,7 @@
 
 .leftPanel {
   width: 50%;
+  height: 100%;
   background-color: white;
   display: flex;
   justify-content: center;
@@ -17,7 +18,7 @@
 
 .assetImage {
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -188,12 +189,30 @@
   align-items: center;
   gap: 10px;
   font-size: 0.875rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  margin-top: -0.5rem;
+  margin-bottom: -0.5rem;
+}
+
+.checkboxWrapper input[type="checkbox"] {
+  accent-color: var(--primary-color);
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.checkboxWrapper input[type="checkbox"]:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.checkboxWrapper input[type="checkbox"]:hover {
+  cursor: not-allowed;
 }
 
 .link {
   color: var(--primary-color);
-  text-decoration: underline;
-  cursor: pointer;
+  font-weight: 500;
 }
 
 .link:hover {
@@ -225,7 +244,7 @@
 /* ========== Footer ========== */
 .backToLogin {
   text-align: center;
-  margin-top: 1.5rem;
+  margin-top: 0.5rem;
 }
 
 .backToLogin span {
@@ -235,4 +254,38 @@
 
 .backToLogin span:hover {
   color: var(--primary-color-hover);
+}
+
+/* ========== Password Field ========== */
+.passwordContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.showPassword {
+  height: 20px;
+  width: 20px;
+  position: absolute;
+  right: 16px;
+  top: 53%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #888;
+  font-size: 0.95rem;
+  z-index: 2;
+}
+
+.underlineLinks {
+  display: inline;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.andText {
+  color: inherit;
+  font-weight: 600;
 }

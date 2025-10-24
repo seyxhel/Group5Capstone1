@@ -1,23 +1,60 @@
 import { useState } from 'react';
 import styles from './TicketMessaging.module.css';
+import { backendTicketService } from '../../../services/backend/ticketService';
 
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+// Format to MM/DD/YY, HH:MM AM/PM
+const formatDate = (date) => {
+  if (!date) return '';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-US', {
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch (e) {
+    return '';
+  }
+};
 
-export default function TicketMessaging({ initialMessages }) {
+export default function TicketMessaging({ ticketId, initialMessages = [], onCommentCreated }) {
   const [messages, setMessages] = useState(initialMessages || []);
   const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
+  const handleSendMessage = async () => {
+    const text = newMessage.trim();
+    if (!text) return;
+    setSending(true);
+    try {
+      // Persist to backend (employee comments are non-internal)
+      const created = await backendTicketService.createComment(ticketId, text, false);
+
+      // Normalized returned shape: may include created_at, comment, user
+      const createdAt = created.created_at || created.createdAt || created.timestamp || new Date().toISOString();
+      const commentText = created.comment || created.comment_text || created.message || text;
+
+      const mapped = {
+        id: created.id || Math.random().toString(36).slice(2, 9),
         sender: 'You',
-        message: newMessage,
-        timestamp: formatDate(new Date().toISOString()),
+        message: commentText,
+        timestamp: formatDate(createdAt),
+        raw: created,
       };
-      setMessages([...messages, newMsg]);
+
+      setMessages((m) => [...m, mapped]);
       setNewMessage('');
+
+      if (typeof onCommentCreated === 'function') onCommentCreated(created);
+    } catch (err) {
+      console.error('Failed to send comment:', err);
+      // Optional: show toast here
+    } finally {
+      setSending(false);
     }
   };
 
@@ -44,13 +81,14 @@ export default function TicketMessaging({ initialMessages }) {
           onChange={(e) => setNewMessage(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Type your message..."
+          disabled={sending}
         />
         <button
           className={styles.sendButton}
           onClick={handleSendMessage}
-          disabled={!newMessage.trim()}
+          disabled={!newMessage.trim() || sending}
         >
-          Send
+          {sending ? 'Sending...' : 'Send'}
         </button>
       </div>
     </div>

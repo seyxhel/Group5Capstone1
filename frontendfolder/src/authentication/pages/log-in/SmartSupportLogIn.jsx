@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -27,6 +27,8 @@ const SmartSupportLogIn = () => {
 
   const password = watch("password", "");
 
+  const location = useLocation();
+
   const handleLogin = async ({ email, password }) => {
     setSubmitting(true);
     setErrorMessage("");
@@ -38,7 +40,7 @@ const SmartSupportLogIn = () => {
       const data = await backendAuthService.login({ email, password });
 
       if (!data) {
-        setErrorMessage("Invalid credentials. Please try again.");
+        setErrorMessage("Invalid credentials.");
         return;
       }
 
@@ -76,7 +78,13 @@ const SmartSupportLogIn = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setErrorMessage("Something went wrong. Please try again.");
+      // Map common authentication failures to a clearer message
+      const msg = (err && err.message) ? String(err.message).toLowerCase() : '';
+      if (msg.includes('401') || msg.includes('login failed') || msg.includes('invalid') || msg.includes('credentials')) {
+        setErrorMessage('Invalid credentials.');
+      } else {
+        setErrorMessage('Something went wrong. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -88,6 +96,17 @@ const SmartSupportLogIn = () => {
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
+
+  // If user was redirected here immediately after clicking logout, show a
+  // brief loading state so the UI reflects that logout happened and the app
+  // is returning to the login screen.
+  useEffect(() => {
+    if (location?.state?.fromLogout) {
+      setSubmitting(true);
+      const t = setTimeout(() => setSubmitting(false), 900);
+      return () => clearTimeout(t);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (!password) setShowPassword(false);
