@@ -116,6 +116,24 @@ const renderAttachments = (files) => {
   );
 };
 
+// If a ticket is New/Submitted/Pending and older than 24 hours, treat as 'Pending' for coordinators/admins
+const computeEffectiveStatus = (ticket) => {
+  const rawStatus = (ticket.status || '').toString();
+  const lower = rawStatus.toLowerCase();
+  const baseIsNew = lower === 'new' || lower === 'submitted' || lower === 'pending';
+  try {
+    const created = new Date(ticket.createdAt || ticket.dateCreated || ticket.created_at || ticket.submit_date || ticket.submitDate);
+    if (baseIsNew && created instanceof Date && !isNaN(created)) {
+      const hours = (new Date() - created) / (1000 * 60 * 60);
+      if (hours >= 24) return 'Pending';
+      return 'New';
+    }
+  } catch (e) {
+    // ignore parse errors
+  }
+  return rawStatus || '';
+};
+
 
 export default function CoordinatorAdminTicketTracker() {
   const { ticketNumber } = useParams();
@@ -157,14 +175,15 @@ export default function CoordinatorAdminTicketTracker() {
     assignedTo,
     scheduledRequest,
   } = ticket;
-  // Convert "Submitted" to "New" for coordinator/admin view
-  const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const status = computeEffectiveStatus(ticket) || originalStatus;
   const statusSteps = getStatusSteps(status);
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
   const ticketLogs = generateLogs(ticket);
   const userRole = authService.getUserRole();
   const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const canPerformActions = userRole === 'Ticket Coordinator';
 
   // Sync heights between left and right columns so both match the taller one.
   useEffect(() => {
@@ -455,7 +474,7 @@ export default function CoordinatorAdminTicketTracker() {
             {/* Right Column - Actions and Details */}
             <div ref={rightColRef} className={`${styles.rightColumn} ${detailStyles.rightColumnFill}`}>
               {/* Action Buttons */}
-              {['New', 'Pending'].includes(status) && (
+              {canPerformActions && ['New', 'Pending'].includes(status) && (
                 <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                   <Button
                     variant="primary"

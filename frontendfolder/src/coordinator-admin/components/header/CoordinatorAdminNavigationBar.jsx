@@ -78,54 +78,72 @@ const CoordinatorAdminNavBar = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const navSections = [
-    {
-      key: 'tickets',
-      label: 'Ticket Management',
-      basePath: '/admin/ticket-management',
-      links: [
-        { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
-        { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-        { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
-        { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
-        { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
-        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
-        { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
-        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
-      ]
-    },
-    {
-      key: 'users',
-      label: 'User Access',
-      basePath: '/admin/user-access',
-      links: [
-        { label: 'All Users', path: '/admin/user-access/all-users' },
-        { label: 'Employees', path: '/admin/user-access/employees' },
-        { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
-        { label: 'System Admins', path: '/admin/user-access/system-admins' },
-        { label: 'Pending Users', path: '/admin/user-access/pending-users' },
-        { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
-      ]
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      basePath: '/admin/reports',
-      links: [
-        { label: 'Ticket Reports', path: '/admin/reports/tickets' },
-        { label: 'SLA Compliance', path: '/admin/reports/sla' }
-      ]
-    },
-    {
-      key: 'kb',
-      label: 'Knowledge Base',
-      basePath: '/admin/knowledge',
-      links: [
-        { label: 'Articles', path: '/admin/knowledge/articles' },
-        { label: 'Archived Articles', path: '/admin/knowledge/archived' }
-      ]
-    }
-  ];
+  // Build nav sections based on current user role
+  const role = currentUser?.role;
+
+  const ticketsSection = {
+    key: 'tickets',
+    label: 'Ticket Management',
+    basePath: '/admin/ticket-management',
+    links: [
+      { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
+      { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
+      { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
+      { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
+      { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
+      { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
+      { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
+      { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
+      { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
+    ]
+  };
+
+  const usersSection = {
+    key: 'users',
+    label: 'User Access',
+    basePath: '/admin/user-access',
+    links: [
+      { label: 'All Users', path: '/admin/user-access/all-users' },
+      { label: 'Employees', path: '/admin/user-access/employees' },
+      { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
+      { label: 'System Admins', path: '/admin/user-access/system-admins' },
+      { label: 'Pending Users', path: '/admin/user-access/pending-users' },
+      { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
+    ]
+  };
+
+  const reportsSection = {
+    key: 'reports',
+    label: 'Reports',
+    basePath: '/admin/reports',
+    links: [
+      { label: 'Ticket Reports', path: '/admin/reports/tickets' },
+      { label: 'SLA Compliance', path: '/admin/reports/sla' }
+    ]
+  };
+
+  const kbSection = {
+    key: 'kb',
+    label: 'Knowledge Base',
+    basePath: '/admin/knowledge',
+    links: [
+      { label: 'Articles', path: '/admin/knowledge/articles' },
+      { label: 'Archived Articles', path: '/admin/knowledge/archived' }
+    ]
+  };
+
+  // Role-based section composition
+  let navSections = [];
+  if (role === 'Ticket Coordinator') {
+    // Ticket coordinator: Dashboard (tickets only), Ticket Management, Reports
+    navSections = [ticketsSection, reportsSection];
+  } else if (role === 'System Admin') {
+    // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  } else {
+    // Default: show everything
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  }
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prev) => !prev);

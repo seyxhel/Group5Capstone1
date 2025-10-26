@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { IoClose } from 'react-icons/io5';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
@@ -38,6 +38,7 @@ const ticketCategories = [
 
 export default function EmployeeTicketSubmissionForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = authService.getCurrentUser();
   
   const [formData, setFormData] = useState({
@@ -59,6 +60,19 @@ export default function EmployeeTicketSubmissionForm() {
     performanceEndDate: '',
     preparedBy: ''
   });
+
+  // If navigated with prefill state, populate initial fields
+  useEffect(() => {
+    if (location && location.state && location.state.prefill) {
+      const pre = location.state.prefill;
+      setFormData((prev) => ({
+        ...prev,
+        subject: pre.subject || prev.subject,
+        description: pre.description || prev.description,
+        category: pre.category || prev.category,
+      }));
+    }
+  }, [location]);
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});

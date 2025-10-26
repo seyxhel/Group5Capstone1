@@ -4,6 +4,7 @@ import { FaCheck, FaTimes, FaEye } from "react-icons/fa";
 
 import styles from "./CoordinatorAdminUserAccess.module.css";
 import ViewCard from "../../../shared/components/ViewCard";
+import Button from "../../../shared/components/Button";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import authService from "../../../utilities/service/authService";
@@ -177,12 +178,13 @@ const CoordinatorAdminUserAccess = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <button
-                  className={styles.registerButton}
+                <Button
+                  variant="primary"
                   onClick={() => navigate("/admin/account-register")}
+                  className={styles.registerButton}
                 >
                   Register User
-                </button>
+                </Button>
               </div>
             </div>
 
