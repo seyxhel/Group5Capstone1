@@ -49,6 +49,26 @@ const calculateSLAStatus = (ticket) => {
   return "On Time";
 };
 
+// If a ticket remains 'New' for more than 24 hours it becomes 'Pending' for coordinators/admins
+const computeEffectiveStatus = (ticket) => {
+  // Normalize input status - treat Submitted/Pending as New for aging purposes
+  const rawStatus = (ticket.status || '').toString();
+  const lower = rawStatus.toLowerCase();
+  const baseIsNew = lower === 'new' || lower === 'submitted' || lower === 'pending';
+  try {
+    const created = new Date(ticket.createdAt || ticket.dateCreated || ticket.created_at || ticket.submit_date || ticket.submitDate);
+    if (baseIsNew && created instanceof Date && !isNaN(created)) {
+      const hours = (new Date() - created) / (1000 * 60 * 60);
+      if (hours >= 24) return 'Pending';
+      return 'New';
+    }
+  } catch (e) {
+    // ignore parse errors
+  }
+  // For non-new statuses, preserve original casing where possible
+  return rawStatus || '';
+};
+
 const CoordinatorAdminTicketManagement = () => {
   const { status = "all-tickets" } = useParams();
   const navigate = useNavigate();
@@ -187,22 +207,24 @@ const CoordinatorAdminTicketManagement = () => {
 
   const filteredTickets = useMemo(() => {
     let result;
-    
-    if (normalizedStatus === "all") {
-      result = allTickets;
-    } else if (Array.isArray(statusFilter)) {
-      // Handle array of statuses (e.g., ["new", "submitted", "pending"])
-      result = allTickets.filter(
-        (ticket) => statusFilter.includes(ticket.status?.toLowerCase())
-      );
-    } else if (statusFilter) {
-      // Handle single status string
-      result = allTickets.filter(
-        (ticket) => ticket.status?.toLowerCase() === statusFilter.toLowerCase()
-      );
-    } else {
-      result = allTickets;
-    }
+      // decorate tickets with an effective status (New older than 24h -> Pending)
+      const decorated = allTickets.map(t => ({ ...t, __effectiveStatus: computeEffectiveStatus(t) }));
+
+      if (normalizedStatus === "all") {
+        result = decorated;
+      } else if (Array.isArray(statusFilter)) {
+        // Handle array of statuses (e.g., ["new", "submitted", "pending"])
+        result = decorated.filter(
+          (ticket) => statusFilter.includes(ticket.__effectiveStatus?.toLowerCase())
+        );
+      } else if (statusFilter) {
+        // Handle single status string
+        result = decorated.filter(
+          (ticket) => ticket.__effectiveStatus?.toLowerCase() === statusFilter.toLowerCase()
+        );
+      } else {
+        result = decorated;
+      }
 
     // Apply search filter
     if (searchTerm.trim()) {
@@ -299,7 +321,10 @@ const CoordinatorAdminTicketManagement = () => {
 
   const isActionable = (status) => {
     const s = (status || "").toLowerCase();
-    // Only "New" tickets (including old "Submitted" or "Pending" statuses) can be opened/rejected
+    // Only Ticket Coordinators can perform open/reject actions. System Admins can only view.
+    if (!currentUser) return false;
+    if (currentUser.role !== 'Ticket Coordinator') return false;
+    // Only "New" tickets (including Submitted/Pending) are actionable
     return s === "new" || s === "submitted" || s === "pending";
   };
 
@@ -378,8 +403,9 @@ const CoordinatorAdminTicketManagement = () => {
                 </tr>
               ) : (
                 paginatedTickets.map((ticket, idx) => {
-                  // Convert admin status display (Submitted/Pending -> New)
-                  const displayStatus = ticket.status === 'Submitted' || ticket.status === 'Pending' ? 'New' : ticket.status;
+                  // Use the computed effective status (e.g., New older than 24h -> Pending)
+                  const effective = ticket.__effectiveStatus || ticket.status || '';
+                  const displayStatus = effective;
                   const statusClass = displayStatus.replace(/\s+/g, '-').toLowerCase();
                   
                   return (

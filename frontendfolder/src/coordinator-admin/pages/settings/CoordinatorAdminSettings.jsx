@@ -115,55 +115,76 @@ export default function CoordinatorAdminSettings() {
 
             <div className={styles.profileRight}>
               <form>
+                {/* Personal Information (restored fields) */}
                 <div className={styles.profileSettingsCard}>
-                  <h2>Profile Settings</h2>
+                  <h2>Personal Information</h2>
 
                   <div className={styles.formGrid}>
                     <div className={styles.formGroup}>
-                      <label>First Name</label>
-                      <input type="text" name="first_name" value={user?.firstName || user?.first_name || ''} readOnly />
+                      <label>Last Name</label>
+                      <input type="text" value={user?.lastName || user?.last_name || ''} readOnly />
                     </div>
 
-                    {/* Company / Employee ID removed from profile per admin UX requirements */}
+                    <div className={styles.formGroup}>
+                      <label>First Name</label>
+                      <input type="text" value={user?.firstName || user?.first_name || ''} readOnly />
+                    </div>
 
                     <div className={styles.formGroup}>
                       <label>Middle Name</label>
-                      <input type="text" name="middle_name" value={user?.middleName || user?.middle_name || ''} readOnly />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Department</label>
-                      <input type="text" name="department" value={user?.department || ''} readOnly />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Last Name</label>
-                      <input type="text" name="last_name" value={user?.lastName || user?.last_name || ''} readOnly />
+                      <input type="text" value={user?.middleName || user?.middle_name || ''} readOnly />
                     </div>
 
                     <div className={styles.formGroup}>
                       <label>Suffix</label>
-                      <input type="text" name="suffix" value={user?.suffix || ''} readOnly />
+                      <input type="text" value={user?.suffix || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Company ID</label>
+                      <input type="text" value={user?.companyId || user?.company_id || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Department</label>
+                      <input type="text" value={user?.department || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Role</label>
+                      <input type="text" value={user?.role || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Email</label>
+                      <input type="email" value={user?.email || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Upload Profile Picture</label>
+                      <input type="file" accept="image/*" />
                     </div>
                   </div>
 
-                  <button type="button" className={styles.saveChangesBtn} onClick={() => {}}>
-                    SAVE CHANGES
-                  </button>
+                  <button className={styles.saveButton} type="button">Save Changes</button>
                 </div>
 
+                {/* Security Section (restored) */}
                 <div className={styles.authenticationCard}>
-                  <h2>Authentication Details</h2>
-
+                  <h2>Security</h2>
                   <div className={styles.formGroup}>
-                    <label>Email Address</label>
-                    <input type="email" name="email" value={user?.email || ''} readOnly />
+                    <label>Current Password (hashed)</label>
+                    <input type="password" disabled value="••••••••••••••" />
                   </div>
-
                   <div className={styles.formGroup}>
-                    <label>Password</label>
-                    <input type="password" name="password" value="" placeholder="••••••••" readOnly />
+                    <label>New Password</label>
+                    <input type="password" />
                   </div>
+                  <div className={styles.formGroup}>
+                    <label>Confirm Password</label>
+                    <input type="password" />
+                  </div>
+                  <button className={styles.saveButton} type="button">Save New Password</button>
                 </div>
               </form>
             </div>

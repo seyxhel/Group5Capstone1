@@ -315,6 +315,24 @@ const renderAttachments = (files) => {
   );
 };
 
+// If a ticket is New/Submitted/Pending and older than 24 hours, treat as 'Pending' for coordinators/admins
+const computeEffectiveStatus = (ticket) => {
+  const rawStatus = (ticket.status || '').toString();
+  const lower = rawStatus.toLowerCase();
+  const baseIsNew = lower === 'new' || lower === 'submitted' || lower === 'pending';
+  try {
+    const created = new Date(ticket.createdAt || ticket.dateCreated || ticket.created_at || ticket.submit_date || ticket.submitDate);
+    if (baseIsNew && created instanceof Date && !isNaN(created)) {
+      const hours = (new Date() - created) / (1000 * 60 * 60);
+      if (hours >= 24) return 'Pending';
+      return 'New';
+    }
+  } catch (e) {
+    // ignore parse errors
+  }
+  return rawStatus || '';
+};
+
 
 export default function CoordinatorAdminTicketTracker() {
   const { ticketNumber } = useParams();
@@ -324,100 +342,47 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
   const tickets = getAllTickets();
-  const [ticket, setTicket] = useState(null);
-  const [loadingTicket, setLoadingTicket] = useState(false);
-
-  // When an admin action modal completes (Open/Reject), refetch the ticket so coordinatorReview/assigned fields
-  // returned by the backend are reflected in the UI.
-  const handleModalSuccess = async (ticketNumberArg, action) => {
-    try {
-      setLoadingTicket(true);
-      const fetched = await backendTicketService.getTicketByNumber(ticketNumberArg || ticketNumber);
-      if (fetched) {
-        const normalized = {
-          ...fetched,
-          ticketNumber: fetched.ticket_number || fetched.ticketNumber || fetched.ticket_id || fetched.ticketId || fetched.id,
-          dateCreated: fetched.submit_date || fetched.createdAt || fetched.dateCreated || fetched.created_at || fetched.submitDate,
-          lastUpdated: fetched.update_date || fetched.updatedAt || fetched.dateUpdated || fetched.updated_at || fetched.updateDate,
-          subCategory: fetched.sub_category || fetched.subcategory || fetched.subCategory || '',
-          priorityLevel: fetched.priority || fetched.priorityLevel || fetched.priority_level || null,
-          fileUploaded: fetched.file_uploaded || fetched.attachments || fetched.fileAttachments || fetched.files || null,
-          assignedTo: fetched.assigned_to || fetched.assignedTo || fetched.assigned_to_name || fetched.assignedToName || fetched.assignedTo || null,
-          description: fetched.description || fetched.details || fetched.body || fetched.note || fetched.notes || fetched.description,
-          // Budget/Proposal and scheduling fallbacks
-          scheduledRequest: fetched.scheduledRequest || fetched.scheduled_request || fetched.scheduled_date || fetched.scheduledDate || (fetched.dynamic_data && (fetched.dynamic_data.scheduledDate || fetched.dynamic_data.scheduled_date || fetched.dynamic_data.scheduleRequest || fetched.dynamic_data.schedule_request)) || null,
-          preparedBy: fetched.preparedBy || fetched.prepared_by || fetched.preparedByName || (fetched.dynamic_data && (fetched.dynamic_data.preparedBy || fetched.dynamic_data.prepared_by || fetched.dynamic_data.preparedByName)) || null,
-          performanceStartDate: fetched.performanceStartDate || fetched.performance_start_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceStartDate || fetched.dynamic_data.performance_start_date)) || null,
-          performanceEndDate: fetched.performanceEndDate || fetched.performance_end_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceEndDate || fetched.dynamic_data.performance_end_date)) || null,
-          totalBudget: (fetched.totalBudget ?? fetched.total_budget ?? fetched.requested_budget ?? (fetched.dynamic_data && (fetched.dynamic_data.totalBudget ?? fetched.dynamic_data.total_budget ?? fetched.dynamic_data.requestedBudget ?? fetched.dynamic_data.requested_budget))) ?? null,
-          budgetItems: fetched.budgetItems || fetched.budget_items || fetched.cost_items || (fetched.dynamic_data && (fetched.dynamic_data.items || fetched.dynamic_data.budgetItems || fetched.dynamic_data.budget_items)) || [],
-        };
-        setTicket(normalized);
-      }
-    } catch (err) {
-      console.error('Error refetching ticket after modal success:', err);
-    } finally {
-      setLoadingTicket(false);
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    const findLocal = () => {
-      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
-      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber || t.ticket_number || t.ticketId || t.id) === String(ticketNumber));
-    };
-
-    const local = findLocal();
-    if (local) {
-      setTicket(local);
-      return () => { mounted = false; };
-    }
-
-    if (ticketNumber) {
-      setLoadingTicket(true);
-      (async () => {
-        try {
-          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
-          if (mounted) {
-            console.log('[CoordinatorTicket] fetched ticket by number:', fetched);
-            // Normalize fields to match local seed shape used by this component
-            const normalized = fetched ? {
-              ...fetched,
-              ticketNumber: fetched.ticket_number || fetched.ticketNumber || fetched.ticket_id || fetched.ticketId || fetched.id,
-              dateCreated: fetched.submit_date || fetched.createdAt || fetched.dateCreated || fetched.created_at || fetched.submitDate,
-              lastUpdated: fetched.update_date || fetched.updatedAt || fetched.dateUpdated || fetched.updated_at || fetched.updateDate,
-              subCategory: fetched.sub_category || fetched.subcategory || fetched.subCategory || '',
-              priorityLevel: fetched.priority || fetched.priorityLevel || fetched.priority_level || null,
-              fileUploaded: fetched.file_uploaded || fetched.attachments || fetched.fileAttachments || fetched.files || null,
-              assignedTo: fetched.assigned_to || fetched.assignedTo || fetched.assigned_to_name || fetched.assignedToName || fetched.assignedTo || null,
-              description: fetched.description || fetched.details || fetched.body || fetched.note || fetched.notes || fetched.description,
-              // Budget/Proposal and scheduling fallbacks
-              scheduledRequest: fetched.scheduledRequest || fetched.scheduled_request || fetched.scheduled_date || fetched.scheduledDate || (fetched.dynamic_data && (fetched.dynamic_data.scheduledDate || fetched.dynamic_data.scheduled_date || fetched.dynamic_data.scheduleRequest || fetched.dynamic_data.schedule_request)) || null,
-              preparedBy: fetched.preparedBy || fetched.prepared_by || fetched.preparedByName || (fetched.dynamic_data && (fetched.dynamic_data.preparedBy || fetched.dynamic_data.prepared_by || fetched.dynamic_data.preparedByName)) || null,
-              performanceStartDate: fetched.performanceStartDate || fetched.performance_start_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceStartDate || fetched.dynamic_data.performance_start_date)) || null,
-              performanceEndDate: fetched.performanceEndDate || fetched.performance_end_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceEndDate || fetched.dynamic_data.performance_end_date)) || null,
-              totalBudget: (fetched.totalBudget ?? fetched.total_budget ?? fetched.requested_budget ?? (fetched.dynamic_data && (fetched.dynamic_data.totalBudget ?? fetched.dynamic_data.total_budget ?? fetched.dynamic_data.requestedBudget ?? fetched.dynamic_data.requested_budget))) ?? null,
-              budgetItems: fetched.budgetItems || fetched.budget_items || fetched.cost_items || (fetched.dynamic_data && (fetched.dynamic_data.items || fetched.dynamic_data.budgetItems || fetched.dynamic_data.budget_items)) || [],
-            } : null;
-            console.log('[CoordinatorTicket] normalized ticket:', normalized);
-            setTicket(normalized || null);
-          }
-        } catch (err) {
-          console.error('Error fetching ticket by number:', err);
-          if (mounted) setTicket(null);
-        } finally {
-          if (mounted) setLoadingTicket(false);
-        }
-      })();
-    } else {
-      setTicket(local);
-    }
-
-    return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketNumber, JSON.stringify(tickets)]);
+  const ticket = ticketNumber
+    ? getTicketByNumber(ticketNumber)
+    : tickets && tickets.length > 0
+    ? tickets[tickets.length - 1]
+    : null;
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  const {
+    ticketNumber: number,
+    subject,
+    category,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
+    description,
+    fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+    scheduledRequest,
+  } = ticket;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const status = computeEffectiveStatus(ticket) || originalStatus;
+  const statusSteps = getStatusSteps(status);
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const ticketLogs = generateLogs(ticket);
+  const userRole = authService.getUserRole();
+  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const canPerformActions = userRole === 'Ticket Coordinator';
 
   // Sync heights between left and right columns so both match the taller one.
   // This effect is declared unconditionally so Hooks order remains stable
@@ -767,7 +732,7 @@ export default function CoordinatorAdminTicketTracker() {
             {/* Right Column - Actions and Details */}
             <div ref={rightColRef} className={`${styles.rightColumn} ${detailStyles.rightColumnFill}`}>
               {/* Action Buttons */}
-              {['New', 'Pending'].includes(status) && (
+              {canPerformActions && ['New', 'Pending'].includes(status) && (
                 <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                   <Button
                     variant="primary"

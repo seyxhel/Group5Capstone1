@@ -68,9 +68,34 @@
   display: flex;
   flex-direction: row; /* side-by-side for desktop */
   gap: 2rem;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
+}
+
+/* Left status column (single column list) */
+.statusColumn {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--text-color);
+}
+
+.statusSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 /* Timeline list styling */
@@ -122,55 +147,14 @@
   background-color: var(--primary-color-hover);
 }
 
-/* Year navigation buttons for TrendLineChart */
-.yearNavBtn {
-  background: transparent;
-  border: 1px solid var(--muted-border-color, #e5e7eb);
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-.yearNavBtn:hover {
-  background: rgba(0,0,0,0.04);
-}
-
-/* Year controls container shown beneath the chart and centered */
-.yearControlsContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 12px;
-  position: relative; /* allow absolute child for right-aligned dropdown */
-}
-.yearNavRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  justify-content: center;
-}
-.yearLabel {
-  min-width: 84px;
+/* Full width variant to be used with shared Button component */
+.browseButtonFull {
+  width: 100%;
+  display: block;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px; /* less pill to match shared button style */
   text-align: center;
-  font-weight: 700;
-}
-.yearControlsRight {
-  position: absolute;
-  right: 12px;
-  top: -6px; /* nudge to align vertically with year row */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.yRangeLabel {
-  font-size: 0.875rem;
-  color: var(--muted-text, #6b7280);
-}
-.yRangeSelect {
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
 }
 
 /* === Responsive Adjustments === */

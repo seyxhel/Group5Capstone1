@@ -159,6 +159,11 @@
   background-color: #fff9cc;
 }
 
+.statusNew {
+  color: #1E90FF;
+  background-color: #DBEAFE;
+}
+
 .statusInProgress {
   color: #7c3aed;
   background-color: #e9d5ff;

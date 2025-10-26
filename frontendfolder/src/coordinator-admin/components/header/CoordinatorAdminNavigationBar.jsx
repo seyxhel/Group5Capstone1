@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import useScrollShrink from '../../../shared/hooks/useScrollShrink.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
-import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
+import CoordinatorAdminNotifications from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
@@ -85,6 +85,7 @@ const CoordinatorAdminNavBar = () => {
     if (currentUser) fetchProfileImage();
   }, [currentUser]);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // temporarily set threshold to 0 and enable debug to observe scroll events during testing
   const scrolled = useScrollShrink(0, { debug: true });
@@ -135,54 +136,72 @@ const CoordinatorAdminNavBar = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const navSections = [
-    {
-      key: 'tickets',
-      label: 'Ticket Management',
-      basePath: '/admin/ticket-management',
-      links: [
-        { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
-        { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-        { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
-        { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
-        { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
-        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
-        { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
-        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
-      ]
-    },
-    {
-      key: 'users',
-      label: 'User Access',
-      basePath: '/admin/user-access',
-      links: [
-        { label: 'All Users', path: '/admin/user-access/all-users' },
-        { label: 'Employees', path: '/admin/user-access/employees' },
-        { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
-        { label: 'System Admins', path: '/admin/user-access/system-admins' },
-        { label: 'Pending Users', path: '/admin/user-access/pending-users' },
-        { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
-      ]
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      basePath: '/admin/reports',
-      links: [
-        { label: 'Ticket Reports', path: '/admin/reports/tickets' },
-        { label: 'SLA Compliance', path: '/admin/reports/sla' }
-      ]
-    },
-    {
-      key: 'kb',
-      label: 'Knowledge Base',
-      basePath: '/admin/knowledge',
-      links: [
-        { label: 'Articles', path: '/admin/knowledge/articles' },
-        { label: 'Archived Articles', path: '/admin/knowledge/archived' }
-      ]
-    }
-  ];
+  // Build nav sections based on current user role
+  const role = currentUser?.role;
+
+  const ticketsSection = {
+    key: 'tickets',
+    label: 'Ticket Management',
+    basePath: '/admin/ticket-management',
+    links: [
+      { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
+      { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
+      { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
+      { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
+      { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
+      { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
+      { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
+      { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
+      { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
+    ]
+  };
+
+  const usersSection = {
+    key: 'users',
+    label: 'User Access',
+    basePath: '/admin/user-access',
+    links: [
+      { label: 'All Users', path: '/admin/user-access/all-users' },
+      { label: 'Employees', path: '/admin/user-access/employees' },
+      { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
+      { label: 'System Admins', path: '/admin/user-access/system-admins' },
+      { label: 'Pending Users', path: '/admin/user-access/pending-users' },
+      { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
+    ]
+  };
+
+  const reportsSection = {
+    key: 'reports',
+    label: 'Reports',
+    basePath: '/admin/reports',
+    links: [
+      { label: 'Ticket Reports', path: '/admin/reports/tickets' },
+      { label: 'SLA Compliance', path: '/admin/reports/sla' }
+    ]
+  };
+
+  const kbSection = {
+    key: 'kb',
+    label: 'Knowledge Base',
+    basePath: '/admin/knowledge',
+    links: [
+      { label: 'Articles', path: '/admin/knowledge/articles' },
+      { label: 'Archived Articles', path: '/admin/knowledge/archived' }
+    ]
+  };
+
+  // Role-based section composition
+  let navSections = [];
+  if (role === 'Ticket Coordinator') {
+    // Ticket coordinator: Dashboard (tickets only), Ticket Management, Reports
+    navSections = [ticketsSection, reportsSection];
+  } else if (role === 'System Admin') {
+    // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  } else {
+    // Default: show everything
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  }
 
   // If current user is a Ticket Coordinator, they should not see User Access
   const visibleNavSections = navSections.filter(s => {
@@ -313,14 +332,16 @@ const CoordinatorAdminNavBar = () => {
             onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleDropdown('notifications')}
           >
             <NotificationIcon />
-            {notificationCount > 0 && (
-              <span className={styles['notification-badge']}>{notificationCount}</span>
+            {notifCount > 0 && (
+              <span className={styles['notification-badge']}>{notifCount}</span>
             )}
           </div>
           {openDropdown === 'notifications' && (
-            <div className={styles['notification-dropdown']}>
-              <CoordinatorAdminNotifications />
-            </div>
+            <CoordinatorAdminNotifications
+              show={openDropdown === 'notifications'}
+              onClose={() => setOpenDropdown(null)}
+              onCountChange={setNotifCount}
+            />
           )}
         </div>
 

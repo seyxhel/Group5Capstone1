@@ -30,18 +30,19 @@ import Tabs from '../../../shared/components/Tabs';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
+import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
-import { backendTicketService } from '../../../services/backend/ticketService';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
 import authService from '../../../utilities/service/authService';
-import kbService from '../../../services/kbService';
+import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 
-  const ticketPaths = [
-    { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-    { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
-    { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
-    { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' }
-  ];
+const ticketPaths = [
+  { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
+  { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
+  { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
+  { label: "In Progress Tickets", path: "/admin/ticket-management/in-progress-tickets" },
+  { label: "On Hold Tickets", path: "/admin/ticket-management/on-hold-tickets" }
+];
+
 
   const userPaths = [
     { label: 'All Users', path: '/admin/user-access/all-users' },
@@ -52,18 +53,20 @@ import kbService from '../../../services/kbService';
     { label: 'Rejected Accounts', path: '/admin/user-access/rejected-users' },
   ];
 
-  // === Reusable Components ===
-  const StatCard = ({ label, count, isHighlight, position, onClick }) => {
-    const getStatusClass = (label) => {
-      const statusMap = {
-        'New Tickets': 'statBadgeNew',
-        'Open Tickets': 'statBadgeOpen',
-        'In Progress Tickets': 'statBadgeInProgress',
-        'On Hold Tickets': 'statBadgeOnHold',
-        'Pending Users': 'statBadgePending'
-      };
-      return statusMap[label] || (isHighlight ? 'statBadgeRed' : 'statBadgeBlue');
+// === Reusable Components ===
+const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) => {
+  // Map status labels to CSS class names
+  const getStatusClass = (label) => {
+    const statusMap = {
+      'New Tickets': 'statBadgeNew',
+      'Open Tickets': 'statBadgeOpen', 
+      'In Progress Tickets': 'statBadgeInProgress',
+      'On Hold Tickets': 'statBadgeOnHold',
+      'Pending Tickets': 'statBadgePending',
+      'Pending Users': 'statBadgePending'
     };
+    return statusMap[label] || (isHighlight ? 'statBadgeRed' : 'statBadgeBlue');
+  };
 
     return (
       <div className={`${styles.statusCard} ${statCardStyles.statusCard} ${statCardStyles[`card-position-${position}`]}`} onClick={onClick}>
@@ -77,88 +80,134 @@ import kbService from '../../../services/kbService';
     );
   };
 
-  const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows, lockLeftCount }) => {
-    const approximateRowHeight = 52;
-    const overflowStyle = maxRows ? { maxHeight: `${approximateRowHeight * maxRows}px`, overflowY: 'auto' } : undefined;
+const DataTable = ({ title, headers, data }) => (
+  <div className={tableStyles.tableContainer}>
+    <div className={tableStyles.tableHeader}>
+      <h3 className={tableStyles.tableTitle}>{title}</h3>
+      {/* Manage buttons removed per design request */}
+    </div>
 
-    return (
-      <div className={`${tableStyles.tableContainer} ${lockLeftCount ? tableStyles[`lockLeft${lockLeftCount}`] : ''}`}>
-        <div className={tableStyles.tableHeader}>
-          <h3 className={tableStyles.tableTitle}>{title}</h3>
-          <button className={tableStyles.button} onClick={onButtonClick}>{buttonText}</button>
-        </div>
-
-        <div className={tableStyles.tableOverflow} style={overflowStyle}>
-          {data && data.length > 0 ? (
-            <table className={tableStyles.table}>
-              <thead className={tableStyles.tableHead}>
-                <tr>
-                  {headers.map((header, idx) => (
-                    <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, i) => (
-                  <tr key={i} className={tableStyles.tableRow}>
-                    {Object.values(row).map((cell, j) => (
-                      <td key={j} className={tableStyles.tableCell}>
-                        {typeof cell === 'object' ? (
-                          <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>{cell.text}</span>
-                        ) : cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className={tableStyles.emptyState}>No records found. Click "{buttonText}" to add items.</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const StatusPieChart = ({ data, title, activities }) => {
-    const navigate = useNavigate();
-    const chartData = {
-      labels: data.map(item => item.name),
-      datasets: [{ label: title, data: data.map(item => item.value), backgroundColor: data.map(item => item.fill), borderWidth: 1, borderColor: '#fff' }]
-    };
-
-    const options = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { padding: 15, font: { size: 12 }, usePointStyle: true, pointStyle: 'circle' } },
-        tooltip: { callbacks: { label: function (context) { const label = context.label || ''; const value = context.parsed || 0; const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = ((value / total) * 100).toFixed(1); return `${label}: ${value} (${percentage}%)`; } } }
-      }
-    };
-
-    let browsePath = null;
-    if (title && title.toLowerCase().includes('ticket')) browsePath = '/admin/ticket-management/all-tickets';
-    else if (title && title.toLowerCase().includes('user')) browsePath = '/admin/user-access/all-users';
-
-    return (
-      <div className={chartStyles.chartContainer}>
-        <h3 className={chartStyles.chartTitle}>{title}</h3>
-        <div className={chartStyles.chartContentRow}>
-          <div style={{ width: 300, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Pie data={chartData} options={options} />
-          </div>
-          {activities && (
-            <ul className={chartStyles.timelineList}>
-              {activities.map((item, i) => (
-                <li key={i} className={chartStyles.timelineItem}><span className={chartStyles.timelineTime}>{item.time}</span><span className={chartStyles.timelineAction}>{item.action}</span></li>
+    <div className={tableStyles.tableOverflow}>
+      {data.length > 0 ? (
+        <table className={tableStyles.table}>
+          <thead className={tableStyles.tableHead}>
+            <tr>
+              {headers.map((header, idx) => (
+                <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
               ))}
-            </ul>
-          )}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i} className={tableStyles.tableRow}>
+                {Object.values(row).map((cell, j) => (
+                  <td key={j} className={tableStyles.tableCell}>
+                    {typeof cell === 'object' ? (
+                      <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
+                        {cell.text}
+                      </span>
+                    ) : cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className={tableStyles.emptyState}>
+          No records found.
         </div>
-        <button className={chartStyles.browseButton} onClick={browsePath ? () => navigate(browsePath) : undefined} disabled={!browsePath}>Browse All</button>
-      </div>
-    );
+      )}
+    </div>
+  </div>
+);
+
+const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse }) => {
+  // Transform data for Chart.js
+  const chartData = {
+    labels: data.map(item => item.name),
+    datasets: [
+      {
+        label: title,
+        data: data.map(item => item.value),
+        backgroundColor: data.map(item => item.fill),
+        borderWidth: 1,
+        borderColor: '#fff',
+      },
+    ],
   };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      // We'll render a custom status list on the left; hide Chart.js legend
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = total ? ((value / total) * 100).toFixed(1) : '0.0';
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        }
+      }
+    },
+  };
+
+  return (
+    <div className={chartStyles.chartContainer} style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
+        <select
+          value={pieRange}
+          onChange={(e) => setPieRange(e.target.value)}
+          style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff' }}
+        >
+          <option value="days">Days</option>
+          <option value="week">Week</option>
+          <option value="month">Month</option>
+          {isAdmin && <option value="yearly">Yearly</option>}
+        </select>
+      </div>
+      <h3 className={chartStyles.chartTitle}>{title}</h3>
+
+      <div className={chartStyles.chartContentRow}>
+        {/* Left: Statuses (single column) */}
+        <div className={chartStyles.statusColumn}>
+          {data.map((d, idx) => (
+            <div key={idx} className={chartStyles.statusItem}>
+              <span className={chartStyles.statusSwatch} style={{ background: d.fill }} />
+              <span>{d.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Middle: Pie Chart (centered) */}
+        <div style={{ width: '340px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Pie data={chartData} options={options} />
+        </div>
+
+        {/* Right: Activity Timeline */}
+        {activities && (
+          <ul className={chartStyles.timelineList} style={{ width: '40%' }}>
+            {activities.map((item, i) => (
+              <li key={i} className={chartStyles.timelineItem}>
+                <span className={chartStyles.timelineTime}>{item.time}</span>
+                <span className={chartStyles.timelineAction}>{item.action}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Button variant="primary" className={chartStyles.browseButtonFull} onClick={onBrowse}>Browse All</Button>
+    </div>
+  );
+};
 
   const TrendLineChart = ({ data, title, isTicketChart = true, year, onPrevYear, onNextYear, showYearControls = false, showYRangeSelect = true, yRange = 'auto', onYRangeChange = () => {} }) => {
     // Ensure numeric data is passed to Chart.js (coerce strings/nulls to numbers)
@@ -252,416 +301,22 @@ import kbService from '../../../services/kbService';
 // === Main Component ===
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
-  const [loading, setLoading] = useState(true);
-  const [tickets, setTickets] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [stats, setStats] = useState([]);
-  const [tableData, setTableData] = useState([]);
-  const [pieData, setPieData] = useState([]);
-  const [lineData, setLineData] = useState([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [yRange, setYRange] = useState('auto');
-  const [activityTimeline, setActivityTimeline] = useState([]);
-  const [userActivityTimeline, setUserActivityTimeline] = useState([]);
-  // Derived user dashboard data
-  const [userStats, setUserStats] = useState([]);
-  const [userTableData, setUserTableData] = useState([]);
-  const [userPieData, setUserPieData] = useState([]);
-  const [userLineData, setUserLineData] = useState([]);
-
-  // Helper: map ticket status to css class used by status badges
-  const mapStatusToClass = (status) => {
-    if (!status) return 'statusSubmitted';
-    const s = String(status).trim().toLowerCase();
-    if (s === 'new') return 'statusNew';
-    if (s === 'open') return 'statusOpen';
-    if (s === 'in progress' || s === 'in_progress' || s === 'inprogress') return 'statusInProgress';
-    if (s === 'on hold' || s === 'on_hold' || s === 'onhold') return 'statusOnHold';
-    if (s === 'pending' || s === 'submitted') return 'statusPending';
-    if (s === 'closed') return 'statusClosed';
-    if (s === 'rejected') return 'statusRejected';
-    if (s === 'withdrawn') return 'statusWithdrawn';
-    return 'statusSubmitted';
-  };
-
-  // Format timestamp for activity logs: YYYY-MM-DD hh:mm AM/PM
-  const formatLogTimestamp = (date) => {
-    if (!date) return 'None';
-    try {
-      const d = date instanceof Date ? date : new Date(date);
-      if (isNaN(d.getTime())) return 'Invalid Date';
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours === 0 ? 12 : hours;
-      const hourStr = String(hours).padStart(2, '0');
-      return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
-    } catch (e) {
-      return 'Invalid Date';
-    }
-  };
-
-  // Format time only for user timeline entries: hh:mm AM/PM
-  const formatTimeOnly = (date) => {
-    if (!date) return 'None';
-    try {
-      const d = date instanceof Date ? date : new Date(date);
-      if (isNaN(d.getTime())) return 'Invalid Date';
-      let hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours === 0 ? 12 : hours;
-      const hourStr = String(hours).padStart(2, '0');
-      return `${hourStr}:${minutes} ${ampm}`;
-    } catch (e) {
-      return 'Invalid Date';
-    }
-  };
-
-  // Fetch tickets and employees and compute dashboard data
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const [allTickets, allEmployees] = await Promise.all([
-          backendTicketService.getAllTickets(),
-          backendEmployeeService.getAllEmployees().catch(() => []),
-        ]);
-
-        if (!mounted) return;
-        setTickets(allTickets || []);
-        setEmployees(allEmployees || []);
-        // DEBUG: log employees fetch summary to help troubleshoot chart data
-        try {
-          console.log('[Dashboard] fetched employees count:', (allEmployees || []).length);
-          if ((allEmployees || []).length > 0) {
-            console.log('[Dashboard] sample employee:', (allEmployees || [])[0]);
-          }
-        } catch (e) {
-          // ignore logging errors
-        }
-
-        // Stats for stat cards (New/Open/In Progress/On Hold)
-        const counts = {
-          'New Tickets': 0,
-          'Open Tickets': 0,
-          'In Progress Tickets': 0,
-          'On Hold Tickets': 0,
-        };
-        (allTickets || []).forEach(t => {
-          const s = (t.status || '').toString().toLowerCase();
-          if (s === 'new') counts['New Tickets'] += 1;
-          else if (s === 'open') counts['Open Tickets'] += 1;
-          else if (s === 'in progress' || s === 'in_progress' || s === 'inprogress') counts['In Progress Tickets'] += 1;
-          else if (s === 'on hold' || s === 'on_hold' || s === 'onhold') counts['On Hold Tickets'] += 1;
-        });
-
-        const statsArr = ticketPaths.map((item) => ({
-          label: item.label,
-          count: counts[item.label] || 0,
-          isHighlight: false,
-          position: 0,
-          path: item.path,
-        }));
-        setStats(statsArr);
-
-        // Tickets to Review = New tickets
-        const newTickets = (allTickets || []).filter(t => (t.status || '').toString().toLowerCase() === 'new');
-        const tableRows = newTickets.map(t => ({
-          ticketNumber: t.ticket_number || t.ticketNumber || `TX${t.id}`,
-          subject: t.subject || t.title || 'No subject',
-          category: t.category || 'General',
-          subCategory: t.sub_category || t.subCategory || t.subcategory || '',
-          status: { text: t.status || 'New', statusClass: mapStatusToClass(t.status) },
-          // Format Date Created to a short human-friendly string (YYYY-MM-DD hh:mm AM/PM)
-          dateCreated: formatLogTimestamp(t.submit_date || t.dateCreated || t.created_at || t.createdAt),
-        }));
-        setTableData(tableRows);
-
-        // Pie data: aggregate by status
-        const statusCounts = {};
-        (allTickets || []).forEach(t => {
-          const key = (t.status || 'Unknown').toString();
-          statusCounts[key] = (statusCounts[key] || 0) + 1;
-        });
-        const palette = ['#3B82F6', '#06B6D4', '#F59E0B', '#EF4444', '#22C55E', '#9CA3AF', '#8B5CF6'];
-        const pie = Object.keys(statusCounts).map((k, i) => ({ name: k, value: statusCounts[k], fill: palette[i % palette.length] }));
-        setPieData(pie);
-
-        // Line data will be computed separately based on selectedYear
-
-        // Build activity timeline (ticket events)
-        const events = [];
-        (allTickets || []).forEach(t => {
-          // creation
-          if (t.submit_date) {
-            events.push({
-              time: t.submit_date,
-              action: `Ticket ${t.ticket_number || t.ticketNumber || `TX${t.id}`} submitted`,
-              type: 'ticket',
-            });
-          }
-
-          // closed / withdrawn / resolved
-          const closedTime = t.time_closed || t.closed_at || t.timeClosed || t.closedAt || null;
-          if (closedTime) {
-            events.push({
-              time: closedTime,
-              action: `Ticket ${t.ticket_number || t.ticketNumber || `TX${t.id}`} ${t.status || 'updated'}`,
-              type: 'ticket',
-            });
-          }
-        });
-
-        // Sort events newest-first and take top 5
-        events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-        const topEvents = events.slice(0, 5).map(e => ({ time: formatLogTimestamp(e.time), action: e.action, type: e.type }));
-        setActivityTimeline(topEvents);
-
-        // Build a richer user activity timeline: created, approved/activated, rejected — exclude superusers
-        try {
-          const rawUserEvents = [];
-          (allEmployees || []).forEach(emp => {
-            if (!emp) return;
-            if (emp.is_superuser) return; // skip admin/superuser accounts
-            const idLabel = emp.company_id || emp.employee_id || emp.id || 'User';
-
-            const createdAt = emp.created_at || emp.date_joined || emp.createdAt || null;
-            if (createdAt) rawUserEvents.push({ time: createdAt, action: `User ${idLabel} account created`, type: 'user' });
-
-            const approvedAt = emp.approved_at || emp.approvedAt || emp.activated_at || emp.activatedAt || null;
-            if (approvedAt) rawUserEvents.push({ time: approvedAt, action: `User ${idLabel} approved by Admin`, type: 'user' });
-
-            const updatedAt = emp.update_date || emp.updated_at || emp.updatedAt || null;
-            const statusVal = (emp.status || emp.account_status || '').toString().toLowerCase();
-            // If an account is active/approved but there's no explicit approvedAt, use update_date as a best-effort timestamp
-            if ((statusVal === 'active' || statusVal === 'approved') && !approvedAt && updatedAt) rawUserEvents.push({ time: updatedAt, action: `User ${idLabel} approved by Admin`, type: 'user' });
-
-            // Rejected/denied events
-            if ((statusVal === 'rejected' || statusVal === 'denied') && updatedAt) rawUserEvents.push({ time: updatedAt, action: `User ${idLabel} rejected by Admin`, type: 'user' });
-          });
-
-          // Sort newest-first and take top 5. If no explicit events, fall back to recent employees as "account created" events.
-          rawUserEvents.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-          let topUserEvents = rawUserEvents.slice(0, 5).map(e => ({ time: formatTimeOnly(e.time), action: e.action, type: e.type }));
-
-          if (!topUserEvents.length) {
-            // fallback: use most recent employees (reverse order) and create 'account created' events
-            const fallback = (allEmployees || []).slice().reverse().filter(emp => emp && !emp.is_superuser).slice(0, 5).map(emp => {
-              const idLabel = emp.company_id || emp.employee_id || emp.id || 'User';
-              const t = emp.created_at || emp.date_joined || emp.update_date || emp.updated_at || new Date().toISOString();
-              return { time: formatTimeOnly(t), action: `User ${idLabel} account created`, type: 'user' };
-            });
-            topUserEvents = fallback;
-          }
-          setUserActivityTimeline(topUserEvents);
-        } catch (e) {
-          console.error('Failed to build user activity timeline', e);
-          setUserActivityTimeline([]);
-        }
-
-        // --- Build user derived data: pending users table, pie counts, stats ---
-        try {
-          const statusCounts = {};
-          (allEmployees || []).forEach(emp => {
-            // exclude superusers from user-facing counts
-            if (emp && emp.is_superuser) return;
-            const key = (emp.status || emp.account_status || emp.user_status || 'Unknown').toString();
-            statusCounts[key] = (statusCounts[key] || 0) + 1;
-          });
-
-          // Pending users table (only pending status)
-          const pending = (allEmployees || []).filter(emp => {
-            if (!emp) return false;
-            // exclude superusers
-            if (emp.is_superuser) return false;
-            const statusVal = (emp.status || emp.account_status || '').toString().toLowerCase();
-            if (statusVal !== 'pending') return false;
-            // Determine role; accept common field names and match 'employee'
-            const roleVal = (emp.role || emp.user_role || emp.position || emp.job_title || '').toString().toLowerCase();
-            return roleVal === 'employee';
-          });
-          const pendingRows = pending.map(emp => ({
-            companyId: emp.company_id || emp.employee_id || emp.id || 'N/A',
-            lastName: emp.last_name || emp.lastname || emp.lastName || emp.surname || '',
-            firstName: emp.first_name || emp.firstname || emp.firstName || emp.given_name || '',
-            department: emp.department_name || (emp.department && emp.department.name) || emp.department || 'N/A',
-            role: emp.role || emp.job_title || emp.position || 'User',
-            status: { text: emp.status || emp.account_status || 'Pending', statusClass: ((emp.status || emp.account_status || '').toString().toLowerCase() === 'pending' ? 'statusPending' : mapStatusToClass(emp.status)) }
-          }));
-
-          // pie data for users
-          const palette = ['#22C55E', '#FBBF24', '#EF4444', '#9CA3AF', '#3B82F6', '#8B5CF6'];
-          const userPie = Object.keys(statusCounts).map((k, i) => ({ name: k, value: statusCounts[k], fill: palette[i % palette.length] }));
-
-          // user stats (Pending Users) - use the same filtered pending rows (employee role, not superuser)
-          const pendingCount = (pendingRows || []).length;
-          const uStats = [
-            { label: 'Pending Users', count: pendingCount, isHighlight: false, position: 0, path: userPaths.find(p => p.label === 'Pending Accounts')?.path }
-          ];
-
-          setUserStats(uStats);
-          setUserTableData(pendingRows);
-          setUserPieData(userPie);
-        } catch (e) {
-          console.error('Failed to compute user derived data', e);
-        }
-
-  // Ensure lineData recalculation after initial fetch
-  // (lineData is computed in a separate effect depending on selectedYear and tickets)
-
-      } catch (e) {
-        console.error('Failed to load dashboard data', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    load();
-    return () => { mounted = false; };
-  }, []);
-
-  // Recompute line data (tickets per month) when tickets or selectedYear changes
-  useEffect(() => {
-    try {
-      const year = Number(selectedYear) || new Date().getFullYear();
-      const months = Array.from({ length: 12 }, (_, i) => ({ monthIndex: i, month: new Date(year, i, 1).toLocaleString('en-US', { month: 'short' }), dataset1: 0, dataset2: 0 }));
-      (tickets || []).forEach(t => {
-        const sd = t.submit_date ? new Date(t.submit_date) : null;
-        if (sd && sd.getFullYear() === year) {
-          months[sd.getMonth()].dataset1 += 1;
-        }
-
-        // Determine closed/resolved timestamp. Prefer explicit time_closed if present.
-        // Fallback to update_date when status is Closed and time_closed is not set.
-        let td = null;
-        if (t.time_closed) td = t.time_closed;
-        else if (t.closed_at) td = t.closed_at;
-        else if (t.timeClosed) td = t.timeClosed;
-        else if (t.closedAt) td = t.closedAt;
-        else if ((t.status || '').toString().toLowerCase() === 'closed' && t.update_date) td = t.update_date;
-
-        const cd = td ? new Date(td) : null;
-        if (cd && cd.getFullYear() === year) months[cd.getMonth()].dataset2 += 1;
-      });
-      setLineData(months.map(m => ({ month: m.month, dataset1: m.dataset1, dataset2: m.dataset2 })));
-    } catch (e) {
-      console.error('Failed to compute line data', e);
-    }
-  }, [tickets, selectedYear]);
-
-  // Recompute users per month when employees or selectedYear changes
-  useEffect(() => {
-    try {
-      const year = Number(selectedYear) || new Date().getFullYear();
-      const months = Array.from({ length: 12 }, (_, i) => ({ monthIndex: i, month: new Date(year, i, 1).toLocaleString('en-US', { month: 'short' }), dataset1: 0, dataset2: 0 }));
-
-      // Pre-filter employees (exclude superusers)
-      const emps = (employees || []).filter(emp => emp && !emp.is_superuser);
-
-      // Count new users per month (dataset1): include users created in the month whose status is 'pending' or 'approved'
-      emps.forEach(emp => {
-        // Backend uses `date_created` on Employee (see serializer), check several variants
-        const created = emp.date_created || emp.dateCreated || emp.created_at || emp.date_created || emp.dateCreated || emp.createdAt || emp.date_joined || null;
-        // As a fallback the serializer provides recent_logs which may include a 'created' entry
-        let createdFromLogs = null;
-        try {
-          if (emp.recent_logs && Array.isArray(emp.recent_logs)) {
-            const cLog = emp.recent_logs.find(l => l && (l.action === 'created' || (l.action || '').toString().toLowerCase() === 'created'));
-            if (cLog && cLog.timestamp) createdFromLogs = cLog.timestamp;
-          }
-        } catch (e) {}
-
-        const cd = created ? new Date(created) : (createdFromLogs ? new Date(createdFromLogs) : null);
-        const statusVal = (emp.status || emp.account_status || emp.user_status || '').toString().toLowerCase();
-        if (cd && cd.getFullYear() === year && (statusVal === 'pending' || statusVal === 'approved' || statusVal === 'approved')) {
-          months[cd.getMonth()].dataset1 += 1;
-        }
-      });
-
-      // For dataset2, compute active users snapshot at the end of each month
-      // Active users = union of is_active === true OR status in ['approved','active']
-      months.forEach(m => {
-        const monthEnd = new Date(year, m.monthIndex + 1, 0, 23, 59, 59, 999);
-          let activeCount = 0;
-        emps.forEach(emp => {
-          const statusVal = (emp.status || emp.account_status || '').toString().toLowerCase();
-          // Employee model may not include is_active; treat status 'approved' as active
-          const isActiveFlag = !!(emp.is_active || emp.isActive || (statusVal === 'approved'));
-
-          // candidate activation timestamps
-          // Look for activation/approval timestamps in common fields and in recent_logs
-          let act = emp.approved_at || emp.approvedAt || emp.activated_at || emp.activatedAt || null;
-          const created = emp.date_created || emp.dateCreated || emp.created_at || emp.createdAt || emp.date_joined || null;
-          const updated = emp.update_date || emp.updated_at || emp.updatedAt || null;
-          try {
-            if (!act && emp.recent_logs && Array.isArray(emp.recent_logs)) {
-              const aLog = emp.recent_logs.find(l => l && (l.action === 'approved' || (l.action || '').toString().toLowerCase() === 'approved'));
-              if (aLog && aLog.timestamp) act = aLog.timestamp;
-            }
-          } catch (e) {}
-
-          // If no explicit activation time and user is currently active/approved, use updated or created as best-effort
-          if (!act && (isActiveFlag || statusVal === 'active' || statusVal === 'approved')) act = updated || created || null;
-
-          // If activation/creation happened on or before month end and user qualifies as active, count them
-          if (act) {
-            const aDate = new Date(act);
-            if (!isNaN(aDate.getTime()) && aDate.getTime() <= monthEnd.getTime() && (isActiveFlag || statusVal === 'active' || statusVal === 'approved')) {
-              activeCount += 1;
-            }
-          } else {
-            // fallback: if created on or before month end and user currently active/approved, count
-            if (created) {
-              const cDate = new Date(created);
-              if (!isNaN(cDate.getTime()) && cDate.getTime() <= monthEnd.getTime() && (isActiveFlag || statusVal === 'active' || statusVal === 'approved')) {
-                activeCount += 1;
-              }
-            }
-          }
-        });
-        m.dataset2 = activeCount;
-      });
-
-      const result = months.map(m => ({ month: m.month, dataset1: m.dataset1, dataset2: m.dataset2 }));
-
-      // DEBUG: log computed user line data to help diagnose empty chart
-      try {
-        console.log('[Dashboard] computed userLineData for', year, result);
-      } catch (e) {}
-
-      // Extra debug: log numeric arrays and a compact sample of employee fields used in computation
-      try {
-        const newArr = result.map(r => r.dataset1);
-        const actArr = result.map(r => r.dataset2);
-        console.log('[Dashboard] users per month arrays - newUsers:', newArr, 'activeUsers:', actArr);
-  const sample = (employees || []).slice(0, 5).map(emp => ({ id: emp?.id, date_created: emp?.date_created || emp?.dateCreated || emp?.created_at || emp?.createdAt || null, status: emp?.status || emp?.account_status, is_active: emp?.is_active, approved_at: emp?.approved_at || null, update_date: emp?.update_date || emp?.updated_at || null, recent_logs: emp?.recent_logs || null }));
-        console.log('[Dashboard] sample employees (compact):', sample);
-      } catch (e) {}
-
-      setUserLineData(result);
-    } catch (e) {
-      console.error('Failed to compute users line data', e);
-    }
-  }, [employees, selectedYear]);
+  const [chartRange, setChartRange] = useState('month');
+  const [pieRange, setPieRange] = useState('month');
   const navigate = useNavigate();
-  const allTabs = [
-    { label: 'Tickets', value: 'tickets' },
-    { label: 'Users', value: 'users' },
-    { label: 'KB', value: 'kb' },
-  ];
-
-  // Hide Users tab for Ticket Coordinators
   const currentUser = authService.getCurrentUser();
-  const dashboardTabs = allTabs.filter(t => !(t.value === 'users' && currentUser?.role === 'Ticket Coordinator'));
+  // Ticket Coordinators only see the Tickets tab on dashboard
+  const dashboardTabs = currentUser?.role === 'Ticket Coordinator'
+    ? [{ label: 'Tickets', value: 'tickets' }]
+    : [
+      { label: 'Tickets', value: 'tickets' },
+      { label: 'Users', value: 'users' },
+      { label: 'KB', value: 'kb' },
+    ];
 
-  const ticketData = {
+  const [ticketDataState, setTicketDataState] = useState(null);
+
+  const ticketData = ticketDataState || {
     stats: ticketPaths.map((item, i) => ({
       label: item.label,
       count: 0,
@@ -671,9 +326,181 @@ const CoordinatorAdminDashboard = () => {
     })),
     tableData: tableData,
     // Pie and line data for ticket charts (placeholder/demo values)
-    pieData: pieData,
-    lineData: lineData,
+    pieData: [],
+    lineData: [],
   };
+
+  // Helper: compute effective display status (New -> Pending after 24h)
+  const normalizeStatus = (raw) => {
+    if (!raw) return 'New';
+    const s = String(raw).toLowerCase();
+    if (s.includes('new') || s.includes('submitted')) return 'New';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('open')) return 'Open';
+    if (s.includes('in progress') || s.includes('inprogress')) return 'In Progress';
+    if (s.includes('on hold') || s.includes('on-hold')) return 'On Hold';
+    if (s.includes('withdraw')) return 'Withdrawn';
+    if (s.includes('rejected')) return 'Rejected';
+    if (s.includes('closed') || s.includes('resolved')) return 'Closed';
+    // default fallback - capitalize words
+    return String(raw)
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const computeEffectiveStatus = (ticket) => {
+    const base = normalizeStatus(ticket.status || 'New');
+    if (base === 'New') {
+      const created = ticket.createdAt ? new Date(ticket.createdAt) : null;
+      if (created) {
+        const ageHours = (Date.now() - created.getTime()) / (1000 * 60 * 60);
+        if (ageHours >= 24) return 'Pending';
+      }
+      return 'New';
+    }
+    return base;
+  };
+
+  // Role filter: Ticket Coordinators only see tickets assigned to them (assignedTo or reviewedById)
+  const filterByRole = (tickets) => {
+    if (currentUser?.role === 'Ticket Coordinator') {
+      return tickets.filter(t => t.assignedTo === currentUser.id || t.reviewedById === currentUser.id || t.assignedToName === currentUser?.name);
+    }
+    return tickets; // System Admin sees all
+  };
+
+  // Aggregation helpers for charts
+  const aggregatePie = (tickets) => {
+    // canonical statuses we care about
+    const buckets = {
+      New: 0,
+      Pending: 0,
+      Open: 0,
+      'In Progress': 0,
+      'On Hold': 0,
+      Withdrawn: 0,
+      Closed: 0,
+      Rejected: 0,
+    };
+    tickets.forEach(t => {
+      const s = computeEffectiveStatus(t);
+      if (buckets[s] !== undefined) {
+        buckets[s] += 1;
+      } else {
+        // map unexpected statuses to Closed as a safe fallback
+        buckets.Closed += 1;
+      }
+    });
+    const colorMap = {
+      New: '#3B82F6',
+      Pending: '#FBBF24',
+      Open: '#06B6D4',
+      'In Progress': '#F59E0B',
+      'On Hold': '#EF4444',
+      Rejected: '#DC2626',
+      Closed: '#10B981'
+    };
+    // Provide display labels that match dashboard wording (e.g. "New Tickets")
+    const displayMap = {
+      New: 'New Tickets',
+      Pending: 'Pending Tickets',
+      Open: 'Open Tickets',
+      'In Progress': 'In Progress Tickets',
+      'On Hold': 'On Hold Tickets',
+      Withdrawn: 'Withdrawn',
+      Closed: 'Closed',
+      Rejected: 'Rejected',
+    };
+
+    // Return all buckets (including zero-values) so legends always show, e.g. "New Tickets"
+    return Object.keys(buckets).map(name => ({ name: displayMap[name] || name, value: buckets[name], fill: colorMap[name] || '#9CA3AF' }));
+  };
+
+  const formatMonthLabel = (d) => d.toLocaleString(undefined, { month: 'short' });
+
+  const aggregateLine = (tickets, range = 'month') => {
+    const now = new Date();
+    if (range === 'days') {
+      // last 7 days
+      const days = Array.from({ length: 7 }).map((_, i) => {
+        const day = new Date();
+        day.setDate(now.getDate() - (6 - i));
+        day.setHours(0,0,0,0);
+        return day;
+      });
+      return days.map(d => {
+        const next = new Date(d); next.setDate(d.getDate()+1);
+        const submitted = tickets.filter(t => {
+          const c = t.createdAt ? new Date(t.createdAt) : null; return c && c >= d && c < next;
+        }).length;
+        const closed = tickets.filter(t => {
+          const c = t.closedAt ? new Date(t.closedAt) : null; return c && c >= d && c < next;
+        }).length;
+        return { month: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), dataset1: submitted, dataset2: closed };
+      });
+    }
+    if (range === 'week') {
+      // last 4 weeks
+      const weeks = Array.from({ length: 4 }).map((_, i) => {
+        const start = new Date(now);
+        start.setDate(now.getDate() - (27 - i*7));
+        start.setHours(0,0,0,0);
+        const end = new Date(start); end.setDate(start.getDate()+7);
+        return { start, end };
+      });
+      return weeks.map((w, idx) => {
+        const submitted = tickets.filter(t => { const c = t.createdAt ? new Date(t.createdAt) : null; return c && c >= w.start && c < w.end; }).length;
+        const closed = tickets.filter(t => { const c = t.closedAt ? new Date(t.closedAt) : null; return c && c >= w.start && c < w.end; }).length;
+        return { month: `W${idx+1}`, dataset1: submitted, dataset2: closed };
+      });
+    }
+    // month/yearly: monthly buckets
+    const monthsCount = range === 'yearly' ? 12 : 6;
+    const months = Array.from({ length: monthsCount }).map((_, i) => {
+      const m = new Date(now.getFullYear(), now.getMonth() - (monthsCount - 1 - i), 1);
+      return m;
+    });
+    return months.map(m => {
+      const start = new Date(m.getFullYear(), m.getMonth(), 1);
+      const end = new Date(m.getFullYear(), m.getMonth()+1, 1);
+      const submitted = tickets.filter(t => { const c = t.createdAt ? new Date(t.createdAt) : null; return c && c >= start && c < end; }).length;
+      const closed = tickets.filter(t => { const c = t.closedAt ? new Date(t.closedAt) : null; return c && c >= start && c < end; }).length;
+      return { month: formatMonthLabel(m), dataset1: submitted, dataset2: closed };
+    });
+  };
+
+  // Effect: load tickets and compute dashboard data based on role and selected ranges
+  useEffect(() => {
+    try {
+      const all = getAllTickets();
+      const filtered = filterByRole(all);
+
+      // stats per ticketPaths
+      const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+      filtered.forEach(t => {
+        const s = computeEffectiveStatus(t);
+        // only increment if status maps to one of the ticketPaths labels
+        const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+        if (mapLabel) {
+          const target = stats.find(st => st.label === mapLabel.label);
+          if (target) target.count += 1;
+        }
+      });
+
+      const pie = aggregatePie(filtered.concat());
+      const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+
+      setTicketDataState({
+        stats,
+        tableData: ticketData.tableData,
+        pieData: pie,
+        lineData: line
+      });
+    } catch (err) {
+      console.error('Error loading tickets for dashboard', err);
+    }
+  }, [currentUser, chartRange, pieRange]);
 
   const userData = {
     stats: [
@@ -731,58 +558,73 @@ const CoordinatorAdminDashboard = () => {
           active={activeTab}
           onChange={setActiveTab}
         />
-  <div className={styles.tabContent}>
-          <div className={styles.statusCardsGrid}>
-              {activeTab === 'kb' ? (
-                // KB tab could show quick KB stats; reuse placeholder stat cards
-                [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
-                  <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
-                ))
-              ) : (
-                (activeTab === 'tickets' ? (stats.length ? stats : ticketData.stats) : (userStats.length ? userStats : userData.stats)).map((stat, i) => (
-                  <StatCard
-                    key={i}
-                    {...stat}
-                    onClick={() => stat.path && navigate(stat.path)}
-                  />
-                ))
-              )}
-            </div>
+        <div className={styles.tabContent}>
+          <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
+            {activeTab === 'kb' ? (
+              // KB tab could show quick KB stats; reuse placeholder stat cards
+              [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
+                <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
+              ))
+            ) : (
+              (activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
+                <StatCard
+                  key={i}
+                  {...stat}
+                  onClick={() => stat.path && navigate(stat.path)}
+                />
+              ))
+            )}
+          </div>
             {activeTab === 'kb' ? (
               <div style={{ padding: 12 }}>
                 <KnowledgeDashboard />
               </div>
             ) : (
               <>
-                <DataTable
-                  title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
-                  buttonText={activeTab === 'tickets' ? 'Manage Tickets' : 'Manage Users'}
-                  headers={
-                    activeTab === 'tickets'
-                      ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
-                      : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
-                  }
-                  data={activeTab === 'tickets' ? ticketData.tableData : (userTableData.length ? userTableData : userData.tableData)}
-                  onButtonClick={() =>
-                    navigate(
+                {!(currentUser?.role === 'System Admin' && activeTab === 'tickets') && (
+                  <DataTable
+                    title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
+                    headers={
                       activeTab === 'tickets'
-                        ? '/admin/ticket-management/all-tickets'
-                        : '/admin/user-access/all-users'
-                    )
-                  }
-                  maxRows={6}
-                  lockLeftCount={activeTab === 'tickets' ? 1 : 6}
-                />
+                        ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
+                        : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
+                    }
+                    data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
+                  />
+                )}
 
-                <div className={chartStyles.chartsGrid}>
+                <div style={{ position: 'relative', marginTop: 12 }}>
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <select
+                      value={chartRange}
+                      onChange={(e) => setChartRange(e.target.value)}
+                      style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff' }}
+                    >
+                      <option value="days">Days</option>
+                      <option value="week">Week</option>
+                      <option value="month">Month</option>
+                      {currentUser?.role === 'System Admin' && <option value="yearly">Yearly</option>}
+                    </select>
+                  </div>
+
+                  <div className={chartStyles.chartsGrid}>
                   <StatusPieChart
-                      data={activeTab === 'tickets' ? ticketData.pieData : (userPieData.length ? userPieData : userData.pieData)}
-                      title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
-                      activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
+                    data={activeTab === 'tickets' ? ticketData.pieData : userData.pieData}
+                    title={activeTab === 'tickets' ? 'Ticket Status' : 'User Status'}
+                    activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
+                    pieRange={pieRange}
+                    setPieRange={setPieRange}
+                    isAdmin={currentUser?.role === 'System Admin'}
+                    onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/users/all-users')}
                   />
                   <TrendLineChart
-                      data={activeTab === 'tickets' ? lineData : (userLineData.length ? userLineData : userData.lineData)}
-                    title={activeTab === 'tickets' ? 'Tickets per Month' : 'Users per Month'}
+                    data={(() => {
+                      const source = activeTab === 'tickets' ? ticketData.lineData : userData.lineData;
+                      if (chartRange === 'days') return source.slice(-7);
+                      if (chartRange === 'week') return source.slice(-4);
+                      return source;
+                    })()}
+                    title={activeTab === 'tickets' ? 'Tickets per Period' : 'Users per Period'}
                     isTicketChart={activeTab === 'tickets'}
                     year={selectedYear}
                     onPrevYear={() => setSelectedYear((y) => Number(y) - 1)}
@@ -792,6 +634,7 @@ const CoordinatorAdminDashboard = () => {
                       yRange={yRange}
                       onYRangeChange={setYRange}
                   />
+                </div>
                 </div>
               </>
             )}
