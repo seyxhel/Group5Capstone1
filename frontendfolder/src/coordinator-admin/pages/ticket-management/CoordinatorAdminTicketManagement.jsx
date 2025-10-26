@@ -162,62 +162,28 @@ const CoordinatorAdminTicketManagement = () => {
     fetchTickets();
 
     return () => { isMounted = false; };
-
-    // Allowed statuses for coordinator/admin views
-    const allowedStatuses = new Set([
-      'new', 'submitted', 'pending',
-      'open', 'in progress', 'in-progress',
-      'on hold', 'on-hold',
-      'withdrawn', 'closed', 'rejected', 'resolved'
-    ]);
-
-    // Normalize and filter by allowed statuses. Use substring matching to
-    // tolerate variants/extra words in the status field.
-    let ticketsToShow = fetched.filter(t => {
-      const s = (t.status || '').toString().toLowerCase();
-      const normalized = s.replace(/_/g, ' ').replace(/-/g, ' ').trim();
-      const allowedKeywords = [
-        'new', 'submitted', 'pending',
-        'open', 'in progress', 'on hold', 'withdrawn', 'closed', 'rejected', 'resolved'
-      ];
-      return allowedKeywords.some(k => normalized.includes(k));
-    });
-
-    // Debug: show fetched count and a small sample of statuses
-    try {
-      // eslint-disable-next-line no-console
-      console.info('[TicketManagement] fetched count:', fetched.length, 'status sample:', fetched.slice(0,5).map(x=>x.status));
-    } catch (err) { void err; }
-
-    // Filter tickets based on user role and department
-    // Coordinators and System Admins see tickets from their department
-    if (user) {
-      if (user.role === 'Ticket Coordinator') {
-        // Coordinators should see tickets for their department, and also
-        // tickets assigned directly to them. Seeded tickets may use
-        // `assignedDepartment` or `department` - check both.
-        ticketsToShow = fetched.filter(ticket => {
-          const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
-          const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
-          const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
-          return ticketDept === user.department || isAssignedToUser;
-        });
-      } else if (user.role === 'System Admin') {
-        // System Admins see all tickets
-        ticketsToShow = fetched;
-      }
-    }
-    
-    // Debug: log counts to help diagnose missing tickets
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[TicketManagement] fetched total:', fetched.length, 'after status filter:', ticketsToShow.length, 'user:', user);
-    } catch (err) {
-      // ignore
-    }
-
-    setAllTickets(ticketsToShow);
   }, []);
+
+  // Build dynamic category and sub-category options from the fetched tickets
+  const categoryOptions = useMemo(() => {
+    const setVals = new Set();
+    (allTickets || []).forEach(t => {
+      if (t.category) setVals.add(t.category);
+    });
+    return Array.from(setVals).map(label => ({ label, category: label }));
+  }, [allTickets]);
+
+  const subCategoryOptions = useMemo(() => {
+    const map = new Map();
+    (allTickets || []).forEach(t => {
+      const cat = t.category || '';
+      const sub = t.subCategory || t.sub_category || '';
+      if (!sub) return;
+      const key = `${cat}||${sub}`;
+      if (!map.has(key)) map.set(key, { label: sub, category: cat });
+    });
+    return Array.from(map.values());
+  }, [allTickets]);
 
   const filteredTickets = useMemo(() => {
     let result;
@@ -368,6 +334,9 @@ const CoordinatorAdminTicketManagement = () => {
               setCurrentPage(1);
             }}
             initialFilters={activeFilters}
+            // Provide dynamic options derived from ticket submissions
+            categoryOptions={categoryOptions}
+            subCategoryOptions={subCategoryOptions}
           />
         )}
 

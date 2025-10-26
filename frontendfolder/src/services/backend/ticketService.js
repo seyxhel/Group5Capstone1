@@ -279,6 +279,27 @@ export const backendTicketService = {
     }
   },
 
+  // Reject a ticket (admin action) - sets status to Rejected and records rejection reason
+  async rejectTicket(ticketId, rejection_reason = '') {
+    try {
+      const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/reject/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ rejection_reason }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to reject ticket');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error rejecting ticket:', error);
+      throw error;
+    }
+  },
+
   async assignTicket(ticketId, assigneeId) {
     try {
       const response = await fetch(`${BASE_URL}/api/tickets/${ticketId}/`, {

@@ -167,6 +167,7 @@ class TicketSerializer(serializers.ModelSerializer):
     performance_start_date = serializers.DateField(required=False, allow_null=True)
     performance_end_date = serializers.DateField(required=False, allow_null=True)
     approved_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    rejected_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     cost_items = serializers.JSONField(required=False, allow_null=True)
     requested_budget = serializers.DecimalField(required=False, allow_null=True, max_digits=12, decimal_places=2)
 
@@ -179,7 +180,7 @@ class TicketSerializer(serializers.ModelSerializer):
                 'issue_type', 'other_issue', 'performance_start_date', 'performance_end_date',
                 'approved_by', 'cost_items', 'requested_budget', 'fiscal_year', 'department_input',
                 'dynamic_data', 'status', 'submit_date', 'update_date', 'assigned_to', 'attachments',
-                'employee'
+        'employee', 'rejected_by'
         ]
         read_only_fields = [
             'id', 'ticket_number', 'submit_date', 'update_date',

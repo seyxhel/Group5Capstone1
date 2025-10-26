@@ -298,6 +298,12 @@ export default function FilterPanel({
   };
 
   const handleDropdownChange = (name, option) => {
+    // If category changes, clear any selected subCategory because options
+    // are dependent on the selected category.
+    if (name === 'category') {
+      setFilters((prev) => ({ ...prev, [name]: option, subCategory: null }));
+      return;
+    }
     setFilters((prev) => ({ ...prev, [name]: option }));
   };
 
@@ -457,12 +463,19 @@ export default function FilterPanel({
                 className={styles.dropdown}
                 value={filters.subCategory?.label || ""}
                 onChange={(e) => {
-                  const selected = finalSubCategoryOptions.find(opt => opt.label === e.target.value);
+                  // Filter the available sub-category options by selected category
+                  const available = filters.category
+                    ? finalSubCategoryOptions.filter(opt => opt.category === filters.category.label)
+                    : finalSubCategoryOptions;
+                  const selected = available.find(opt => opt.label === e.target.value);
                   handleDropdownChange("subCategory", selected);
                 }}
               >
                 <option value="">Select {finalSubCategoryLabel.toLowerCase()}</option>
-                {finalSubCategoryOptions.map((option) => (
+                {(filters.category
+                  ? finalSubCategoryOptions.filter(opt => opt.category === filters.category.label)
+                  : finalSubCategoryOptions
+                ).map((option) => (
                   <option key={option.label} value={option.label}>
                     {option.label}
                   </option>

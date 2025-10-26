@@ -8,6 +8,7 @@ import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
+import { backendEmployeeService } from '../../../services/backend/employeeService';
 
 import CoordinatorAdminApproveUserModal from "../../components/modals/CoordinatorAdminApproveUserModal";
 import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
@@ -50,19 +51,74 @@ const CoordinatorAdminUserAccess = () => {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
+    // Try to fetch real users from backend; fall back to local storage fixtures
+    (async () => {
+      try {
+        const list = await backendEmployeeService.getAllEmployees().catch(() => null);
+        let fetchedUsers = null;
+        if (Array.isArray(list) && list.length) {
+          // Normalize backend employee objects to the shape used by this component
+          fetchedUsers = list
+            // hide superusers entirely
+            .filter((e) => !e.is_superuser)
+            .map((e) => ({
+              id: e.id,
+              companyId: e.company_id || e.companyId || (e.employee && e.employee.company_id) || null,
+              firstName: e.first_name || e.firstName || (e.employee && e.employee.first_name) || '',
+              lastName: e.last_name || e.lastName || (e.employee && e.employee.last_name) || '',
+              department: e.department || e.dept || (e.employee && e.employee.department) || '',
+              role: e.role || (e.user_role || '') || 'Employee',
+              status: e.status || 'Active',
+              email: e.email || null,
+              image: e.image || (e.employee && e.employee.image) || null,
+            }));
+        }
 
-    const fetchedUsers = getEmployeeUsers() || [];
+        if (!fetchedUsers) {
+          const local = getEmployeeUsers() || [];
+          fetchedUsers = local;
+        }
 
-    let usersToShow = fetchedUsers;
-    if (user) {
-      if (user.role === "Ticket Coordinator") {
-        usersToShow = fetchedUsers.filter((u) => u.department === user.department);
-      } else if (user.role === "System Admin") {
-        usersToShow = fetchedUsers;
+        let usersToShow = fetchedUsers;
+
+        // Hide only explicit superuser accounts (is_superuser flag). Do not
+        // filter by company id here — that may legitimately belong to a
+        // non-superuser in some deployments.
+        usersToShow = (usersToShow || []).filter((u) => {
+          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
+          return !isSuper;
+        });
+
+        // Apply role-scoped visibility (Ticket Coordinators only see their dept)
+        if (user) {
+          if (user.role === "Ticket Coordinator") {
+            usersToShow = usersToShow.filter((u) => u.department === user.department);
+          } else if (user.role === "System Admin") {
+            usersToShow = usersToShow;
+          }
+        }
+
+        setAllUsers(usersToShow || []);
+      } catch (e) {
+        // fallback to local store if backend request fails
+        const fetchedUsers = getEmployeeUsers() || [];
+        let usersToShow = fetchedUsers;
+
+        // Ensure local fallback hides any entries explicitly marked as superuser
+        usersToShow = (usersToShow || []).filter((u) => {
+          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
+          return !isSuper;
+        });
+        if (user) {
+          if (user.role === "Ticket Coordinator") {
+            usersToShow = usersToShow.filter((u) => u.department === user.department);
+          } else if (user.role === "System Admin") {
+            usersToShow = usersToShow;
+          }
+        }
+        setAllUsers(usersToShow);
       }
-    }
-
-    setAllUsers(usersToShow);
+    })();
   }, []);
 
   // 👇 Combined filtering logic
@@ -90,9 +146,10 @@ const CoordinatorAdminUserAccess = () => {
     }
 
     if (activeFilters.status) {
-      users = users.filter(
-        (user) => user.status?.toLowerCase() === activeFilters.status.label.toLowerCase()
-      );
+      const selected = (activeFilters.status.label || '').toString().toLowerCase();
+      // Map UI-facing label 'Active' to backend 'Approved' (and accept 'Active')
+      const accepted = selected === 'active' ? ['active', 'approved'] : [selected];
+      users = users.filter((user) => accepted.includes((user.status || '').toLowerCase()));
     }
 
     return users;
@@ -145,12 +202,12 @@ const CoordinatorAdminUserAccess = () => {
               setCurrentPage(1);
             }}
             categoryOptions={[
-              { label: "Human Resources" },
-              { label: "Information Technology" },
-              { label: "Finance" },
-              { label: "Operations" },
-              { label: "Marketing" },
+              { label: "IT Department" },
+              { label: "Asset Department" },
+              { label: "Budget Department" },
             ]}
+            // No sub-categories for User Access filters
+            subCategoryOptions={[]}
             statusOptions={[
               { label: "Active" },
               { label: "Pending" },

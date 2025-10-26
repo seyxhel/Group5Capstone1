@@ -15,6 +15,7 @@ import {
 import styles from './CoordinatorAdminReports.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
+import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 
 // Register Chart.js components
 ChartJS.register(
@@ -32,9 +33,43 @@ ChartJS.register(
 const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [priorityRange, setPriorityRange] = useState('auto');
+  const [categoryRange, setCategoryRange] = useState('auto');
 
-  // Get tickets data
-  const allTickets = getAllTickets();
+  // Tickets state (will fetch from backend, fallback to local storage)
+  const [allTickets, setAllTickets] = useState(() => getAllTickets());
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const remote = await backendTicketService.getAllTickets();
+        if (mounted && Array.isArray(remote) && remote.length > 0) {
+          setAllTickets(remote.map(t => ({
+            // Normalize keys similar to earlier normalization done elsewhere
+            ...t,
+            ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
+            subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || t.subcategory || '',
+            priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
+            createdAt: t.createdAt || t.created_at || t.dateCreated || t.created || null,
+            resolvedAt: t.resolvedAt || t.resolved_at || null,
+            status: t.status || (t.state || null),
+            category: t.category || t.cat || null,
+          })));
+        } else {
+          // fallback already seeded in state initializer
+        }
+      } catch (err) {
+        console.error('[Reports] failed to load tickets from backend, using local cache', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {

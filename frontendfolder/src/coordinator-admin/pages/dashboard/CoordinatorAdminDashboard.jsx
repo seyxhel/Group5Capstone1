@@ -33,6 +33,7 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
+import authService from '../../../utilities/service/authService';
 import kbService from '../../../services/kbService';
 
   const ticketPaths = [
@@ -650,11 +651,15 @@ const CoordinatorAdminDashboard = () => {
     }
   }, [employees, selectedYear]);
   const navigate = useNavigate();
-  const dashboardTabs = [
+  const allTabs = [
     { label: 'Tickets', value: 'tickets' },
     { label: 'Users', value: 'users' },
     { label: 'KB', value: 'kb' },
   ];
+
+  // Hide Users tab for Ticket Coordinators
+  const currentUser = authService.getCurrentUser();
+  const dashboardTabs = allTabs.filter(t => !(t.value === 'users' && currentUser?.role === 'Ticket Coordinator'));
 
   const ticketData = {
     stats: ticketPaths.map((item, i) => ({

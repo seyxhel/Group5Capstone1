@@ -4,6 +4,8 @@ import ViewCard from '../../../shared/components/ViewCard';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { convertToSecureUrl } from '../../../utilities/secureMedia';
 
 export default function CoordinatorAdminUserProfileView() {
   const { companyId } = useParams();
@@ -12,17 +14,46 @@ export default function CoordinatorAdminUserProfileView() {
 
   useEffect(() => {
     if (!companyId) return;
-    // try to resolve by numeric id first then fallback to companyId search
-    const numeric = Number(companyId);
-    let found = null;
-    if (!Number.isNaN(numeric)) {
-      found = getEmployeeUserById(numeric);
-    }
-    if (!found) {
-      const all = getEmployeeUsers();
-      found = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
-    }
-    setUser(found || null);
+    (async () => {
+      // try numeric id lookup in local storage first
+      const numeric = Number(companyId);
+      let found = null;
+      if (!Number.isNaN(numeric)) {
+        found = getEmployeeUserById(numeric);
+      }
+
+      // Try backend list lookup by company_id
+      try {
+        const list = await backendEmployeeService.getAllEmployees().catch(() => null);
+        if (Array.isArray(list) && list.length) {
+          const matched = list.find((e) => String(e.company_id) === String(companyId) || String(e.companyId) === String(companyId));
+          if (matched) {
+            // normalize to the local fixture shape
+            found = {
+              id: matched.id,
+              companyId: matched.company_id || matched.companyId,
+              firstName: matched.first_name || matched.firstName || '',
+              lastName: matched.last_name || matched.lastName || '',
+              department: matched.department || matched.dept || '',
+              role: matched.role || 'Employee',
+              status: matched.status || 'Active',
+              email: matched.email || null,
+              phone: matched.phone || matched.mobile || null,
+              profileImage: convertToSecureUrl(matched.image) || matched.image || null,
+            };
+          }
+        }
+      } catch (e) {
+        // ignore backend fetch errors
+      }
+
+      if (!found) {
+        const all = getEmployeeUsers();
+        found = all.find((u) => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
+      }
+
+      setUser(found || null);
+    })();
   }, [companyId]);
 
   return (
@@ -65,7 +96,6 @@ export default function CoordinatorAdminUserProfileView() {
                 <div className={styles.field}><span className={styles.label}>Status</span><span className={styles.value}>{user.status}</span></div>
                 <div className={styles.field}><span className={styles.label}>Email</span><span className={styles.value}>{user.email || '—'}</span></div>
                 <div className={styles.field}><span className={styles.label}>Phone</span><span className={styles.value}>{user.phone || '—'}</span></div>
-                <div className={styles.field}><span className={styles.label}>Employee ID</span><span className={styles.value}>{user.id}</span></div>
               </div>
             </div>
           )}

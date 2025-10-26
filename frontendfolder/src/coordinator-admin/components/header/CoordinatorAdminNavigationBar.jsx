@@ -184,6 +184,12 @@ const CoordinatorAdminNavBar = () => {
     }
   ];
 
+  // If current user is a Ticket Coordinator, they should not see User Access
+  const visibleNavSections = navSections.filter(s => {
+    if (s.key === 'users' && currentUser?.role === 'Ticket Coordinator') return false;
+    return true;
+  });
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prev) => !prev);
     // Close any open dropdowns when toggling mobile menu
@@ -245,7 +251,7 @@ const CoordinatorAdminNavBar = () => {
           </li>
 
           {/* Navigation Sections with Dropdowns */}
-          {navSections.map(({ key, label, links, basePath }) => {
+          {visibleNavSections.map(({ key, label, links, basePath }) => {
             const isActiveSection = location.pathname.startsWith(basePath);
             return (
               <li

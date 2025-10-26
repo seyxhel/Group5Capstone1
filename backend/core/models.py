@@ -188,6 +188,7 @@ class Ticket(models.Model):
     performance_start_date = models.DateField(blank=True, null=True)
     performance_end_date = models.DateField(blank=True, null=True)
     approved_by = models.CharField(max_length=255, blank=True, null=True)
+    rejected_by = models.CharField(max_length=255, blank=True, null=True)
     cost_items = models.JSONField(blank=True, null=True)
     # Total requested budget (calculated or provided by frontend)
     requested_budget = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)

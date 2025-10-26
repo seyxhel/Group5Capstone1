@@ -477,6 +477,7 @@ def get_ticket_detail(request, ticket_id):
                 'department': ticket.employee.department,
                 'email': ticket.employee.email,
             },
+            'approved_by': ticket.approved_by if hasattr(ticket, 'approved_by') else None,
             'comments': [
                 {
                     'id': comment.id,
@@ -598,7 +599,29 @@ def get_ticket_by_number(request, ticket_number):
             'performance_end_date': ticket.performance_end_date,
             'cost_items': ticket.cost_items,
             'requested_budget': ticket.requested_budget,
+            # If approved_by is set, attempt to include coordinator details when possible
+            'coordinator': None,
+            'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None,
         })
+
+        try:
+            # Prefer approved_by, fall back to rejected_by when resolving coordinator
+            coord_key = ticket.approved_by if getattr(ticket, 'approved_by', None) else (ticket.rejected_by if getattr(ticket, 'rejected_by', None) else None)
+            if coord_key and not ticket_data.get('coordinator'):
+                # Try to resolve an Employee by company_id matching coord_key
+                coordinator_emp = Employee.objects.filter(company_id=coord_key).first()
+                if coordinator_emp:
+                    ticket_data['coordinator'] = {
+                        'id': coordinator_emp.id,
+                        'first_name': coordinator_emp.first_name,
+                        'last_name': coordinator_emp.last_name,
+                        'company_id': coordinator_emp.company_id,
+                        'department': coordinator_emp.department,
+                        'email': coordinator_emp.email,
+                    }
+        except Exception:
+            # ignore resolution errors
+            pass
 
         return Response(ticket_data, status=status.HTTP_200_OK)
     except Exception as e:
@@ -679,6 +702,11 @@ def approve_ticket(request, ticket_id):
         ticket.status = 'Open'
         ticket.priority = priority
         ticket.department = department
+        # Record who approved/opened the ticket (store company_id for easy frontend display)
+        try:
+            ticket.approved_by = request.user.company_id if getattr(request.user, 'company_id', None) else f"{request.user.first_name} {request.user.last_name}"
+        except Exception:
+            ticket.approved_by = f"{request.user.first_name} {request.user.last_name}"
         # Leave ticket unassigned after approval; assignment should be a separate action
         ticket.save()
 
@@ -686,7 +714,7 @@ def approve_ticket(request, ticket_id):
         TicketComment.objects.create(
             ticket=ticket,
             user=request.user,
-            comment="Status changed to Open",
+            comment=f"Status changed to Open (approved by {request.user.first_name} {request.user.last_name})",
             is_internal=False
         )
 
@@ -695,7 +723,8 @@ def approve_ticket(request, ticket_id):
             'ticket_id': ticket.id,
             'status': ticket.status,
             'priority': ticket.priority,
-            'department': ticket.department
+            'department': ticket.department,
+            'approved_by': ticket.approved_by
         }, status=status.HTTP_200_OK)
 
     except Exception as e:
@@ -727,6 +756,11 @@ def reject_ticket(request, ticket_id):
         ticket.status = 'Rejected'
         ticket.assigned_to = request.user  # Assign to the rejecting admin
         ticket.rejection_reason = rejection_reason  # Make sure this field exists in your model
+        # Record who rejected the ticket (store company_id for easy frontend display)
+        try:
+            ticket.rejected_by = request.user.company_id if getattr(request.user, 'company_id', None) else f"{request.user.first_name} {request.user.last_name}"
+        except Exception:
+            ticket.rejected_by = f"{request.user.first_name} {request.user.last_name}"
         ticket.save()
         
         # Create internal comment for rejection
@@ -741,7 +775,8 @@ def reject_ticket(request, ticket_id):
             'message': 'Ticket rejected successfully',
             'ticket_id': ticket.id,
             'status': ticket.status,
-            'rejection_reason': rejection_reason
+            'rejection_reason': rejection_reason,
+            'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None
         }, status=status.HTTP_200_OK)
         
     except Exception as e:

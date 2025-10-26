@@ -3,6 +3,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import styles from "./CoordinatorAdminRejectTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { backendTicketService } from '../../../services/backend/ticketService';
 
 const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -19,8 +20,10 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      const { backendTicketService } = await import("../../../services/backend/ticketService.js");
-      await backendTicketService.updateTicketStatus(ticket.id || ticket.ticketId, "Rejected", comment);
+  const ticketId = ticket.id || ticket.ticket_id || ticket.ticketId || null;
+  if (!ticketId) throw new Error('Ticket id missing');
+  // Use the dedicated reject endpoint so the backend can persist rejected_by
+  await backendTicketService.rejectTicket(ticketId, comment);
 
       toast.success(`Ticket #${ticket.ticketNumber} rejected successfully.`, {
         position: "top-right",

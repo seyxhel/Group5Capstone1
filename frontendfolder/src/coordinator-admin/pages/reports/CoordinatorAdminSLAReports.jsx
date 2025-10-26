@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Pie, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -28,9 +28,36 @@ ChartJS.register(
 const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [loading, setLoading] = useState(false);
 
-  // Get tickets data
-  const allTickets = getAllTickets();
+  // Tickets state (fetch from backend, fallback to local storage)
+  const [allTickets, setAllTickets] = useState(() => getAllTickets());
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const remote = await backendTicketService.getAllTickets();
+        if (mounted && Array.isArray(remote) && remote.length > 0) {
+          setAllTickets(remote.map(t => ({
+            ...t,
+            ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
+            priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
+            createdAt: t.createdAt || t.created_at || t.dateCreated || t.created || null,
+            resolvedAt: t.resolvedAt || t.resolved_at || null,
+            status: t.status || (t.state || null),
+          })));
+        }
+      } catch (err) {
+        console.error('[SLA Reports] failed to load tickets from backend, using local cache', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {

@@ -14,6 +14,7 @@ import CoordinatorAdminTicketDetails from './CoordinatorAdminTicketDetails';
 import CoordinatorAdminTicketLogs from './CoordinatorAdminTicketLogs';
 import detailStyles from './CoordinatorAdminTicketDetails.module.css';
 import { FaFileImage, FaFilePdf, FaFileWord, FaFileExcel, FaFileCsv, FaFile, FaDownload } from 'react-icons/fa';
+import { convertToSecureUrl, extractFilePathFromUrl, getAccessToken } from '../../../utilities/secureMedia';
 
 
 // Status progression for coordinator/admin
@@ -30,6 +31,39 @@ const getStatusSteps = (status) =>
   }));
 const formatDate = (date) =>
   date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+// Date-only formatter used for schedule displays (keeps behaviour similar to employee view)
+const formatDateOnly = (date) => {
+  if (!date) return null;
+  try {
+    if (date instanceof Date) {
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+    if (typeof date === 'string') {
+      const trimmed = date.trim();
+      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
+      const m = ymd.exec(trimmed);
+      if (m) {
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10) - 1;
+        const d = parseInt(m[3], 10);
+        const dt = new Date(y, mo, d);
+        return dt.toLocaleString('en-US', { dateStyle: 'short' });
+      }
+      const parsed = new Date(trimmed);
+      if (isNaN(parsed.getTime())) return 'Invalid Date';
+      return parsed.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+    const asNum = Number(date);
+    if (!isNaN(asNum)) {
+      const parsed = new Date(asNum);
+      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short' });
+    }
+    return 'Invalid Date';
+  } catch (e) {
+    return 'Invalid Date';
+  }
+};
 const toTitleCase = (str) => {
   if (!str && str !== 0) return '';
   return String(str)
@@ -45,35 +79,146 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 };
 const generateLogs = (ticket) => {
+  // Build logs with raw timestamps, then sort newest-first before formatting for display
   const logs = [];
-  logs.push({ 
-    id: 1, 
-    user: 'System', 
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
-    timestamp: formatDate(ticket.dateCreated) 
+  // helper to determine if the actor matches the current logged-in user
+  const currentUser = authService.getCurrentUser();
+  const matchesCurrentUser = (actor) => {
+    if (!currentUser || actor === null || actor === undefined) return false;
+    const curId = currentUser.id || currentUser.user_id || null;
+    const curCompany = currentUser.companyId || currentUser.company_id || currentUser.companyid || currentUser.company || null;
+    const curEmail = (currentUser.email || '').toLowerCase();
+    const curName = ((currentUser.firstName || currentUser.first_name || '') + ' ' + (currentUser.lastName || currentUser.last_name || '')).trim().toLowerCase();
+
+    // actor can be primitive id, string, or object
+    if (typeof actor === 'number' || (typeof actor === 'string' && /^\d+$/.test(actor))) {
+      if (curId && Number(actor) === Number(curId)) return true;
+    }
+
+    if (typeof actor === 'string') {
+      const a = actor.toLowerCase();
+      if (curCompany && a === String(curCompany).toLowerCase()) return true;
+      if (a === curEmail) return true;
+      if (curName && a === curName) return true;
+      if (curName && a.includes(curName)) return true;
+      return false;
+    }
+
+    if (typeof actor === 'object') {
+      if (curId && actor.id && Number(actor.id) === Number(curId)) return true;
+      const aCompany = actor.companyId || actor.company_id || actor.company || null;
+      const aEmail = (actor.email || '').toLowerCase();
+      const aName = ((actor.first_name || actor.firstName || '') + ' ' + (actor.last_name || actor.lastName || '')).trim().toLowerCase();
+      if (curCompany && aCompany && String(aCompany).toLowerCase() === String(curCompany).toLowerCase()) return true;
+      if (aEmail && curEmail && aEmail === curEmail) return true;
+      if (aName && curName && aName === curName) return true;
+      if (aName && curName && aName.includes(curName)) return true;
+    }
+
+    return false;
+  };
+
+  // Include persisted comments (they often include status-change messages)
+  const comments = Array.isArray(ticket.comments) ? ticket.comments : (Array.isArray(ticket.comment) ? ticket.comment : []);
+  // If there is an explicit rejection/approval comment, filter out the terse "Status changed to <X>"
+  // comment entries so we don't show duplicate lines in the logs (e.g. both "Ticket rejected by..." and
+  // "Status changed to Rejected").
+  const hasRejectionDetail = comments.some((c) => {
+    const txt = (c.comment || c.message || c.body || c.text || '').toString().toLowerCase();
+    return txt.includes('rejected by') || txt.includes('rejection reason') || txt.includes('rejection:') || txt.includes('rejection_reason');
   });
+  comments.forEach((c) => {
+    try {
+      const commentUser = c.user || c.author || null;
+      const actionText = (c.comment || c.message || c.body || c.text || '').toString();
+      // Skip terse status-change comment when we already have a detailed rejection comment
+      if (hasRejectionDetail && /status changed to\s*rejected/i.test(actionText)) return;
+      // For admin/coordinator logs, avoid showing general employee chat comments (e.g. "why?").
+      // Allow employee-originated comments only when they represent a withdrawal or other
+      // explicit status action (contain keywords like 'withdraw' / 'withdrawn').
+      try {
+        const roleStr = (commentUser && (commentUser.role || commentUser.user_role || '') + '') || '';
+        const isEmployee = roleStr.toString().toLowerCase().includes('employee') || roleStr.toString().toLowerCase().includes('user');
+        if (isEmployee) {
+          const allowedForEmployee = /\b(withdrawn|withdraw|ticket withdrawn|withdrawal)\b/i.test(actionText);
+          if (!allowedForEmployee) return; // skip generic employee comments
+        }
+      } catch (e) {
+        // ignore role parsing errors and continue
+      }
+      let userLabel = 'Support Team';
+      if (commentUser) {
+        if (matchesCurrentUser(commentUser)) {
+          userLabel = 'You';
+        } else {
+          const role = ((commentUser.role || commentUser.user_role || '') + '').toString().toLowerCase();
+          if (role.includes('ticket') || role.includes('coordinator') || role.includes('admin') || role.includes('system')) {
+            userLabel = 'Coordinator';
+          } else if (role.includes('employee') || role.includes('user')) {
+            userLabel = 'Employee';
+          } else {
+            const name = commentUser.first_name || commentUser.firstName || commentUser.name || commentUser.full_name || commentUser.fullName;
+            userLabel = name ? name : 'Support Team';
+          }
+        }
+      }
+
+      logs.push({
+        id: c.id || `c-${Math.random().toString(36).slice(2, 9)}`,
+        user: userLabel,
+        action: c.comment || c.message || c.body || c.text || '',
+        rawTimestamp: c.created_at || c.createdAt || c.timestamp || null,
+        rawActor: commentUser || null,
+      });
+    } catch (e) {
+      // ignore malformed comment
+    }
+  });
+
+  // Synthetic system-created entry (if no existing comment representing creation)
+  logs.push({
+    id: 'system-created',
+    user: 'System',
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    rawTimestamp: ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.submit_date,
+  });
+
+  // Assigned entry
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
   if (assignedToName) {
-    logs.push({ 
-      id: 2, 
-      user: assignedToName, 
-      action: `Assigned to ${ticket.department} department`, 
-      timestamp: formatDate(ticket.dateCreated) 
-    });
+    const assignedActor = typeof ticket.assignedTo === 'object' ? ticket.assignedTo : null;
+    const assignedLabel = assignedActor && matchesCurrentUser(assignedActor) ? 'You' : assignedToName;
+    logs.push({ id: 'assigned', user: assignedLabel, action: `Assigned to ${ticket.department} department`, rawTimestamp: ticket.dateCreated || ticket.submit_date, rawActor: assignedActor });
   }
-  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
-    logs.push({ 
-      id: 3, 
-      user: 'Coordinator', 
-      action: `Status changed to ${ticket.status}`, 
-      timestamp: formatDate(ticket.lastUpdated) 
-    });
+
+  // If current ticket status is not New/Pending and there wasn't an explicit status-change comment
+  // ensure we still surface a status-change entry (fallback)
+  const hasStatusComment = logs.some((l) => typeof l.action === 'string' && l.action.toLowerCase().includes('status changed'));
+  // If we already detected a detailed rejection/approval comment, skip adding the synthetic
+  // fallback 'Status changed to ...' entry to avoid duplicates.
+  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending' && !hasStatusComment && !hasRejectionDetail) {
+    const performer = ticket.approved_by || ticket.rejected_by || ticket.coordinator || ticket.employee || null;
+    const isMe = matchesCurrentUser(performer);
+    const userLabel = isMe ? 'You' : (typeof performer === 'string' ? 'Coordinator' : (performer && performer.first_name ? (matchesCurrentUser(performer) ? 'You' : (performer.first_name + ' ' + (performer.last_name || ''))) : 'Coordinator'));
+    logs.push({ id: 'status-change', user: userLabel, action: `Status changed to ${ticket.status}`, rawTimestamp: ticket.lastUpdated || ticket.update_date || ticket.updatedAt || null, rawActor: performer });
   }
-  return logs;
+
+  // Sort newest -> oldest by rawTimestamp
+  logs.sort((a, b) => {
+    const ta = a.rawTimestamp ? new Date(a.rawTimestamp) : new Date(0);
+    const tb = b.rawTimestamp ? new Date(b.rawTimestamp) : new Date(0);
+    return tb.getTime() - ta.getTime();
+  });
+
+  // Format timestamps for display but preserve rawActor for downstream components
+  return logs.map((l) => ({ id: l.id, user: l.user, action: l.action, timestamp: formatDate(l.rawTimestamp), rawActor: l.rawActor || null }));
 };
 const renderAttachments = (files) => {
   if (!files) return <div className={styles.detailValue}>No attachments</div>;
+
+  // Normalize to array
   const fileArray = Array.isArray(files) ? files : [files];
+
   const getFileIcon = (file) => {
     const mimeType = file?.type || file?.mimeType;
     const name = file?.name || file?.filename || file;
@@ -94,23 +239,72 @@ const renderAttachments = (files) => {
     }
     return <FaFile />;
   };
+
+  // We no longer fetch blobs client-side; filenames are linked to secure URLs
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+
+  const openAttachment = (rawUrl) => {
+    const secure = convertToSecureUrl(rawUrl);
+    if (secure) {
+      window.open(secure, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Try to compute a backend media URL from the path
+    const filePath = extractFilePathFromUrl(rawUrl) || (typeof rawUrl === 'string' ? rawUrl.split('?')[0] : null);
+    if (filePath) {
+      const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      let backendUrl = `${MEDIA_URL}${clean}`;
+      const token = getAccessToken();
+      if (token) {
+        backendUrl = `${backendUrl}?token=${encodeURIComponent(token)}`;
+      }
+      window.open(backendUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Fallback to opening the original url
+    window.open(rawUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className={styles.attachmentList}>
       {fileArray.map((f, idx) => {
-        // Normalize attachment shape from different sources:
-        // - backend may return { id, file, file_name, file_type, ... }
-        // - older seeds may include { name, filename, url }
-        // - sometimes the item is just a string URL
-        const name = (f && (f.file_name || f.name || f.filename)) || (typeof f === 'string' ? f : null) || 'attachment';
-        const url = (f && (f.file && (f.file.url || f.file)) ) || f?.url || f?.downloadUrl || f?.download_url || (typeof f === 'string' ? f : '#');
+        // Support multiple shapes: backend returns { file: url, file_name },
+        // older local mocks may use { name, url }, or sometimes just a URL string.
+        const name = f?.file_name || f?.name || f?.filename || (typeof f === 'string' ? f.split('/').pop() : f);
+        const url = f?.file || f?.url || f?.downloadUrl || f?.download_url || (typeof f === 'string' ? f : '#');
+        // compute secure/backend URL to avoid opening local dev server paths
+        let secureOrBackend = convertToSecureUrl(url) || null;
+        if (!secureOrBackend) {
+          // try to extract a file path
+          let filePath = extractFilePathFromUrl(url);
+          if (!filePath && typeof url === 'string' && url.startsWith('http')) {
+            try {
+              const parsed = new URL(url);
+              filePath = parsed.pathname || null;
+            } catch (e) {
+              filePath = null;
+            }
+          }
+          if (filePath) {
+            const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+            const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+            secureOrBackend = `${MEDIA_URL}${clean}`;
+            const token = getAccessToken();
+            if (token) secureOrBackend = `${secureOrBackend}?token=${encodeURIComponent(token)}`;
+          }
+        }
+        // final fallback to original url
+        if (!secureOrBackend) secureOrBackend = url;
         return (
           <div key={idx} className={styles.attachmentItem}>
             <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
             <div style={{ flex: 1 }}>
-              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentName}>{String(name)}</a>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <a href={url} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
+              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
                 <FaDownload />
               </a>
             </div>
@@ -132,6 +326,40 @@ export default function CoordinatorAdminTicketTracker() {
   const tickets = getAllTickets();
   const [ticket, setTicket] = useState(null);
   const [loadingTicket, setLoadingTicket] = useState(false);
+
+  // When an admin action modal completes (Open/Reject), refetch the ticket so coordinatorReview/assigned fields
+  // returned by the backend are reflected in the UI.
+  const handleModalSuccess = async (ticketNumberArg, action) => {
+    try {
+      setLoadingTicket(true);
+      const fetched = await backendTicketService.getTicketByNumber(ticketNumberArg || ticketNumber);
+      if (fetched) {
+        const normalized = {
+          ...fetched,
+          ticketNumber: fetched.ticket_number || fetched.ticketNumber || fetched.ticket_id || fetched.ticketId || fetched.id,
+          dateCreated: fetched.submit_date || fetched.createdAt || fetched.dateCreated || fetched.created_at || fetched.submitDate,
+          lastUpdated: fetched.update_date || fetched.updatedAt || fetched.dateUpdated || fetched.updated_at || fetched.updateDate,
+          subCategory: fetched.sub_category || fetched.subcategory || fetched.subCategory || '',
+          priorityLevel: fetched.priority || fetched.priorityLevel || fetched.priority_level || null,
+          fileUploaded: fetched.file_uploaded || fetched.attachments || fetched.fileAttachments || fetched.files || null,
+          assignedTo: fetched.assigned_to || fetched.assignedTo || fetched.assigned_to_name || fetched.assignedToName || fetched.assignedTo || null,
+          description: fetched.description || fetched.details || fetched.body || fetched.note || fetched.notes || fetched.description,
+          // Budget/Proposal and scheduling fallbacks
+          scheduledRequest: fetched.scheduledRequest || fetched.scheduled_request || fetched.scheduled_date || fetched.scheduledDate || (fetched.dynamic_data && (fetched.dynamic_data.scheduledDate || fetched.dynamic_data.scheduled_date || fetched.dynamic_data.scheduleRequest || fetched.dynamic_data.schedule_request)) || null,
+          preparedBy: fetched.preparedBy || fetched.prepared_by || fetched.preparedByName || (fetched.dynamic_data && (fetched.dynamic_data.preparedBy || fetched.dynamic_data.prepared_by || fetched.dynamic_data.preparedByName)) || null,
+          performanceStartDate: fetched.performanceStartDate || fetched.performance_start_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceStartDate || fetched.dynamic_data.performance_start_date)) || null,
+          performanceEndDate: fetched.performanceEndDate || fetched.performance_end_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceEndDate || fetched.dynamic_data.performance_end_date)) || null,
+          totalBudget: (fetched.totalBudget ?? fetched.total_budget ?? fetched.requested_budget ?? (fetched.dynamic_data && (fetched.dynamic_data.totalBudget ?? fetched.dynamic_data.total_budget ?? fetched.dynamic_data.requestedBudget ?? fetched.dynamic_data.requested_budget))) ?? null,
+          budgetItems: fetched.budgetItems || fetched.budget_items || fetched.cost_items || (fetched.dynamic_data && (fetched.dynamic_data.items || fetched.dynamic_data.budgetItems || fetched.dynamic_data.budget_items)) || [],
+        };
+        setTicket(normalized);
+      }
+    } catch (err) {
+      console.error('Error refetching ticket after modal success:', err);
+    } finally {
+      setLoadingTicket(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -165,6 +393,13 @@ export default function CoordinatorAdminTicketTracker() {
               fileUploaded: fetched.file_uploaded || fetched.attachments || fetched.fileAttachments || fetched.files || null,
               assignedTo: fetched.assigned_to || fetched.assignedTo || fetched.assigned_to_name || fetched.assignedToName || fetched.assignedTo || null,
               description: fetched.description || fetched.details || fetched.body || fetched.note || fetched.notes || fetched.description,
+              // Budget/Proposal and scheduling fallbacks
+              scheduledRequest: fetched.scheduledRequest || fetched.scheduled_request || fetched.scheduled_date || fetched.scheduledDate || (fetched.dynamic_data && (fetched.dynamic_data.scheduledDate || fetched.dynamic_data.scheduled_date || fetched.dynamic_data.scheduleRequest || fetched.dynamic_data.schedule_request)) || null,
+              preparedBy: fetched.preparedBy || fetched.prepared_by || fetched.preparedByName || (fetched.dynamic_data && (fetched.dynamic_data.preparedBy || fetched.dynamic_data.prepared_by || fetched.dynamic_data.preparedByName)) || null,
+              performanceStartDate: fetched.performanceStartDate || fetched.performance_start_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceStartDate || fetched.dynamic_data.performance_start_date)) || null,
+              performanceEndDate: fetched.performanceEndDate || fetched.performance_end_date || (fetched.dynamic_data && (fetched.dynamic_data.performanceEndDate || fetched.dynamic_data.performance_end_date)) || null,
+              totalBudget: (fetched.totalBudget ?? fetched.total_budget ?? fetched.requested_budget ?? (fetched.dynamic_data && (fetched.dynamic_data.totalBudget ?? fetched.dynamic_data.total_budget ?? fetched.dynamic_data.requestedBudget ?? fetched.dynamic_data.requested_budget))) ?? null,
+              budgetItems: fetched.budgetItems || fetched.budget_items || fetched.cost_items || (fetched.dynamic_data && (fetched.dynamic_data.items || fetched.dynamic_data.budgetItems || fetched.dynamic_data.budget_items)) || [],
             } : null;
             console.log('[CoordinatorTicket] normalized ticket:', normalized);
             setTicket(normalized || null);
@@ -310,6 +545,26 @@ export default function CoordinatorAdminTicketTracker() {
   const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
   const statusSteps = getStatusSteps(status);
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+
+  // Normalize scheduled request for rendering: it may be a string, date, or an object {date, time, notes}
+  const computeScheduledDisplay = (raw) => {
+    if (!raw) return null;
+    // If it's an object with date/datetime fields, prefer those
+    if (typeof raw === 'object') {
+      if (raw.date) return formatDateOnly(raw.date) || raw.date;
+      if (raw.datetime) return formatDateOnly(raw.datetime) || raw.datetime;
+      if (raw.scheduledDate) return formatDateOnly(raw.scheduledDate) || raw.scheduledDate;
+      if (raw.scheduled_date) return formatDateOnly(raw.scheduled_date) || raw.scheduled_date;
+      // If object has time + date, combine
+      if (raw.date && raw.time) return `${formatDateOnly(raw.date)} ${raw.time}`;
+      // Fallback to stringifying notes if no date
+      try { return JSON.stringify(raw); } catch (e) { return String(raw); }
+    }
+    // If it's a string or number, try to format as date-only
+    return formatDateOnly(raw) || raw;
+  };
+
+  const scheduledRequestDisplay = computeScheduledDisplay(scheduledRequest);
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
   const ticketLogs = generateLogs(ticket);
   const userRole = authService.getUserRole();
@@ -386,7 +641,7 @@ export default function CoordinatorAdminTicketTracker() {
                     </div>
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>Schedule Request</div>
-                      <div className={styles.detailValue}>{scheduledRequest || 'None'}</div>
+                        <div className={styles.detailValue}>{scheduledRequestDisplay || 'None'}</div>
                     </div>
                     <div className={`${styles.detailItem} ${styles.attachmentsRow}`}>
                       <div className={styles.detailLabel}>Attachments</div>
@@ -553,12 +808,14 @@ export default function CoordinatorAdminTicketTracker() {
         <CoordinatorAdminOpenTicketModal
           ticket={ticket}
           onClose={() => setShowOpenModal(false)}
+          onSuccess={handleModalSuccess}
         />
       )}
       {showRejectModal && (
         <CoordinatorAdminRejectTicketModal
           ticket={ticket}
           onClose={() => setShowRejectModal(false)}
+          onSuccess={handleModalSuccess}
         />
       )}
     </>

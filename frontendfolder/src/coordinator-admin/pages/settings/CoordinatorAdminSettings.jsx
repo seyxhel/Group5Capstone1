@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import styles from './manage-profile.module.css';
 import authService from '../../../utilities/service/authService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { convertToSecureUrl, getAccessToken } from '../../../utilities/secureMedia';
 import { useNavigate } from 'react-router-dom';
 
 export default function CoordinatorAdminSettings() {
@@ -9,10 +11,58 @@ export default function CoordinatorAdminSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const u = authService.getCurrentUser();
-    setUser(u);
-    setLoading(false);
+    const bootstrap = async () => {
+      const local = authService.getCurrentUser();
+      // Prefer live backend profile when an access token exists
+      try {
+        const token = getAccessToken();
+        if (token) {
+          const remote = await backendEmployeeService.getCurrentEmployee();
+          // convert remote image to secure URL when possible
+          const secureImage = convertToSecureUrl(remote?.image) || convertToSecureUrl(remote?.profile_image) || remote?.image || remote?.profile_image;
+          setUser({ ...local, ...remote, profileImage: secureImage });
+        } else {
+          setUser(local);
+        }
+      } catch (err) {
+        // fallback to local stored user when backend call fails
+        setUser(local);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    bootstrap();
   }, []);
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    try {
+      // Upload using backend service (endpoint expects auth and uses current user)
+      const result = await backendEmployeeService.uploadEmployeeImage(user?.id, file);
+
+      // If server returned an image path, update the displayed image. Otherwise re-fetch profile.
+      const newImage = result?.image || result?.profile_image || result?.profileImage;
+      if (newImage) {
+        const secure = convertToSecureUrl(newImage) || newImage;
+        setUser((u) => ({ ...(u || {}), profileImage: secure }));
+      } else {
+        // re-fetch current employee to get updated image
+        try {
+          const refreshed = await backendEmployeeService.getCurrentEmployee();
+          const secureRef = convertToSecureUrl(refreshed?.image) || convertToSecureUrl(refreshed?.profile_image) || refreshed?.image || refreshed?.profile_image;
+          setUser((u) => ({ ...(u || {}), ...refreshed, profileImage: secureRef }));
+        } catch (_) {
+          // ignore -- leave current
+        }
+      }
+    } catch (uploadErr) {
+      console.error('Image upload failed', uploadErr);
+      // optionally show toast in future
+    }
+  };
 
   if (loading) return <p>Loading...</p>;
 
@@ -38,6 +88,7 @@ export default function CoordinatorAdminSettings() {
                     id="profile-image-input"
                     accept="image/*"
                     style={{ display: 'none' }}
+                    onChange={handleImageChange}
                   />
                   <label htmlFor="profile-image-input" className={styles.changeImageBtn}>
                     Change Photo
@@ -73,10 +124,7 @@ export default function CoordinatorAdminSettings() {
                       <input type="text" name="first_name" value={user?.firstName || user?.first_name || ''} readOnly />
                     </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Company ID</label>
-                      <input type="text" name="company_id" value={user?.companyId || user?.company_id || ''} readOnly />
-                    </div>
+                    {/* Company / Employee ID removed from profile per admin UX requirements */}
 
                     <div className={styles.formGroup}>
                       <label>Middle Name</label>
