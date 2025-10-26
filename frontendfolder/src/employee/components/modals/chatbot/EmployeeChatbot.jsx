@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from 'react-router-dom';
 import { FiPaperclip, FiSend, FiMoreHorizontal, FiX, FiChevronDown, FiVolume2 } from "react-icons/fi";
 import MapLogo from "../../../../shared/assets/MapLogo.png";
 import styles from "./EmployeeChatbot.module.css";
+import axios from 'axios';
+import { API_CONFIG } from '../../../../config/environment.js';
 
 const EmployeeChatbot = ({ closeModal }) => {
   const [messages, setMessages] = useState([]);
+  const [faqs, setFaqs] = useState([]);
   const welcomeMessage = {
     text: "Hi there! 👋 I'm PAXI, your go-to support buddy.\nHow can I assist you today?",
     sender: "bot",
@@ -15,6 +18,16 @@ const EmployeeChatbot = ({ closeModal }) => {
       { label: 'Recommend Solutions', type: 'redirect', route: '/employee/frequently-asked-questions' },
       { label: 'Fill Out Forms', type: 'prefill', route: '/employee/submit-ticket' }
     ]
+  };
+
+  // Fallback default messages collection (used by local matcher)
+  const defaultMessages = [welcomeMessage];
+
+  // Build a compact system prompt from available FAQs to guide the external LLM
+  const buildFAQPrompt = (faqsList) => {
+    if (!faqsList || faqsList.length === 0) return 'You are a helpful support assistant for employees. Answer concisely and avoid external links.';
+    const top = faqsList.slice(0, 8).map((f, i) => `${i + 1}. ${f.question}`).join('\n');
+    return `You are a helpful support assistant for employees. The following are known FAQ titles to refer to when answering user queries:\n${top}\nIf the user asks a question answered by these FAQs, respond using that FAQ content.`;
   };
 
   const navigate = useNavigate();

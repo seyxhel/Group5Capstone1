@@ -315,6 +315,19 @@ const renderAttachments = (files) => {
   );
 };
 
+// Helper to render dynamic values safely (objects/arrays -> JSON string inside <pre>)
+const renderDynamicValue = (val) => {
+  if (val === null || val === undefined || val === '') return 'None';
+  if (typeof val === 'object') {
+    try {
+      return <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
+    } catch (e) {
+      return String(val);
+    }
+  }
+  return String(val);
+};
+
 // If a ticket is New/Submitted/Pending and older than 24 hours, treat as 'Pending' for coordinators/admins
 const computeEffectiveStatus = (ticket) => {
   const rawStatus = (ticket.status || '').toString();
@@ -374,6 +387,8 @@ export default function CoordinatorAdminTicketTracker() {
     assignedTo,
     scheduledRequest,
   } = ticket;
+  // UI-friendly category: backend/storage may use 'General Request' while the form shows 'Others'
+  const uiCategory = (category === 'General Request') ? 'Others' : category;
   // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
   const status = computeEffectiveStatus(ticket) || originalStatus;
   const statusSteps = getStatusSteps(status);
@@ -479,38 +494,6 @@ export default function CoordinatorAdminTicketTracker() {
     };
   }, [ticketNumber, ticket, activeTab]);
 
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
-    );
-  }
-  const {
-    ticketNumber: number,
-    subject,
-    category,
-    subCategory,
-    status: originalStatus,
-    dateCreated,
-    lastUpdated,
-    description,
-    fileUploaded,
-    priorityLevel,
-    department,
-    assignedTo,
-    scheduledRequest,
-  } = ticket;
-  // Convert "Submitted" to "New" for coordinator/admin view
-  const status = originalStatus === 'Submitted' || originalStatus === 'Pending' ? 'New' : originalStatus;
-  const statusSteps = getStatusSteps(status);
-  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
-
   // Normalize scheduled request for rendering: it may be a string, date, or an object {date, time, notes}
   const computeScheduledDisplay = (raw) => {
     if (!raw) return null;
@@ -530,10 +513,6 @@ export default function CoordinatorAdminTicketTracker() {
   };
 
   const scheduledRequestDisplay = computeScheduledDisplay(scheduledRequest);
-  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
-  const ticketLogs = generateLogs(ticket);
-  const userRole = authService.getUserRole();
-  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
 
   
   return (
@@ -573,17 +552,17 @@ export default function CoordinatorAdminTicketTracker() {
                 </div>
                 {/* Ticket Details - consolidated and always present */}
                 <div className={styles.detailsGrid}>
-                  {formCategories.includes(category) && (
+                  {formCategories.includes(uiCategory) && (
                     <div className={`${styles.detailItem}`}>
                       <div className={styles.detailLabel}>Category</div>
-                      <div className={styles.detailValue}>{category || 'None'}</div>
+                      <div className={styles.detailValue}>{uiCategory || 'None'}</div>
                     </div>
                   )}
-                  {formCategories.includes(category) && (
+                  {formCategories.includes(uiCategory) && (
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>Sub-Category</div>
                       <div className={styles.detailValue}>
-                        {category === 'Others' ? (
+                        {uiCategory === 'Others' ? (
                           'None'
                         ) : (
                           subCategory || 'None'
@@ -617,7 +596,7 @@ export default function CoordinatorAdminTicketTracker() {
                       </div>
                     </div>
                   </div>
-                  {category !== 'Others' && (
+                  {uiCategory !== 'Others' && (
                     <div className={styles.categoryDivider}></div>
                   )}
                   {/* Category-specific dynamic details inserted inside detailsGrid as fullWidth */}
@@ -631,18 +610,22 @@ export default function CoordinatorAdminTicketTracker() {
                             <div className={styles.detailLabel}>Device Type</div>
                             <div className={styles.detailValue}>{ticket.dynamic_data?.device_type || ticket.deviceType || 'None'}</div>
                           </div>
-                            <div className={styles.detailItem}>
-                              <div className={styles.detailLabel}>Specify Issue</div>
-                              <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || 'None'}</div>
-                            </div>
+                            {(ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || ticket.dynamic_data?.issue_type) ? (
+                              <div className={styles.detailItem}>
+                                <div className={styles.detailLabel}>Specify Issue</div>
+                                <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || ticket.dynamic_data?.issue_type}</div>
+                              </div>
+                            ) : null}
                             <div className={styles.detailItem}>
                               <div className={styles.detailLabel}>Software Affected</div>
                               <div className={styles.detailValue}>{ticket.dynamic_data?.softwareAffected || ticket.softwareAffected || 'None'}</div>
                             </div>
-                            <div className={styles.detailItem}>
-                              <div className={styles.detailLabel}>Notes</div>
-                              <div className={styles.detailValue}>{ticket.dynamic_data?.notes || ticket.notes || 'None'}</div>
-                            </div>
+                            {(ticket.dynamic_data?.notes || ticket.notes || ticket.note) ? (
+                              <div className={styles.detailItem}>
+                                <div className={styles.detailLabel}>Notes</div>
+                                <div className={styles.detailValue}>{ticket.dynamic_data?.notes || ticket.notes || ticket.note}</div>
+                              </div>
+                            ) : null}
                         </div>
                       </>
                     )}
@@ -663,6 +646,12 @@ export default function CoordinatorAdminTicketTracker() {
                             <div className={styles.detailLabel}>Location</div>
                             <div className={styles.detailValue}>{ticket.location || 'N/A'}</div>
                           </div>
+                          {(ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || ticket.dynamic_data?.issue_type) ? (
+                            <div className={styles.detailItem}>
+                              <div className={styles.detailLabel}>Specify Issue</div>
+                              <div className={styles.detailValue}>{ticket.issue_type || ticket.issueType || ticket.dynamic_data?.issueType || ticket.dynamic_data?.issue_type}</div>
+                            </div>
+                          ) : null}
                           {category === 'Asset Check Out' && (
                             <div className={styles.detailItem}>
                               <div className={styles.detailLabel}>Expected Return</div>
@@ -718,11 +707,11 @@ export default function CoordinatorAdminTicketTracker() {
                           <div className={styles.detailValue}></div>
                         </div>
                         {Object.entries(ticket.dynamic_data).map(([key, val]) => (
-                          <div className={styles.detailItem} key={key}>
-                            <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
-                            <div className={styles.detailValue}>{val}</div>
-                          </div>
-                        ))}
+                              <div className={styles.detailItem} key={key}>
+                                <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
+                                <div className={styles.detailValue}>{renderDynamicValue(val)}</div>
+                              </div>
+                            ))}
                       </div>
                     )}
                   </div>

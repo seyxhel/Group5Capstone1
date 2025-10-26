@@ -170,6 +170,19 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 };
 
+// Helper to render dynamic values safely (objects/arrays -> JSON string inside <pre>)
+const renderDynamicValue = (val) => {
+  if (val === null || val === undefined || val === '') return 'None';
+  if (typeof val === 'object') {
+    try {
+      return <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
+    } catch (e) {
+      return String(val);
+    }
+  }
+  return String(val);
+};
+
 // Generate logs based on ticket data (start with any persisted logs)
 // Accept currentUser to decide labels for certain status changes
 const generateLogs = (ticket, currentUser) => {
@@ -430,6 +443,8 @@ export default function EmployeeTicketTracker() {
     assigned_to: assignedTo,
     scheduled_date: scheduledRequest,
   } = ticket;
+  // UI-friendly category: tickets stored as 'General Request' correspond to the form label 'Others'
+  const uiCategory = (category === 'General Request') ? 'Others' : category;
 
   // Normalize attachments across different seed/property names
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
@@ -495,6 +510,26 @@ export default function EmployeeTicketTracker() {
 
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
+
+  // Prepare Additional Details entries (filter out schedule-like entries for 'Others')
+  const _dynamicEntries = ticket.dynamic_data && typeof ticket.dynamic_data === 'object' ? Object.entries(ticket.dynamic_data) : [];
+  const additionalDetailsEntries = _dynamicEntries.filter(([key, val]) => {
+    if (uiCategory === 'Others') {
+      try {
+        const k = (key || '').toString().toLowerCase();
+        if (k.includes('schedule')) return false;
+        if (val && typeof val === 'object') {
+          const hasDate = Object.prototype.hasOwnProperty.call(val, 'date') || Object.prototype.hasOwnProperty.call(val, 'datetime') || Object.prototype.hasOwnProperty.call(val, 'scheduledDate') || Object.prototype.hasOwnProperty.call(val, 'scheduled_date');
+          const hasTime = Object.prototype.hasOwnProperty.call(val, 'time');
+          const hasNotes = Object.prototype.hasOwnProperty.call(val, 'notes') || Object.prototype.hasOwnProperty.call(val, 'note');
+          if (hasDate || hasTime || hasNotes) return false;
+        }
+      } catch (e) {
+        // include by default on error
+      }
+    }
+    return true;
+  });
 
   // Build messages from ticket.comments (persisted) and include a system "received" message.
   const buildMessagesFromTicket = (tkt) => {
@@ -586,18 +621,18 @@ export default function EmployeeTicketTracker() {
 
               {/* Ticket Details - consolidated and always present */}
               <div className={styles.detailsGrid}>
-                {formCategories.includes(category) && (
+                {formCategories.includes(uiCategory) && (
                   <div className={`${styles.detailItem}`}>
                     <div className={styles.detailLabel}>Category</div>
-                    <div className={styles.detailValue}>{category || 'None'}</div>
+                    <div className={styles.detailValue}>{uiCategory || 'None'}</div>
                   </div>
                 )}
 
-                {formCategories.includes(category) && (
+                {formCategories.includes(uiCategory) && (
                   <div className={styles.detailItem}>
                     <div className={styles.detailLabel}>Sub-Category</div>
                     <div className={styles.detailValue}>
-                      {category === 'Others' ? (
+                      {uiCategory === 'Others' ? (
                         'None'
                       ) : (
                         subCategory || 'None'
@@ -637,7 +672,7 @@ export default function EmployeeTicketTracker() {
                   </div>
                 </div>
 
-              {category !== 'Others' && (
+              {uiCategory !== 'Others' && (
                 <div className={styles.categoryDivider}></div>
               )}
 
@@ -652,18 +687,22 @@ export default function EmployeeTicketTracker() {
                           <div className={styles.detailLabel}>Device Type</div>
                           <div className={styles.detailValue}>{deviceType || 'None'}</div>
                         </div>
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Specify Issue</div>
-                          <div className={styles.detailValue}>{issueTypeField || 'None'}</div>
-                        </div>
+                        {issueTypeField ? (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Specify Issue</div>
+                            <div className={styles.detailValue}>{issueTypeField}</div>
+                          </div>
+                        ) : null}
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Software Affected</div>
                           <div className={styles.detailValue}>{softwareAffectedField || 'None'}</div>
                         </div>
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Notes</div>
-                          <div className={styles.detailValue}>{notesField || 'None'}</div>
-                        </div>
+                        {notesField ? (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Notes</div>
+                            <div className={styles.detailValue}>{notesField}</div>
+                          </div>
+                        ) : null}
                       </div>
                     </>
                   )}
@@ -684,6 +723,12 @@ export default function EmployeeTicketTracker() {
                           <div className={styles.detailLabel}>Location</div>
                           <div className={styles.detailValue}>{ticket.location || 'N/A'}</div>
                         </div>
+                          {issueTypeField ? (
+                            <div className={styles.detailItem}>
+                              <div className={styles.detailLabel}>Specify Issue</div>
+                              <div className={styles.detailValue}>{issueTypeField}</div>
+                            </div>
+                          ) : null}
                         {category === 'Asset Check Out' && (
                           <div className={styles.detailItem}>
                             <div className={styles.detailLabel}>Expected Return</div>
@@ -732,16 +777,16 @@ export default function EmployeeTicketTracker() {
                     </>
                   )}
                   {/* Fallback: dynamic_data */}
-                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && ticket.dynamic_data && Object.keys(ticket.dynamic_data).length > 0 && (
+                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && additionalDetailsEntries && additionalDetailsEntries.length > 0 && (
                     <div className={styles.dynamicDetailsGrid}>
                       <div className={styles.detailItem}>
                         <div className={styles.detailLabel}>Additional Details</div>
                         <div className={styles.detailValue}></div>
                       </div>
-                      {Object.entries(ticket.dynamic_data).map(([key, val]) => (
+                      {additionalDetailsEntries.map(([key, val]) => (
                         <div className={styles.detailItem} key={key}>
                           <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
-                          <div className={styles.detailValue}>{val}</div>
+                          <div className={styles.detailValue}>{renderDynamicValue(val)}</div>
                         </div>
                       ))}
                     </div>

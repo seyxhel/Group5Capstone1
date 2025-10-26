@@ -3,7 +3,7 @@ import styles from './manage-profile.module.css';
 import authService from '../../../utilities/service/authService';
 import { useNavigate } from 'react-router-dom';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
-import { API_CONFIG } from '../../../config/environment.js';
+import { API_CONFIG, FEATURES } from '../../../config/environment.js';
 import { toast } from 'react-toastify';
 
 export default function EmployeeSettings() {
@@ -108,27 +108,59 @@ export default function EmployeeSettings() {
 
     setUploading(true);
     try {
-      const result = await backendEmployeeService.uploadEmployeeImage(user.id, selectedFile);
-
-      // result could be an object with various shapes depending on backend
-      // Try to extract an updated user object or at least an image/url
       let updatedUser = { ...user };
 
-      if (result) {
-        // Common shapes: { employee: {...} } or { user: {...} } or { image: '...'} or { profileImage: '...' }
-        if (result.employee && typeof result.employee === 'object') {
-          updatedUser = { ...updatedUser, ...result.employee };
-        } else if (result.user && typeof result.user === 'object') {
-          updatedUser = { ...updatedUser, ...result.user };
-        } else {
-          // image field variants
-          const imageField = result.profileImage || result.image || result.profile_image || result.url;
-          if (imageField) {
-            // normalize commonly used keys
-            updatedUser.profileImage = imageField;
-            updatedUser.profile_image = imageField;
-            updatedUser.image = imageField;
+      if (FEATURES && FEATURES.ENABLE_FILE_UPLOAD) {
+        try {
+          const result = await backendEmployeeService.uploadEmployeeImage(user.id, selectedFile);
+          if (result) {
+            if (result.employee && typeof result.employee === 'object') {
+              updatedUser = { ...updatedUser, ...result.employee };
+            } else if (result.user && typeof result.user === 'object') {
+              updatedUser = { ...updatedUser, ...result.user };
+            } else {
+              const imageField = result.profileImage || result.image || result.profile_image || result.url;
+              if (imageField) {
+                updatedUser.profileImage = imageField;
+                updatedUser.profile_image = imageField;
+                updatedUser.image = imageField;
+              }
+            }
           }
+        } catch (err) {
+          console.warn('Upload failed, falling back to local storage image:', err);
+          // fallback to local data-URL
+          try {
+            const dataUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(selectedFile);
+            });
+            updatedUser.profileImage = dataUrl;
+            updatedUser.profile_image = dataUrl;
+            updatedUser.image = dataUrl;
+            toast.info('Using local preview image since upload failed.');
+          } catch (e) {
+            console.warn('Failed to convert image to data URL for fallback:', e);
+          }
+        }
+      } else {
+        // File upload disabled (local dev mode) - persist preview as data URL
+        try {
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          });
+          updatedUser.profileImage = dataUrl;
+          updatedUser.profile_image = dataUrl;
+          updatedUser.image = dataUrl;
+          toast.info('Profile image saved locally (development mode).');
+        } catch (e) {
+          console.warn('Failed to convert image to data URL for local save:', e);
+          throw e;
         }
       }
 
@@ -139,6 +171,9 @@ export default function EmployeeSettings() {
         console.warn('Failed to persist updated user to localStorage', e);
       }
 
+      // Update preview immediately
+      if (updatedUser.profileImage) setPreviewUrl(updatedUser.profileImage);
+
       toast.success('Profile image updated successfully.');
 
       // Give toast a moment to show, then reload so navbar/modal update
@@ -146,11 +181,27 @@ export default function EmployeeSettings() {
         window.location.reload();
       }, 900);
     } catch (err) {
-      console.error('Failed to upload image:', err);
-      toast.error(err?.message || 'Failed to upload image. Please try again.');
+      console.error('Failed to save image:', err);
+      toast.error(err?.message || 'Failed to save image. Please try again.');
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleFileSelect = (f) => {
+    if (!f) return;
+    const maxSize = 5 * 1024 * 1024;
+    if (f.size > maxSize) {
+      toast.error('Selected image is too large. Maximum size is 5MB.');
+      return;
+    }
+    if (fileUrlRef.current) {
+      URL.revokeObjectURL(fileUrlRef.current);
+    }
+    const url = URL.createObjectURL(f);
+    fileUrlRef.current = url;
+    setPreviewUrl(url);
+    setSelectedFile(f);
   };
 
   if (loading) return <p>Loading...</p>;
@@ -179,25 +230,7 @@ export default function EmployeeSettings() {
                     style={{ display: 'none' }}
                     onChange={(e) => {
                       const f = e.target.files && e.target.files[0];
-                      if (!f) return;
-
-                      // Basic validation: file size limit (5MB)
-                      const maxSize = 5 * 1024 * 1024;
-                      if (f.size > maxSize) {
-                        toast.error('Selected image is too large. Maximum size is 5MB.');
-                        e.target.value = null;
-                        return;
-                      }
-
-                      // Revoke previous object URL
-                      if (fileUrlRef.current) {
-                        URL.revokeObjectURL(fileUrlRef.current);
-                      }
-
-                      const url = URL.createObjectURL(f);
-                      fileUrlRef.current = url;
-                      setPreviewUrl(url);
-                      setSelectedFile(f);
+                      handleFileSelect(f);
                     }}
                   />
                   <label htmlFor="profile-image-input" className={styles.changeImageBtn}>
@@ -272,11 +305,11 @@ export default function EmployeeSettings() {
 
                     <div className={styles.formGroup}>
                       <label>Upload Profile Picture</label>
-                      <input type="file" accept="image/*" />
+                      <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e.target.files && e.target.files[0])} />
                     </div>
                   </div>
 
-                  <button className={styles.saveButton} type="button">Save Changes</button>
+                  <button className={styles.saveButton} type="button" onClick={handleSaveChanges} disabled={uploading}>{uploading ? 'Saving...' : 'Save Changes'}</button>
                 </div>
 
                 {/* Security Section (restored) */}

@@ -1,4 +1,7 @@
 import FilterPanel from "../../../shared/table/FilterPanel";
+import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
+import ticketConfig from '../../../utilities/ticket-data/ticketConfig';
+import { subCategories as MOCK_SUBCATEGORIES, budgetSubCategories as MOCK_BUDGET_SUBCATS } from '../../../mock-data/tickets';
 
 /**
  * EmployeeTicketFilter - Wrapper component for Employee ticket filtering
@@ -47,27 +50,36 @@ export default function EmployeeTicketFilter({
     { label: "Low", category: "Minor" },
   ];
 
-  // Default category options (same for both pages)
-  const defaultCategoryOptions = [
-    { label: "Hardware", category: "IT" },
-    { label: "Software", category: "IT" },
-    { label: "Network", category: "IT" },
-    { label: "Account", category: "Access" },
-    { label: "Other", category: "General" },
-  ];
+  // Default category options derived from shared constants used by the submission form
+  const defaultCategoryOptions = (TICKET_CATEGORIES || []).map((c) => ({ label: c, category: 'Form' }));
 
-  // Default sub-category options (same for both pages)
-  const defaultSubCategoryOptions = [
-    { label: "Desktop", category: "Hardware" },
-    { label: "Laptop", category: "Hardware" },
-    { label: "Printer", category: "Hardware" },
-    { label: "Application", category: "Software" },
-    { label: "Operating System", category: "Software" },
-    { label: "WiFi", category: "Network" },
-    { label: "VPN", category: "Network" },
-    { label: "Password Reset", category: "Account" },
-    { label: "Access Request", category: "Account" },
-  ];
+  // Build default sub-category options from ticketConfig and mock-data where available
+  const buildDefaultSubCategories = () => {
+    const out = [];
+    try {
+      // IT Support subcategories (ticketConfig.itSupport)
+      const itOpts = ticketConfig?.itSupport?.fields?.find(f => f.name === 'subcategory')?.options || [];
+      itOpts.forEach(o => out.push({ label: o, category: 'IT Support' }));
+
+      // Asset check-in/out subcategories (product types)
+      const inOpts = ticketConfig?.assetCheckIn?.fields?.find(f => f.name === 'subcategory')?.options || [];
+      inOpts.forEach(o => out.push({ label: o, category: 'Asset Check In' }));
+      const outOpts = ticketConfig?.assetCheckOut?.fields?.find(f => f.name === 'subcategory')?.options || [];
+      outOpts.forEach(o => out.push({ label: o, category: 'Asset Check Out' }));
+
+      // Budget proposal subcategories from mock-data
+      (MOCK_SUBCATEGORIES?.budgetSubCategories || MOCK_BUDGET_SUBCATS || []).forEach(o => out.push({ label: o, category: 'New Budget Proposal' }));
+
+      // 'Others' (General Request) subcategories from mock-data mapping
+      const generalSubs = MOCK_SUBCATEGORIES?.['General Request'] || MOCK_SUBCATEGORIES?.['Others'] || [];
+      (generalSubs || []).forEach(o => out.push({ label: o, category: 'Others' }));
+    } catch (e) {
+      // fallback: no-op
+    }
+    return out;
+  };
+
+  const defaultSubCategoryOptions = buildDefaultSubCategories();
 
   return (
     <FilterPanel

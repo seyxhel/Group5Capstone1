@@ -6,6 +6,7 @@ import EmployeeTicketRecords from '../employee/pages/ticket-records/EmployeeTick
 import EmployeeTicketSubmissionForm from '../employee/pages/ticket-submission-form/EmployeeTicketSubmissionForm';
 import EmployeeTicketTracker from '../employee/pages/ticket-tracker/EmployeeTicketTracker';
 import EmployeeSettings from '../employee/pages/settings/EmployeeSettings';
+import ErrorBoundary from '../shared/components/ErrorBoundary';
 import EmployeeFAQs from '../employee/pages/frequently-asked-questions/EmployeeFAQs';
 import EmployeeFAQ from '../employee/pages/faq/EmployeeFAQ';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
@@ -18,7 +19,7 @@ const EmployeeRoutes = () => (
       <Route path="ticket-records/:filter" element={<EmployeeTicketRecords />} />
       <Route path="submit-ticket" element={<EmployeeTicketSubmissionForm/>} />
       <Route path="ticket-tracker/:ticketNumber" element={<EmployeeTicketTracker />} />
-      <Route path="settings" element={<EmployeeSettings />} />
+  <Route path="settings" element={<ErrorBoundary><EmployeeSettings /></ErrorBoundary>} />
       <Route path="frequently-asked-questions" element={<EmployeeFAQs />} />
   <Route path="faq" element={<EmployeeFAQ />} />
       <Route path="*" element={<NotFoundPage />} />
