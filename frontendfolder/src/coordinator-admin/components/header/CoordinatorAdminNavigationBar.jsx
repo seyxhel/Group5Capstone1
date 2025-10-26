@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import useScrollShrink from '../../../shared/hooks/useScrollShrink.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
-import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
+import CoordinatorAdminNotifications from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
@@ -37,6 +37,7 @@ const CoordinatorAdminNavBar = () => {
   const navRef = useRef(null);
   const currentUser = authService.getCurrentUser();
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // temporarily set threshold to 0 and enable debug to observe scroll events during testing
   const scrolled = useScrollShrink(0, { debug: true });
@@ -267,14 +268,16 @@ const CoordinatorAdminNavBar = () => {
             onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleDropdown('notifications')}
           >
             <NotificationIcon />
-            {notificationCount > 0 && (
-              <span className={styles['notification-badge']}>{notificationCount}</span>
+            {notifCount > 0 && (
+              <span className={styles['notification-badge']}>{notifCount}</span>
             )}
           </div>
           {openDropdown === 'notifications' && (
-            <div className={styles['notification-dropdown']}>
-              <CoordinatorAdminNotifications />
-            </div>
+            <CoordinatorAdminNotifications
+              show={openDropdown === 'notifications'}
+              onClose={() => setOpenDropdown(null)}
+              onCountChange={setNotifCount}
+            />
           )}
         </div>
 
