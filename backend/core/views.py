@@ -1,11 +1,11 @@
-
 from rest_framework.permissions import IsAuthenticated, BasePermission
-
 # Move IsSystemAdmin definition to top
 class IsSystemAdmin(BasePermission):
     def has_permission(self, request, view):
         return hasattr(request.user, 'role') and request.user.role == "System Admin"
 from rest_framework.decorators import api_view, permission_classes, parser_classes
+from .authentication import CookieJWTAuthentication, ExternalUser
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated, IsSystemAdmin])
@@ -207,11 +207,18 @@ class AdminTokenObtainPairView(TokenObtainPairView):
 
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
+    authentication_classes = [
+        CookieJWTAuthentication, 
+        # JWTAuthentication
+        ]
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # Accept JSON and form uploads
+
     
     def get_queryset(self):
         user = self.request.user
+        if isinstance(user, ExternalUser):
+            return Ticket.objects.filter(employee_cookie_id=user.id).order_by('-submit_date')
         if user.role in ['System Admin', 'Ticket Coordinator']:
             return Ticket.objects.all().order_by('-submit_date')  # Admins see all, newest first
         return Ticket.objects.filter(employee=user).order_by('-submit_date')  # Employees see their own, newest first
@@ -321,7 +328,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                 file_name=file.name,
                 file_type=getattr(file, 'content_type', '') or '',
                 file_size=getattr(file, 'size', 0) or 0,
-                uploaded_by=request.user
+                uploaded_by=request.user if not isinstance(request.user, ExternalUser) else None
             )
             created_attachments.append(ta)
 
@@ -344,7 +351,10 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Response(serialized, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
-        return serializer.save()
+        if isinstance(self.request.user, ExternalUser):
+            serializer.save(employee=None, employee_cookie_id=self.request.user.id)
+        else:
+            serializer.save(employee=self.request.user)
         
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -789,7 +799,7 @@ def claim_ticket(request, ticket_id):
         ticket = get_object_or_404(Ticket, id=ticket_id)
 
         # Only allow claiming if the ticket is Open
-        if ticket.status != 'Open':
+        if (ticket.status != 'Open'):
             return Response({'error': 'Ticket is not available for claiming.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Optional: prevent re-claim
@@ -1409,3 +1419,16 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         article.is_archived = False
         article.save()
         return Response({'detail': 'Article restored successfully.'}, status=status.HTTP_200_OK)
+
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication, CookieJWTAuthentication])  # test both
+@permission_classes([IsAuthenticated])
+def test_jwt_view(request):
+    return Response({
+        "authenticated_user": str(request.user),
+        "auth_type": request.successful_authenticator.__class__.__name__
+    })

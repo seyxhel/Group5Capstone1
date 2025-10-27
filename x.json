@@ -1,0 +1,28 @@
+{
+    "subject": "ticket_test_tts_ACO",
+    "category": "Asset Check Out",
+    "sub_category": "Laptop",
+    "description": "Request to check out a laptop for temporary use.",
+    "scheduled_date": "2025-10-27T15:46:09.191596+08:00",
+    "asset_name": "Dell XPS 13",
+    "serial_number": "LP123456789",
+    "location": "Main Office, Building A, Room 305",
+    "expected_return_date": "2025-11-03T15:46:09.191596+08:00",
+    "issue_type": "Asset Request",
+    "other_issue": "",
+    "performance_start_date": null,
+    "performance_end_date": null,
+    "approved_by": "",
+    "cost_items": null,
+    "requested_budget": null,
+    "fiscal_year": "2025",
+    "department_input": 1,
+    "dynamic_data": {
+        "purpose": "Temporary use for software development project",
+        "project_code": "PRJ-2025-001",
+        "condition": "New",
+        "accessories_included": ["Charger", "Mouse"]
+    },
+    "status": "New",
+    "rejected_by": ""
+}

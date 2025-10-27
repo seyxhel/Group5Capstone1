@@ -232,7 +232,9 @@ class TicketSerializer(serializers.ModelSerializer):
             except Exception:
                 pass
 
-        ticket = Ticket.objects.create(employee=user, dynamic_data=dynamic, **validated_data)
+        # Get employee from validated_data instead of assuming user
+        employee = validated_data.pop('employee', None)
+        ticket = Ticket.objects.create(employee=employee, dynamic_data=dynamic, **validated_data)
         
         # Set budget-specific defaults when category is "New Budget Proposal"
         if validated_data.get('category') == 'New Budget Proposal':

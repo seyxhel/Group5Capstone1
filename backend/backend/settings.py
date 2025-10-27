@@ -22,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-q2(fx!vo0@(tbkky-_qdeo=%f)5xub45y+&cyx$5!$uo=*ta+v'
+SECRET_KEY = 'your-auth-service-secret-key-here'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -145,9 +145,13 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+            'core.authentication.CookieJWTAuthentication',
+            'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
+JWT_AUTH_COOKIE = "access_token" 
+
 
 # JWT Settings
 from datetime import timedelta
@@ -208,8 +212,8 @@ USERNAME_FIELD = 'email'
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
 ]
-CELERY_BROKER_URL = 'amqp://GY6Jx5nsXW5edoIB:DGHuVF0tWCZgWnO~T51D._6viJWc7U_B@ballast.proxy.rlwy.net:48690//'
-CELERY_RESULT_BACKEND = 'rpc://'
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://admin:admin@localhost:5672/')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'rpc://')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks2'  # Only if you plan to run worker here

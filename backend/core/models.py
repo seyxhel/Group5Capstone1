@@ -170,7 +170,20 @@ class Ticket(models.Model):
             self.ticket_number = generate_unique_ticket_number()
         super().save(*args, **kwargs)
 
-    employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tickets")
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="tickets",
+        null=True,          # allows NULL values in the database
+        blank=True          # allows empty in forms/admin
+        
+        )
+    employee_cookie_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="User ID from external cookie-auth system"
+    )
     subject = models.CharField(max_length=255)
     category = models.CharField(max_length=100)
     sub_category = models.CharField(max_length=100, blank=True, null=True)
