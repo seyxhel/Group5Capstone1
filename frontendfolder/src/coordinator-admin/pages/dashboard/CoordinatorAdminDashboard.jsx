@@ -858,7 +858,8 @@ const CoordinatorAdminDashboard = () => {
                     pieRange={pieRange}
                     setPieRange={setPieRange}
                     isAdmin={currentUser?.role === 'System Admin'}
-                    onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/users/all-users')}
+                    // Browse All should lead to the appropriate admin list pages
+                    onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/user-access/all-users')}
                     // For Users tab show only Pending and Inactive slices (legends still show all)
                     // For Users tab show only Pending and Rejected slices (legends still show all)
                     visibleNames={activeTab === 'tickets' ? null : ['Active','Pending','Rejected']}
