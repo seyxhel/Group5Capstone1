@@ -69,10 +69,48 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
       <ToastContainer />
       <h2 className={styles.heading}>
         {(() => {
-          const ownerName = (ticket.employee && (ticket.employee.first_name || ticket.employee.firstName))
-            ? `${ticket.employee.first_name || ticket.employee.firstName} ${ticket.employee.last_name || ticket.employee.lastName}`.trim()
-            : ticket.employee_name || ticket.employeeName || ticket.createdBy?.name || '';
-          return ownerName ? `Approve Ticket ${ticket.ticketNumber} for ${ownerName}` : `Approve Ticket ${ticket.ticketNumber}`;
+          const resolveOwnerName = (t) => {
+            if (!t) return '';
+            // employee object common shapes
+            if (t.employee) {
+              const e = t.employee;
+              const first = e.first_name || e.firstName || e.first;
+              const last = e.last_name || e.lastName || e.last;
+              if (first || last) return `${first || ''} ${last || ''}`.trim();
+              if (e.name) return e.name;
+              if (e.user) {
+                const uf = e.user.first_name || e.user.firstName || e.user.name;
+                const ul = e.user.last_name || e.user.lastName;
+                if (uf && ul) return `${uf} ${ul}`.trim();
+                if (uf) return uf;
+              }
+            }
+
+            // requester / requested_by / user / owner shapes
+            const person = t.requester || t.requested_by || t.requestedBy || t.user || t.owner || t.requester_user;
+            if (person) {
+              const first = person.first_name || person.firstName || person.name;
+              const last = person.last_name || person.lastName;
+              if (first && last) return `${first} ${last}`.trim();
+              if (first) return first;
+              if (person.name) return person.name;
+              if (person.user) {
+                const uf = person.user.first_name || person.user.firstName || person.user.name;
+                const ul = person.user.last_name || person.user.lastName;
+                if (uf && ul) return `${uf} ${ul}`.trim();
+                if (uf) return uf;
+              }
+            }
+
+            // flat name fields
+            return t.employee_name || t.employeeName || t.requester_name || t.requesterName || t.createdBy?.name || t.created_by?.name || t.requested_by_name || t.requestedByName || '';
+          };
+
+          const resolveTicketNumber = (t) => t?.ticketNumber || t?.ticket_number || t?.ticket_no || t?.number || t?.id || '';
+
+          const ownerName = resolveOwnerName(ticket);
+          const ticketNum = resolveTicketNumber(ticket);
+          return ownerName ? `Approve Ticket ${ticketNum} for ${ownerName}` : `Approve Ticket ${ticketNum}`;
         })()}
       </h2>
 

@@ -50,9 +50,14 @@ const EmployeeHome = () => {
           return status !== 'closed';
         });
 
-        // Sort by creation date (most recent first) and take top 5
+        // Sort by last-updated timestamp (most recent first). Fall back to creation date when
+        // update timestamps are missing. This ensures 'Recent Tickets' reflects activity, not just creation.
+        const getLastUpdated = (t) => new Date(
+          t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || 0
+        );
+
         const sorted = activeTickets
-          .sort((a, b) => new Date(b.submit_date || b.dateCreated) - new Date(a.submit_date || a.dateCreated))
+          .sort((a, b) => getLastUpdated(b) - getLastUpdated(a))
           .slice(0, 5);
 
         console.log('Recent active tickets:', sorted);
@@ -103,8 +108,8 @@ const EmployeeHome = () => {
       subCategory: ticket.sub_category || ticket.subCategory,
       priorityLevel: ticket.priority || ticket.priorityLevel,
       assignedTo: ticket.assigned_to || ticket.assignedTo,
-      lastUpdated: ticket.update_date || ticket.lastUpdated,
-      dateCreated: ticket.submit_date || ticket.dateCreated
+      lastUpdated: ticket.update_date || ticket.lastUpdated || ticket.updatedAt || ticket.updated_at || ticket.time_closed || ticket.closedAt || ticket.submit_date || ticket.dateCreated || ticket.createdAt || null,
+      dateCreated: ticket.submit_date || ticket.dateCreated || ticket.createdAt || null
     };
   };
 

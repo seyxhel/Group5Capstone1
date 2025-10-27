@@ -53,6 +53,29 @@ export const backendArticleService = {
   },
 
   /**
+   * Optional: fetch category choices from backend if the API exposes them.
+   * Some backends expose an endpoint like /api/articles/choices/ that returns
+   * available category choices. This helper will try that and return [] on failure.
+   */
+  async getCategoryChoices() {
+    try {
+      const response = await fetch(`${BASE_URL}/api/articles/choices/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      handleAuthError(response);
+
+      if (!response.ok) return [];
+
+      return await response.json();
+    } catch (error) {
+      // Not all backends expose this endpoint — that's fine, caller should fallback
+      return [];
+    }
+  },
+
+  /**
    * Get a single article by ID
    */
   async getArticleById(articleId) {

@@ -355,50 +355,50 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
   const tickets = getAllTickets();
-  const ticket = ticketNumber
-    ? getTicketByNumber(ticketNumber)
-    : tickets && tickets.length > 0
-    ? tickets[tickets.length - 1]
-    : null;
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
-    );
-  }
-  const {
-    ticketNumber: number,
-    subject,
-    category,
-    subCategory,
-    status: originalStatus,
-    dateCreated,
-    lastUpdated,
-    description,
-    fileUploaded,
-    priorityLevel,
-    department,
-    assignedTo,
-    scheduledRequest,
-  } = ticket;
-  // UI-friendly category: backend/storage may use 'General Request' while the form shows 'Others'
-  const uiCategory = (category === 'General Request') ? 'Others' : category;
-  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
-  const status = computeEffectiveStatus(ticket) || originalStatus;
-  const statusSteps = getStatusSteps(status);
-  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
-  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
-  const ticketLogs = generateLogs(ticket);
-  const userRole = authService.getUserRole();
-  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
-  const canPerformActions = userRole === 'Ticket Coordinator';
+  const [ticket, setTicket] = useState(null);
+  const [loadingTicket, setLoadingTicket] = useState(false);
 
+  // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow
+  // (show latest ticket). If local storage doesn't contain the ticket, try
+  // fetching from the backend by ticket number.
+  useEffect(() => {
+    let mounted = true;
+
+    const findLocal = () => {
+      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
+    };
+
+    const local = findLocal();
+    if (local) {
+      setTicket(local);
+      return () => { mounted = false; };
+    }
+
+    if (ticketNumber) {
+      setLoadingTicket(true);
+      (async () => {
+        try {
+          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+          if (mounted) setTicket(fetched || null);
+        } catch (err) {
+          // keep behavior consistent with employee view: log error and show not found
+          // so the UI doesn't crash — user can retry from Ticket Management page.
+          // No rethrow here to avoid unhandled promise errors in the UI.
+          // eslint-disable-next-line no-console
+          console.error('Error fetching ticket by number:', err);
+          if (mounted) setTicket(null);
+        } finally {
+          if (mounted) setLoadingTicket(false);
+        }
+      })();
+    } else {
+      setTicket(local);
+    }
+
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketNumber, JSON.stringify(tickets)]);
   // Sync heights between left and right columns so both match the taller one.
   // This effect is declared unconditionally so Hooks order remains stable
   useEffect(() => {
@@ -494,6 +494,125 @@ export default function CoordinatorAdminTicketTracker() {
     };
   }, [ticketNumber, ticket, activeTab]);
 
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>{loadingTicket ? 'Loading Ticket...' : 'No Ticket Found'}</h1>
+        </div>
+        <p className={styles.notFound}>
+          {loadingTicket ? 'Fetching ticket details...' : 'No ticket data available. Please navigate from the Ticket Management page or check your ticket number.'}
+        </p>
+      </div>
+    );
+  }
+  const {
+    subject,
+    category,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
+    description,
+    fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+  } = ticket;
+
+  // Normalize created/updated timestamps from various payload shapes
+  const dateCreatedRaw = ticket.dateCreated || ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.created_at || ticket.created || ticket.date_created || ticket.submitted_at || ticket.submitDate || null;
+  const lastUpdatedRaw = ticket.lastUpdated || ticket.update_date || ticket.updatedAt || ticket.updated_at || ticket.last_update || ticket.time_closed || ticket.closedAt || null;
+
+  // Normalize ticket number from various backend/local shapes
+  const number = ticket.ticketNumber || ticket.ticket_number || ticket.ticket_no || ticket.number || ticket.id || 'Unknown';
+
+  // Dynamic data helper
+  const dyn = ticket.dynamic_data || {};
+
+  // Prepare additionalDetailsEntries similar to Employee view: when category is 'Others'
+  // we want to hide schedule-like keys (schedule, scheduleRequest, scheduled_date, etc.)
+  const _dynamicEntries = dyn && typeof dyn === 'object' ? Object.entries(dyn) : [];
+  const additionalDetailsEntries = _dynamicEntries.filter(([key, val]) => {
+    try {
+      const k = (key || '').toString().toLowerCase();
+      // Hide schedule-like keys for 'Others' category
+      if (uiCategory === 'Others' && k.includes('schedule')) return false;
+      // If value is an object that appears to be a schedule (has date/datetime/time/notes), exclude it
+      if (val && typeof val === 'object') {
+        const hasDate = Object.prototype.hasOwnProperty.call(val, 'date') || Object.prototype.hasOwnProperty.call(val, 'datetime') || Object.prototype.hasOwnProperty.call(val, 'scheduledDate') || Object.prototype.hasOwnProperty.call(val, 'scheduled_date');
+        const hasTime = Object.prototype.hasOwnProperty.call(val, 'time');
+        const hasNotes = Object.prototype.hasOwnProperty.call(val, 'notes') || Object.prototype.hasOwnProperty.call(val, 'note');
+        if (hasDate || hasTime || hasNotes) {
+          if (uiCategory === 'Others') return false;
+        }
+      }
+    } catch (e) {
+      // on error, keep the entry
+    }
+    return true;
+  });
+
+  // Normalize scheduled request: support scheduled_date, scheduledDate, nested scheduleRequest objects,
+  // or dynamic_data keys used by older payloads.
+  let scheduledRaw = ticket.scheduledRequest || ticket.scheduled_request || ticket.scheduled_date || ticket.scheduledDate || null;
+  if (!scheduledRaw) {
+    const possible = dyn.schedule || dyn.schedule_request || dyn.scheduleRequest || dyn.scheduled || dyn.scheduled_request || dyn.scheduledRequest || null;
+    if (possible) {
+      if (typeof possible === 'string') scheduledRaw = possible;
+      else if (typeof possible === 'object') scheduledRaw = possible.date || possible.datetime || possible.scheduledDate || possible.scheduled_date || null;
+    }
+    if (!scheduledRaw && dyn && dyn.scheduleRequest && typeof dyn.scheduleRequest === 'object') {
+      scheduledRaw = dyn.scheduleRequest.date || dyn.scheduleRequest.datetime || null;
+    }
+    if (!scheduledRaw && dyn && dyn.schedule_request && typeof dyn.schedule_request === 'object') {
+      scheduledRaw = dyn.schedule_request.date || dyn.schedule_request.datetime || null;
+    }
+
+    // (scheduledRaw computed above)
+
+  }
+
+  // Budget proposal normalization
+  const preparedByField = ticket.preparedBy || ticket.prepared_by || ticket.preparedByName || dyn.preparedBy || dyn.prepared_by || null;
+  const totalBudgetField = (ticket.totalBudget ?? ticket.total_budget) ?? (dyn.totalBudget ?? dyn.total_budget ?? null);
+  // UI-friendly category: backend/storage may use 'General Request' while the form shows 'Others'
+  const uiCategory = (category === 'General Request') ? 'Others' : category;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const status = computeEffectiveStatus(ticket) || originalStatus;
+  const statusSteps = getStatusSteps(status);
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const ticketLogs = generateLogs(ticket);
+  const userRole = authService.getUserRole();
+  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const canPerformActions = userRole === 'Ticket Coordinator';
+
+  // Handler used by modal children to indicate success (open/reject actions completed).
+  // Accepts an optional updatedTicket object. If not provided we attempt to re-fetch
+  // the ticket by number so the UI reflects the latest backend state.
+  const handleModalSuccess = async (updatedTicket) => {
+    try {
+      setShowOpenModal(false);
+      setShowRejectModal(false);
+      if (updatedTicket) {
+        setTicket(updatedTicket);
+        return;
+      }
+      if (ticketNumber) {
+        try {
+          const fresh = await backendTicketService.getTicketByNumber(ticketNumber);
+          if (fresh) setTicket(fresh);
+        } catch (err) {
+          console.error('Failed to refresh ticket after modal success', err);
+        }
+      }
+    } catch (e) {
+      console.error('handleModalSuccess error', e);
+    }
+  };
+ 
+
   // Normalize scheduled request for rendering: it may be a string, date, or an object {date, time, notes}
   const computeScheduledDisplay = (raw) => {
     if (!raw) return null;
@@ -511,9 +630,7 @@ export default function CoordinatorAdminTicketTracker() {
     // If it's a string or number, try to format as date-only
     return formatDateOnly(raw) || raw;
   };
-
-  const scheduledRequestDisplay = computeScheduledDisplay(scheduledRequest);
-
+  const scheduledRequestDisplay = computeScheduledDisplay(scheduledRaw);
   
   return (
     <>
@@ -544,10 +661,10 @@ export default function CoordinatorAdminTicketTracker() {
                 {/* Ticket meta: compact metadata shown under header */}
                 <div className={styles.ticketMeta}>
                   <div className={styles.ticketMetaItem}>
-                    <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreated)}</span> </span> 
+                    <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreatedRaw)}</span> </span> 
                   </div>
                   <div className={styles.ticketMetaItem}>
-                    <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdated)}</span> </span>
+                    <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdatedRaw)}</span> </span>
                   </div>
                 </div>
                 {/* Ticket Details - consolidated and always present */}
@@ -667,10 +784,6 @@ export default function CoordinatorAdminTicketTracker() {
                         <div className={styles.categoryDetails}>Budget Proposal Details</div>
                         <div className={styles.dynamicDetailsGrid}>
                           <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Prepared By</div>
-                            <div className={styles.detailValue}>{ticket.preparedBy || ticket.prepared_by || ticket.preparedByName || 'N/A'}</div>
-                          </div>
-                          <div className={styles.detailItem}>
                             <div className={styles.detailLabel}>Performance Start</div>
                             <div className={styles.detailValue}>{ticket.performanceStartDate || ticket.performance_start_date || ticket.performanceStart || 'N/A'}</div>
                           </div>
@@ -679,8 +792,12 @@ export default function CoordinatorAdminTicketTracker() {
                             <div className={styles.detailValue}>{ticket.performanceEndDate || ticket.performance_end_date || ticket.performanceEnd || 'N/A'}</div>
                           </div>
                           <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Prepared By</div>
+                            <div className={styles.detailValue}>{preparedByField || 'N/A'}</div>
+                          </div>
+                          <div className={styles.detailItem}>
                             <div className={styles.detailLabel}>Total Budget</div>
-                            <div className={styles.detailValue}>{formatMoney(ticket.totalBudget ?? ticket.total_budget)}</div>
+                            <div className={styles.detailValue}>{formatMoney(totalBudgetField)}</div>
                           </div>
                           <div className={styles.detailItem}>
                             <div className={styles.detailLabel}>Budget Items</div>
@@ -700,18 +817,18 @@ export default function CoordinatorAdminTicketTracker() {
                       </>
                     )}
                     {/* Fallback: dynamic_data */}
-                    {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && ticket.dynamic_data && Object.keys(ticket.dynamic_data).length > 0 && (
+                    {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && uiCategory !== 'Others' && ticket.dynamic_data && additionalDetailsEntries && additionalDetailsEntries.length > 0 && (
                       <div className={styles.dynamicDetailsGrid}>
                         <div className={styles.detailItem}>
                           <div className={styles.detailLabel}>Additional Details</div>
                           <div className={styles.detailValue}></div>
                         </div>
-                        {Object.entries(ticket.dynamic_data).map(([key, val]) => (
-                              <div className={styles.detailItem} key={key}>
-                                <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
-                                <div className={styles.detailValue}>{renderDynamicValue(val)}</div>
-                              </div>
-                            ))}
+                        {additionalDetailsEntries.map(([key, val]) => (
+                                  <div className={styles.detailItem} key={key}>
+                                    <div className={styles.detailLabel}>{String(key).replace(/_/g, ' ')}</div>
+                                    <div className={styles.detailValue}>{renderDynamicValue(val)}</div>
+                                  </div>
+                                ))}
                       </div>
                     )}
                   </div>

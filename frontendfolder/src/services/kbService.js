@@ -24,11 +24,27 @@ const normalizeVisibility = (v) => {
 };
 
 export const listCategories = async () => {
-  // Return categories in the format expected by the UI
-  return TICKET_CATEGORIES.map((name, index) => ({
-    id: index + 1,
-    name: name
-  }));
+  // Try to fetch category choices from the backend if available. Some backends
+  // may expose an endpoint that returns available article categories. If that
+  // endpoint is not present or fails, fall back to the static TICKET_CATEGORIES
+  // defined in the frontend.
+  try {
+    const remote = await backendArticleService.getCategoryChoices();
+    // Remote may return an array of strings or objects; normalize to { id, name }
+    if (Array.isArray(remote) && remote.length > 0) {
+      // If it's an array of strings
+      if (typeof remote[0] === 'string') {
+        return remote.map((n, i) => ({ id: i + 1, name: n }));
+      }
+      // If it's array of objects with 'name' or 'label'
+      return remote.map((r, i) => ({ id: r.id || i + 1, name: r.name || r.label || String(r) }));
+    }
+  } catch (err) {
+    // ignore and fallback
+  }
+
+  // Fallback to the static categories used by tickets/articles
+  return TICKET_CATEGORIES.map((name, index) => ({ id: index + 1, name: name }));
 };
 
 export const listArticles = async (filters = {}) => {

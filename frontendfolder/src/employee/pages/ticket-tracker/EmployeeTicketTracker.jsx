@@ -443,6 +443,9 @@ export default function EmployeeTicketTracker() {
     assigned_to: assignedTo,
     scheduled_date: scheduledRequest,
   } = ticket;
+  // Normalize created/updated timestamps from several possible payload keys
+  const dateCreatedRaw = ticket.submit_date || ticket.dateCreated || ticket.createdAt || ticket.created_at || ticket.created || ticket.date_created || ticket.submitted_at || ticket.submitDate || null;
+  const lastUpdatedRaw = ticket.update_date || ticket.lastUpdated || ticket.updatedAt || ticket.updated_at || ticket.time_closed || ticket.closedAt || ticket.last_update || null;
   // UI-friendly category: tickets stored as 'General Request' correspond to the form label 'Others'
   const uiCategory = (category === 'General Request') ? 'Others' : category;
 
@@ -612,10 +615,10 @@ export default function EmployeeTicketTracker() {
               {/* Ticket meta: compact metadata shown under header */}
               <div className={styles.ticketMeta}>
                 <div className={styles.ticketMetaItem}>
-                  <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreated)}</span> </span> 
+                  <span className={styles.ticketMetaLabel}>Date Created <span className={styles.ticketMetaValue}>{formatDate(dateCreatedRaw)}</span> </span> 
                 </div>
                 <div className={styles.ticketMetaItem}>
-                  <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdated)}</span> </span>
+                  <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdatedRaw)}</span> </span>
                 </div>
               </div>
 
@@ -777,7 +780,7 @@ export default function EmployeeTicketTracker() {
                     </>
                   )}
                   {/* Fallback: dynamic_data */}
-                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && additionalDetailsEntries && additionalDetailsEntries.length > 0 && (
+                  {!(category === 'IT Support' || category === 'Asset Check In' || category === 'Asset Check Out' || category === 'New Budget Proposal') && uiCategory !== 'Others' && additionalDetailsEntries && additionalDetailsEntries.length > 0 && (
                     <div className={styles.dynamicDetailsGrid}>
                       <div className={styles.detailItem}>
                         <div className={styles.detailLabel}>Additional Details</div>

@@ -182,13 +182,37 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   const coordinatorImage = coordinatorImageSrc;
 
   // If we don't have explicit coordinator identity from ticket fields, try to derive
-  // from the most-recent ticket log's rawActor (generateLogs now provides rawActor)
+  // from the most-recent ticket log's rawActor (generateLogs now provides rawActor).
+  // However, avoid using employee-originated log actors (e.g. withdraw actions) as
+  // the coordinator — only accept a fallback actor when it appears to be staff/coordinator.
   let fallbackLogActor = null;
   try {
     if (Array.isArray(ticketLogs) && ticketLogs.length) {
-      // ticketLogs are newest-first; pick first log that has a rawActor and isn't a System entry
-      const found = ticketLogs.find((l) => l.rawActor && String(l.user || '').toLowerCase() !== 'system');
-      if (found) fallbackLogActor = found.rawActor;
+      // ticketLogs are newest-first; find the first rawActor that's not System
+      // and that appears to be a staff/coordinator/admin actor (not an employee action)
+      for (const l of ticketLogs) {
+        if (!l.rawActor) continue;
+        const actor = l.rawActor;
+        // If actor is an object, inspect role-like fields
+        if (typeof actor === 'object') {
+          const roleStr = ((actor.role || actor.user_role || actor.job_role || '') + '').toString().toLowerCase();
+          const looksLikeStaff = roleStr.includes('ticket') || roleStr.includes('coordinator') || roleStr.includes('admin') || roleStr.includes('system');
+          // Also accept if actor has department/company fields suggesting staff
+          const hasDept = Boolean(actor.department || actor.dept || actor.company_id || actor.companyId || actor.employee_department);
+          if (looksLikeStaff || hasDept) {
+            fallbackLogActor = actor;
+            break;
+          }
+          // otherwise skip (likely employee-initiated)
+        } else if (typeof actor === 'string') {
+          // if it's a string and doesn't look like 'System' or an employee id, we can tentatively accept
+          const a = actor.toLowerCase();
+          if (a && a !== 'system' && !/^emp|^ma|^user/i.test(a)) {
+            fallbackLogActor = actor;
+            break;
+          }
+        }
+      }
     }
   } catch (e) {
     // ignore
@@ -232,7 +256,7 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   // Show when there is any coordinator identity present (coordinatorReview, assignedTo, assigned_to, coordinatorId)
   // and the ticket is not in the 'new' status.
   const ticketStatus = (ticket?.status || '').toString().toLowerCase();
-  const hasCoordinatorReview = Boolean(ticket?.coordinatorReview) || Boolean(resolvedCoordId) || Boolean(ticket?.assignedTo) || Boolean(ticket?.assigned_to) || Boolean(ticket?.coordinatorId) || Boolean(ticket?.coordinator_id) || Boolean(ticket?.coordinator) || Boolean(ticket?.approved_by) || Boolean(fallbackLogActor);
+  const hasCoordinatorReview = Boolean(ticket?.coordinatorReview) || Boolean(resolvedCoordId) || Boolean(ticket?.assignedTo) || Boolean(ticket?.assigned_to) || Boolean(ticket?.coordinatorId) || Boolean(ticket?.coordinator_id) || Boolean(ticket?.coordinator) || Boolean(ticket?.approved_by);
   const showCoordinator = hasCoordinatorReview && (ticketStatus !== 'new');
 
   // Temporary debug logs to help diagnose missing coordinator block in the wild.

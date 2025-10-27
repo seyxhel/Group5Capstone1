@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pie, Line } from 'react-chartjs-2';
 import {
@@ -34,6 +34,10 @@ import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { backendArticleService } from '../../../services/backend/articleService';
+import kbService from '../../../services/kbService';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -80,14 +84,14 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
     );
   };
 
-const DataTable = ({ title, headers, data }) => (
+const DataTable = ({ title, headers, data, bodyStyle = {} }) => (
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
       {/* Manage buttons removed per design request */}
     </div>
 
-    <div className={tableStyles.tableOverflow}>
+    <div className={tableStyles.tableOverflow} style={bodyStyle}>
       {data.length > 0 ? (
         <table className={tableStyles.table}>
           <thead className={tableStyles.tableHead}>
@@ -122,15 +126,16 @@ const DataTable = ({ title, headers, data }) => (
   </div>
 );
 
-const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse }) => {
+const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse, visibleNames = null }) => {
   // Transform data for Chart.js
+  const chartSource = Array.isArray(visibleNames) ? data.filter(d => visibleNames.includes(d.name)) : data;
   const chartData = {
-    labels: data.map(item => item.name),
+    labels: chartSource.map(item => item.name),
     datasets: [
       {
         label: title,
-        data: data.map(item => item.value),
-        backgroundColor: data.map(item => item.fill),
+        data: chartSource.map(item => item.value),
+        backgroundColor: chartSource.map(item => item.fill),
         borderWidth: 1,
         borderColor: '#fff',
       },
@@ -178,6 +183,7 @@ const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmi
       <div className={chartStyles.chartContentRow}>
         {/* Left: Statuses (single column) */}
         <div className={chartStyles.statusColumn}>
+          {/* Always render full legend list from the full data set (so missing categories still show in legend) */}
           {data.map((d, idx) => (
             <div key={idx} className={chartStyles.statusItem}>
               <span className={chartStyles.statusSwatch} style={{ background: d.fill }} />
@@ -304,7 +310,8 @@ const CoordinatorAdminDashboard = () => {
   const [chartRange, setChartRange] = useState('month');
   const [pieRange, setPieRange] = useState('month');
   const navigate = useNavigate();
-  const currentUser = authService.getCurrentUser();
+  // Memoize current user to avoid unstable object identity from authService
+  const currentUser = useMemo(() => authService.getCurrentUser(), []);
   // Ticket Coordinators only see the Tickets tab on dashboard
   const dashboardTabs = currentUser?.role === 'Ticket Coordinator'
     ? [{ label: 'Tickets', value: 'tickets' }]
@@ -315,6 +322,18 @@ const CoordinatorAdminDashboard = () => {
     ];
 
   const [ticketDataState, setTicketDataState] = useState(null);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketError, setTicketError] = useState(null);
+  const [kbDataState, setKbDataState] = useState(null);
+  const [loadingKb, setLoadingKb] = useState(false);
+  const [kbError, setKbError] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [yRange, setYRange] = useState('auto');
+  const [activityTimeline, setActivityTimeline] = useState([]);
+  const [userActivityTimeline, setUserActivityTimeline] = useState([]);
+  const [userDataState, setUserDataState] = useState(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userError, setUserError] = useState(null);
 
   const ticketData = ticketDataState || {
     stats: ticketPaths.map((item, i) => ({
@@ -324,7 +343,7 @@ const CoordinatorAdminDashboard = () => {
       position: i,
       path: item.path
     })),
-    tableData: tableData,
+    tableData: [],
     // Pie and line data for ticket charts (placeholder/demo values)
     pieData: [],
     lineData: [],
@@ -472,38 +491,256 @@ const CoordinatorAdminDashboard = () => {
 
   // Effect: load tickets and compute dashboard data based on role and selected ranges
   useEffect(() => {
-    try {
-      const all = getAllTickets();
-      const filtered = filterByRole(all);
-
-      // stats per ticketPaths
-      const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
-      filtered.forEach(t => {
-        const s = computeEffectiveStatus(t);
-        // only increment if status maps to one of the ticketPaths labels
-        const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
-        if (mapLabel) {
-          const target = stats.find(st => st.label === mapLabel.label);
-          if (target) target.count += 1;
+    let mounted = true;
+    const load = async () => {
+      setLoadingTickets(true);
+      setTicketError(null);
+      try {
+        // Prefer backend tickets when available
+        let all = [];
+        try {
+          all = await backendTicketService.getAllTickets();
+        } catch (e) {
+          console.warn('Backend ticket fetch failed, falling back to local tickets', e);
+          all = [];
         }
-      });
 
-      const pie = aggregatePie(filtered.concat());
-      const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+        // If backend returned no tickets (for example when no token) fall back to local seeded tickets
+        if ((!Array.isArray(all) || all.length === 0) && typeof getAllTickets === 'function') {
+          const local = getAllTickets();
+          if (Array.isArray(local) && local.length) all = local;
+        }
 
-      setTicketDataState({
-        stats,
-        tableData: ticketData.tableData,
-        pieData: pie,
-        lineData: line
-      });
-    } catch (err) {
-      console.error('Error loading tickets for dashboard', err);
-    }
+        const filtered = filterByRole(Array.isArray(all) ? all : []);
+
+        // stats per ticketPaths
+        const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+        filtered.forEach(t => {
+          const s = computeEffectiveStatus(t);
+          // only increment if status maps to one of the ticketPaths labels
+          const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+          if (mapLabel) {
+            const target = stats.find(st => st.label === mapLabel.label);
+            if (target) target.count += 1;
+          }
+        });
+
+        const pie = aggregatePie(filtered.concat());
+        const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+        // Build a compact activity timeline: pick latest timestamp from each ticket and a short action
+        // Choose timestamp fields according to action (submitted vs resolved/rejected)
+        const buildTimestampFor = (t, verb) => {
+          if (verb === 'resolved') {
+            return new Date(t.closedAt || t.time_closed || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
+          }
+          if (verb === 'rejected') {
+            return new Date(t.rejectedAt || t.rejected_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
+          }
+          if (verb === 'withdrawn') {
+            return new Date(t.withdrawnAt || t.withdrawn_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
+          }
+          // default: submitted — use creation timestamps
+          return new Date(t.createdAt || t.dateCreated || t.submit_date || t.submitDate || t.created_at || t.update_date || 0);
+        };
+
+        const timeline = (Array.isArray(filtered) ? filtered : []).map((t) => {
+          // Prefer explicit ticket number fields (these come from backend payloads).
+          const numberRaw = t.ticketNumber || t.ticket_no || t.ticketNumber || t.ticketNo || t.ticket_number || t.number || t.reference || t.ref || t.tx || t.tx_number || null;
+          let number = numberRaw || null;
+          // If we still don't have a ticket number, try other nested fields
+          if (!number) {
+            if (t.meta && (t.meta.ticketNumber || t.meta.ticket_number)) number = t.meta.ticketNumber || t.meta.ticket_number;
+            else if (t.dynamic_data && (t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number)) number = t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number;
+          }
+          // If still missing, synthesize a readable ticket id: TX + YYYYMMDD + zero-padded internal id
+          if (!number) {
+            const created = new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0);
+            const y = String(created.getFullYear() || new Date().getFullYear());
+            const m = String((created.getMonth() + 1)).padStart(2, '0');
+            const d = String(created.getDate()).padStart(2, '0');
+            const rawId = (t.id || t.pk || t.ticket_id || t.internal_id || '') + '';
+            const padded = rawId ? rawId.padStart(6, '0') : Math.floor(Math.random() * 900000 + 100000).toString();
+            number = `TX${y}${m}${d}${padded}`;
+          }
+          const rawStatus = (t.status || computeEffectiveStatus(t) || '').toString().toLowerCase();
+          // Map status to a simple verb
+          let verb = 'submitted';
+          if (rawStatus.includes('closed') || rawStatus.includes('resolved')) verb = 'resolved';
+          else if (rawStatus.includes('rejected')) verb = 'rejected';
+          else if (rawStatus.includes('withdraw')) verb = 'withdrawn';
+          else verb = 'submitted';
+
+          // Use lastUpdated (or fallbacks) as the canonical sort key so the timeline is latest->oldest by update
+          const sortDate = new Date(t.lastUpdated || t.update_date || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.rejectedAt || t.rejected_at || t.submit_date || t.dateCreated || t.createdAt || 0);
+          const timeLabel = sortDate && !isNaN(sortDate.getTime()) ? sortDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+          const action = `Ticket ${number} ${verb}`;
+          return { time: timeLabel, action, rawTime: sortDate.getTime() };
+        })
+          .filter(i => i && Number.isFinite(i.rawTime))
+          .sort((a, b) => b.rawTime - a.rawTime)
+          .slice(0, 4);
+
+        // For user timeline, show items where a creator/employee field exists; fallback to the same timeline
+        const userTimeline = timeline.filter(item => {
+          // crude heuristic: include if ticket subject mentions employee or if any filtered ticket has employee info
+          return true;
+        }).slice(0, 4);
+
+        if (mounted) {
+          setActivityTimeline(timeline.map(i => ({ time: i.time, action: i.action })));
+          setUserActivityTimeline(userTimeline.map(i => ({ time: i.time, action: i.action })));
+
+          setTicketDataState({
+            stats,
+            tableData: ticketData.tableData,
+            pieData: pie,
+            lineData: line
+          });
+        }
+        // Fetch employees for Users tab (pending users and user activity)
+        try {
+          setLoadingUsers(true);
+          setUserError(null);
+          let employees = [];
+          try {
+            employees = await backendEmployeeService.getAllEmployees();
+          } catch (e) {
+            console.warn('Failed to fetch employees from backend:', e);
+            employees = [];
+          }
+
+          // Normalize to array
+          employees = Array.isArray(employees) ? employees : [];
+
+          // Pending users (status 'Pending') and role Employee only
+          const pending = employees.filter(u => {
+            const status = (u.status || '').toString().toLowerCase();
+            const role = (u.role || u.user_role || '').toString().toLowerCase();
+            return status === 'pending' && role === 'employee';
+          });
+
+          // Build table rows for all pending employees and lock columns order (table is scrollable)
+          const tableRows = pending.map(u => ({
+            companyId: u.companyId || u.company_id || u.company || u.companyId || u.employeeId || u.employee_id || (u.id ? `EMP-${String(u.id).padStart(3, '0')}` : ''),
+            lastName: u.lastName || u.last_name || u.surname || '',
+            firstName: u.firstName || u.first_name || u.givenName || '',
+            department: u.department || u.dept || '',
+            role: u.role || u.user_role || '',
+            status: { text: u.status || 'Pending', statusClass: 'statusPending' }
+          }));
+
+          // Stats for users tab (Pending Users count)
+          const userStats = [
+            {
+              label: 'Pending Users',
+              count: pending.length,
+              isHighlight: true,
+              position: 0,
+              path: userPaths.find(p => p.label === 'Pending Accounts')?.path
+            }
+          ];
+
+          // Build user activity logs: created/approved/rejected events (include all roles)
+          const userActions = employees.map(u => {
+            const created = new Date(u.createdAt || u.dateJoined || u.created_at || u.date_created || u.dateCreated || 0);
+            const approved = new Date(u.approvedAt || u.approved_at || u.approved_on || 0);
+            const rejected = new Date(u.rejectedAt || u.rejected_at || u.rejected_on || 0);
+            // Determine latest action
+            let actionTime = created;
+            let actionVerb = 'account created';
+            if (!isNaN(rejected.getTime()) && rejected.getTime() > (actionTime.getTime() || 0)) {
+              actionTime = rejected; actionVerb = 'account rejected by Admin';
+            } else if (!isNaN(approved.getTime()) && approved.getTime() > (actionTime.getTime() || 0)) {
+              actionTime = approved; actionVerb = 'account approved by Admin';
+            }
+            const labelId = u.companyId || u.company_id || u.employeeId || `EMP-${u.id || ''}`;
+            return { time: actionTime.getTime(), displayTime: actionTime, action: `User ${labelId} ${actionVerb}` };
+          }).filter(a => a && Number.isFinite(a.time));
+
+          userActions.sort((a, b) => b.time - a.time);
+
+          // Build pie data using backend model status values
+          // Active (Approved) counts across all roles; Pending and Rejected (Denied) count only Employee role
+          const counts = { Approved: 0, Pending: 0, Denied: 0 };
+          employees.forEach(u => {
+            const role = (u.role || u.user_role || '').toString().toLowerCase();
+            const s = (u.status || '').toString().toLowerCase();
+            if (s === 'approved' || s === 'approve') {
+              counts.Approved += 1;
+            } else if (role === 'employee') {
+              if (s === 'pending') counts.Pending += 1;
+              else if (s === 'denied' || s === 'deny' || s === 'rejected') counts.Denied += 1;
+            }
+          });
+          // Map model statuses to UI legend names: Approved -> Active, Denied -> Rejected
+          const pie = [
+            { name: 'Active', value: counts.Approved, fill: '#22C55E' },
+            { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
+            { name: 'Rejected', value: counts.Denied, fill: '#EF4444' },
+            { name: 'Inactive', value: 0, fill: '#9CA3AF' }
+          ];
+
+          if (mounted) {
+            setUserDataState({ stats: userStats, tableData: tableRows, pieData: pie, lineData: [] });
+            setUserActivityTimeline(userActions.slice(0, 4).map(a => ({ time: a.displayTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }), action: a.action })));
+          }
+        } catch (e) {
+          console.error('Error processing users for dashboard', e);
+          if (mounted) setUserError(e?.message || String(e));
+        } finally {
+          if (mounted) setLoadingUsers(false);
+        }
+      } catch (err) {
+        console.error('Error loading tickets for dashboard', err);
+        if (mounted) setTicketError(err?.message || String(err));
+      } finally {
+        if (mounted) setLoadingTickets(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
   }, [currentUser, chartRange, pieRange]);
 
+  // Effect: load KB (articles) for KB tab cards
+  useEffect(() => {
+    let mounted = true;
+    const loadKb = async () => {
+      setLoadingKb(true);
+      setKbError(null);
+      try {
+        // Fetch articles and the canonical categories list from kbService.
+        // kbService.listCategories() will try backend choices endpoint and fall back to static list.
+        const [articles, categories] = await Promise.all([
+          kbService.listArticles().catch(() => []),
+          kbService.listCategories().catch(() => [])
+        ]);
+
+        const totalArticles = Array.isArray(articles) ? articles.length : 0;
+        const categoriesCount = Array.isArray(categories) ? categories.length : 0;
+
+        const kbStats = [
+          { label: 'Articles', count: totalArticles, isHighlight: false, position: 0, path: '/admin/kb/articles' },
+          { label: 'Categories', count: categoriesCount, isHighlight: false, position: 1, path: '/admin/kb/categories' }
+        ];
+
+        if (mounted) setKbDataState({ stats: kbStats, rawArticles: articles, rawCategories: categories });
+      } catch (err) {
+        console.error('Error loading KB data for dashboard', err);
+        if (mounted) setKbError(err?.message || String(err));
+      } finally {
+        if (mounted) setLoadingKb(false);
+      }
+    };
+
+    // load KB once (or when switching to KB tab)
+    if (activeTab === 'kb') loadKb();
+    return () => { mounted = false; };
+  }, [activeTab]);
+
   const userData = {
-    stats: [
+    // allow override from userDataState (populated from backend)
+    stats: userDataState?.stats || [
       "Pending Users"
     ].map((label, i) => ({
       label,
@@ -512,7 +749,7 @@ const CoordinatorAdminDashboard = () => {
       position: i,
       path: userPaths.find(p => p.label === label)?.path
     })),
-    tableData: [
+    tableData: userDataState?.tableData || [
       {
         companyId: 'MAP0001',
         lastName: 'Park',
@@ -522,13 +759,13 @@ const CoordinatorAdminDashboard = () => {
         status: { text: 'Pending', statusClass: 'statusPending' }
       }
     ],
-    pieData: [
+    pieData: userDataState?.pieData || [
       { name: 'Active Users', value: 120, fill: '#22C55E' },      // Green
       { name: 'Pending', value: 15, fill: '#FBBF24' },            // Amber
       { name: 'Rejected', value: 8, fill: '#EF4444' },            // Red
       { name: 'Inactive', value: 5, fill: '#9CA3AF' }             // Gray
     ],
-    lineData: [
+    lineData: userDataState?.lineData || [
       { month: 'Jan', dataset1: 12, dataset2: 8 },
       { month: 'Feb', dataset1: 18, dataset2: 15 },
       { month: 'Mar', dataset1: 22, dataset2: 18 },
@@ -561,9 +798,9 @@ const CoordinatorAdminDashboard = () => {
         <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
             {activeTab === 'kb' ? (
-              // KB tab could show quick KB stats; reuse placeholder stat cards
-              [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }].map((stat, i) => (
-                <StatCard key={i} label={stat.label} count={stat.count} onClick={() => {}} />
+              // KB tab: show real KB stats when available
+              (kbDataState?.stats || [{ label: 'Articles', count: 0 }, { label: 'Categories', count: 0 }]).map((stat, i) => (
+                <StatCard key={i} {...stat} onClick={() => stat.path && navigate(stat.path)} />
               ))
             ) : (
               (activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
@@ -582,15 +819,21 @@ const CoordinatorAdminDashboard = () => {
             ) : (
               <>
                 {!(currentUser?.role === 'System Admin' && activeTab === 'tickets') && (
-                  <DataTable
-                    title={activeTab === 'tickets' ? 'Tickets to Review' : 'User Approval'}
-                    headers={
-                      activeTab === 'tickets'
-                        ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
-                        : ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
-                    }
-                    data={activeTab === 'tickets' ? ticketData.tableData : userData.tableData}
-                  />
+                  activeTab === 'tickets' ? (
+                    <DataTable
+                      title={'Tickets to Review'}
+                      headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
+                      data={ticketData.tableData}
+                    />
+                  ) : (
+                    // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
+                    <DataTable
+                      title={'User Approval'}
+                      headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
+                      data={userData.tableData}
+                      bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
+                    />
+                  )
                 )}
 
                 <div style={{ position: 'relative', marginTop: 12 }}>
@@ -616,6 +859,9 @@ const CoordinatorAdminDashboard = () => {
                     setPieRange={setPieRange}
                     isAdmin={currentUser?.role === 'System Admin'}
                     onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/users/all-users')}
+                    // For Users tab show only Pending and Inactive slices (legends still show all)
+                    // For Users tab show only Pending and Rejected slices (legends still show all)
+                    visibleNames={activeTab === 'tickets' ? null : ['Active','Pending','Rejected']}
                   />
                   <TrendLineChart
                     data={(() => {
@@ -626,13 +872,11 @@ const CoordinatorAdminDashboard = () => {
                     })()}
                     title={activeTab === 'tickets' ? 'Tickets per Period' : 'Users per Period'}
                     isTicketChart={activeTab === 'tickets'}
-                    year={selectedYear}
-                    onPrevYear={() => setSelectedYear((y) => Number(y) - 1)}
-                    onNextYear={() => setSelectedYear((y) => Number(y) + 1)}
-                      showYearControls={activeTab === 'tickets' || activeTab === 'users'}
-                      showYRangeSelect={activeTab === 'tickets'}
-                      yRange={yRange}
-                      onYRangeChange={setYRange}
+                    /* Temporarily hide year controls and Y-range select for Tickets per Period */
+                    showYearControls={false}
+                    showYRangeSelect={false}
+                    yRange={yRange}
+                    onYRangeChange={setYRange}
                   />
                 </div>
                 </div>
