@@ -66,6 +66,14 @@ const SmartSupportLogIn = () => {
       console.log('Storing user data:', storedUser);
       localStorage.setItem('loggedInUser', JSON.stringify(storedUser));
 
+      // Dispatch auth:login event to start the inactivity watcher
+      try {
+        window.dispatchEvent(new CustomEvent('auth:login'));
+        console.log('[SmartSupportLogIn] Dispatched auth:login event');
+      } catch (e) {
+        console.warn('[SmartSupportLogIn] Failed to dispatch auth:login', e);
+      }
+
       const role = storedUser.role?.trim().toLowerCase();
 
       if (role === 'employee') {

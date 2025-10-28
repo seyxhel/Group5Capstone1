@@ -108,6 +108,14 @@ const CoordinatorAdminNavBar = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('chatbotMessages');
     
+    // Dispatch auth:logout event to stop the inactivity watcher
+    try {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      console.log('[CoordinatorAdminNavigationBar] Dispatched auth:logout event');
+    } catch (e) {
+      console.warn('[CoordinatorAdminNavigationBar] Failed to dispatch auth:logout', e);
+    }
+    
     setIsMobileMenuOpen(false);
     // Navigate to login and pass a flag so the login page can show a brief
     // loading state after logout. Avoid forcing a full page reload.

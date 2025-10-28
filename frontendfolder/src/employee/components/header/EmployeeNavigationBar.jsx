@@ -133,6 +133,14 @@ const EmployeeNavBar = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('chatbotMessages');
     
+    // Dispatch auth:logout event to stop the inactivity watcher
+    try {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      console.log('[EmployeeNavigationBar] Dispatched auth:logout event');
+    } catch (e) {
+      console.warn('[EmployeeNavigationBar] Failed to dispatch auth:logout', e);
+    }
+    
     // Close any open menus
     setShowProfileMenu(false);
     setIsMobileMenuOpen(false);
