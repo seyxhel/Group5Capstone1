@@ -57,8 +57,18 @@ const DetailField = ({ label, value }) => (
   </fieldset>
 );
 
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+const formatDate = (date) => {
+  if (!date) return 'None';
+  const d = new Date(date);
+  if (isNaN(d)) return 'None';
+  const monthName = d.toLocaleString('en-US', { month: 'long' }); // October
+  const day = d.getDate();
+  const yearFull = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const yy = String(yearFull).slice(-2);
+  return `${monthName} ${day}, ${yearFull}`;
+};
 
 // Format number with thousands separators and two decimal places
 const formatMoney = (value) => {
@@ -68,37 +78,127 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 };
 
-// Generate logs based on ticket data
+// Generate logs based on ticket data and return polished sentence text for each entry
 const generateLogs = (ticket) => {
   const logs = [];
-  logs.push({ 
-    id: 1, 
-    user: 'System', 
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
-    timestamp: formatDate(ticket.dateCreated) 
+
+  const createdAt = ticket.dateCreated || ticket.date_created || new Date().toISOString();
+
+  // 1. Ticket Created
+    logs.push({
+    id: logs.length + 1,
+    user: ticket.requesterName || ticket.requestedBy || 'Employee',
+    action: 'Ticket Created',
+    timestamp: formatDate(createdAt),
+    source: 'Web Form',
+    details: `Category: ${ticket.category || 'None'}`,
+    // Polished sentence
+      text: `Ticket was created on ${formatDate(createdAt)} via ${'Web Form'}. Category: ${ticket.category || 'None'}.`,
+      highlight: ticket.category || null,
   });
-  
-  // Handle assignedTo as object or string
+
+  // 2. Assigned to department / agent (if present)
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  
-  if (assignedToName) {
-    logs.push({ 
-      id: 2, 
-      user: assignedToName, 
-      action: `Assigned to ${ticket.department} department`, 
-      timestamp: formatDate(ticket.dateCreated) 
+  if (ticket.department) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const agentText = assignedToName ? ` by ${assignedToName}` : '';
+    const sentence = `Ticket was routed to the ${ticket.department} department${agentText} on ${formatDate(at)}.`;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Assigned to ${ticket.department}`,
+      timestamp: formatDate(at),
+      source: 'System',
+      text: sentence,
+      highlight: ticket.department,
+    });
+  } else if (assignedToName) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Assigned to ${assignedToName}`,
+      timestamp: formatDate(at),
+      source: 'System',
+      text: `Assigned to ${assignedToName} on ${formatDate(at)}.`,
+      highlight: assignedToName,
     });
   }
-  
-  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
-    logs.push({ 
-      id: 3, 
-      user: 'Coordinator', 
-      action: `Status changed to ${ticket.status}`, 
-      timestamp: formatDate(ticket.lastUpdated) 
+
+  // 3. Status history: add current status if it's progressed beyond initial
+  const status = ticket.status || ticket.currentStatus;
+  if (status && status !== 'New' && status !== 'Pending') {
+    const at = ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'System',
+      action: `Status Updated: ${status}`,
+      timestamp: formatDate(at),
+      source: 'System',
+      text: `Status was updated to ${status} on ${formatDate(at)}.`,
+      highlight: status,
     });
   }
-  
+
+  // 4. Resolved / Closed (explicit)
+  if (status === 'Resolved' || ticket.resolvedAt) {
+    const resolvedAt = ticket.resolvedAt || ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: ticket.resolvedBy || 'Agent',
+      action: 'Ticket Resolved',
+      timestamp: formatDate(resolvedAt),
+      source: 'Portal',
+      text: `Ticket was marked as resolved on ${formatDate(resolvedAt)}.`,
+      highlight: 'resolved',
+    });
+  }
+
+  if (status === 'Closed' || ticket.closedAt) {
+    const closedAt = ticket.closedAt || ticket.lastUpdated || new Date().toISOString();
+    logs.push({
+      id: logs.length + 1,
+      user: ticket.closedBy || 'System',
+      action: 'Ticket Closed',
+      timestamp: formatDate(closedAt),
+      source: 'System',
+      text: `Ticket was closed on ${formatDate(closedAt)}.`,
+      highlight: 'closed',
+    });
+  }
+
+  // 5. Include any message/activity entries as action logs (if present)
+  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
+    ticket.activity.forEach((a) => {
+      const who = a.user || a.performedBy || a.actor || 'Agent';
+      const when = formatDate(a.timestamp || a.date || a.createdAt);
+      const details = a.details || a.note || a.message || a.action || '';
+      // Build a natural sentence depending on available fields
+      let sentence = '';
+      if (a.type && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented on ${when}: "${details || a.note || 'No details provided.'}"`;
+      } else if (a.action && (a.action.toLowerCase().includes('status') || a.action.toLowerCase().includes('changed')) ) {
+        sentence = `${who} updated the ticket: ${a.action} on ${when}.`;
+      } else if (a.action && a.action.toLowerCase().includes('assign')) {
+        sentence = `${who} assigned the ticket on ${when}${details ? ` — ${details}` : ''}.`;
+      } else if (details) {
+        sentence = `${who} added an activity on ${when}: "${details}."`;
+      } else {
+        sentence = `${who} performed an action (${a.action || a.type || 'Activity'}) on ${when}.`;
+      }
+
+      logs.push({
+        id: logs.length + 1,
+        user: who,
+        action: a.action || a.type || 'Activity',
+        timestamp: when,
+        details: a.details || a.note || undefined,
+        source: a.source || 'Portal',
+        text: sentence,
+      });
+    });
+  }
+
   return logs;
 };
 
@@ -286,7 +386,6 @@ export default function EmployeeTicketTracker() {
     <>
       <main className={styles.employeeTicketTrackerPage}>
         <ViewCard>
-
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}
@@ -486,34 +585,37 @@ export default function EmployeeTicketTracker() {
 
           {/* Right Column - Actions and Details */}
           <div className={styles.rightColumn}>
-            {/* Action Button */}
-            {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
-              <Button
-                variant="primary"
-                onClick={() =>
-                  isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
-                }
-                className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
-              >
-                {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
-              </Button>
-            )}
-
-            <Tabs
-              tabs={[
-                { label: 'Messages', value: 'messages' },
-                { label: 'Logs', value: 'logs' },
-              ]}
-              active={activeTab}
-              onChange={setActiveTab}
-            >
-              {activeTab === 'logs' ? (
-                <TicketActivity ticketLogs={ticketLogs} />
-              ) : (
-                <TicketMessaging initialMessages={ticketMessages} />
+            <div className={styles.innerSticky}>
+              {/* Action Button */}
+              {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
+                <Button
+                  variant="primary"
+                  onClick={() =>
+                    isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
+                  }
+                  className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
+                >
+                  {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
+                </Button>
               )}
-            </Tabs>
+
+              <Tabs
+                tabs={[
+                  { label: 'Messages', value: 'messages' },
+                  { label: 'Logs', value: 'logs' },
+                ]}
+                active={activeTab}
+                onChange={setActiveTab}
+                className={`${styles['messages-logs-wrapper']} ${activeTab === 'logs' ? styles.noBorder : ''}`}
+              >
+                {activeTab === 'logs' ? (
+                  <TicketActivity ticketLogs={ticketLogs} />
+                ) : (
+                  <TicketMessaging initialMessages={ticketMessages} />
+                )}
+              </Tabs>
             </div>
+          </div>
         </div>
   
         </ViewCard>

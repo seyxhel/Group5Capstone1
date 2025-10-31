@@ -1,6 +1,4 @@
-import React from 'react';
-import FormCard from './FormCard';
-import formCardStyles from './FormCard.module.css';
+import formCardStyles from './ViewCard.module.css';
 
 export default function ViewCard({ children, className = '', plain = false, ...props }) {
   // plain = true -> render only the shared spacing (formContainer) without the white card background

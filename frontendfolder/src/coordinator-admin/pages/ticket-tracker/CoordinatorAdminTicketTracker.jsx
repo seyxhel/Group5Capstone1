@@ -27,8 +27,18 @@ const getStatusSteps = (status) =>
     id,
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
+const formatDate = (date) => {
+  if (!date) return 'None';
+  const d = new Date(date);
+  if (isNaN(d)) return 'None';
+  const monthName = d.toLocaleString('en-US', { month: 'long' });
+  const day = d.getDate();
+  const yearFull = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const yy = String(yearFull).slice(-2);
+  return `${monthName} ${day}, ${yearFull}`;
+};
 const toTitleCase = (str) => {
   if (!str && str !== 0) return '';
   return String(str)
@@ -45,29 +55,68 @@ const formatMoney = (value) => {
 };
 const generateLogs = (ticket) => {
   const logs = [];
-  logs.push({ 
-    id: 1, 
-    user: 'System', 
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`, 
-    timestamp: formatDate(ticket.dateCreated) 
+  const createdAt = ticket.dateCreated || ticket.createdAt || new Date().toISOString();
+  // Creation
+  logs.push({
+    id: logs.length + 1,
+    user: 'System',
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    timestamp: formatDate(createdAt),
+    text: `Ticket #${ticket.ticketNumber} was created on ${formatDate(createdAt)}${ticket.category ? ` in the ${ticket.category} category` : ''}.`,
+    highlight: ticket.category || null,
   });
+
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  if (assignedToName) {
-    logs.push({ 
-      id: 2, 
-      user: assignedToName, 
-      action: `Assigned to ${ticket.department} department`, 
-      timestamp: formatDate(ticket.dateCreated) 
+  if (assignedToName || ticket.department) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const deptPart = ticket.department ? ` to the ${ticket.department} department` : '';
+    const agentPart = assignedToName ? ` by ${assignedToName}` : '';
+    logs.push({
+      id: logs.length + 1,
+      user: assignedToName || 'Coordinator',
+      action: `Assigned${deptPart}${agentPart}`,
+      timestamp: formatDate(at),
+      text: `Assigned${deptPart}${agentPart} on ${formatDate(at)}.`,
+      highlight: ticket.department || assignedToName || null,
     });
   }
-  if (ticket.status !== 'New' && ticket.status !== 'Pending') {
-    logs.push({ 
-      id: 3, 
-      user: 'Coordinator', 
-      action: `Status changed to ${ticket.status}`, 
-      timestamp: formatDate(ticket.lastUpdated) 
+
+  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending') {
+    const at = ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Status changed to ${ticket.status}`,
+      timestamp: formatDate(at),
+      text: `Status changed to ${ticket.status} on ${formatDate(at)}.`,
+      highlight: ticket.status,
     });
   }
+
+  // Include any activity entries if present
+  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
+    ticket.activity.forEach((a) => {
+      const who = a.user || a.performedBy || 'User';
+      const when = formatDate(a.timestamp || a.date || a.createdAt);
+      const details = a.details || a.note || a.action || '';
+      let sentence = '';
+      if (a.type && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented on ${when}: "${details || 'No details provided.'}"`;
+      } else if (details) {
+        sentence = `${who} performed an action on ${when}: ${details}.`;
+      } else {
+        sentence = `${who} performed an activity on ${when}.`;
+      }
+      logs.push({
+        id: logs.length + 1,
+        user: who,
+        action: a.action || a.type || 'Activity',
+        timestamp: when,
+        text: sentence,
+      });
+    });
+  }
+
   return logs;
 };
 const renderAttachments = (files) => {
