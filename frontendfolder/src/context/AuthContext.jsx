@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-
   // ✅ Keep axios instance stable with useMemo
   const api = useMemo(() => {
     return axios.create({
@@ -43,8 +42,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.get(PROFILE_URL);
       if (response.status === 200) {
-        localStorage.setItem("user", JSON.stringify(response.data));
-        setUser(response.data);
+        // Extract role for hdts system
+        let hdtsRole = null;
+        if (Array.isArray(response.data.system_roles)) {
+          const hdts = response.data.system_roles.find(r => r.system_slug === "hdts");
+          if (hdts) {
+            hdtsRole = hdts.role_name;
+          }
+        }
+        // Save user with hdtsRole
+        const userWithRole = { ...response.data, role: hdtsRole };
+        localStorage.setItem("user", JSON.stringify(userWithRole));
+        setUser(userWithRole);
       }
     } catch (error) {
       console.warn("User not authenticated or session expired:", error);
@@ -131,7 +140,6 @@ export const AuthProvider = ({ children }) => {
       (r) => r.system_slug === "hdts"
     );
   }, [user]);
-
 
   // ✅ Memoize the context value
   const value = useMemo(

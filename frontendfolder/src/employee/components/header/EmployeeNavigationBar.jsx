@@ -9,9 +9,10 @@ import authService from '../../../utilities/service/authService';
 import { backendAuthService } from '../../../services/backend/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
+import { useAuth } from '../../../context/AuthContext';
 
 // Fallback profile image
-const DEFAULT_PROFILE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23e0e0e0"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" font-size="40" fill="%23666"%3E?%3C/text%3E%3C/svg%3E';
+const DEFAULT_PROFILE_IMAGE = 'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg';
 
 const NotificationIcon = () => (
   <svg
@@ -45,7 +46,7 @@ const ArrowDownIcon = ({ isFlipped }) => (
 const EmployeeNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
   const navRef = useRef(null);
 
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -53,41 +54,9 @@ const EmployeeNavBar = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profileImageUrl, setProfileImageUrl] = useState(DEFAULT_PROFILE_IMAGE);
+  const profileImageUrl = currentUser?.image || currentUser?.profileImage || DEFAULT_PROFILE_IMAGE;
   const [backendAvailable, setBackendAvailable] = useState(true); // Always assume backend is available
   const scrolled = useScrollShrink(0, { debug: true });
-
-  // Fetch employee profile with image on mount
-  useEffect(() => {
-    const fetchProfileImage = async () => {
-      try {
-        const profile = await backendEmployeeService.getCurrentEmployee();
-        console.log('Fetched employee profile:', profile);
-        
-        if (profile.image) {
-          // Build the full image URL
-          const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-          let imageUrl = profile.image;
-          
-          // If image is a relative path, prepend the base URL
-          if (!imageUrl.startsWith('http')) {
-            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-            imageUrl = `${BASE_URL}${imageUrl}`;
-          }
-          
-          console.log('Profile image URL:', imageUrl);
-          setProfileImageUrl(imageUrl);
-        }
-      } catch (error) {
-        console.error('Failed to fetch profile image:', error);
-        // Keep using the default image on error
-      }
-    };
-
-    if (currentUser) {
-      fetchProfileImage();
-    }
-  }, [currentUser]);
 
   const dropdowns = {
     active: {
