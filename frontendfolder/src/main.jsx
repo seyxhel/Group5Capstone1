@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import AuthExpiredModal from './shared/components/AuthExpiredModal';
+import { AuthProvider } from './context/AuthContext.jsx'
 
 const Root = () => {
   const [expired, setExpired] = useState(false);
@@ -40,6 +41,8 @@ const Root = () => {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Root />
+      <AuthProvider>
+        <Root />    
+      </AuthProvider>
   </StrictMode>
 );

@@ -25,14 +25,14 @@ const EmployeeHome = () => {
     const fetchRecentTickets = async () => {
       // Check if user is authenticated before making API calls
       const token = localStorage.getItem('access_token');
-      if (!token) {
-        console.error('No access token found. User may need to log in again.');
-        if (isMounted) {
-          setRecentTickets([]);
-          setLoading(false);
-        }
-        return;
-      }
+      // if (!token) {
+      //   console.error('No access token found. User may need to log in again.');
+      //   if (isMounted) {
+      //     setRecentTickets([]);
+      //     setLoading(false);
+      //   }
+      //   return;
+      // }
       
       try {
         if (isMounted) setLoading(true);
