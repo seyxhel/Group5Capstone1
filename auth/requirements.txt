@@ -1,0 +1,17 @@
+asgiref==3.9.1
+Django==5.2.4
+django-cors-headers==4.7.0
+djangorestframework==3.16.0
+sqlparse==0.5.3
+tzdata==2025.2
+python-decouple==3.8
+pillow==11.2.1
+djangorestframework_simplejwt==5.5.0
+drf-spectacular==0.28.0
+djangorestframework-api-key
+gunicorn
+psycopg2-binary
+whitenoise
+requests
+argon2-cffi>=23.1.0
+argon2-cffi-bindings>=21.2.0
