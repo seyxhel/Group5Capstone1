@@ -7,7 +7,7 @@ import styles from "./CoordinatorAdminTicketManagement.module.css";
 import TablePagination from "../../../shared/table/TablePagination";
 import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
 import { backendTicketService } from '../../../services/backend/ticketService';
-import authService from "../../../utilities/service/authService";
+import { useAuth } from '../../../context/AuthContext.jsx';
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -73,7 +73,7 @@ const CoordinatorAdminTicketManagement = () => {
   const { status = "all-tickets" } = useParams();
   const navigate = useNavigate();
 
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: currentUser } = useAuth();
   const [allTickets, setAllTickets] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -105,9 +105,6 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    // Get current user
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
     let isMounted = true;
 
     const fetchTickets = async () => {
@@ -141,19 +138,19 @@ const CoordinatorAdminTicketManagement = () => {
         });
 
         // Filter tickets based on user role and department
-        if (user) {
-          if (user.role === 'Ticket Coordinator') {
+        if (currentUser) {
+          if (currentUser.role === 'Ticket Coordinator') {
             // Coordinators see tickets from their department.
             // If the page is the "all" status, show all tickets regardless of department.
             // Otherwise restrict to the coordinator's department.
             if (normalizedStatus !== 'all') {
               ticketsToShow = ticketsToShow.filter(ticket => {
                 const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
-                const userDept = (user.department || '').toString();
+                const userDept = (currentUser.department || '').toString();
                 return ticketDept && userDept && ticketDept === userDept;
               });
             }
-          } else if (user.role === 'System Admin') {
+          } else if (currentUser.role === 'System Admin') {
             // System Admins see all tickets
             ticketsToShow = fetched;
           }
@@ -182,7 +179,7 @@ const CoordinatorAdminTicketManagement = () => {
     fetchTickets();
 
     return () => { isMounted = false; };
-  }, []);
+  }, [currentUser]);
 
   // Build dynamic category and sub-category options from the fetched tickets
   const categoryOptions = useMemo(() => {

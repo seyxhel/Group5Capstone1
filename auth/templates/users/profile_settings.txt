@@ -1,33 +1,43 @@
-{% load static %}
+{% comment %} REVISED {% endcomment %} {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Profile Settings</title>
-    <link rel="stylesheet" href="{% static 'css/profile_settings.css' %}">
-</head>
-<body>
+
+    <link rel="stylesheet" href="{% static 'css/profile_settings.css' %}" />
+
+    {% comment %}
+    <link
+      rel="stylesheet"
+      href="{% static 'css/profile_settings.css' %}?v={{ time }}"
+    />
+    {% endcomment %}
+  </head>
+  <body>
     <main class="manageProfilePage">
-        <div class="manageProfileContainer">
-            <h1>Manage Profile</h1>
+      <div class="manageProfileContainer">
+        <h1>Manage Profile</h1>
 
-            {% if messages %}
-                <div class="toastContainer">
-                    {% for message in messages %}
-                        <div class="toast {% if message.tags %}{{ message.tags }}{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
+        {% if messages %}
+        <div class="toastContainer">
+          {% for message in messages %}
+          <div class="toast {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
 
-            <form method="post" enctype="multipart/form-data" id="profile-form">
-                {% csrf_token %}
+        <form method="post" enctype="multipart/form-data" id="profile-form">
+          {% csrf_token %}
 
-                <div class="profileContent">
-                    <div class="profileLeft">
-                        <div class="profileCard">
+          <div class="profileContent">
+            <!-- Left -->
+            <div class="profileLeft">
+              <div class="profileCard">
+                <!-- Image -->
                 <div class="profileImageSection">
                   <div class="profileImageMenu hidden">
                     <button
@@ -103,99 +113,109 @@
                       >Manage Agents</a
                     >
                   </div>
-                    <div id="admin-links">
-                    <a href="{% url 'change-password-ui' %}" class="linkItem1"
-                      >Change Password</a
-                    >
-                  </div>
-                  <a href="{% url 'root_logout' %}" class="linkItem2"
+                  <a href="{% url 'cookie-logout' %}" class="linkItem2"
                     >Logout</a
                   >
                 </div>
-                        </div>
-                    </div>
+              </div>
+            </div>
 
-                    <div class="profileRight">
-                        <div class="profileSettingsCard">
-                            
-                            <h2>Personal Details</h2>
-                            <div class="formGrid">
-                                <div class="formGroup">
-                                    {{ form.first_name.label_tag }}
-                                    {{ form.first_name.errors }}
-                                    {{ form.first_name }}
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.middle_name.label_tag }}
-                                    {{ form.middle_name.errors }}
-                                    {{ form.middle_name }}
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.last_name.label_tag }}
-                                    {{ form.last_name.errors }}
-                                    {{ form.last_name }}
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.suffix.label_tag }}
-                                    {{ form.suffix.errors }}
-                                    {{ form.suffix }}
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.username.label_tag }}
-                                    {{ form.username.errors }}
-                                    {{ form.username }}
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.phone_number.label_tag }}
-                                    {{ form.phone_number.errors }}
-                                    {{ form.phone_number }}
-                                </div>
-                            </div>
-
-                            <h2>Organization</h2>
-                            <div class="formGrid">
-                                <div class="formGroup">
-                                    {{ form.email.label_tag }}
-                                    {{ form.email.errors }}
-                                    {{ form.email }}
-                                    <small>{{ form.email.help_text }}</small>
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.company_id.label_tag }}
-                                    {{ form.company_id.errors }}
-                                    {{ form.company_id }}
-                                    <small>{{ form.company_id.help_text }}</small>
-                                </div>
-                                <div class="formGroup">
-                                    {{ form.department.label_tag }}
-                                    {{ form.department.errors }}
-                                    {{ form.department }}
-                                </div>
-                            </div>
-
-                            <h2>Account & Security</h2>
-                            <div class="formGrid">
-                                <div class="formGroup formGroupCheckbox">
-                                    {{ form.otp_enabled.errors }}
-                                    {{ form.otp_enabled }}
-                                    {{ form.otp_enabled.label_tag }}
-                                </div>
-                            </div>
-
-
-                            
-                            <div class="formActions">
-                                <button type="button" id="edit-profile-btn" class="editChangesBtn">EDIT PROFILE</button>
-                                <button type="submit" id="save-changes-btn" class="saveChangesBtn hidden">SAVE CHANGES</button>
-                                <button type="button" id="cancel-changes-btn" class="cancelChangesBtn hidden">CANCEL</button>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Right -->
+            <div class="profileRight">
+              <div class="profileSettingsCard">
+                <h2>Personal Details</h2>
+                <div class="formGrid">
+                  <div class="formGroup">
+                    {{ form.first_name.label_tag }} {{ form.first_name.errors }}
+                    {{ form.first_name }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.middle_name.label_tag }} {{ form.middle_name.errors
+                    }} {{ form.middle_name }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.last_name.label_tag }} {{ form.last_name.errors }}
+                    {{ form.last_name }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.suffix.label_tag }} {{ form.suffix.errors }} {{
+                    form.suffix }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.username.label_tag }} {{ form.username.errors }} {{
+                    form.username }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.phone_number.label_tag }} {{
+                    form.phone_number.errors }} {{ form.phone_number }}
+                  </div>
                 </div>
-            </form>
-        </div>
-    </main>
 
+                <h2>Organization</h2>
+                <div class="formGrid">
+                  <div class="formGroup">
+                    {{ form.email.label_tag }} {{ form.email.errors }} {{
+                    form.email }}
+                    <small>{{ form.email.help_text }}</small>
+                  </div>
+                  <div class="formGroup">
+                    {{ form.company_id.label_tag }} {{ form.company_id.errors }}
+                    {{ form.company_id }}
+                    <small>{{ form.company_id.help_text }}</small>
+                  </div>
+                  <div class="formGroup">
+                    {{ form.department.label_tag }} {{ form.department.errors }}
+                    {{ form.department }}
+                  </div>
+                </div>
+
+                <h2>Account & Security</h2>
+                <div class="formGrid">
+                  <div class="formGroup formGroupCheckbox">
+                    {{ form.otp_enabled.errors }} {{ form.otp_enabled }} {{
+                    form.otp_enabled.label_tag }}
+                  </div>
+                  <div class="formGroup">
+                    {{ form.last_login.label_tag }} {{ form.last_login.errors }}
+                    {{ form.last_login }}
+                    <small>{{ form.last_login.help_text }}</small>
+                  </div>
+                  <div class="formGroup">
+                    {{ form.date_joined.label_tag }} {{ form.date_joined.errors
+                    }} {{ form.date_joined }}
+                    <small>{{ form.date_joined.help_text }}</small>
+                  </div>
+                </div>
+
+                <div class="formActions">
+                  <button
+                    type="button"
+                    id="edit-profile-btn"
+                    class="editChangesBtn"
+                  >
+                    EDIT PROFILE
+                  </button>
+                  <button
+                    type="submit"
+                    id="save-changes-btn"
+                    class="saveChangesBtn hidden"
+                  >
+                    SAVE CHANGES
+                  </button>
+                  <button
+                    type="button"
+                    id="cancel-changes-btn"
+                    class="cancelChangesBtn hidden"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const profileForm = document.getElementById("profile-form");
@@ -222,53 +242,22 @@
         const unsaved = document.getElementById("unsaved-warning");
         const originalImageSrc = preview.src;
 
-        // Get admin status from Django template context
-        const isCurrentUserAdmin = {% if user.is_staff or user.is_superuser %}true{% else %}false{% endif %};
-
         const permanentReadOnlyIds = [
-          // No permanently read-only fields since we removed the non-editable ones
-        ];
-
-        // Fields that only admins can edit (matching API restrictions)
-        const adminOnlyIds = [
-          "id_first_name",
-          "id_middle_name",
-          "id_last_name",
-          "id_suffix",  
-          "id_email",
-          "id_company_id", 
-          "id_department",
-          "id_status",
-        ];
-
-        // Fields that regular users (non-admin) can edit (matching API restrictions)
-        const userEditableIds = [
+          "id_last_login",
+          "id_date_joined",
+          "id_failed_login_attempts",
+          "id_lockout_time",
           "id_username",
-          "id_phone_number"
-          // profile_picture is handled separately
+          "id_email",
         ];
 
         function setFormEnabled(enabled) {
           formInputs.forEach((input) => {
-            if (!input) return;
             if (input.type === "button" || input.type === "submit") return;
-            
-            // Always keep these fields read-only
             if (permanentReadOnlyIds.includes(input.id)) {
               input.readOnly = true;
               return;
             }
-            
-            // Check admin-only fields for non-admin users
-            if (!isCurrentUserAdmin && adminOnlyIds.includes(input.id)) {
-              if (input.tagName.toLowerCase() === "select" || input.type === "checkbox") {
-                input.disabled = true;
-              } else {
-                input.readOnly = true;
-              }
-              return;
-            }
-            
             if (
               input.tagName.toLowerCase() === "select" ||
               input.type === "checkbox"
@@ -403,5 +392,5 @@
         }
       });
     </script>
-    </body>
+  </body>
 </html>

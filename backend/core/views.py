@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated, BasePermission
 class IsSystemAdmin(BasePermission):
     def has_permission(self, request, view):
         return hasattr(request.user, 'role') and request.user.role == "System Admin"
-from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from .authentication import CookieJWTAuthentication, ExternalUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -53,7 +53,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from django.shortcuts import get_object_or_404
 import json
@@ -174,7 +174,7 @@ class CreateAdminEmployeeView(APIView):
         data['company_id'] = f"MA{new_num:04d}"
 
         # Set default password
-        data['password'] = "1234"
+        data['password'] = "permission denied4"
 
         # Set status to Approved
         data['status'] = "Approved"
@@ -218,10 +218,12 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if isinstance(user, ExternalUser):
+            if user.role == 'Ticket Coordinator':
+                return Ticket.objects.filter(employee_cookie_id__isnull=False).order_by('-submit_date')
             return Ticket.objects.filter(employee_cookie_id=user.id).order_by('-submit_date')
         if user.role in ['System Admin', 'Ticket Coordinator']:
-            return Ticket.objects.all().order_by('-submit_date')  # Admins see all, newest first
-        return Ticket.objects.filter(employee=user).order_by('-submit_date')  # Employees see their own, newest first
+            return Ticket.objects.all().order_by('-submit_date')
+        return Ticket.objects.filter(employee=user).order_by('-submit_date')
     
     def create(self, request, *args, **kwargs):
         # Extract the initial priority based on the category and subcategory
@@ -381,7 +383,7 @@ def generate_company_id():
 def create_employee_admin_view(request):
     data = request.data.copy()
     data['company_id'] = generate_company_id()
-    data['password'] = '1234'  # Default password
+    data['password'] = 'permission denied4'  # Default password
     data['status'] = 'Pending'
 
     # Remove 'image' from data — let model default take over
@@ -440,6 +442,7 @@ def employee_profile_view(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_ticket_detail(request, ticket_id):
     """
@@ -447,19 +450,23 @@ def get_ticket_detail(request, ticket_id):
     """
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
-        
-        # Check if user has permission to view this ticket
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
+        user = request.user
+        # ExternalUser: allow all if role is Ticket Coordinator or Admin
+        if isinstance(user, ExternalUser):
+            if user.role in ['Ticket Coordinator', 'Admin']:
+                pass  # allow all
+            elif getattr(ticket, 'employee_cookie_id', None) != user.id:
+                return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        # Internal user: allow if staff, admin, coordinator, or ticket owner
+        elif not (user.is_staff or getattr(user, 'role', None) in ['System Admin', 'Ticket Coordinator'] or user == ticket.employee):
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         # Get comments based on user role
-        if request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user.is_staff:
-            # Admins can see all comments including internal ones
+        if getattr(user, 'role', None) in ['System Admin', 'Ticket Coordinator'] or getattr(user, 'is_staff', False):
             comments = ticket.comments.all().order_by('-created_at')
         else:
-            # Regular employees only see non-internal comments
             comments = ticket.comments.filter(is_internal=False).order_by('-created_at')
-        
+
         # Serialize ticket data
         ticket_data = {
             'id': ticket.id,
@@ -480,12 +487,13 @@ def get_ticket_detail(request, ticket_id):
                 'last_name': ticket.assigned_to.last_name,
             } if ticket.assigned_to else None,
             'employee': {
-                'id': ticket.employee.id,
-                'first_name': ticket.employee.first_name,
-                'last_name': ticket.employee.last_name,
-                'company_id': ticket.employee.company_id,
-                'department': ticket.employee.department,
-                'email': ticket.employee.email,
+                'id': ticket.employee.id if ticket.employee else None,
+                'first_name': ticket.employee.first_name if ticket.employee else None,
+                'last_name': ticket.employee.last_name if ticket.employee else None,
+                'company_id': ticket.employee.company_id if ticket.employee else None,
+                'department': ticket.employee.department if ticket.employee else None,
+                'email': ticket.employee.email if ticket.employee else None,
+                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
             },
             'approved_by': ticket.approved_by if hasattr(ticket, 'approved_by') else None,
             'comments': [
@@ -533,6 +541,7 @@ def get_ticket_detail(request, ticket_id):
 
 
 @api_view(['GET'])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_ticket_by_number(request, ticket_number):
     """
@@ -540,13 +549,20 @@ def get_ticket_by_number(request, ticket_number):
     """
     try:
         ticket = get_object_or_404(Ticket, ticket_number=ticket_number)
-
-        # Check if user has permission to view this ticket
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
+        # ExternalUser: allow if employee_cookie_id matches user.id
+        if isinstance(user, ExternalUser):
+            # allow full access for Ticket Coordinator or Admin
+            if getattr(user, 'role', None) not in ['Ticket Coordinator', 'Admin']:
+                # otherwise, only allow if user owns the ticket
+                if str(getattr(ticket, 'employee_cookie_id', '')) != str(user.id):
+                    return Response({'error': 'permission deniedz'}, status=status.HTTP_403_FORBIDDEN)
+        # Internal user: allow if staff, admin, coordinator, or ticket owner
+        elif not (user.is_staff or getattr(user, 'role', None) in ['System Admin', 'Ticket Coordinator'] or user == ticket.employee):
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         # Get comments based on user role
-        if request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user.is_staff:
+        if getattr(user, 'role', None) in ['System Admin', 'Ticket Coordinator'] or getattr(user, 'is_staff', False):
             comments = ticket.comments.all().order_by('-created_at')
         else:
             comments = ticket.comments.filter(is_internal=False).order_by('-created_at')
@@ -570,12 +586,13 @@ def get_ticket_by_number(request, ticket_number):
                 'last_name': ticket.assigned_to.last_name,
             } if ticket.assigned_to else None,
             'employee': {
-                'id': ticket.employee.id,
-                'first_name': ticket.employee.first_name,
-                'last_name': ticket.employee.last_name,
-                'company_id': ticket.employee.company_id,
-                'department': ticket.employee.department,
-                'email': ticket.employee.email,
+                'id': ticket.employee.id if ticket.employee else None,
+                'first_name': ticket.employee.first_name if ticket.employee else None,
+                'last_name': ticket.employee.last_name if ticket.employee else None,
+                'company_id': ticket.employee.company_id if ticket.employee else None,
+                'department': ticket.employee.department if ticket.employee else None,
+                'email': ticket.employee.email if ticket.employee else None,
+                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
             },
             'comments': [
                 {
@@ -649,7 +666,7 @@ def add_ticket_comment(request, ticket_id):
 
         # Permission: employee who owns the ticket or staff/admin/coordinator can comment
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         comment_text = request.data.get('comment', '').strip()
         if not comment_text:
@@ -658,7 +675,7 @@ def add_ticket_comment(request, ticket_id):
         is_internal = bool(request.data.get('is_internal', False))
         # Prevent regular employees from creating internal comments
         if is_internal and not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied for internal comment'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied for internal comment'}, status=status.HTTP_403_FORBIDDEN)
 
         comment = TicketComment.objects.create(
             ticket=ticket,
@@ -692,7 +709,7 @@ def approve_ticket(request, ticket_id):
         ticket = get_object_or_404(Ticket, id=ticket_id)
 
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         if ticket.status not in ['New', 'Pending']:
             return Response({'error': 'Ticket cannot be approved in current state'}, status=status.HTTP_400_BAD_REQUEST)
@@ -751,7 +768,7 @@ def reject_ticket(request, ticket_id):
         
         # Check if user has permission to reject tickets
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Only allow rejection if status is "New"
         if ticket.status != 'New':
@@ -846,7 +863,7 @@ def update_ticket_status(request, ticket_id):
         # Allow the ticket owner to close their own ticket (when new_status == 'Closed')
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
             if not (new_status == 'Closed' and ticket.employee == request.user):
-                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         if not new_status:
             return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -949,7 +966,7 @@ def get_new_tickets(request):
     try:
         # Check if user has permission to view tickets
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         new_tickets = Ticket.objects.filter(status='New').select_related('employee').order_by('-submit_date')
         
@@ -976,7 +993,7 @@ def get_new_tickets(request):
 def get_open_tickets(request):
     try:
         if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         tickets = Ticket.objects.filter(status='Open').select_related('employee')
         data = TicketSerializer(tickets, many=True).data
@@ -994,7 +1011,7 @@ def get_my_tickets(request):
     try:
         # Check if user has permission
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         my_tickets = Ticket.objects.filter(assigned_to=request.user).select_related('employee').order_by('-submit_date')
         
@@ -1031,7 +1048,7 @@ def download_attachment(request, ticket_id):
         
         # Check permissions
         if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         if not ticket.attachment:
             raise Http404("File not found")
@@ -1163,7 +1180,7 @@ def verify_password(request):
 def list_employees(request):
     # Allow system admins, ticket coordinators, or staff to view all employees
     if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
-        return Response({'detail': 'Permission denied.'}, status=403)
+        return Response({'detail': 'permission denied.'}, status=403)
     employees = Employee.objects.all()
     serializer = EmployeeSerializer(employees, many=True)
     return Response(serializer.data)
