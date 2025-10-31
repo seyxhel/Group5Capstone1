@@ -102,6 +102,26 @@ export const AuthProvider = ({ children }) => {
         r.role_name === "Admin"
     );
   }, [user]);
+
+  const isTicketCoordinator = useMemo(() => {
+    if (!user || !Array.isArray(user.system_roles)) return false;
+  
+    return user.system_roles.some(
+      (r) =>
+        r.system_slug === "hdts" &&
+        r.role_name === "Ticket Coordinator"
+    );
+  }, [user]);
+
+  const employee = useMemo(() => {
+    if (!user || !Array.isArray(user.system_roles)) return false;
+  
+    return user.system_roles.some(
+      (r) =>
+        r.system_slug === "hdts" &&
+        r.role_name === "Employee"
+    );
+  }, [user]);
   
   // this code checks slug for whatever system is needed
   const hasSystemAccess = useMemo(() => {
@@ -120,6 +140,7 @@ export const AuthProvider = ({ children }) => {
       setUser,
       login,
       logout,
+      isTicketCoordinator,
       isAdmin,
       hasSystemAccess,
       loading,

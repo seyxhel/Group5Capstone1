@@ -10,9 +10,12 @@ import ErrorBoundary from '../shared/components/ErrorBoundary';
 import EmployeeFAQs from '../employee/pages/frequently-asked-questions/EmployeeFAQs';
 import EmployeeFAQ from '../employee/pages/faq/EmployeeFAQ';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
+import ProtectedRoute from "./ProtectedRoute";
 
 const EmployeeRoutes = () => (
+  
   <Routes>
+    <Route element={<ProtectedRoute requireAgent={true} />}>
     <Route path="/employee" element={<EmployeeLayout />}>
       <Route path="home" element={<EmployeeHome />} />
       <Route path="active-tickets/:filter" element={<EmployeeActiveTickets />} />
@@ -23,6 +26,7 @@ const EmployeeRoutes = () => (
       <Route path="frequently-asked-questions" element={<EmployeeFAQs />} />
   <Route path="faq" element={<EmployeeFAQ />} />
       <Route path="*" element={<NotFoundPage />} />
+    </Route>
     </Route>
   </Routes>
 );

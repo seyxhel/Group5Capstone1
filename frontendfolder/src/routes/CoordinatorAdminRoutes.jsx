@@ -18,9 +18,12 @@ import KnowledgeAnalytics from '../coordinator-admin/pages/knowledge/KnowledgeAn
 import KnowledgeArchived from '../coordinator-admin/pages/knowledge/KnowledgeArchived';
 import KnowledgeSettings from '../coordinator-admin/pages/knowledge/KnowledgeSettings';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
+// protected route
+import ProtectedRoute from "./ProtectedRoute";
 
 const CoordinatorAdminRoutes = () => (
   <Routes>
+    <Route element={<ProtectedRoute requireAdmin={true} />}>
     <Route path="/admin" element={<CoordinatorAdminLayout />}>
       {/* Dashboard */}
       <Route path="dashboard" element={<CoordinatorAdminDashboard />} />
@@ -56,6 +59,7 @@ const CoordinatorAdminRoutes = () => (
         <Route path="settings" element={<KnowledgeSettings />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
+    </Route>
     </Route>
   </Routes>
 );

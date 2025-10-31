@@ -2,9 +2,15 @@ import { Routes, Route } from 'react-router-dom';
 import SmartSupportLogIn from '../authentication/pages/log-in/SmartSupportLogIn';
 import SmartSupportEmployeeCreateAccount from '../authentication/pages/employee-create-account/SmartSupportEmployeeCreateAccount';
 import SmartSupportForgotPassword from '../authentication/pages/forgot-password/SmartSupportForgotPassword';
+import Unauthorized from "../pages/error/Unauthorized";
+import ProtectedRoute from "./ProtectedRoute";
 const AuthRoutes = () => (
   <Routes>
-    <Route path="/" element={<SmartSupportLogIn />} />
+    <Route element={<ProtectedRoute requireAdmin={true} />}>
+    {/* if logged in, instead of being stuck on root (login) and unauthorized, navigate to proper pages */}
+      <Route path="/" element={<SmartSupportLogIn />} />
+      <Route path="/unauthorized" element={<Unauthorized />} />
+    </Route>
     <Route path="/create-account" element={<SmartSupportEmployeeCreateAccount />} />
     <Route path="/forgot-password" element={<SmartSupportForgotPassword />} />
     {/* Intentionally no top-level catch-all here so other route groups (e.g. /employee, /admin) can match. */}
