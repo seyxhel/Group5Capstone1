@@ -260,7 +260,13 @@ class TicketAttachment(models.Model):
 
 class TicketComment(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='comments')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    user_cookie_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="User ID from external cookie-auth system"
+    )
     comment = models.TextField()
     is_internal = models.BooleanField(default=False)  # For admin-only comments
     created_at = models.DateTimeField(auto_now_add=True)

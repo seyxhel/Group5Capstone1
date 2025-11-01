@@ -141,10 +141,25 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 class TicketAttachmentSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+    
     class Meta:
         model = TicketAttachment
         fields = ['id', 'file', 'file_name', 'file_type', 'file_size', 'upload_date']
         read_only_fields = ['id', 'upload_date', 'file_size']
+    
+    def get_file(self, obj):
+        """Return the protected API URL for the file"""
+        if obj.file:
+            # Return API endpoint URL that requires authentication
+            # Format: /api/media/ticket_attachments/filename.ext
+            # Get the request from context to build absolute URL
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(f'/api/media/{obj.file.name}')
+            # Fallback to relative URL
+            return f'/api/media/{obj.file.name}'
+        return None
 
 class EmployeeInfoSerializer(serializers.ModelSerializer):
     class Meta:

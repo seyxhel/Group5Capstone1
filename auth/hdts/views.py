@@ -10,6 +10,10 @@ from systems.models import System
 from system_roles.models import UserSystemRole
 from .decorators import hdts_admin_required # Import the decorator
 from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from users.serializers import UserProfileSerializer
 
 
 def register_user_view(request):
@@ -81,6 +85,8 @@ def update_user_status_view(request, user_id):
     """
     Handles the POST request to approve or reject a user.
     """
+    from django.utils import timezone
+    
     user_to_update = get_object_or_404(User, id=user_id)
     action = request.POST.get('action') # 'approve' or 'reject'
 
@@ -90,17 +96,65 @@ def update_user_status_view(request, user_id):
 
     if action == 'approve':
         user_to_update.status = 'Approved'
+        user_to_update.approved_at = timezone.now()  # Set approval timestamp
+        user_to_update.approved_by = request.user  # Track who approved
         # Add notification logic here if needed
         # notification_client.send_notification(...)
         messages.success(request, f"User {user_to_update.email} approved.")
     elif action == 'reject':
         user_to_update.status = 'Rejected'
+        user_to_update.rejected_at = timezone.now()  # Set rejection timestamp
+        user_to_update.rejected_by = request.user  # Track who rejected
         # Optionally deactivate the user or add notification logic
         # user_to_update.is_active = False 
         messages.success(request, f"User {user_to_update.email} rejected.")
     else:
         messages.error(request, "Invalid action.")
         return redirect('hdts:manage_pending_users')
+
+    user_to_update.save(update_fields=['status', 'approved_at', 'rejected_at', 'approved_by', 'rejected_by']) # Save status and audit fields
+
+    return redirect('hdts:manage_pending_users') # Redirect back to the management page
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pending_users_api(request):
+    """
+    API endpoint to get pending HDTS Employee registrations.
+    Returns JSON data for frontend consumption.
+    """
+    # Find users who have the Employee role in the 'hdts' system AND have status='Pending'
+    pending_users = User.objects.filter(
+        status='Pending',
+        system_roles__system__slug='hdts',
+        system_roles__role__name='Employee'
+    ).distinct()
+    
+    serializer = UserProfileSerializer(pending_users, many=True)
+    return Response({
+        'count': pending_users.count(),
+        'users': serializer.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_hdts_users_api(request):
+    """
+    API endpoint to get all HDTS system users.
+    Returns JSON data for frontend consumption.
+    """
+    # Find all users who have any role in the 'hdts' system
+    hdts_users = User.objects.filter(
+        system_roles__system__slug='hdts'
+    ).distinct()
+    
+    serializer = UserProfileSerializer(hdts_users, many=True)
+    return Response({
+        'count': hdts_users.count(),
+        'users': serializer.data
+    })
 
     user_to_update.save(update_fields=['status']) # Only save the status field
 

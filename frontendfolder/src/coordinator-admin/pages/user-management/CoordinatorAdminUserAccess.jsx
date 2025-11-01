@@ -9,7 +9,7 @@ import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
-import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { authUserService } from '../../../services/auth/userService';
 
 import CoordinatorAdminApproveUserModal from "../../components/modals/CoordinatorAdminApproveUserModal";
 import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
@@ -20,7 +20,10 @@ const userAccessConfig = [
   { key: "all-users", label: "All Users" },
   { key: "employees", label: "Employees", filter: (u) => u.role?.toLowerCase() === "employee" },
   { key: "ticket-coordinators", label: "Ticket Coordinators", filter: (u) => u.role?.toLowerCase() === "ticket coordinator" },
-  { key: "system-admins", label: "System Admins", filter: (u) => u.role?.toLowerCase() === "system admin" },
+  { key: "system-admins", label: "System Admins", filter: (u) => {
+    const role = u.role?.toLowerCase();
+    return role === "system admin" || role === "admin";
+  }},
   { key: "pending-users", label: "Pending Users", filter: (u) => u.status?.toLowerCase() === "pending" },
   { key: "rejected-users", label: "Rejected Users", filter: (u) => u.status?.toLowerCase() === "rejected" },
 ];
@@ -52,27 +55,33 @@ const CoordinatorAdminUserAccess = () => {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
-    // Try to fetch real users from backend; fall back to local storage fixtures
+    // Fetch users from auth service (http://localhost:8003/api/v1/hdts/user-management/users/api/)
     (async () => {
       try {
-        const list = await backendEmployeeService.getAllEmployees().catch(() => null);
+        const list = await authUserService.getAllHdtsUsers().catch(() => null);
         let fetchedUsers = null;
         if (Array.isArray(list) && list.length) {
-          // Normalize backend employee objects to the shape used by this component
+          // Normalize auth service user objects to the shape used by this component
           fetchedUsers = list
             // hide superusers entirely
             .filter((e) => !e.is_superuser)
-            .map((e) => ({
-              id: e.id,
-              companyId: e.company_id || e.companyId || (e.employee && e.employee.company_id) || null,
-              firstName: e.first_name || e.firstName || (e.employee && e.employee.first_name) || '',
-              lastName: e.last_name || e.lastName || (e.employee && e.employee.last_name) || '',
-              department: e.department || e.dept || (e.employee && e.employee.department) || '',
-              role: e.role || (e.user_role || '') || 'Employee',
-              status: e.status || 'Active',
-              email: e.email || null,
-              image: e.image || (e.employee && e.employee.image) || null,
-            }));
+            .map((e) => {
+              // Extract role from system_roles array
+              const hdtsRole = (e.system_roles || []).find(r => r.system_slug === 'hdts' || r.system === 'hdts');
+              const roleName = hdtsRole?.role_name || hdtsRole?.role || 'Employee';
+              
+              return {
+                id: e.id,
+                companyId: e.company_id || e.companyId || null,
+                firstName: e.first_name || e.firstName || '',
+                lastName: e.last_name || e.lastName || '',
+                department: e.department || '',
+                role: roleName,
+                status: e.status || 'Active',
+                email: e.email || null,
+                image: e.profile_picture || e.image || null,
+              };
+            });
         }
 
         if (!fetchedUsers) {

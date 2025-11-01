@@ -3,11 +3,22 @@ import { API_CONFIG } from '../../config/environment.js';
 
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
-// Helper function to get auth headers
+// Helper function to get auth headers from cookies
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('access_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Try to get the access token from cookies (set by auth service)
+  const cookies = document.cookie.split(';');
+  const accessTokenCookie = cookies.find(c => c.trim().startsWith('access_token='));
+  const accessToken = accessTokenCookie ? accessTokenCookie.split('=')[1] : null;
+  
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  // If we have an access token, send it as Authorization header
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  
   return headers;
 };
 
@@ -103,11 +114,6 @@ export const backendArticleService = {
    */
   async createArticle(articleData) {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No access token found. Are you logged in?');
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/`, {
         method: 'POST',
         headers: getAuthHeaders(),

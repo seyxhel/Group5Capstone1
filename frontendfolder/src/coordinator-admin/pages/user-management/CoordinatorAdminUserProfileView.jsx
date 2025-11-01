@@ -4,7 +4,7 @@ import ViewCard from '../../../shared/components/ViewCard';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { authUserService } from '../../../services/auth/userService';
 import { convertToSecureUrl } from '../../../utilities/secureMedia';
 
 export default function CoordinatorAdminUserProfileView() {
@@ -22,12 +22,14 @@ export default function CoordinatorAdminUserProfileView() {
         found = getEmployeeUserById(numeric);
       }
 
-      // Try backend list lookup by company_id
+      // Try auth service list lookup by company_id
       try {
-        const list = await backendEmployeeService.getAllEmployees().catch(() => null);
+        const list = await authUserService.getAllHdtsUsers().catch(() => null);
         if (Array.isArray(list) && list.length) {
           const matched = list.find((e) => String(e.company_id) === String(companyId) || String(e.companyId) === String(companyId));
           if (matched) {
+            // Extract HDTS role from system_roles
+            const hdtsRole = (matched.system_roles || []).find(r => r.system_slug === 'hdts');
             // normalize to the local fixture shape
             found = {
               id: matched.id,
@@ -35,7 +37,7 @@ export default function CoordinatorAdminUserProfileView() {
               firstName: matched.first_name || matched.firstName || '',
               lastName: matched.last_name || matched.lastName || '',
               department: matched.department || matched.dept || '',
-              role: matched.role || 'Employee',
+              role: hdtsRole?.role_name || matched.role || 'Employee',
               status: matched.status || 'Active',
               email: matched.email || null,
               phone: matched.phone || matched.mobile || null,
@@ -44,7 +46,7 @@ export default function CoordinatorAdminUserProfileView() {
           }
         }
       } catch (e) {
-        // ignore backend fetch errors
+        // ignore auth service fetch errors
       }
 
       if (!found) {

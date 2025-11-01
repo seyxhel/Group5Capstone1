@@ -15,6 +15,8 @@ def hdts_root(request, format=None):
     return Response({
         'register': reverse('hdts:register', request=request, format=format),
         'pending_users': reverse('hdts:manage_pending_users', request=request, format=format),
+        'pending_users_api': reverse('hdts:pending_users_api', request=request, format=format),
+        'all_users_api': reverse('hdts:all_users_api', request=request, format=format),
         'update_user_status': reverse('hdts:update_user_status', args=[1], request=request, format=format),  # example id=1
     })
 
@@ -23,5 +25,7 @@ urlpatterns = [
     path('', hdts_root, name='hdts_root'),
     path('register/', views.register_user_view, name='register'),
     path('user-management/pending/', views.manage_pending_users_view, name='manage_pending_users'),
+    path('user-management/pending/api/', views.get_pending_users_api, name='pending_users_api'),
+    path('user-management/users/api/', views.get_all_hdts_users_api, name='all_users_api'),
     path('user-management/update-status/<int:user_id>/', views.update_user_status_view, name='update_user_status'),
 ]

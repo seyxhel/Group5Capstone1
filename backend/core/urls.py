@@ -27,6 +27,7 @@ from .views import (
     approve_employee,
     deny_employee,
     finalize_ticket,  # <-- add this import
+    serve_protected_media,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
@@ -65,6 +66,9 @@ urlpatterns = [
     path('tickets/open/', get_open_tickets, name='get_open_tickets'),
     path('tickets/my-tickets/', get_my_tickets, name='get_my_tickets'),
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
+
+    # Protected media files - require authentication
+    path('media/<path:file_path>', serve_protected_media, name='serve_protected_media'),
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST

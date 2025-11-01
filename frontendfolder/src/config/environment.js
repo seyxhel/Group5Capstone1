@@ -16,6 +16,12 @@ export const API_CONFIG = {
   BACKEND: {
     BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
     TIMEOUT: 10000
+  },
+  
+  // Auth service settings
+  AUTH: {
+    BASE_URL: import.meta.env.VITE_AUTH_URL || 'http://localhost:8003',
+    TIMEOUT: 10000
   }
 };
 

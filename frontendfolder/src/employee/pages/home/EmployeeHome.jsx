@@ -11,13 +11,13 @@ import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
-import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const currentUser = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     let isMounted = true; // Prevent state updates if component unmounts
@@ -116,7 +116,7 @@ const EmployeeHome = () => {
   return (
     <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>{currentUser?.firstName}</span>,
+        Welcome, <span className={styles.welcomeName}>{currentUser?.first_name || currentUser?.firstName}<span className={styles.welcomeName}>!</span></span>
       </h1>
 
       <div className={styles.topSection}>

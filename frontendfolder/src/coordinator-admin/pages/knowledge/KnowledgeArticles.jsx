@@ -197,7 +197,7 @@ const KnowledgeArticles = () => {
               value={query}
               onChange={e => { setQuery(e.target.value); setCurrentPage(1); }}
             />
-            {authService.getUserRole() === 'System Admin' && (
+            {authService.getUserRole() !== 'Ticket Coordinator' && (
               <button
                 className={userStyles.registerButton}
                 onClick={() => navigate('/admin/knowledge/create')}

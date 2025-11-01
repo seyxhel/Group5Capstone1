@@ -1,11 +1,19 @@
 from rest_framework.permissions import IsAuthenticated, BasePermission
-# Move IsSystemAdmin definition to top
-class IsSystemAdmin(BasePermission):
-    def has_permission(self, request, view):
-        return hasattr(request.user, 'role') and request.user.role == "System Admin"
 from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from .authentication import CookieJWTAuthentication, ExternalUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
+# Permission classes
+class IsSystemAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return hasattr(request.user, 'role') and request.user.role == "System Admin"
+
+class IsAdminOrSystemAdmin(BasePermission):
+    """Permission class that allows both Admin and System Admin roles"""
+    def has_permission(self, request, view):
+        if not hasattr(request.user, 'role'):
+            return False
+        return request.user.role in ["Admin", "System Admin"]
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated, IsSystemAdmin])
@@ -218,10 +226,13 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if isinstance(user, ExternalUser):
-            if user.role == 'Ticket Coordinator':
-                return Ticket.objects.filter(employee_cookie_id__isnull=False).order_by('-submit_date')
+            # Admin and Ticket Coordinator see all tickets
+            if user.role in ['Admin', 'Ticket Coordinator', 'System Admin']:
+                return Ticket.objects.all().order_by('-submit_date')
+            # Regular employees see only their own tickets
             return Ticket.objects.filter(employee_cookie_id=user.id).order_by('-submit_date')
-        if user.role in ['System Admin', 'Ticket Coordinator']:
+        # For Django User model (legacy)
+        if hasattr(user, 'role') and user.role in ['System Admin', 'Ticket Coordinator', 'Admin']:
             return Ticket.objects.all().order_by('-submit_date')
         return Ticket.objects.filter(employee=user).order_by('-submit_date')
     
@@ -354,9 +365,9 @@ class TicketViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         if isinstance(self.request.user, ExternalUser):
-            serializer.save(employee=None, employee_cookie_id=self.request.user.id)
+            return serializer.save(employee=None, employee_cookie_id=self.request.user.id)
         else:
-            serializer.save(employee=self.request.user)
+            return serializer.save(employee=self.request.user)
         
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -503,10 +514,10 @@ def get_ticket_detail(request, ticket_id):
                     'created_at': comment.created_at,
                     'is_internal': comment.is_internal,
                     'user': {
-                        'id': comment.user.id,
-                        'first_name': comment.user.first_name,
-                        'last_name': comment.user.last_name,
-                        'role': getattr(comment.user, 'role', 'User')
+                        'id': comment.user.id if comment.user else comment.user_cookie_id,
+                        'first_name': comment.user.first_name if comment.user else f'User {comment.user_cookie_id}',
+                        'last_name': comment.user.last_name if comment.user else '',
+                        'role': getattr(comment.user, 'role', 'Employee') if comment.user else 'Employee'
                     }
                 } for comment in comments
             ]
@@ -601,10 +612,10 @@ def get_ticket_by_number(request, ticket_number):
                     'created_at': comment.created_at,
                     'is_internal': comment.is_internal,
                     'user': {
-                        'id': comment.user.id,
-                        'first_name': comment.user.first_name,
-                        'last_name': comment.user.last_name,
-                        'role': getattr(comment.user, 'role', 'User')
+                        'id': comment.user.id if comment.user else comment.user_cookie_id,
+                        'first_name': comment.user.first_name if comment.user else f'User {comment.user_cookie_id}',
+                        'last_name': comment.user.last_name if comment.user else '',
+                        'role': getattr(comment.user, 'role', 'Employee') if comment.user else 'Employee'
                     }
                 } for comment in comments
             ]
@@ -665,7 +676,17 @@ def add_ticket_comment(request, ticket_id):
         ticket = get_object_or_404(Ticket, id=ticket_id)
 
         # Permission: employee who owns the ticket or staff/admin/coordinator can comment
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+        # Check if user is ticket owner (handle both ExternalUser via cookie_id and local Employee)
+        is_ticket_owner = (
+            (hasattr(request.user, 'id') and ticket.employee_cookie_id == request.user.id) or 
+            (request.user == ticket.employee)
+        )
+        is_admin_or_coordinator = (
+            request.user.is_staff or 
+            getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']
+        )
+        
+        if not (is_admin_or_coordinator or is_ticket_owner):
             return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         comment_text = request.data.get('comment', '').strip()
@@ -674,15 +695,42 @@ def add_ticket_comment(request, ticket_id):
 
         is_internal = bool(request.data.get('is_internal', False))
         # Prevent regular employees from creating internal comments
-        if is_internal and not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
+        if is_internal and not (request.user.is_staff or getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']):
             return Response({'error': 'permission denied for internal comment'}, status=status.HTTP_403_FORBIDDEN)
 
-        comment = TicketComment.objects.create(
-            ticket=ticket,
-            user=request.user,
-            comment=comment_text,
-            is_internal=is_internal
-        )
+        # Handle ExternalUser (from cookie auth) vs local Django User
+        from .authentication import ExternalUser
+        if isinstance(request.user, ExternalUser):
+            # External user from cookie auth - set user_cookie_id
+            comment = TicketComment.objects.create(
+                ticket=ticket,
+                user=None,
+                user_cookie_id=request.user.id,
+                comment=comment_text,
+                is_internal=is_internal
+            )
+            # Build user data from ExternalUser
+            user_data = {
+                'id': request.user.id,
+                'first_name': getattr(request.user, 'email', '').split('@')[0],  # Use email prefix as name
+                'last_name': '',
+                'role': getattr(request.user, 'role', 'Employee')
+            }
+        else:
+            # Local Django user
+            comment = TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                user_cookie_id=None,
+                comment=comment_text,
+                is_internal=is_internal
+            )
+            user_data = {
+                'id': comment.user.id,
+                'first_name': comment.user.first_name,
+                'last_name': comment.user.last_name,
+                'role': getattr(comment.user, 'role', 'User')
+            }
 
         # Prepare serialized response similar to get_ticket_detail
         comment_data = {
@@ -690,12 +738,7 @@ def add_ticket_comment(request, ticket_id):
             'comment': comment.comment,
             'created_at': comment.created_at,
             'is_internal': comment.is_internal,
-            'user': {
-                'id': comment.user.id,
-                'first_name': comment.user.first_name,
-                'last_name': comment.user.last_name,
-                'role': getattr(comment.user, 'role', 'User')
-            }
+            'user': user_data
         }
 
         return Response(comment_data, status=status.HTTP_201_CREATED)
@@ -861,8 +904,12 @@ def update_ticket_status(request, ticket_id):
 
         # Check if user has permission to update tickets
         # Allow the ticket owner to close their own ticket (when new_status == 'Closed')
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator']):
-            if not (new_status == 'Closed' and ticket.employee == request.user):
+        is_ticket_owner = (
+            (hasattr(request.user, 'id') and ticket.employee_cookie_id == request.user.id) or 
+            (ticket.employee == request.user)
+        )
+        if not (request.user.is_staff or getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator']):
+            if not (new_status == 'Closed' and is_ticket_owner):
                 return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         if not new_status:
@@ -918,8 +965,12 @@ def withdraw_ticket(request, ticket_id):
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
         
-        # Check if user is the ticket owner
-        if ticket.employee != request.user:
+        # Check if user is the ticket owner (handle both ExternalUser and local User)
+        is_ticket_owner = (
+            (hasattr(request.user, 'id') and ticket.employee_cookie_id == request.user.id) or 
+            (ticket.employee == request.user)
+        )
+        if not is_ticket_owner:
             return Response({'error': 'You can only withdraw your own tickets'}, status=status.HTTP_403_FORBIDDEN)
         
         # Check if ticket can be withdrawn (not already closed, withdrawn, or resolved)
@@ -937,15 +988,27 @@ def withdraw_ticket(request, ticket_id):
             ticket.resolution_time = timezone.now() - ticket.submit_date
         ticket.save()
         
-        # Create comment for withdrawal
-        withdrawal_comment = f"Ticket withdrawn by {request.user.first_name} {request.user.last_name}. Reason: {reason}"
-        
-        TicketComment.objects.create(
-            ticket=ticket,
-            user=request.user,
-            comment=withdrawal_comment,
-            is_internal=False
-        )
+        # Create comment for withdrawal - handle ExternalUser
+        from .authentication import ExternalUser
+        if isinstance(request.user, ExternalUser):
+            user_name = getattr(request.user, 'email', 'User').split('@')[0]
+            withdrawal_comment = f"Ticket withdrawn by {user_name}. Reason: {reason}"
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=None,
+                user_cookie_id=request.user.id,
+                comment=withdrawal_comment,
+                is_internal=False
+            )
+        else:
+            withdrawal_comment = f"Ticket withdrawn by {request.user.first_name} {request.user.last_name}. Reason: {reason}"
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                user_cookie_id=None,
+                comment=withdrawal_comment,
+                is_internal=False
+            )
         
         return Response({
             'message': 'Ticket withdrawn successfully',
@@ -1046,8 +1109,12 @@ def download_attachment(request, ticket_id):
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
         
-        # Check permissions
-        if not (request.user.is_staff or request.user.role in ['System Admin', 'Ticket Coordinator'] or request.user == ticket.employee):
+        # Check permissions (handle both ExternalUser and local User)
+        is_ticket_owner = (
+            (hasattr(request.user, 'id') and ticket.employee_cookie_id == request.user.id) or 
+            (ticket.employee == request.user)
+        )
+        if not (request.user.is_staff or getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator'] or is_ticket_owner):
             return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         if not ticket.attachment:
@@ -1178,8 +1245,8 @@ def verify_password(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_employees(request):
-    # Allow system admins, ticket coordinators, or staff to view all employees
-    if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
+    # Allow system admins, admins, ticket coordinators, or staff to view all employees
+    if not request.user.is_staff and request.user.role not in ['System Admin', 'Admin', 'Ticket Coordinator']:
         return Response({'detail': 'permission denied.'}, status=403)
     employees = Employee.objects.all()
     serializer = EmployeeSerializer(employees, many=True)
@@ -1394,17 +1461,18 @@ def finalize_ticket(request, ticket_id):
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, AllowAny
 from .serializers import KnowledgeArticleSerializer
+from .authentication import ExternalUser
 from .models import KnowledgeArticle
 
 
 class KnowledgeArticleViewSet(viewsets.ModelViewSet):
     serializer_class = KnowledgeArticleSerializer
     # default permission for unsafe methods; we'll override for safe methods in get_permissions
-    permission_classes = [IsAuthenticated, IsSystemAdmin]
+    permission_classes = [IsAuthenticated, IsAdminOrSystemAdmin]
 
     def get_permissions(self):
-        """Allow safe (read-only) methods to be accessible without System Admin permission.
-        Unsafe methods (create/update/delete) still require IsAuthenticated and IsSystemAdmin.
+        """Allow safe (read-only) methods to be accessible without Admin permission.
+        Unsafe methods (create/update/delete) still require IsAuthenticated and IsAdminOrSystemAdmin.
         """
         # If it's a safe method, allow public read access.
         if self.request.method in SAFE_METHODS:
@@ -1418,8 +1486,19 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         return KnowledgeArticle.objects.all().order_by('-created_at')
 
     def perform_create(self, serializer):
-        """Set the created_by field to the current user"""
-        serializer.save(created_by=self.request.user)
+        """Set the created_by field to the current user.
+
+        If the request user is an ExternalUser (token-authenticated user from
+        the separate auth service) we cannot assign it directly to the
+        ForeignKey (which expects an Employee instance). The `created_by`
+        field is nullable so we store `None` in that case.
+        """
+        user = self.request.user
+        if isinstance(user, ExternalUser):
+            # external users aren't Employee instances stored locally
+            serializer.save(created_by=None)
+        else:
+            serializer.save(created_by=user)
     
     @action(detail=True, methods=['post'], url_path='archive')
     def archive(self, request, pk=None):
@@ -1436,6 +1515,54 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         article.is_archived = False
         article.save()
         return Response({'detail': 'Article restored successfully.'}, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], url_path='choices', permission_classes=[AllowAny])
+    def choices(self, request):
+        """Return available category choices for knowledge articles"""
+        from .models import ARTICLE_CATEGORY_CHOICES
+        return Response({
+            'categories': [{'value': choice[0], 'label': choice[1]} for choice in ARTICLE_CATEGORY_CHOICES]
+        }, status=status.HTTP_200_OK)
+
+from django.http import FileResponse, Http404, HttpResponse
+from django.conf import settings
+import os
+import mimetypes
+
+@api_view(['GET'])
+@authentication_classes([CookieJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def serve_protected_media(request, file_path):
+    """
+    Serve media files only to authenticated users with valid cookies from auth service.
+    This ensures media files cannot be accessed without proper authentication.
+    Any user authenticated through the external auth service can access files.
+    """
+    # Construct the full file path
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+    
+    # Security check: ensure the path doesn't escape MEDIA_ROOT
+    full_path = os.path.abspath(full_path)
+    media_root = os.path.abspath(settings.MEDIA_ROOT)
+    if not full_path.startswith(media_root):
+        raise Http404("Invalid file path")
+    
+    # Check if file exists
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        raise Http404("File not found")
+    
+    # Determine content type
+    content_type, _ = mimetypes.guess_type(full_path)
+    if content_type is None:
+        content_type = 'application/octet-stream'
+    
+    # Open and serve the file
+    try:
+        response = FileResponse(open(full_path, 'rb'), content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{os.path.basename(full_path)}"'
+        return response
+    except Exception as e:
+        raise Http404(f"Error serving file: {str(e)}")
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response

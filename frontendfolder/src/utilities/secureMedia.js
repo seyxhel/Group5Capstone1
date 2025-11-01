@@ -78,6 +78,22 @@ export function extractFilePathFromUrl(fullUrl) {
  * @returns {string|null} - The secure media URL or null
  */
 export function convertToSecureUrl(existingUrl) {
+  if (!existingUrl) return null;
+  
+  // If the URL already starts with http://localhost:8000/api/media/, use it as-is
+  if (existingUrl.startsWith('http://localhost:8000/api/media/') || 
+      existingUrl.startsWith('http://localhost:8003/api/media/') ||
+      existingUrl.startsWith('https://') && existingUrl.includes('/api/media/')) {
+    return existingUrl;
+  }
+  
+  // If it starts with /api/media/, prepend the base URL
+  if (existingUrl.startsWith('/api/media/')) {
+    const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8000';
+    return `${BASE_URL}${existingUrl}`;
+  }
+  
+  // Otherwise, use the old logic for backward compatibility
   const filePath = extractFilePathFromUrl(existingUrl);
   if (!filePath) return null;
   // If filePath includes a leading 'media/' segment (or '/media/'), strip it

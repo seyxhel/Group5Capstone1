@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './manage-profile.module.css';
-import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG, FEATURES } from '../../../config/environment.js';
 import { toast } from 'react-toastify';
 
 export default function EmployeeSettings() {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -16,10 +16,11 @@ export default function EmployeeSettings() {
   const fileUrlRef = useRef(null);
 
   useEffect(() => {
-    const u = authService.getCurrentUser();
-    setUser(u);
-    setLoading(false);
-  }, []);
+    if (authUser) {
+      setUser(authUser);
+      setLoading(false);
+    }
+  }, [authUser]);
 
   useEffect(() => {
     // Cleanup object URL when component unmounts or when preview changes
@@ -31,68 +32,35 @@ export default function EmployeeSettings() {
     };
   }, []);
 
-  // Try to fetch the latest profile from the backend so the placeholder reflects the
-  // server-side value (falls back to local authService user if backend not available)
+  // Set preview URL from auth user's profile image if available
   useEffect(() => {
-    let mounted = true;
+    if (authUser && !selectedFile) {
+      const makeAbsolute = (img) => {
+        if (!img) return null;
+        if (/^https?:\/\//i.test(img)) return img;
 
-    const makeAbsolute = (img) => {
-      if (!img) return null;
-      if (/^https?:\/\//i.test(img)) return img;
+        const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '')}/media/`;
 
-      // Prefer configured media URL if present (Vite env) else use backend base URL
-      const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '')}/media/`;
-
-      // If the image already looks like a media path (/media/...), normalize by prefixing MEDIA_URL
-      if (img.startsWith('/media/') || img.startsWith('media/')) {
-        const clean = img.replace(/^\/?media\//, '');
-        return `${MEDIA_URL}${clean}`;
-      }
-
-      // If path starts with '/', prefix with backend base URL
-      if (img.startsWith('/')) {
-        const base = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-        return `${base}${img}`;
-      }
-
-      // Otherwise treat it as a relative path under MEDIA_URL
-      return `${MEDIA_URL}${img}`;
-    };
-
-    const fetchProfile = async () => {
-      try {
-        const data = await backendEmployeeService.getCurrentEmployee();
-        if (!mounted || !data) return;
-
-        // Try common image fields returned by different backends
-        const image = data.profileImage || data.profile_image || data.image || data.url;
-        const abs = makeAbsolute(image);
-        if (abs) {
-          // If no preview selected by user, show the server image as placeholder
-          if (!selectedFile) setPreviewUrl(abs);
+        if (img.startsWith('/media/') || img.startsWith('media/')) {
+          const clean = img.replace(/^\/?media\//, '');
+          return `${MEDIA_URL}${clean}`;
         }
 
-        // Merge fetched data into user and persist it so other components can pick it up
-        try {
-          const merged = { ...(authService.getCurrentUser() || {}), ...data };
-          setUser(merged);
-          localStorage.setItem('loggedInUser', JSON.stringify(merged));
-        } catch (e) {
-          // Non-fatal — continue with local data
-          console.debug('Could not persist fetched user data', e);
+        if (img.startsWith('/')) {
+          const base = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+          return `${base}${img}`;
         }
-      } catch (err) {
-        // Backend may be unavailable in local/mock mode; keep existing local user
-        console.debug('Could not fetch current employee profile:', err);
+
+        return `${MEDIA_URL}${img}`;
+      };
+
+      const image = authUser.profileImage || authUser.profile_image || authUser.image || authUser.profile_picture;
+      const abs = makeAbsolute(image);
+      if (abs) {
+        setPreviewUrl(abs);
       }
-    };
-
-    fetchProfile();
-
-    return () => {
-      mounted = false;
-    };
-  }, [selectedFile]);
+    }
+  }, [authUser, selectedFile]);
 
   const handleSaveChanges = async () => {
     // If no new file selected, nothing to do

@@ -4,6 +4,8 @@ import SmartSupportEmployeeCreateAccount from '../authentication/pages/employee-
 import SmartSupportForgotPassword from '../authentication/pages/forgot-password/SmartSupportForgotPassword';
 import Unauthorized from "../pages/error/Unauthorized";
 import ProtectedRoute from "./ProtectedRoute";
+import SSOCallback from '../authentication/pages/sso-callback/SSOCallback';
+
 const AuthRoutes = () => (
   <Routes>
     <Route element={<ProtectedRoute requireAdmin={true} requireAgent={false} />}>
@@ -11,6 +13,7 @@ const AuthRoutes = () => (
       <Route path="/" element={<SmartSupportLogIn />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
     </Route>
+    <Route path="/hdts" element={<SSOCallback />} />
     <Route path="/create-account" element={<SmartSupportEmployeeCreateAccount />} />
     <Route path="/forgot-password" element={<SmartSupportForgotPassword />} />
     {/* Intentionally no top-level catch-all here so other route groups (e.g. /employee, /admin) can match. */}

@@ -5,10 +5,23 @@ import { backendAuthService } from './authService.js';
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
 // Helper function to get headers for cookie-based auth
-const getAuthHeaders = () => ({
-  'Content-Type': 'application/json',
-  // No Authorization header; rely on httpOnly cookie
-});
+const getAuthHeaders = () => {
+  // Try to get the access token from cookies (set by auth service)
+  const cookies = document.cookie.split(';');
+  const accessTokenCookie = cookies.find(c => c.trim().startsWith('access_token='));
+  const accessToken = accessTokenCookie ? accessTokenCookie.split('=')[1] : null;
+  
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  // If we have an access token, send it as Authorization header
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  
+  return headers;
+};
 
 // Helper to handle 401 errors by logging out immediately
 const handleAuthError = (response) => {

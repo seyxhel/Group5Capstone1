@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
-import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import TicketActivity from './TicketActivity';
@@ -316,41 +316,32 @@ const renderAttachments = (files) => {
   return (
     <div className={styles.attachmentList}>
       {fileArray.map((f, idx) => {
-        // Support multiple shapes: backend returns { file: url, file_name },
-        // older local mocks may use { name, url }, or sometimes just a URL string.
+        // Support multiple shapes: backend returns { file: url, file_name }
         const name = f?.file_name || f?.name || f?.filename || (typeof f === 'string' ? f.split('/').pop() : f);
         const url = f?.file || f?.url || f?.downloadUrl || f?.download_url || (typeof f === 'string' ? f : '#');
-        // compute secure/backend URL to avoid opening local dev server paths
-        let secureOrBackend = convertToSecureUrl(url) || null;
-        if (!secureOrBackend) {
-          // try to extract a file path
-          let filePath = extractFilePathFromUrl(url);
-          if (!filePath && typeof url === 'string' && url.startsWith('http')) {
-            try {
-              const parsed = new URL(url);
-              filePath = parsed.pathname || null;
-            } catch (e) {
-              filePath = null;
-            }
-          }
-          if (filePath) {
-            const clean = filePath.startsWith('/') ? filePath.slice(1) : filePath;
-            const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
-            secureOrBackend = `${MEDIA_URL}${clean}`;
-            const token = getAccessToken();
-            if (token) secureOrBackend = `${secureOrBackend}?token=${encodeURIComponent(token)}`;
-          }
+        
+        // Build the protected API URL - backend returns paths like /api/media/ticket_attachments/file.ext
+        const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        let finalUrl = url;
+        
+        // If the URL is a relative path (starts with /api/media/), prepend the backend URL
+        if (typeof url === 'string' && url.startsWith('/api/')) {
+          finalUrl = `${BACKEND_URL}${url}`;
+        } else if (typeof url === 'string' && !url.startsWith('http')) {
+          // If it's a relative path without /api/, assume it's an old format
+          finalUrl = `${BACKEND_URL}/api/media/${url}`;
         }
+        
         // final fallback to original url
-        if (!secureOrBackend) secureOrBackend = url;
+        if (!finalUrl) finalUrl = url;
         return (
           <div key={idx} className={styles.attachmentItem}>
             <div className={styles.attachmentIcon}>{getFileIcon(f)}</div>
             <div style={{ flex: 1 }}>
-              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
+              <a href={finalUrl} target="_blank" rel="noreferrer" className={styles.attachmentName}>{name}</a>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <a href={secureOrBackend} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
+              <a href={finalUrl} target="_blank" rel="noreferrer" className={styles.attachmentDownload}>
                 <FaDownload />
               </a>
             </div>
@@ -368,8 +359,8 @@ export default function EmployeeTicketTracker() {
   const [activeTab, setActiveTab] = useState('messages'); // 'logs' or 'messages'
   // preview state removed - attachments now open in a new tab
 
-  // Get current logged-in user
-  const currentUser = authService.getCurrentUser();
+  // Get current logged-in user from AuthContext
+  const { user: currentUser } = useAuth();
   
   // Get only the current user's tickets
   const tickets = getEmployeeTickets(currentUser?.id);

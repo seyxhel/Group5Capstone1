@@ -33,10 +33,12 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { backendArticleService } from '../../../services/backend/articleService';
+import { authUserService } from '../../../services/auth/userService';
 import kbService from '../../../services/kbService';
 
 const ticketPaths = [
@@ -310,16 +312,41 @@ const CoordinatorAdminDashboard = () => {
   const [chartRange, setChartRange] = useState('month');
   const [pieRange, setPieRange] = useState('month');
   const navigate = useNavigate();
-  // Memoize current user to avoid unstable object identity from authService
-  const currentUser = useMemo(() => authService.getCurrentUser(), []);
+  
+  // Use AuthContext for role-based access
+  const { user, isAdmin, isTicketCoordinator } = useAuth();
+  
+  // Fallback to old authService if AuthContext doesn't have user yet
+  const currentUser = useMemo(() => {
+    if (user) {
+      const derivedRole = user.role || (isAdmin ? 'Admin' : isTicketCoordinator ? 'Ticket Coordinator' : 'Employee');
+      console.log('Dashboard - User from AuthContext:', user);
+      console.log('Dashboard - isAdmin:', isAdmin);
+      console.log('Dashboard - isTicketCoordinator:', isTicketCoordinator);
+      console.log('Dashboard - Derived role:', derivedRole);
+      return {
+        ...user,
+        role: derivedRole
+      };
+    }
+    const fallbackUser = authService.getCurrentUser();
+    console.log('Dashboard - Fallback to old authService:', fallbackUser);
+    return fallbackUser;
+  }, [user, isAdmin, isTicketCoordinator]);
+  
   // Ticket Coordinators only see the Tickets tab on dashboard
-  const dashboardTabs = currentUser?.role === 'Ticket Coordinator'
-    ? [{ label: 'Tickets', value: 'tickets' }]
-    : [
-      { label: 'Tickets', value: 'tickets' },
-      { label: 'Users', value: 'users' },
-      { label: 'KB', value: 'kb' },
-    ];
+  const dashboardTabs = useMemo(() => {
+    const role = currentUser?.role || '';
+    const isCoordinator = role === 'Ticket Coordinator' || isTicketCoordinator;
+    
+    return isCoordinator
+      ? [{ label: 'Tickets', value: 'tickets' }]
+      : [
+          { label: 'Tickets', value: 'tickets' },
+          { label: 'Users', value: 'users' },
+          { label: 'KB', value: 'kb' },
+        ];
+  }, [currentUser?.role, isTicketCoordinator]);
 
   const [ticketDataState, setTicketDataState] = useState(null);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -386,7 +413,8 @@ const CoordinatorAdminDashboard = () => {
     if (currentUser?.role === 'Ticket Coordinator') {
       return tickets.filter(t => t.assignedTo === currentUser.id || t.reviewedById === currentUser.id || t.assignedToName === currentUser?.name);
     }
-    return tickets; // System Admin sees all
+    // Admin and System Admin see all tickets
+    return tickets;
   };
 
   // Aggregation helpers for charts
@@ -500,6 +528,8 @@ const CoordinatorAdminDashboard = () => {
         let all = [];
         try {
           all = await backendTicketService.getAllTickets();
+          console.log('📊 Admin Dashboard: Fetched tickets from backend:', all.length, 'tickets');
+          console.log('📊 Sample ticket:', all[0]);
         } catch (e) {
           console.warn('Backend ticket fetch failed, falling back to local tickets', e);
           all = [];
@@ -507,6 +537,7 @@ const CoordinatorAdminDashboard = () => {
 
         // If backend returned no tickets (for example when no token) fall back to local seeded tickets
         if ((!Array.isArray(all) || all.length === 0) && typeof getAllTickets === 'function') {
+          console.log('⚠️ Admin Dashboard: No backend tickets, using local seeded data');
           const local = getAllTickets();
           if (Array.isArray(local) && local.length) all = local;
         }
@@ -526,7 +557,10 @@ const CoordinatorAdminDashboard = () => {
         });
 
         const pie = aggregatePie(filtered.concat());
-        const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+        const line = aggregateLine(
+          filtered.concat(), 
+          (currentUser?.role === 'Admin' || isAdmin) && chartRange === 'yearly' ? 'yearly' : chartRange
+        );
         // Build a compact activity timeline: pick latest timestamp from each ticket and a short action
         // Choose timestamp fields according to action (submitted vs resolved/rejected)
         const buildTimestampFor = (t, verb) => {
@@ -577,7 +611,7 @@ const CoordinatorAdminDashboard = () => {
           return { time: timeLabel, action, rawTime: sortDate.getTime() };
         })
           .filter(i => i && Number.isFinite(i.rawTime))
-          .sort((a, b) => b.rawTime - a.rawTime)
+          .sort((a, b) => b.rawTime - a.rawTime) // Sort by timestamp: newest to oldest (latest activities first)
           .slice(0, 4);
 
         // For user timeline, show items where a creator/employee field exists; fallback to the same timeline
@@ -590,94 +624,181 @@ const CoordinatorAdminDashboard = () => {
           setActivityTimeline(timeline.map(i => ({ time: i.time, action: i.action })));
           setUserActivityTimeline(userTimeline.map(i => ({ time: i.time, action: i.action })));
 
+          // Build table data from filtered tickets (limit to 5 rows for scrollable display)
+          const tableData = filtered.slice(0, 5).map(t => {
+            // Get ticket number with fallback
+            const numberRaw = t.ticketNumber || t.ticket_no || t.ticket_number || t.number || t.reference || t.ref || t.tx || t.tx_number || null;
+            let number = numberRaw || null;
+            if (!number) {
+              const created = new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0);
+              const y = String(created.getFullYear() || new Date().getFullYear());
+              const m = String((created.getMonth() + 1)).padStart(2, '0');
+              const d = String(created.getDate()).padStart(2, '0');
+              const rawId = (t.id || t.pk || t.ticket_id || t.internal_id || '') + '';
+              const padded = rawId ? rawId.padStart(6, '0') : Math.floor(Math.random() * 900000 + 100000).toString();
+              number = `TX${y}${m}${d}${padded}`;
+            }
+
+            return {
+              ticketNumber: number,
+              subject: t.subject || t.title || t.issue || 'No subject',
+              category: t.category || t.category_name || 'Uncategorized',
+              subCategory: t.subCategory || t.sub_category || t.subcategory || '-',
+              status: {
+                text: computeEffectiveStatus(t),
+                statusClass: 'status' + computeEffectiveStatus(t).replace(/\s+/g, '')
+              },
+              dateCreated: new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0).toLocaleDateString()
+            };
+          });
+
           setTicketDataState({
             stats,
-            tableData: ticketData.tableData,
+            tableData,
             pieData: pie,
             lineData: line
           });
         }
-        // Fetch employees for Users tab (pending users and user activity)
+        // Fetch all users from auth service for Users tab
         try {
           setLoadingUsers(true);
           setUserError(null);
-          let employees = [];
+          let allUsers = [];
           try {
-            employees = await backendEmployeeService.getAllEmployees();
+            // Fetch all HDTS users from auth service
+            allUsers = await authUserService.getAllHdtsUsers();
+            console.log('📋 Admin Dashboard: Fetched all HDTS users from auth service:', allUsers.length, 'users');
           } catch (e) {
-            console.warn('Failed to fetch employees from backend:', e);
-            employees = [];
+            console.warn('Failed to fetch HDTS users from auth service:', e);
+            allUsers = [];
           }
 
           // Normalize to array
-          employees = Array.isArray(employees) ? employees : [];
+          allUsers = Array.isArray(allUsers) ? allUsers : [];
 
-          // Pending users (status 'Pending') and role Employee only
-          const pending = employees.filter(u => {
-            const status = (u.status || '').toString().toLowerCase();
-            const role = (u.role || u.user_role || '').toString().toLowerCase();
-            return status === 'pending' && role === 'employee';
+          // Fetch pending HDTS employees from auth service (pending employees only)
+          let pendingEmployees = [];
+          try {
+            pendingEmployees = await authUserService.getPendingHdtsUsers();
+            console.log('📋 Admin Dashboard: Fetched pending HDTS employees from auth service:', pendingEmployees.length, 'users');
+          } catch (e) {
+            console.warn('Failed to fetch pending HDTS employees from auth service, falling back to client-side filter:', e);
+
+            // Fallback: Filter pending employees from the all-users list
+            pendingEmployees = allUsers.filter(u => {
+              const status = (u.status || '').toLowerCase();
+              const roles = u.system_roles || u.systemRoles || [];
+              const hasEmployeeRole = roles.some(r => {
+                const roleName = (r.role_name || r.role || '').toLowerCase();
+                return roleName === 'employee';
+              });
+              return status === 'pending' && hasEmployeeRole;
+            });
+            console.log('📋 Admin Dashboard: Pending employees (fallback filter):', pendingEmployees.length, 'from', allUsers.length, 'total users');
+          }
+
+          // Build table rows for User Approval table (pending employees only)
+          // Columns: Company ID, Last Name, First Name, Department, Status
+          const tableRows = pendingEmployees.map(u => {
+            return {
+              companyId: u.company_id || u.companyId || u.username || `USER-${u.id}`,
+              lastName: u.last_name || '',
+              firstName: u.first_name || '',
+              department: u.department || '',
+              status: { 
+                text: 'Pending', 
+                statusClass: 'statusPending' 
+              }
+            };
           });
 
-          // Build table rows for all pending employees and lock columns order (table is scrollable)
-          const tableRows = pending.map(u => ({
-            companyId: u.companyId || u.company_id || u.company || u.companyId || u.employeeId || u.employee_id || (u.id ? `EMP-${String(u.id).padStart(3, '0')}` : ''),
-            lastName: u.lastName || u.last_name || u.surname || '',
-            firstName: u.firstName || u.first_name || u.givenName || '',
-            department: u.department || u.dept || '',
-            role: u.role || u.user_role || '',
-            status: { text: u.status || 'Pending', statusClass: 'statusPending' }
-          }));
+          // Count users by status
+          // Active: All HDTS users EXCEPT Employee role with status=Pending or Rejected
+          //         (Admin/Ticket Coordinator with Pending status still count as Active)
+          // Pending: Employee role only + status=Pending
+          // Rejected: Employee role only + status=Rejected
+          const activeCount = allUsers.filter(u => {
+            const status = (u.status || '').toLowerCase();
+            const roles = u.system_roles || u.systemRoles || [];
+            const hasEmployeeRole = roles.some(r => {
+              const roleName = (r.role_name || r.role || '').toLowerCase();
+              return roleName === 'employee';
+            });
+            // Exclude only if Employee role AND (Pending OR Rejected)
+            const isExcluded = hasEmployeeRole && (status === 'pending' || status === 'rejected');
+            return !isExcluded;
+          }).length;
+          const pendingCount = allUsers.filter(u => {
+            const status = (u.status || '').toLowerCase();
+            const roles = u.system_roles || u.systemRoles || [];
+            const hasEmployeeRole = roles.some(r => {
+              const roleName = (r.role_name || r.role || '').toLowerCase();
+              return roleName === 'employee';
+            });
+            return status === 'pending' && hasEmployeeRole;
+          }).length;
+          const rejectedCount = allUsers.filter(u => {
+            const status = (u.status || '').toLowerCase();
+            const roles = u.system_roles || u.systemRoles || [];
+            const hasEmployeeRole = roles.some(r => {
+              const roleName = (r.role_name || r.role || '').toLowerCase();
+              return roleName === 'employee';
+            });
+            return status === 'rejected' && hasEmployeeRole;
+          }).length;
 
-          // Stats for users tab (Pending Users count)
+          // Stats for users tab - show pending employees count
           const userStats = [
             {
               label: 'Pending Users',
-              count: pending.length,
+              count: pendingEmployees.length,
               isHighlight: true,
               position: 0,
               path: userPaths.find(p => p.label === 'Pending Accounts')?.path
             }
           ];
 
-          // Build user activity logs: created/approved/rejected events (include all roles)
-          const userActions = employees.map(u => {
-            const created = new Date(u.createdAt || u.dateJoined || u.created_at || u.date_created || u.dateCreated || 0);
-            const approved = new Date(u.approvedAt || u.approved_at || u.approved_on || 0);
-            const rejected = new Date(u.rejectedAt || u.rejected_at || u.rejected_on || 0);
-            // Determine latest action
-            let actionTime = created;
-            let actionVerb = 'account created';
-            if (!isNaN(rejected.getTime()) && rejected.getTime() > (actionTime.getTime() || 0)) {
-              actionTime = rejected; actionVerb = 'account rejected by Admin';
-            } else if (!isNaN(approved.getTime()) && approved.getTime() > (actionTime.getTime() || 0)) {
-              actionTime = approved; actionVerb = 'account approved by Admin';
+          // Build user activity logs: one action per user based on current status
+          const userActions = allUsers.map(u => {
+            const labelId = u.company_id || u.companyId || u.username || `USER-${u.id}`;
+            const status = (u.status || '').toLowerCase();
+            
+            if (status === 'pending') {
+              // Show account creation time for pending users
+              const created = new Date(u.date_joined || u.created_at || 0);
+              return { 
+                time: created.getTime(), 
+                displayTime: created, 
+                action: `User ${labelId} account created` 
+              };
+            } else if (status === 'approved') {
+              // Show approval time - use approved_at if available
+              const approved = new Date(u.approved_at || u.last_login || u.updated_at || u.date_joined || 0);
+              return { 
+                time: approved.getTime(), 
+                displayTime: approved, 
+                action: `User ${labelId} approved by Admin` 
+              };
+            } else if (status === 'rejected') {
+              // Show rejection time - use rejected_at if available
+              const rejected = new Date(u.rejected_at || u.updated_at || u.date_joined || 0);
+              return { 
+                time: rejected.getTime(), 
+                displayTime: rejected, 
+                action: `User ${labelId} rejected by Admin` 
+              };
             }
-            const labelId = u.companyId || u.company_id || u.employeeId || `EMP-${u.id || ''}`;
-            return { time: actionTime.getTime(), displayTime: actionTime, action: `User ${labelId} ${actionVerb}` };
+            return null;
           }).filter(a => a && Number.isFinite(a.time));
 
+          // Sort by timestamp: newest to oldest (latest activities first)
           userActions.sort((a, b) => b.time - a.time);
 
-          // Build pie data using backend model status values
-          // Active (Approved) counts across all roles; Pending and Rejected (Denied) count only Employee role
-          const counts = { Approved: 0, Pending: 0, Denied: 0 };
-          employees.forEach(u => {
-            const role = (u.role || u.user_role || '').toString().toLowerCase();
-            const s = (u.status || '').toString().toLowerCase();
-            if (s === 'approved' || s === 'approve') {
-              counts.Approved += 1;
-            } else if (role === 'employee') {
-              if (s === 'pending') counts.Pending += 1;
-              else if (s === 'denied' || s === 'deny' || s === 'rejected') counts.Denied += 1;
-            }
-          });
-          // Map model statuses to UI legend names: Approved -> Active, Denied -> Rejected
+          // Build pie data - showing Active (all HDTS users), Pending (Employees), and Rejected (Employees)
           const pie = [
-            { name: 'Active', value: counts.Approved, fill: '#22C55E' },
-            { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
-            { name: 'Rejected', value: counts.Denied, fill: '#EF4444' },
-            { name: 'Inactive', value: 0, fill: '#9CA3AF' }
+            { name: 'Active', value: activeCount, fill: '#10B981' },
+            { name: 'Pending', value: pendingCount, fill: '#FBBF24' },
+            { name: 'Rejected', value: rejectedCount, fill: '#EF4444' }
           ];
 
           if (mounted) {
@@ -818,25 +939,25 @@ const CoordinatorAdminDashboard = () => {
               </div>
             ) : (
               <>
-                {!(currentUser?.role === 'System Admin' && activeTab === 'tickets') && (
-                  activeTab === 'tickets' ? (
-                    <DataTable
-                      title={'Tickets to Review'}
-                      headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-                      data={ticketData.tableData}
-                    />
-                  ) : (
-                    // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
-                    <DataTable
-                      title={'User Approval'}
-                      headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
-                      data={userData.tableData}
-                      bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
-                    />
-                  )
-                )}
-
-                <div style={{ position: 'relative', marginTop: 12 }}>
+            {/* Hide Tickets to Review for Admin and System Admin roles */}
+            {!((currentUser?.role === 'System Admin' || currentUser?.role === 'Admin' || isAdmin) && activeTab === 'tickets') && (
+              activeTab === 'tickets' ? (
+                <DataTable
+                  title={'Tickets to Review'}
+                  headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
+                  data={ticketData.tableData}
+                  bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
+                />
+              ) : (
+                // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
+                <DataTable
+                  title={'User Approval'}
+                  headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Status']}
+                  data={userData.tableData}
+                  bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
+                />
+              )
+            )}                <div style={{ position: 'relative', marginTop: 12 }}>
                   <div style={{ position: 'absolute', top: 8, right: 8 }}>
                     <select
                       value={chartRange}
@@ -846,7 +967,7 @@ const CoordinatorAdminDashboard = () => {
                       <option value="days">Days</option>
                       <option value="week">Week</option>
                       <option value="month">Month</option>
-                      {currentUser?.role === 'System Admin' && <option value="yearly">Yearly</option>}
+                      {(currentUser?.role === 'System Admin' || currentUser?.role === 'Admin' || isAdmin) && <option value="yearly">Yearly</option>}
                     </select>
                   </div>
 
@@ -857,12 +978,11 @@ const CoordinatorAdminDashboard = () => {
                     activities={activeTab === 'tickets' ? activityTimeline : userActivityTimeline}
                     pieRange={pieRange}
                     setPieRange={setPieRange}
-                    isAdmin={currentUser?.role === 'System Admin'}
+                    isAdmin={currentUser?.role === 'System Admin' || currentUser?.role === 'Admin' || isAdmin}
                     // Browse All should lead to the appropriate admin list pages
                     onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/user-access/all-users')}
-                    // For Users tab show only Pending and Inactive slices (legends still show all)
-                    // For Users tab show only Pending and Rejected slices (legends still show all)
-                    visibleNames={activeTab === 'tickets' ? null : ['Active','Pending','Rejected']}
+                    // For Users tab show Active, Pending, and Rejected slices
+                    visibleNames={activeTab === 'tickets' ? null : ['Active', 'Pending', 'Rejected']}
                   />
                   <TrendLineChart
                     data={(() => {

@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { backendAuthService } from '../../../services/backend/authService';
+import { useAuth } from '../../../context/AuthContext';
 import Alert from "../../../shared/alert/Alert";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
 
@@ -14,6 +14,7 @@ import "./SmartSupportLogIn.css";
 
 const SmartSupportLogIn = () => {
   const navigate = useNavigate();
+  const { login, user, isAdmin, hasSystemAccess } = useAuth();
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [isShowPassword, setShowPassword] = useState(false);
@@ -29,62 +30,35 @@ const SmartSupportLogIn = () => {
 
   const location = useLocation();
 
+  // Redirect based on role after successful login
+  useEffect(() => {
+    if (user && hasSystemAccess) {
+      if (isAdmin) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/employee/home');
+      }
+    }
+  }, [user, hasSystemAccess, isAdmin, navigate]);
+
   const handleLogin = async ({ email, password }) => {
     setSubmitting(true);
     setErrorMessage("");
 
     try {
-      // Use backend auth (JWT). The backendAuthService will try both
-      // /api/token/employee/ and /api/token/admin/ and return the token
-      // response (including extra fields like `role` and `first_name`).
-      const data = await backendAuthService.login({ email, password });
+      // Use AuthContext login (cookie-based auth via port 8003)
+      const result = await login(email, password);
 
-      if (!data) {
-        setErrorMessage("Invalid credentials.");
+      if (!result.success) {
+        setErrorMessage(result.error || "Invalid credentials.");
         return;
       }
 
-      // Debug: log the response data to see what backend returns
-      console.log('Login response data:', data);
-
-      // Persist a frontend-friendly loggedInUser object so other parts
-      // of the app (which read `loggedInUser`) keep working.
-      const tokenUser = backendAuthService.getCurrentUser();
-      const storedUser = {
-        id: tokenUser?.id || null,
-        email: tokenUser?.email || email,
-        role: (data.role || '').trim() || null,
-        firstName: data.first_name || '',
-        middleName: data.middle_name || '',
-        lastName: data.last_name || '',
-        suffix: data.suffix || '',
-        companyId: data.company_id || '',
-        department: data.department || '',
-      };
-      
-      // Debug: log what we're storing
-      console.log('Storing user data:', storedUser);
-      localStorage.setItem('loggedInUser', JSON.stringify(storedUser));
-
-      const role = storedUser.role?.trim().toLowerCase();
-
-      if (role === 'employee') {
-        navigate('/employee/home');
-      } else if (role === 'ticket coordinator' || role === 'system admin') {
-        navigate('/admin/dashboard');
-      } else {
-        // If backend didn't return a role, fallback to JWT claims or show error
-        setErrorMessage('Invalid user role. Please contact administrator.');
-      }
+      // Login successful - AuthContext has set user state
+      // No need to manually navigate - the effect below will handle it
     } catch (err) {
       console.error("Login error:", err);
-      // Map common authentication failures to a clearer message
-      const msg = (err && err.message) ? String(err.message).toLowerCase() : '';
-      if (msg.includes('401') || msg.includes('login failed') || msg.includes('invalid') || msg.includes('credentials')) {
-        setErrorMessage('Invalid credentials.');
-      } else {
-        setErrorMessage('Something went wrong. Please try again.');
-      }
+      setErrorMessage('Something went wrong. Please try again.');
     } finally {
       setSubmitting(false);
     }
