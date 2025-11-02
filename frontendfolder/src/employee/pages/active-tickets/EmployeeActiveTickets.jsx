@@ -4,6 +4,7 @@ import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
+import InputField from "../../../shared/components/InputField";
 
 import TablePagination from "../../../shared/table/TablePagination";
 import EmployeeTicketFilter, { ACTIVE_TICKET_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
@@ -249,12 +250,11 @@ const EmployeeActiveTickets = () => {
         <div className={styles.tableHeader}>
           <h2>{headingMap[filter] || "Active Tickets"}</h2>
           <div className={styles.tableActions}>
-            <input
-              className={styles.searchBar}
-              type="search"
+            <InputField
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              inputStyle={{ width: '260px' }}
             />
           </div>
         </div>

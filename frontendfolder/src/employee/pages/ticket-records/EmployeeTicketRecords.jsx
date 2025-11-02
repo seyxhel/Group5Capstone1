@@ -8,6 +8,7 @@ import getTicketActions from "../../../shared/table/TicketActions";
 import TablePagination from "../../../shared/table/TablePagination";
 import EmployeeTicketFilter, { TICKET_RECORD_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
 import styles from './EmployeeTicketRecords.module.css';
+import InputField from '../../../shared/components/InputField';
 
 const headingMap = {
   "all-ticket-records": "All Ticket Records",
@@ -220,12 +221,11 @@ const EmployeeTicketRecords = () => {
         <div className={styles.tableHeader}>
           <h2>{headingMap[filter] || "Ticket Records"}</h2>
           <div className={styles.tableActions}>
-            <input
-              className={styles.searchBar}
-              type="search"
+            <InputField
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              inputStyle={{ width: '260px' }}
             />
           </div>
         </div>

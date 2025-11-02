@@ -1,67 +1,263 @@
 .pageRoot {
   width: 100%;
 }
+
 .container {
   padding: 20px;
-}
-.headerRow {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  flex-direction: column;
+  gap: 20px;
 }
+
 .title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 24px;
   font-weight: 700;
+  color: #212529;
 }
-.backButton {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  cursor: pointer;
-}
+
 .notFound {
   padding: 40px;
   text-align: center;
-  color: #6b7280;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 12px;
 }
-.profileGrid {
-  display: grid;
-  grid-template-columns: 160px 1fr;
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Profile Section */
+.profileSection {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
 }
-.avatarWrap img {
-  width: 140px;
-  height: 140px;
+
+.profileHeader {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.avatarContainer {
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 96px;
+  height: 96px;
   border-radius: 8px;
   object-fit: cover;
 }
+
 .avatarPlaceholder {
-  width: 140px;
-  height: 140px;
+  width: 96px;
+  height: 96px;
   border-radius: 8px;
-  background: #f3f4f6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
-  color: #9ca3af;
-}
-.field {
-  display: flex;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px dashed #eef2f7;
-}
-.label {
-  min-width: 140px;
-  color: #6b7280;
+  font-size: 40px;
+  color: #ffffff;
   font-weight: 700;
 }
-.value {
-  color: #111827;
+
+.profileInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.userName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.role {
+  margin: 0;
+  font-size: 14px;
+  color: #667eea;
   font-weight: 600;
+}
+
+.department {
+  margin: 0;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.profileDetails {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.detailField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+}
+
+.detailValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.detailValue.status-active {
+  color: #10b981;
+}
+
+.detailValue.status-inactive {
+  color: #6c757d;
+}
+
+.detailValue.status-rejected {
+  color: #dc2626;
+}
+
+/* Activity Section */
+.activitySection {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activityTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+}
+
+.emptyState {
+  padding: 32px 16px;
+  text-align: center;
+  color: #6c757d;
+}
+
+.emptyState p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.activityTime {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 600;
+  text-align: right;
+}
+
+.activityContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activityAction {
+  font-size: 12px;
+  font-weight: 700;
+  color: #667eea;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activityDetails {
+  font-size: 13px;
+  color: #212529;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .profileDetails {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+
+  .profileHeader {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profileInfo {
+    align-items: center;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .activityItem {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .activityTime {
+    text-align: left;
+  }
 }

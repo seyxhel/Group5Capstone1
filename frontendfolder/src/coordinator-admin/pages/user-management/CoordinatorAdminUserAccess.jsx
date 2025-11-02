@@ -7,6 +7,7 @@ import ViewCard from "../../../shared/components/ViewCard";
 import Button from "../../../shared/components/Button";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
+import InputField from '../../../shared/components/InputField';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 
@@ -171,12 +172,11 @@ const CoordinatorAdminUserAccess = () => {
             <div className={styles.tableHeader}>
               <h2>{title}</h2>
               <div className={styles.tableActions}>
-                <input
-                  className={styles.searchBar}
-                  type="search"
+                <InputField
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  inputStyle={{ width: '260px' }}
                 />
                 <Button
                   variant="primary"

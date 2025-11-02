@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ViewCard from '../../../shared/components/ViewCard';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
 
 export default function CoordinatorAdminUserProfileView() {
   const { companyId } = useParams();
@@ -25,6 +26,31 @@ export default function CoordinatorAdminUserProfileView() {
     setUser(found || null);
   }, [companyId]);
 
+  // Get activity logs for this user
+  const activityLogs = useMemo(() => {
+    if (!user?.id) return [];
+    return getUserActivityLogs(user.id);
+  }, [user?.id]);
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
     <main className={styles.pageRoot}>
       <Breadcrumb
@@ -36,38 +62,79 @@ export default function CoordinatorAdminUserProfileView() {
 
       <ViewCard>
         <div className={styles.container}>
-          <div className={styles.headerRow}>
-            <h2 className={styles.title}>{user ? `${user.firstName} ${user.lastName}` : 'User not found'}</h2>
-            <div>
-              <button className={styles.backButton} onClick={() => navigate(-1)}>Back</button>
-            </div>
-          </div>
-
           {!user ? (
             <div className={styles.notFound}>No user found for ID <strong>{companyId}</strong>.</div>
           ) : (
-            <div className={styles.profileGrid}>
-              <div className={styles.leftCol}>
-                <div className={styles.avatarWrap}>
-                  {user.profileImage ? (
-                    // eslint-disable-next-line jsx-a11y/img-redundant-alt
-                    <img src={user.profileImage} alt={`${user.firstName} ${user.lastName}`} />
+            <>
+              <h2 className={styles.title}>{user.firstName} {user.lastName}</h2>
+
+              <div className={styles.contentWrapper}>
+                {/* Profile Section */}
+                <div className={styles.profileSection}>
+                  <div className={styles.profileHeader}>
+                    <div className={styles.avatarContainer}>
+                      {user.profileImage ? (
+                        <img src={user.profileImage} alt={`${user.firstName} ${user.lastName}`} className={styles.avatar} />
+                      ) : (
+                        <div className={styles.avatarPlaceholder}>{user.firstName?.charAt(0) || 'U'}</div>
+                      )}
+                    </div>
+                    <div className={styles.profileInfo}>
+                      <h3 className={styles.userName}>{user.firstName} {user.lastName}</h3>
+                      <p className={styles.role}>{user.role}</p>
+                      <p className={styles.department}>{user.department}</p>
+                    </div>
+                  </div>
+
+                  <div className={styles.profileDetails}>
+                    <div className={styles.detailsGrid}>
+                      <div className={styles.detailField}>
+                        <span className={styles.detailLabel}>Company ID</span>
+                        <span className={styles.detailValue}>{user.companyId}</span>
+                      </div>
+                      <div className={styles.detailField}>
+                        <span className={styles.detailLabel}>Employee ID</span>
+                        <span className={styles.detailValue}>{user.id}</span>
+                      </div>
+                      <div className={styles.detailField}>
+                        <span className={styles.detailLabel}>Status</span>
+                        <span className={`${styles.detailValue} ${styles[`status-${user.status?.toLowerCase()}`]}`}>{user.status}</span>
+                      </div>
+                      <div className={styles.detailField}>
+                        <span className={styles.detailLabel}>Email</span>
+                        <span className={styles.detailValue}>{user.email || '—'}</span>
+                      </div>
+                      <div className={styles.detailField}>
+                        <span className={styles.detailLabel}>Phone</span>
+                        <span className={styles.detailValue}>{user.phone || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Logs Section */}
+                <div className={styles.activitySection}>
+                  <h3 className={styles.activityTitle}>Activity Logs</h3>
+                  {activityLogs.length === 0 ? (
+                    <div className={styles.emptyState}>
+                      <p>No activity recorded for this user</p>
+                    </div>
                   ) : (
-                    <div className={styles.avatarPlaceholder}>{user.firstName?.charAt(0) || 'U'}</div>
+                    <div className={styles.activityList}>
+                      {activityLogs.map((log) => (
+                        <div key={log.id} className={styles.activityItem}>
+                          <div className={styles.activityTime}>{formatTimestamp(log.timestamp)}</div>
+                          <div className={styles.activityContent}>
+                            <div className={styles.activityAction}>{log.action?.replace(/_/g, ' ').toUpperCase()}</div>
+                            <div className={styles.activityDetails}>{log.details}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
-              <div className={styles.rightCol}>
-                <div className={styles.field}><span className={styles.label}>Company ID</span><span className={styles.value}>{user.companyId}</span></div>
-                <div className={styles.field}><span className={styles.label}>Name</span><span className={styles.value}>{user.firstName} {user.lastName}</span></div>
-                <div className={styles.field}><span className={styles.label}>Role</span><span className={styles.value}>{user.role}</span></div>
-                <div className={styles.field}><span className={styles.label}>Department</span><span className={styles.value}>{user.department}</span></div>
-                <div className={styles.field}><span className={styles.label}>Status</span><span className={styles.value}>{user.status}</span></div>
-                <div className={styles.field}><span className={styles.label}>Email</span><span className={styles.value}>{user.email || '—'}</span></div>
-                <div className={styles.field}><span className={styles.label}>Phone</span><span className={styles.value}>{user.phone || '—'}</span></div>
-                <div className={styles.field}><span className={styles.label}>Employee ID</span><span className={styles.value}>{user.id}</span></div>
-              </div>
-            </div>
+            </>
           )}
         </div>
       </ViewCard>
