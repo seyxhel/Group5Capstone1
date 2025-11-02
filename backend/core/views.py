@@ -2,6 +2,7 @@ from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from .authentication import CookieJWTAuthentication, ExternalUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
+import requests
 
 # Permission classes
 class IsSystemAdmin(BasePermission):
@@ -14,6 +15,54 @@ class IsAdminOrSystemAdmin(BasePermission):
         if not hasattr(request.user, 'role'):
             return False
         return request.user.role in ["Admin", "System Admin"]
+
+def get_user_display_name(user):
+    """
+    Helper function to safely get a user's display name.
+    Handles both Employee and ExternalUser objects.
+    """
+    if isinstance(user, ExternalUser):
+        # Prefer real first/last name from the external auth profile
+        first = getattr(user, 'first_name', None) or ''
+        last = getattr(user, 'last_name', None) or ''
+        full = f"{first} {last}".strip()
+        if full:
+            return full
+        # As a fallback, avoid using email handle; show generic label
+        return 'External User'
+    else:
+        # Regular Employee user
+        if hasattr(user, 'company_id') and user.company_id:
+            return user.company_id
+        elif hasattr(user, 'first_name') and hasattr(user, 'last_name'):
+            return f"{user.first_name} {user.last_name}"
+        else:
+            return getattr(user, 'email', 'Unknown User')
+
+def _actor_display_name(request):
+    """
+    Resolve a human-friendly actor display name for Messages text.
+    For ExternalUser, prefer First Last from the auth profile; never use email handle.
+    Falls back to 'External User' when names are unavailable.
+    For local Employee, reuse get_user_display_name behavior.
+    """
+    user = getattr(request, 'user', None)
+    if isinstance(user, ExternalUser):
+        first = getattr(user, 'first_name', '') or ''
+        last = getattr(user, 'last_name', '') or ''
+        full = f"{first} {last}".strip()
+        if not full:
+            # Attempt to fetch profile on-demand
+            try:
+                profile = _fetch_external_user_profile(request, user.id)
+            except Exception:
+                profile = {}
+            first = (profile or {}).get('first_name') or ''
+            last = (profile or {}).get('last_name') or ''
+            full = f"{first} {last}".strip()
+        return full or 'External User'
+    # Local employee path
+    return get_user_display_name(user)
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated, IsSystemAdmin])
@@ -365,7 +414,13 @@ class TicketViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         if isinstance(self.request.user, ExternalUser):
-            return serializer.save(employee=None, employee_cookie_id=self.request.user.id)
+            # ExternalUser now contains complete profile info from auth service
+            user = self.request.user
+            print(f"[perform_create] ExternalUser profile: {user.first_name} {user.last_name}, {user.department}, {user.company_id}")
+            
+            # No need for complex matching - just save with cookie_id
+            # The ticket serialization will use the ExternalUser's profile data directly
+            return serializer.save(employee=None, employee_cookie_id=user.id)
         else:
             return serializer.save(employee=self.request.user)
         
@@ -379,6 +434,47 @@ class TicketViewSet(viewsets.ModelViewSet):
                 if instance.submit_date:
                     serializer.validated_data['resolution_time'] = timezone.now() - instance.submit_date
         serializer.save()
+
+    def _fetch_external_user_profile(self, request, user_id):
+        """
+        Fetch user profile from auth service by user ID.
+        Forward client's cookies (access_token, csrftoken, refresh_token) for authentication.
+        Prefer the HDTS-scoped endpoint that allows authenticated users to read HDTS members.
+        """
+        try:
+            cookies = {}
+            headers = {}
+            try:
+                for name in ['access_token', 'csrftoken', 'refresh_token']:
+                    val = request.COOKIES.get(name)
+                    if val:
+                        cookies[name] = val
+                if cookies.get('access_token'):
+                    headers['Authorization'] = f"Bearer {cookies['access_token']}"
+            except Exception:
+                pass
+
+            # Try HDTS-scoped endpoint first
+            url_hdts = f'http://localhost:8003/api/v1/hdts/users/{user_id}/'
+            resp = requests.get(url_hdts, cookies=cookies, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                print(f"DEBUG: Fetched HDTS profile for user {user_id}: {data}")
+                return data
+
+            # Fallback to general users endpoint (may require admin perms)
+            url_users = f'http://localhost:8003/api/v1/users/{user_id}/'
+            resp2 = requests.get(url_users, cookies=cookies, headers=headers, timeout=5)
+            if resp2.status_code == 200:
+                data2 = resp2.json()
+                print(f"DEBUG: Fetched profile (fallback) for user {user_id}: {data2}")
+                return data2
+
+            print(f"DEBUG: Profile fetch failed for user {user_id} with statuses {resp.status_code} / {resp2.status_code}")
+            return {}
+        except Exception as e:
+            print(f"DEBUG: Error fetching profile for user {user_id}: {e}")
+            return {}
 
 def generate_company_id():
     last_employee = Employee.objects.filter(company_id__startswith='MA').order_by('company_id').last()
@@ -423,6 +519,25 @@ def employee_profile_view(request):
     user = request.user
 
     if request.method == 'GET':
+        # If user is ExternalUser (cookie auth from external service), return a
+        # minimal profile dict matching the expected frontend shape. External users
+        # don't have an Employee record in this database.
+        if isinstance(user, ExternalUser):
+            return Response({
+                'id': user.id,
+                'email': user.email,
+                'role': user.role,
+                'first_name': getattr(user, 'first_name', '') or '',
+                'last_name': getattr(user, 'last_name', '') or '',
+                'middle_name': '',
+                'suffix': '',
+                'company_id': '',
+                'department': '',
+                'image': None,
+                'status': 'Approved'
+            })
+        
+        # Local Employee user (standard JWT or session auth)
         serializer = EmployeeSerializer(user)
         return Response(serializer.data)
 
@@ -489,6 +604,7 @@ def get_ticket_detail(request, ticket_id):
             'attachments': TicketAttachmentSerializer(ticket.attachments.all(), many=True).data,
             'status': ticket.status,
             'priority': ticket.priority,
+            'priorityLevel': ticket.priority,  # Frontend expects priorityLevel
             'department': ticket.department,
             'submit_date': ticket.submit_date,
             'update_date': ticket.update_date,
@@ -497,31 +613,85 @@ def get_ticket_detail(request, ticket_id):
                 'first_name': ticket.assigned_to.first_name,
                 'last_name': ticket.assigned_to.last_name,
             } if ticket.assigned_to else None,
-            'employee': {
-                'id': ticket.employee.id if ticket.employee else None,
-                'first_name': ticket.employee.first_name if ticket.employee else None,
-                'last_name': ticket.employee.last_name if ticket.employee else None,
-                'company_id': ticket.employee.company_id if ticket.employee else None,
-                'department': ticket.employee.department if ticket.employee else None,
-                'email': ticket.employee.email if ticket.employee else None,
-                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
-            },
-            'approved_by': ticket.approved_by if hasattr(ticket, 'approved_by') else None,
-            'comments': [
-                {
-                    'id': comment.id,
-                    'comment': comment.comment,
-                    'created_at': comment.created_at,
-                    'is_internal': comment.is_internal,
-                    'user': {
-                        'id': comment.user.id if comment.user else comment.user_cookie_id,
-                        'first_name': comment.user.first_name if comment.user else f'User {comment.user_cookie_id}',
-                        'last_name': comment.user.last_name if comment.user else '',
-                        'role': getattr(comment.user, 'role', 'Employee') if comment.user else 'Employee'
-                    }
-                } for comment in comments
-            ]
         }
+        
+        # Handle employee data - with ExternalUser profile fetching
+        employee_data = None
+        if ticket.employee:
+            employee_data = {
+                'id': ticket.employee.id,
+                'first_name': ticket.employee.first_name,
+                'last_name': ticket.employee.last_name,
+                'company_id': ticket.employee.company_id,
+                'department': ticket.employee.department,
+                'email': ticket.employee.email,
+                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
+            }
+        elif getattr(ticket, 'employee_cookie_id', None):
+            # Try to fetch profile from auth service for external users
+            profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+            employee_data = {
+                'id': ticket.employee_cookie_id,
+                'first_name': profile.get('first_name'),
+                'last_name': profile.get('last_name'),
+                'company_id': profile.get('company_id'),
+                'department': profile.get('department'),
+                'email': profile.get('email'),
+                'employee_cookie_id': ticket.employee_cookie_id
+            }
+        else:
+            employee_data = {
+                'id': None,
+                'first_name': None,
+                'last_name': None,
+                'company_id': None,
+                'department': None,
+                'email': None,
+                'employee_cookie_id': None
+            }
+        
+        ticket_data['employee'] = employee_data
+        ticket_data['approved_by'] = ticket.approved_by if hasattr(ticket, 'approved_by') else None
+        ticket_data['comments'] = []
+        for comment in comments:
+            # Default user payload
+            user_payload = {
+                'id': comment.user.id if comment.user else comment.user_cookie_id,
+                'first_name': '',
+                'last_name': '',
+                'role': 'Employee'
+            }
+
+            if comment.user:
+                # Local Employee commenter
+                user_payload['first_name'] = getattr(comment.user, 'first_name', '') or ''
+                user_payload['last_name'] = getattr(comment.user, 'last_name', '') or ''
+                user_payload['role'] = getattr(comment.user, 'role', 'Employee')
+            else:
+                # External commenter (cookie id)
+                emp_cookie_id = getattr(ticket, 'employee_cookie_id', None)
+                if emp_cookie_id is not None and comment.user_cookie_id != emp_cookie_id:
+                    # Staff/external support — label depends on viewer
+                    is_admin_viewer = getattr(request.user, 'is_staff', False) or (getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin'])
+                    label = 'Coordinator' if is_admin_viewer else 'Support Team'
+                    user_payload['first_name'] = label
+                    user_payload['last_name'] = ''
+                    user_payload['role'] = 'Support'
+                else:
+                    # Ticket owner (external) — resolve profile for proper First/Last
+                    profile = _fetch_external_user_profile(request, comment.user_cookie_id)
+                    user_payload['first_name'] = profile.get('first_name') or ''
+                    user_payload['last_name'] = profile.get('last_name') or ''
+                    user_payload['role'] = 'Employee'
+
+            ticket_data['comments'].append({
+                'id': comment.id,
+                'comment': comment.comment,
+                'created_at': comment.created_at,
+                'is_internal': comment.is_internal,
+                'user': user_payload
+            })
+        
         # Include dynamic and explicit IT/asset fields so frontend can display IT Support form values
         try:
             ticket_data['dynamic_data'] = ticket.dynamic_data
@@ -543,7 +713,69 @@ def get_ticket_detail(request, ticket_id):
             # Budget-specific metadata
             'fiscal_year': ticket.fiscal_year,
             'department_input': ticket.department_input,
+            # Include coordinator resolution
+            'coordinator': None,
+            'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None,
         })
+        
+        # Try to resolve coordinator from approved_by or rejected_by
+        try:
+            coord_key = ticket.approved_by if getattr(ticket, 'approved_by', None) else (ticket.rejected_by if getattr(ticket, 'rejected_by', None) else None)
+            if coord_key and not ticket_data.get('coordinator'):
+                # Try to resolve an Employee by company_id matching coord_key
+                coordinator_emp = Employee.objects.filter(company_id=coord_key).first()
+                if coordinator_emp:
+                    ticket_data['coordinator'] = {
+                        'id': coordinator_emp.id,
+                        'first_name': coordinator_emp.first_name,
+                        'last_name': coordinator_emp.last_name,
+                        'company_id': coordinator_emp.company_id,
+                        'department': coordinator_emp.department,
+                        'email': coordinator_emp.email,
+                    }
+        except Exception:
+            # ignore resolution errors
+            pass
+
+        # Fallback: derive coordinator from latest staff comment (internal or external)
+        try:
+            if not ticket_data.get('coordinator'):
+                # Comments already loaded above; ensure newest-first
+                staff_comment = None
+                for c in comments.order_by('-created_at'):
+                    if c.user is not None:
+                        if getattr(c.user, 'is_staff', False) or getattr(c.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']:
+                            staff_comment = c
+                            break
+                    else:
+                        # External staff vs ticket owner (cookie id mismatch)
+                        if getattr(ticket, 'employee_cookie_id', None) is not None and c.user_cookie_id != getattr(ticket, 'employee_cookie_id', None):
+                            staff_comment = c
+                            break
+
+                if staff_comment is not None:
+                    if staff_comment.user is not None:
+                        u = staff_comment.user
+                        ticket_data['coordinator'] = {
+                            'id': u.id,
+                            'first_name': getattr(u, 'first_name', ''),
+                            'last_name': getattr(u, 'last_name', ''),
+                            'company_id': getattr(u, 'company_id', ''),
+                            'department': getattr(u, 'department', ''),
+                            'email': getattr(u, 'email', ''),
+                        }
+                    else:
+                        prof = _fetch_external_user_profile(request, staff_comment.user_cookie_id)
+                        ticket_data['coordinator'] = {
+                            'id': staff_comment.user_cookie_id,
+                            'first_name': prof.get('first_name') or '',
+                            'last_name': prof.get('last_name') or '',
+                            'company_id': prof.get('company_id') or '',
+                            'department': prof.get('department') or '',
+                            'email': prof.get('email') or '',
+                        }
+        except Exception:
+            pass
         
         return Response(ticket_data, status=status.HTTP_200_OK)
         
@@ -588,6 +820,7 @@ def get_ticket_by_number(request, ticket_number):
             'attachments': TicketAttachmentSerializer(ticket.attachments.all(), many=True).data,
             'status': ticket.status,
             'priority': ticket.priority,
+            'priorityLevel': ticket.priority,  # Frontend expects priorityLevel
             'department': ticket.department,
             'submit_date': ticket.submit_date,
             'update_date': ticket.update_date,
@@ -596,30 +829,79 @@ def get_ticket_by_number(request, ticket_number):
                 'first_name': ticket.assigned_to.first_name,
                 'last_name': ticket.assigned_to.last_name,
             } if ticket.assigned_to else None,
-            'employee': {
-                'id': ticket.employee.id if ticket.employee else None,
-                'first_name': ticket.employee.first_name if ticket.employee else None,
-                'last_name': ticket.employee.last_name if ticket.employee else None,
-                'company_id': ticket.employee.company_id if ticket.employee else None,
-                'department': ticket.employee.department if ticket.employee else None,
-                'email': ticket.employee.email if ticket.employee else None,
-                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
-            },
-            'comments': [
-                {
-                    'id': comment.id,
-                    'comment': comment.comment,
-                    'created_at': comment.created_at,
-                    'is_internal': comment.is_internal,
-                    'user': {
-                        'id': comment.user.id if comment.user else comment.user_cookie_id,
-                        'first_name': comment.user.first_name if comment.user else f'User {comment.user_cookie_id}',
-                        'last_name': comment.user.last_name if comment.user else '',
-                        'role': getattr(comment.user, 'role', 'Employee') if comment.user else 'Employee'
-                    }
-                } for comment in comments
-            ]
         }
+        
+        # Handle employee data - if employee is None but employee_cookie_id exists, try to find the employee
+        employee_data = None
+        if ticket.employee:
+            employee_data = {
+                'id': ticket.employee.id,
+                'first_name': ticket.employee.first_name,
+                'last_name': ticket.employee.last_name,
+                'company_id': ticket.employee.company_id,
+                'department': ticket.employee.department,
+                'email': ticket.employee.email,
+                'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
+            }
+        elif getattr(ticket, 'employee_cookie_id', None):
+            # Try to fetch profile from auth service for external users
+            profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+            employee_data = {
+                'id': ticket.employee_cookie_id,
+                'first_name': profile.get('first_name'),
+                'last_name': profile.get('last_name'),
+                'company_id': profile.get('company_id'),
+                'department': profile.get('department'),
+                'email': profile.get('email'),
+                'employee_cookie_id': ticket.employee_cookie_id
+            }
+        else:
+            employee_data = {
+                'id': None,
+                'first_name': None,
+                'last_name': None,
+                'company_id': None,
+                'department': None,
+                'email': None,
+                'employee_cookie_id': None
+            }
+        
+        ticket_data['employee'] = employee_data
+        ticket_data['comments'] = []
+        for comment in comments:
+            user_payload = {
+                'id': comment.user.id if comment.user else comment.user_cookie_id,
+                'first_name': '',
+                'last_name': '',
+                'role': 'Employee'
+            }
+
+            if comment.user:
+                user_payload['first_name'] = getattr(comment.user, 'first_name', '') or ''
+                user_payload['last_name'] = getattr(comment.user, 'last_name', '') or ''
+                user_payload['role'] = getattr(comment.user, 'role', 'Employee')
+            else:
+                emp_cookie_id = getattr(ticket, 'employee_cookie_id', None)
+                if emp_cookie_id is not None and comment.user_cookie_id != emp_cookie_id:
+                    is_admin_viewer = getattr(request.user, 'is_staff', False) or (getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin'])
+                    label = 'Coordinator' if is_admin_viewer else 'Support Team'
+                    user_payload['first_name'] = label
+                    user_payload['last_name'] = ''
+                    user_payload['role'] = 'Support'
+                else:
+                    profile = _fetch_external_user_profile(request, comment.user_cookie_id)
+                    user_payload['first_name'] = profile.get('first_name') or ''
+                    user_payload['last_name'] = profile.get('last_name') or ''
+                    user_payload['role'] = 'Employee'
+
+            ticket_data['comments'].append({
+                'id': comment.id,
+                'comment': comment.comment,
+                'created_at': comment.created_at,
+                'is_internal': comment.is_internal,
+                'user': user_payload
+            })
+        
         # Expose dynamic and explicit IT/asset fields for frontend
         try:
             ticket_data['dynamic_data'] = ticket.dynamic_data
@@ -637,6 +919,8 @@ def get_ticket_by_number(request, ticket_number):
             'performance_end_date': ticket.performance_end_date,
             'cost_items': ticket.cost_items,
             'requested_budget': ticket.requested_budget,
+            # Include approved_by field
+            'approved_by': ticket.approved_by if hasattr(ticket, 'approved_by') else None,
             # If approved_by is set, attempt to include coordinator details when possible
             'coordinator': None,
             'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None,
@@ -659,6 +943,44 @@ def get_ticket_by_number(request, ticket_number):
                     }
         except Exception:
             # ignore resolution errors
+            pass
+
+        # Fallback: derive coordinator from latest staff comment
+        try:
+            if not ticket_data.get('coordinator'):
+                staff_comment = None
+                for c in comments.order_by('-created_at'):
+                    if c.user is not None:
+                        if getattr(c.user, 'is_staff', False) or getattr(c.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']:
+                            staff_comment = c
+                            break
+                    else:
+                        if getattr(ticket, 'employee_cookie_id', None) is not None and c.user_cookie_id != getattr(ticket, 'employee_cookie_id', None):
+                            staff_comment = c
+                            break
+
+                if staff_comment is not None:
+                    if staff_comment.user is not None:
+                        u = staff_comment.user
+                        ticket_data['coordinator'] = {
+                            'id': u.id,
+                            'first_name': getattr(u, 'first_name', ''),
+                            'last_name': getattr(u, 'last_name', ''),
+                            'company_id': getattr(u, 'company_id', ''),
+                            'department': getattr(u, 'department', ''),
+                            'email': getattr(u, 'email', ''),
+                        }
+                    else:
+                        prof = _fetch_external_user_profile(request, staff_comment.user_cookie_id)
+                        ticket_data['coordinator'] = {
+                            'id': staff_comment.user_cookie_id,
+                            'first_name': prof.get('first_name') or '',
+                            'last_name': prof.get('last_name') or '',
+                            'company_id': prof.get('company_id') or '',
+                            'department': prof.get('department') or '',
+                            'email': prof.get('email') or '',
+                        }
+        except Exception:
             pass
 
         return Response(ticket_data, status=status.HTTP_200_OK)
@@ -710,10 +1032,20 @@ def add_ticket_comment(request, ticket_id):
                 is_internal=is_internal
             )
             # Build user data from ExternalUser
+            first = getattr(request.user, 'first_name', '') or ''
+            last = getattr(request.user, 'last_name', '') or ''
+            if not (first or last):
+                # Fallback: fetch profile to populate names for immediate response
+                try:
+                    prof = _fetch_external_user_profile(request, request.user.id)
+                except Exception:
+                    prof = {}
+                first = (prof or {}).get('first_name') or ''
+                last = (prof or {}).get('last_name') or ''
             user_data = {
                 'id': request.user.id,
-                'first_name': getattr(request.user, 'email', '').split('@')[0],  # Use email prefix as name
-                'last_name': '',
+                'first_name': first,
+                'last_name': last,
                 'role': getattr(request.user, 'role', 'Employee')
             }
         else:
@@ -773,20 +1105,29 @@ def approve_ticket(request, ticket_id):
         ticket.priority = priority
         ticket.department = department
         # Record who approved/opened the ticket (store company_id for easy frontend display)
-        try:
-            ticket.approved_by = request.user.company_id if getattr(request.user, 'company_id', None) else f"{request.user.first_name} {request.user.last_name}"
-        except Exception:
-            ticket.approved_by = f"{request.user.first_name} {request.user.last_name}"
+        user_display_name = _actor_display_name(request)
+        ticket.approved_by = user_display_name
         # Leave ticket unassigned after approval; assignment should be a separate action
         ticket.save()
 
         # Create a visible comment with a consistent message for approval/open
-        TicketComment.objects.create(
-            ticket=ticket,
-            user=request.user,
-            comment=f"Status changed to Open (approved by {request.user.first_name} {request.user.last_name})",
-            is_internal=False
-        )
+        # Handle ExternalUser vs Employee
+        if isinstance(request.user, ExternalUser):
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=None,
+                user_cookie_id=request.user.id,
+                comment=f"Status changed to Open (approved by {user_display_name})",
+                is_internal=False
+            )
+        else:
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                user_cookie_id=None,
+                comment=f"Status changed to Open (approved by {user_display_name})",
+                is_internal=False
+            )
 
         return Response({
             'message': 'Ticket approved successfully',
@@ -824,22 +1165,32 @@ def reject_ticket(request, ticket_id):
         
         # Update ticket
         ticket.status = 'Rejected'
-        ticket.assigned_to = request.user  # Assign to the rejecting admin
+        # Don't assign ExternalUser to assigned_to field (it expects Employee)
+        if not isinstance(request.user, ExternalUser):
+            ticket.assigned_to = request.user
         ticket.rejection_reason = rejection_reason  # Make sure this field exists in your model
         # Record who rejected the ticket (store company_id for easy frontend display)
-        try:
-            ticket.rejected_by = request.user.company_id if getattr(request.user, 'company_id', None) else f"{request.user.first_name} {request.user.last_name}"
-        except Exception:
-            ticket.rejected_by = f"{request.user.first_name} {request.user.last_name}"
+        user_display_name = _actor_display_name(request)
+        ticket.rejected_by = user_display_name
         ticket.save()
         
-        # Create internal comment for rejection
-        TicketComment.objects.create(
-            ticket=ticket,
-            user=request.user,
-            comment=f"Ticket rejected by {request.user.first_name} {request.user.last_name}. Reason: {rejection_reason}",
-            is_internal=True
-        )
+        # Create internal comment for rejection - handle ExternalUser
+        if isinstance(request.user, ExternalUser):
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=None,
+                user_cookie_id=request.user.id,
+                comment=f"Ticket rejected by {user_display_name}. Reason: {rejection_reason}",
+                is_internal=True
+            )
+        else:
+            TicketComment.objects.create(
+                ticket=ticket,
+                user=request.user,
+                user_cookie_id=None,
+                comment=f"Ticket rejected by {user_display_name}. Reason: {rejection_reason}",
+                is_internal=True
+            )
         
         return Response({
             'message': 'Ticket rejected successfully',
@@ -935,7 +1286,8 @@ def update_ticket_status(request, ticket_id):
         if new_status == 'Rejected':
             status_comment = "Status changed to Rejected"
         else:
-            status_comment = f"Status changed from '{old_status}' to '{new_status}' by {request.user.first_name} {request.user.last_name}"
+            user_display_name = _actor_display_name(request)
+            status_comment = f"Status changed from '{old_status}' to '{new_status}' by {user_display_name}"
             if comment_text:
                 status_comment += f". Comment: {comment_text}"
 
@@ -989,10 +1341,10 @@ def withdraw_ticket(request, ticket_id):
         ticket.save()
         
         # Create comment for withdrawal - handle ExternalUser
-        from .authentication import ExternalUser
+        user_display_name = _actor_display_name(request)
+        withdrawal_comment = f"Ticket withdrawn by {user_display_name}. Reason: {reason}"
+        
         if isinstance(request.user, ExternalUser):
-            user_name = getattr(request.user, 'email', 'User').split('@')[0]
-            withdrawal_comment = f"Ticket withdrawn by {user_name}. Reason: {reason}"
             TicketComment.objects.create(
                 ticket=ticket,
                 user=None,
@@ -1001,7 +1353,6 @@ def withdraw_ticket(request, ticket_id):
                 is_internal=False
             )
         else:
-            withdrawal_comment = f"Ticket withdrawn by {request.user.first_name} {request.user.last_name}. Reason: {reason}"
             TicketComment.objects.create(
                 ticket=ticket,
                 user=request.user,
@@ -1563,6 +1914,46 @@ def serve_protected_media(request, file_path):
         return response
     except Exception as e:
         raise Http404(f"Error serving file: {str(e)}")
+
+
+def _fetch_external_user_profile(request, user_id):
+    """
+    Fetch user profile from auth service by user ID.
+    Forward client's cookies for authentication. Prefer HDTS-scoped endpoint.
+    """
+    try:
+        cookies = {}
+        headers = {}
+        try:
+            for name in ['access_token', 'csrftoken', 'refresh_token']:
+                val = request.COOKIES.get(name)
+                if val:
+                    cookies[name] = val
+            if cookies.get('access_token'):
+                headers['Authorization'] = f"Bearer {cookies['access_token']}"
+        except Exception:
+            pass
+
+        url_hdts = f'http://localhost:8003/api/v1/hdts/users/{user_id}/'
+        r = requests.get(url_hdts, cookies=cookies, headers=headers, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            print(f"DEBUG: Fetched HDTS profile for user {user_id}: {data}")
+            return data
+
+        url_users = f'http://localhost:8003/api/v1/users/{user_id}/'
+        r2 = requests.get(url_users, cookies=cookies, headers=headers, timeout=5)
+        if r2.status_code == 200:
+            data2 = r2.json()
+            print(f"DEBUG: Fetched profile (fallback) for user {user_id}: {data2}")
+            return data2
+
+        print(f"DEBUG: Profile fetch failed for user {user_id} with statuses {r.status_code} / {r2.status_code}")
+        return {}
+    except Exception as e:
+        print(f"DEBUG: Error fetching profile for user {user_id}: {e}")
+        return {}
+
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response

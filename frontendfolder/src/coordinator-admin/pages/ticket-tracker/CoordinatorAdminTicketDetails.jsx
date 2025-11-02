@@ -175,8 +175,9 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   }, [resolvedCoordId, ticket?.coordinatorReview, coordinatorUser, remoteCoordinator]);
 
   // derive department and company id using the stored user keys when available
-  const employeeDepartment = empSourceObj?.department || employeeUser?.department || ticket?.employeeDepartment || ticket?.department || null;
-  const employeeCompanyId = employeeUser?.companyId || empSourceObj?.company_id || empSourceObj?.companyId || ticket?.company_id || ticket?.employee_company_id || null;
+  // Prioritize backend ticket.employee fields first - DO NOT use ticket.department (that's the assigned ticket department)
+  const employeeDepartment = ticket?.employee?.department || empSourceObj?.department || employeeUser?.department || remoteEmployee?.department || ticket?.employeeDepartment || null;
+  const employeeCompanyId = ticket?.employee?.company_id || empSourceObj?.company_id || employeeUser?.companyId || employeeUser?.company_id || remoteEmployee?.company_id || ticket?.company_id || ticket?.employee_company_id || null;
 
   // Use resolved coordinatorUser / remoteCoordinator to produce coordinatorImage
   const coordinatorImage = coordinatorImageSrc;
@@ -241,10 +242,20 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
     }
   }
 
+  // Final fallback: if backend provided a human-readable approved_by/rejected_by string,
+  // use it as the coordinator display name when nothing else is available.
+  if (!displayCoordinatorFullName) {
+    const nameLike = (ticket?.approved_by && typeof ticket.approved_by === 'string' ? ticket.approved_by : null) ||
+                     (ticket?.rejected_by && typeof ticket.rejected_by === 'string' ? ticket.rejected_by : null) ||
+                     null;
+    if (nameLike) displayCoordinatorFullName = nameLike;
+  }
+
   // Build nice full names for display (first [middle] last)
-  const empFirst = empSourceObj?.first_name || ticket?.employeeFirstName || ticket?.employee_first_name || employeeUser?.firstName || employeeUser?.first_name || remoteEmployee?.first_name || remoteEmployee?.firstName || (ticket?.employeeName ? ticket.employeeName.split(' ')[0] : null);
-  const empMiddle = empSourceObj?.middle_name || ticket?.employeeMiddleName || ticket?.employee_middle_name || employeeUser?.middleName || employeeUser?.middle_name || remoteEmployee?.middle_name || remoteEmployee?.middleName || '';
-  const empLast = empSourceObj?.last_name || ticket?.employeeLastName || ticket?.employee_last_name || employeeUser?.lastName || employeeUser?.last_name || remoteEmployee?.last_name || remoteEmployee?.lastName || (ticket?.employeeName ? ticket.employeeName.split(' ').slice(-1)[0] : '');
+  // Prioritize backend ticket.employee fields first
+  const empFirst = ticket?.employee?.first_name || empSourceObj?.first_name || ticket?.employeeFirstName || ticket?.employee_first_name || employeeUser?.firstName || employeeUser?.first_name || remoteEmployee?.first_name || remoteEmployee?.firstName || (ticket?.employeeName ? ticket.employeeName.split(' ')[0] : null);
+  const empMiddle = ticket?.employee?.middle_name || empSourceObj?.middle_name || ticket?.employeeMiddleName || ticket?.employee_middle_name || employeeUser?.middleName || employeeUser?.middle_name || remoteEmployee?.middle_name || remoteEmployee?.middleName || '';
+  const empLast = ticket?.employee?.last_name || empSourceObj?.last_name || ticket?.employeeLastName || ticket?.employee_last_name || employeeUser?.lastName || employeeUser?.last_name || remoteEmployee?.last_name || remoteEmployee?.lastName || (ticket?.employeeName ? ticket.employeeName.split(' ').slice(-1)[0] : '');
   const employeeFullName = [empFirst, empMiddle, empLast].filter(Boolean).join(' ');
 
   const coordFirst = ticket?.coordinatorReview?.coordinatorFirstName || ticket?.coordinator?.first_name || ticket?.coordinator?.firstName || coordinatorUser?.firstName || coordinatorUser?.first_name || remoteCoordinator?.first_name || remoteCoordinator?.firstName || ticket?.coordinatorName || (ticket?.assignedToName ? ticket.assignedToName.split(' ')[0] : '');
@@ -302,10 +313,12 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
               <img src={employeeImage} alt={employeeFullName || ticket?.employeeName || 'Employee'} className={styles.avatarImageInner} onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
             </div>
             <div className={styles.userInfo}>
-              <div className={styles.userName}>{employeeFullName || ticket?.employeeName || '—'}</div>
+              <div className={styles.userName}>
+                {employeeFullName || ticket?.employeeName || (ticket?.employee?.employee_cookie_id ? `External User (ID: ${ticket.employee.employee_cookie_id})` : '—')}
+              </div>
               <div className={styles.userMeta}>
                 {employeeDepartment || '—'}<br />
-                Employee ID: {employeeCompanyId || (employeeUser?.id ? String(employeeUser.id) : '—')}
+                Company ID: {employeeCompanyId || (ticket?.employee?.employee_cookie_id ? `EXT-${ticket.employee.employee_cookie_id}` : (employeeUser?.id ? String(employeeUser.id) : '—'))}
               </div>
             </div>
           </div>
@@ -323,8 +336,8 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
               <div className={styles.userInfo}>
                 <div className={styles.userName}>{displayCoordinatorFullName || (coordinatorUser ? `${coordinatorUser.firstName} ${coordinatorUser.lastName}` : '—')}</div>
                 <div className={styles.userMeta}>
-                  {coordinatorUser?.department || remoteCoordinator?.department || remoteCoordinator?.dept || ticket?.department || '—'}<br />
-                  User ID: {coordinatorUser?.company_id || remoteCoordinator?.company_id || coordinatorUser?.id || remoteCoordinator?.id || ticket?.coordinatorReview?.coordinatorCompanyId || '—'}
+                  {ticket?.coordinator?.department || coordinatorUser?.department || remoteCoordinator?.department || remoteCoordinator?.dept || '—'}<br />
+                  Company ID: {ticket?.coordinator?.company_id || coordinatorUser?.company_id || remoteCoordinator?.company_id || ticket?.coordinatorReview?.coordinatorCompanyId || ticket?.coordinatorCompanyId || ticket?.coordinator_company_id || '—'}
                 </div>
               </div>
             </div>

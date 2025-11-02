@@ -14,6 +14,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from users.serializers import UserProfileSerializer
+from django.shortcuts import get_object_or_404
+from system_roles.models import UserSystemRole
 
 
 def register_user_view(request):
@@ -159,3 +161,24 @@ def get_all_hdts_users_api(request):
     user_to_update.save(update_fields=['status']) # Only save the status field
 
     return redirect('hdts:manage_pending_users') # Redirect back to the management page
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_hdts_user_profile_by_id(request, user_id: int):
+    """
+    Read-only endpoint to fetch a basic user profile by ID for users who belong to the HDTS system.
+    This is intended for internal integrations (e.g., HDTS backend) that need to display
+    another user's name/department/company_id given only a cookie user_id.
+
+    Security: requires authentication and only returns data for users who are members of the HDTS system.
+    """
+    # Ensure the target user exists and belongs to the HDTS system
+    target_user = get_object_or_404(User, pk=user_id)
+    is_hdts_member = UserSystemRole.objects.filter(user=target_user, system__slug='hdts').exists()
+    if not is_hdts_member:
+        return Response({"error": "User not found in HDTS"}, status=404)
+
+    data = UserProfileSerializer(target_user, context={'request': request}).data
+    # Optionally reduce fields if needed; for now return full profile serializer
+    return Response(data)

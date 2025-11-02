@@ -331,6 +331,29 @@ class KnowledgeArticleSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
 
     def get_created_by_name(self, obj):
+        # If the article has a local Employee linked, return their full name
         if obj.created_by:
             return f"{obj.created_by.first_name} {obj.created_by.last_name}"
+
+        # If there is no local user (created_by is None) the article may have
+        # been created by an external user authenticated via the external
+        # auth service (represented by ExternalUser). The serializer has
+        # access to the request via context; check the request user and if
+        # their role indicates an admin, return a friendly "System Admin"
+        # display name so the frontend shows the expected owner.
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if request is not None:
+            try:
+                user = getattr(request, 'user', None)
+                role = getattr(user, 'role', None)
+                if role and isinstance(role, str):
+                    rl = role.strip().lower()
+                    if 'system admin' in rl or rl == 'admin' or rl == 'system_admin':
+                        return 'System Admin'
+            except Exception:
+                # If anything goes wrong while inspecting the request user,
+                # fall through to the default behavior below.
+                pass
+
+        # Default: no creator information available
         return None

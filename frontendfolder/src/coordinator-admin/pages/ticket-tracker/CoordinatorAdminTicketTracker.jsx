@@ -4,6 +4,7 @@ import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import ViewCard from '../../../shared/components/ViewCard';
@@ -179,7 +180,7 @@ const generateLogs = (ticket) => {
   logs.push({
     id: 'system-created',
     user: 'System',
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    action: `Ticket #${ticket.ticket_number || ticket.ticketNumber} created - ${ticket.category}`,
     rawTimestamp: ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.submit_date,
   });
 
@@ -584,9 +585,15 @@ export default function CoordinatorAdminTicketTracker() {
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
   const ticketLogs = generateLogs(ticket);
-  const userRole = authService.getUserRole();
-  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
-  const canPerformActions = userRole === 'Ticket Coordinator';
+  
+  // Use external auth service to determine role
+  const { user: authUser, isTicketCoordinator, isAdmin } = useAuth();
+  const userRole = authService.getUserRole(); // fallback for old authService if needed
+  
+  // Only Ticket Coordinator can see coordinator review and perform actions (Open/Reject)
+  // Admin (System Admin) should NOT see these buttons
+  const canSeeCoordinatorReview = isTicketCoordinator || userRole === 'Ticket Coordinator';
+  const canPerformActions = isTicketCoordinator; // ONLY Ticket Coordinator, not Admin
 
   // Handler used by modal children to indicate success (open/reject actions completed).
   // Accepts an optional updatedTicket object. If not provided we attempt to re-fetch

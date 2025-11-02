@@ -139,11 +139,6 @@ export const backendArticleService = {
    */
   async updateArticle(articleId, articleData) {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
@@ -169,11 +164,6 @@ export const backendArticleService = {
    */
   async archiveArticle(articleId) {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/archive/`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -198,11 +188,6 @@ export const backendArticleService = {
    */
   async restoreArticle(articleId) {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/restore/`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -227,11 +212,6 @@ export const backendArticleService = {
    */
   async deleteArticle(articleId) {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/`, {
         method: 'DELETE',
         headers: getAuthHeaders(),

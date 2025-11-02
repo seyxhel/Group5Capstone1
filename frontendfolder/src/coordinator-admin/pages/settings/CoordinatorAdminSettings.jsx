@@ -13,17 +13,14 @@ export default function CoordinatorAdminSettings() {
   useEffect(() => {
     const bootstrap = async () => {
       const local = authService.getCurrentUser();
-      // Prefer live backend profile when an access token exists
+      // Always try to fetch the live profile from the backend (cookie-based auth).
+      // If that fails, fall back to the locally cached user. This ensures the
+      // settings page shows up-to-date info when the app is using httpOnly
+      // cookies for authentication rather than a token in storage.
       try {
-        const token = getAccessToken();
-        if (token) {
-          const remote = await backendEmployeeService.getCurrentEmployee();
-          // convert remote image to secure URL when possible
-          const secureImage = convertToSecureUrl(remote?.image) || convertToSecureUrl(remote?.profile_image) || remote?.image || remote?.profile_image;
-          setUser({ ...local, ...remote, profileImage: secureImage });
-        } else {
-          setUser(local);
-        }
+        const remote = await backendEmployeeService.getCurrentEmployee();
+        const secureImage = convertToSecureUrl(remote?.image) || convertToSecureUrl(remote?.profile_image) || remote?.image || remote?.profile_image;
+        setUser({ ...local, ...remote, profileImage: secureImage });
       } catch (err) {
         // fallback to local stored user when backend call fails
         setUser(local);

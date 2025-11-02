@@ -1,6 +1,7 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.conf import settings
+import requests
 
 
 class ExternalUser:
@@ -8,16 +9,22 @@ class ExternalUser:
     Represents an external user from cookie authentication.
     Mimics basic user attributes for DRF compatibility.
     """
-    def __init__(self, user_id, email, role):
+    def __init__(self, user_id, email, role, first_name=None, last_name=None, department=None, company_id=None):
         self.id = user_id
         self.email = email
         self.role = role
+        self.first_name = first_name
+        self.last_name = last_name
+        self.department = department
+        self.company_id = company_id
         self.is_authenticated = True
         self.is_staff = False
         self.is_superuser = False
         self.pk = user_id  # For DRF compatibility
 
     def __str__(self):
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
         return self.email
 
 
@@ -68,12 +75,19 @@ class CookieJWTAuthentication(JWTAuthentication):
                 if hdts_role is None:
                     raise ValueError('No valid role found for system hdts')
                 
+                # Fetch complete user profile from auth service
+                user_profile = self._fetch_user_profile(raw_token)
+                
                 user = ExternalUser(
                     user_id=validated_token['user_id'],
                     email=validated_token['email'],
-                    role=hdts_role
+                    role=hdts_role,
+                    first_name=user_profile.get('first_name'),
+                    last_name=user_profile.get('last_name'),
+                    department=user_profile.get('department'),
+                    company_id=user_profile.get('company_id')
                 )
-                print(f"DEBUG: Created ExternalUser: {user}")
+                print(f"DEBUG: Created ExternalUser with profile: {user.first_name} {user.last_name} ({user.company_id})")
             except (KeyError, AttributeError, TypeError) as e:
                 # No 'roles' field - simple token, use standard user from DB
                 print(f"DEBUG: Exception accessing roles: {type(e).__name__}: {e}")
@@ -135,3 +149,25 @@ class CookieJWTAuthentication(JWTAuthentication):
 
         except (self.user_model.DoesNotExist, ValueError, KeyError) as e:
             raise self.user_model.DoesNotExist(f"No user found with the given token: {str(e)}")
+
+    def _fetch_user_profile(self, access_token):
+        """
+        Fetch complete user profile from the auth service
+        """
+        try:
+            # Try the profile endpoint that should return current user's profile
+            response = requests.get(
+                'http://localhost:8003/api/v1/users/profile/',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=5
+            )
+            if response.status_code == 200:
+                profile_data = response.json()
+                print(f"DEBUG: Fetched profile data: {profile_data}")
+                return profile_data
+            else:
+                print(f"DEBUG: Profile fetch failed with status {response.status_code}")
+                return {}
+        except Exception as e:
+            print(f"DEBUG: Error fetching user profile: {e}")
+            return {}
