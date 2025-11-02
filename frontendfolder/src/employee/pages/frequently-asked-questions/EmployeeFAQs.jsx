@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import styles from './EmployeeFAQs.module.css';
-import kbService from '../../../services/kbService';
+import ViewCard from '../../../shared/components/ViewCard';
+import InputField from '../../../shared/components/InputField';
 
 const EmployeeFAQs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,58 +55,51 @@ const EmployeeFAQs = () => {
   // No debug helpers in production: resume normal behavior
 
   return (
-    <div className={styles.faqContainer}>
-      <div className={styles.searchWrapper}>
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder="Search FAQs..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setExpandedIndex(null);
-          }}
-        />
-      </div>
+    <ViewCard>
+      <div className={styles.faqContainer}>
+        <div className={styles.searchWrapper}>
+          <InputField
+            placeholder="Search FAQs..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setExpandedIndex(null);
+            }}
+            inputStyle={{ width: '100%' }}
+            aria-label="Search FAQs"
+          />
+        </div>
 
-      {/* debug UI removed */}
-
-  <ul className={styles.faqList}>
-        {loading ? (
-          <div className={styles.noResults}>Loading...</div>
-        ) : filteredFaqs.length > 0 ? (
-          filteredFaqs.map((faq, index) => (
-            <li key={faq.id || index} className={styles.faqItem} data-testid={`faq-item-${index}`}>
-              <div
-                className={styles.faqQuestion}
-                onClick={() => { toggleAnswer(index); }}
-                role="button"
-                aria-expanded={expandedIndex === index}
-                data-subject={faq.subject}
-              >
-                <span data-testid={`faq-subject-${index}`}>{faq.subject}</span>
-                {expandedIndex === index ? (
-                  <FiChevronDown className={styles.faqArrow} />
-                ) : (
-                  <FiChevronRight className={styles.faqArrow} />
-                )}
-              </div>
-              {expandedIndex === index && (
-                <div className={styles.faqAnswer}>
-                  <p data-testid={`faq-description-${index}`}>{faq.description}</p>
+        <ul className={styles.faqList}>
+          {filteredFaqs.length > 0 ? (
+            filteredFaqs.map((faq, index) => (
+              <li key={index} className={styles.faqItem}>
+                <div
+                  className={styles.faqQuestion}
+                  onClick={() => toggleAnswer(index)}
+                >
+                  <span>{faq.question}</span>
+                  {expandedIndex === index ? (
+                    <FiChevronDown className={styles.faqArrow} />
+                  ) : (
+                    <FiChevronRight className={styles.faqArrow} />
+                  )}
                 </div>
-              )}
-            </li>
-          ))
-        ) : (
-          <div className={styles.noResults}>
-            No results found for "{searchTerm}"
-          </div>
-        )}
-      </ul>
-
-      {/* debug UI removed */}
-    </div>
+                {expandedIndex === index && (
+                  <div className={styles.faqAnswer}>
+                    <p>{faq.answer}</p>
+                  </div>
+                )}
+              </li>
+            ))
+          ) : (
+            <div className={styles.noResults}>
+              No results found for "{searchTerm}"
+            </div>
+          )}
+        </ul>
+        </div>
+    </ViewCard>
   );
 };
 

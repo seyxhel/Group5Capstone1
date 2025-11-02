@@ -8,6 +8,7 @@ import TablePagination from "../../../shared/table/TablePagination";
 import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from "../../../utilities/service/authService";
+import InputField from '../../../shared/components/InputField';
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -369,14 +370,13 @@ const CoordinatorAdminTicketManagement = () => {
           <div className={styles.tableHeader}>
             <h2>{headingMap[normalizedStatus] || "Ticket Management"}</h2>
             <div className={styles.tableActions}>
-              <input
-                className={styles.searchBar}
-              type="search"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
+              <InputField
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                inputStyle={{ width: '260px' }}
+              />
+            </div>
         </div>
         
         <div className={styles.tableWrapper}>

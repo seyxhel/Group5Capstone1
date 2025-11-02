@@ -110,7 +110,7 @@
 h1 {
   font-family: var(--font-family-base);
   font-weight: var(--font-bold);
-  font-size: clamp(2rem, 4vw, 2.5rem);      /* 32–40px */
+  font-size: clamp(1.75rem, 3.5vw, 2.25rem);      /* ~28–36px */
   line-height: 1.2;                         /* ~110%–120% */
   color: var(--text-primary);
   margin: 0;
@@ -120,7 +120,7 @@ h1 {
 h2 {
   font-family: var(--font-family-base);
   font-weight: var(--font-semibold);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);  /* 28–36px */
+  font-size: clamp(1.5rem, 2.5vw, 2rem);  /* ~24–32px */
   line-height: 1.4;                         /* ~130%–150% */
   color: var(--text-primary);
   margin: 0;
@@ -130,7 +130,7 @@ h2 {
 h3 {
   font-family: var(--font-family-base);
   font-weight: var(--font-medium);
-  font-size: clamp(1.5rem, 2.5vw, 2rem);    /* 24–32px */
+  font-size: clamp(1.25rem, 2vw, 1.75rem);    /* ~20–28px */
   line-height: 1.4;                         /* ~130%–150% */
   color: var(--text-secondary);
   margin: 0;
@@ -140,7 +140,7 @@ h3 {
 h4 {
   font-family: var(--font-family-base);
   font-weight: var(--font-light);
-  font-size: clamp(0.875rem, 1.8vw, 1rem);  /* 14–16px */
+  font-size: clamp(0.8125rem, 1.6vw, 0.9375rem);  /* ~13–15px */
   line-height: 1.4;
   color: var(--text-muted);
   margin: 0;
@@ -150,7 +150,7 @@ h4 {
 body, p {
   font-family: var(--font-family-base);
   font-weight: var(--font-regular);
-  font-size: clamp(1rem, 2vw, 1.125rem);    /* 16–18px */
+  font-size: clamp(0.9375rem, 1.6vw, 1rem);    /* ~15–16px */
   line-height: 1.7;                         /* ~150%–200% */
   color: var(--text-secondary);
   margin: 0;
@@ -160,7 +160,7 @@ body, p {
 .small-text {
   font-family: var(--font-family-base);
   font-weight: var(--font-light);
-  font-size: clamp(0.875rem, 1.8vw, 1rem);  /* 14–16px */
+  font-size: clamp(0.8125rem, 1.6vw, 0.9375rem);  /* ~13–15px */
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -169,7 +169,7 @@ body, p {
 .tiny-text {
   font-family: var(--font-family-base);
   font-weight: var(--font-light);
-  font-size: clamp(0.75rem, 1.5vw, 0.875rem); /* 12–14px */
+  font-size: clamp(0.6875rem, 1.2vw, 0.8125rem); /* ~11–13px */
   line-height: 1.4;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -179,7 +179,7 @@ body, p {
 .button-text {
   font-family: var(--font-family-base);
   font-weight: var(--font-medium);
-  font-size: clamp(0.875rem, 2vw, 1rem);    /* 14–16px */
+  font-size: clamp(0.8125rem, 1.6vw, 0.9375rem);    /* ~13–15px */
   line-height: 1.5;
   color: var(--btn-text);
   text-transform: uppercase;
@@ -189,7 +189,7 @@ body, p {
 .input-text {
   font-family: var(--font-family-base);
   font-weight: var(--font-regular);
-  font-size: clamp(0.75rem, 1vw, 0.8125rem); /* 12px – 13px */
+  font-size: clamp(0.6875rem, 0.9vw, 0.75rem); /* ~11px – 12px */
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -214,7 +214,7 @@ body, p {
 /* Legacy support for existing classes */
 label, small {
   font-family: var(--font-family-base);
-  font-size: clamp(0.75rem, 1.5vw, 0.875rem);
+  font-size: clamp(0.6875rem, 1.2vw, 0.8125rem);
   font-weight: var(--font-light);
   line-height: 1.4;
   color: var(--text-muted);

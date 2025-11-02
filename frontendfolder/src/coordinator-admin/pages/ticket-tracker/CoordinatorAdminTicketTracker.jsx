@@ -29,40 +29,17 @@ const getStatusSteps = (status) =>
     id,
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
-// Date-only formatter used for schedule displays (keeps behaviour similar to employee view)
-const formatDateOnly = (date) => {
-  if (!date) return null;
-  try {
-    if (date instanceof Date) {
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    if (typeof date === 'string') {
-      const trimmed = date.trim();
-      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
-      const m = ymd.exec(trimmed);
-      if (m) {
-        const y = parseInt(m[1], 10);
-        const mo = parseInt(m[2], 10) - 1;
-        const d = parseInt(m[3], 10);
-        const dt = new Date(y, mo, d);
-        return dt.toLocaleString('en-US', { dateStyle: 'short' });
-      }
-      const parsed = new Date(trimmed);
-      if (isNaN(parsed.getTime())) return 'Invalid Date';
-      return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    const asNum = Number(date);
-    if (!isNaN(asNum)) {
-      const parsed = new Date(asNum);
-      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    return 'Invalid Date';
-  } catch (e) {
-    return 'Invalid Date';
-  }
+const formatDate = (date) => {
+  if (!date) return 'None';
+  const d = new Date(date);
+  if (isNaN(d)) return 'None';
+  const monthName = d.toLocaleString('en-US', { month: 'long' });
+  const day = d.getDate();
+  const yearFull = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const yy = String(yearFull).slice(-2);
+  return `${monthName} ${day}, ${yearFull}`;
 };
 const toTitleCase = (str) => {
   if (!str && str !== 0) return '';
@@ -81,137 +58,69 @@ const formatMoney = (value) => {
 const generateLogs = (ticket) => {
   // Build logs with raw timestamps, then sort newest-first before formatting for display
   const logs = [];
-  // helper to determine if the actor matches the current logged-in user
-  const currentUser = authService.getCurrentUser();
-  const matchesCurrentUser = (actor) => {
-    if (!currentUser || actor === null || actor === undefined) return false;
-    const curId = currentUser.id || currentUser.user_id || null;
-    const curCompany = currentUser.companyId || currentUser.company_id || currentUser.companyid || currentUser.company || null;
-    const curEmail = (currentUser.email || '').toLowerCase();
-    const curName = ((currentUser.firstName || currentUser.first_name || '') + ' ' + (currentUser.lastName || currentUser.last_name || '')).trim().toLowerCase();
-
-    // actor can be primitive id, string, or object
-    if (typeof actor === 'number' || (typeof actor === 'string' && /^\d+$/.test(actor))) {
-      if (curId && Number(actor) === Number(curId)) return true;
-    }
-
-    if (typeof actor === 'string') {
-      const a = actor.toLowerCase();
-      if (curCompany && a === String(curCompany).toLowerCase()) return true;
-      if (a === curEmail) return true;
-      if (curName && a === curName) return true;
-      if (curName && a.includes(curName)) return true;
-      return false;
-    }
-
-    if (typeof actor === 'object') {
-      if (curId && actor.id && Number(actor.id) === Number(curId)) return true;
-      const aCompany = actor.companyId || actor.company_id || actor.company || null;
-      const aEmail = (actor.email || '').toLowerCase();
-      const aName = ((actor.first_name || actor.firstName || '') + ' ' + (actor.last_name || actor.lastName || '')).trim().toLowerCase();
-      if (curCompany && aCompany && String(aCompany).toLowerCase() === String(curCompany).toLowerCase()) return true;
-      if (aEmail && curEmail && aEmail === curEmail) return true;
-      if (aName && curName && aName === curName) return true;
-      if (aName && curName && aName.includes(curName)) return true;
-    }
-
-    return false;
-  };
-
-  // Include persisted comments (they often include status-change messages)
-  const comments = Array.isArray(ticket.comments) ? ticket.comments : (Array.isArray(ticket.comment) ? ticket.comment : []);
-  // If there is an explicit rejection/approval comment, filter out the terse "Status changed to <X>"
-  // comment entries so we don't show duplicate lines in the logs (e.g. both "Ticket rejected by..." and
-  // "Status changed to Rejected").
-  const hasRejectionDetail = comments.some((c) => {
-    const txt = (c.comment || c.message || c.body || c.text || '').toString().toLowerCase();
-    return txt.includes('rejected by') || txt.includes('rejection reason') || txt.includes('rejection:') || txt.includes('rejection_reason');
-  });
-  comments.forEach((c) => {
-    try {
-      const commentUser = c.user || c.author || null;
-      const actionText = (c.comment || c.message || c.body || c.text || '').toString();
-      // Skip terse status-change comment when we already have a detailed rejection comment
-      if (hasRejectionDetail && /status changed to\s*rejected/i.test(actionText)) return;
-      // For admin/coordinator logs, avoid showing general employee chat comments (e.g. "why?").
-      // Allow employee-originated comments only when they represent a withdrawal or other
-      // explicit status action (contain keywords like 'withdraw' / 'withdrawn').
-      try {
-        const roleStr = (commentUser && (commentUser.role || commentUser.user_role || '') + '') || '';
-        const isEmployee = roleStr.toString().toLowerCase().includes('employee') || roleStr.toString().toLowerCase().includes('user');
-        if (isEmployee) {
-          const allowedForEmployee = /\b(withdrawn|withdraw|ticket withdrawn|withdrawal)\b/i.test(actionText);
-          if (!allowedForEmployee) return; // skip generic employee comments
-        }
-      } catch (e) {
-        // ignore role parsing errors and continue
-      }
-      let userLabel = 'Support Team';
-      if (commentUser) {
-        if (matchesCurrentUser(commentUser)) {
-          userLabel = 'You';
-        } else {
-          const role = ((commentUser.role || commentUser.user_role || '') + '').toString().toLowerCase();
-          if (role.includes('ticket') || role.includes('coordinator') || role.includes('admin') || role.includes('system')) {
-            userLabel = 'Coordinator';
-          } else if (role.includes('employee') || role.includes('user')) {
-            userLabel = 'Employee';
-          } else {
-            const name = commentUser.first_name || commentUser.firstName || commentUser.name || commentUser.full_name || commentUser.fullName;
-            userLabel = name ? name : 'Support Team';
-          }
-        }
-      }
-
-      logs.push({
-        id: c.id || `c-${Math.random().toString(36).slice(2, 9)}`,
-        user: userLabel,
-        action: c.comment || c.message || c.body || c.text || '',
-        rawTimestamp: c.created_at || c.createdAt || c.timestamp || null,
-        rawActor: commentUser || null,
-      });
-    } catch (e) {
-      // ignore malformed comment
-    }
-  });
-
-  // Synthetic system-created entry (if no existing comment representing creation)
+  const createdAt = ticket.dateCreated || ticket.createdAt || new Date().toISOString();
+  // Creation
   logs.push({
-    id: 'system-created',
+    id: logs.length + 1,
     user: 'System',
     action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
-    rawTimestamp: ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.submit_date,
+    timestamp: formatDate(createdAt),
+    text: `Ticket #${ticket.ticketNumber} was created on ${formatDate(createdAt)}${ticket.category ? ` in the ${ticket.category} category` : ''}.`,
+    highlight: ticket.category || null,
   });
 
-  // Assigned entry
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  if (assignedToName) {
-    const assignedActor = typeof ticket.assignedTo === 'object' ? ticket.assignedTo : null;
-    const assignedLabel = assignedActor && matchesCurrentUser(assignedActor) ? 'You' : assignedToName;
-    logs.push({ id: 'assigned', user: assignedLabel, action: `Assigned to ${ticket.department} department`, rawTimestamp: ticket.dateCreated || ticket.submit_date, rawActor: assignedActor });
+  if (assignedToName || ticket.department) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const deptPart = ticket.department ? ` to the ${ticket.department} department` : '';
+    const agentPart = assignedToName ? ` by ${assignedToName}` : '';
+    logs.push({
+      id: logs.length + 1,
+      user: assignedToName || 'Coordinator',
+      action: `Assigned${deptPart}${agentPart}`,
+      timestamp: formatDate(at),
+      text: `Assigned${deptPart}${agentPart} on ${formatDate(at)}.`,
+      highlight: ticket.department || assignedToName || null,
+    });
   }
 
-  // If current ticket status is not New/Pending and there wasn't an explicit status-change comment
-  // ensure we still surface a status-change entry (fallback)
-  const hasStatusComment = logs.some((l) => typeof l.action === 'string' && l.action.toLowerCase().includes('status changed'));
-  // If we already detected a detailed rejection/approval comment, skip adding the synthetic
-  // fallback 'Status changed to ...' entry to avoid duplicates.
-  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending' && !hasStatusComment && !hasRejectionDetail) {
-    const performer = ticket.approved_by || ticket.rejected_by || ticket.coordinator || ticket.employee || null;
-    const isMe = matchesCurrentUser(performer);
-    const userLabel = isMe ? 'You' : (typeof performer === 'string' ? 'Coordinator' : (performer && performer.first_name ? (matchesCurrentUser(performer) ? 'You' : (performer.first_name + ' ' + (performer.last_name || ''))) : 'Coordinator'));
-    logs.push({ id: 'status-change', user: userLabel, action: `Status changed to ${ticket.status}`, rawTimestamp: ticket.lastUpdated || ticket.update_date || ticket.updatedAt || null, rawActor: performer });
+  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending') {
+    const at = ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Status changed to ${ticket.status}`,
+      timestamp: formatDate(at),
+      text: `Status changed to ${ticket.status} on ${formatDate(at)}.`,
+      highlight: ticket.status,
+    });
   }
 
-  // Sort newest -> oldest by rawTimestamp
-  logs.sort((a, b) => {
-    const ta = a.rawTimestamp ? new Date(a.rawTimestamp) : new Date(0);
-    const tb = b.rawTimestamp ? new Date(b.rawTimestamp) : new Date(0);
-    return tb.getTime() - ta.getTime();
-  });
+  // Include any activity entries if present
+  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
+    ticket.activity.forEach((a) => {
+      const who = a.user || a.performedBy || 'User';
+      const when = formatDate(a.timestamp || a.date || a.createdAt);
+      const details = a.details || a.note || a.action || '';
+      let sentence = '';
+      if (a.type && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented on ${when}: "${details || 'No details provided.'}"`;
+      } else if (details) {
+        sentence = `${who} performed an action on ${when}: ${details}.`;
+      } else {
+        sentence = `${who} performed an activity on ${when}.`;
+      }
+      logs.push({
+        id: logs.length + 1,
+        user: who,
+        action: a.action || a.type || 'Activity',
+        timestamp: when,
+        text: sentence,
+      });
+    });
+  }
 
-  // Format timestamps for display but preserve rawActor for downstream components
-  return logs.map((l) => ({ id: l.id, user: l.user, action: l.action, timestamp: formatDate(l.rawTimestamp), rawActor: l.rawActor || null }));
+  return logs;
 };
 const renderAttachments = (files) => {
   if (!files) return <div className={styles.detailValue}>No attachments</div>;

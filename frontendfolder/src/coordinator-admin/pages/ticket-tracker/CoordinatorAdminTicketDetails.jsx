@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { FiInbox, FiCheckCircle, FiClock, FiXCircle, FiAlertCircle } from 'react-icons/fi';
 import baseStyles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
 import styles from './CoordinatorAdminTicketDetails.module.css';
-import { getEmployeeUserById, getEmployeeUsers } from '../../../utilities/storages/employeeUserStorage';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
-import { convertToSecureUrl } from '../../../utilities/secureMedia';
+import { getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import authService from '../../../utilities/service/authService';
 
 const DEFAULT_AVATAR = '/MapLogo.png';
 
@@ -14,7 +14,7 @@ function PersonCard({ name, metaLines = [], image }) {
         <img src={image || DEFAULT_AVATAR} alt={name || 'Profile'} className={styles.avatarImage} onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
       </div>
       <div className={styles.personInfo}>
-        <div className={styles.personName}>{name || '—'}</div>
+        <div className={styles.personName}>{name || 'None'}</div>
         {metaLines.map((m, i) => (
           <div className={styles.personMeta} key={i}>{m}</div>
         ))}
@@ -23,316 +23,271 @@ function PersonCard({ name, metaLines = [], image }) {
   );
 }
 
+// Helper to determine ticket lifecycle stage
+function getTicketStage(status) {
+  const s = (status || '').toLowerCase();
+  if (['new', 'pending'].includes(s)) return 'new';
+  if (['in progress', 'on hold', 'open'].includes(s)) return 'in-progress';
+  if (['resolved', 'closed', 'rejected', 'withdrawn'].includes(s)) return 'completed';
+  return 'new';
+}
+
+// Timeline steps configuration with icons and status mapping
+const TIMELINE_STEPS = [
+  { 
+    id: 1, 
+    label: 'Submitted', 
+    icon: FiInbox,
+    statuses: ['new', 'pending', 'open', 'in progress', 'on hold', 'resolved', 'closed', 'rejected', 'withdrawn']
+  },
+  { 
+    id: 2, 
+    label: 'In Progress', 
+    icon: FiClock,
+    statuses: ['in progress', 'on hold', 'resolved', 'closed']
+  },
+  { 
+    id: 3, 
+    label: 'Resolved', 
+    icon: FiCheckCircle,
+    statuses: ['resolved', 'closed']
+  },
+  { 
+    id: 4, 
+    label: 'Closed', 
+    icon: FiCheckCircle,
+    statuses: ['closed']
+  },
+];
+
+// Determine which step is active based on ticket status
+function getActiveStep(status) {
+  if (!status) return 0;
+  const s = status.toLowerCase();
+  
+  // Rejected/Withdrawn are terminal states that don't follow normal progression
+  if (['rejected', 'withdrawn'].includes(s)) return 1;
+  
+  if (['closed'].includes(s)) return 4;
+  if (['resolved'].includes(s)) return 3;
+  if (['in progress', 'on hold'].includes(s)) return 2;
+  if (['open', 'pending', 'new'].includes(s)) return 1;
+  
+  return 0;
+}
+
 export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [], canSeeCoordinatorReview, formatDate }) {
-  // Resolve employee in a robust way. ticket.employee may be:
-  // - an ID (number)
-  // - an object { id, first_name, last_name, ... }
-  // - absent, with alternate fields like employeeId, employeeName, employee_first_name, etc.
-  let resolvedEmpId = null;
-  let empSourceObj = null;
+  // Get current user role
+  const userRole = authService.getUserRole();
+  const isTicketCoordinator = userRole === 'Ticket Coordinator';
+  const isSystemAdmin = userRole === 'System Admin';
 
-  if (ticket?.employee !== undefined && ticket?.employee !== null) {
-    if (typeof ticket.employee === 'number') {
-      resolvedEmpId = ticket.employee;
-    } else if (typeof ticket.employee === 'object') {
-      empSourceObj = ticket.employee;
-      resolvedEmpId = ticket.employee.id || ticket.employee.pk || ticket.employee.employee_id || null;
-    }
-  }
+  // Resolve user profile images using the stored users fixture
+  const employeeUser = ticket?.employeeId ? getEmployeeUserById(Number(ticket.employeeId)) : null;
+  const employeeImage = employeeUser?.profileImage || ticket?.employeeProfileImage || DEFAULT_AVATAR;
 
-  // fallback id fields
-  resolvedEmpId = resolvedEmpId || ticket?.employeeId || ticket?.employee_id || ticket?.employeeNumber || ticket?.employee_number || null;
+  const coordinatorId = ticket?.coordinatorReview?.coordinatorId || ticket?.assignedTo || null;
+  const coordinatorUser = coordinatorId ? getEmployeeUserById(Number(coordinatorId)) : null;
+  const coordinatorImage = coordinatorUser?.profileImage || ticket?.coordinatorReview?.coordinatorProfileImage || DEFAULT_AVATAR;
 
-  // If we don't have a source object but there are fields on ticket, build a small source object
-  if (!empSourceObj) {
-    empSourceObj = ticket?.employee || ticket?.customer || null;
-    // if still not an object, synthesize from other ticket fields
-    if (!empSourceObj || typeof empSourceObj !== 'object') {
-      empSourceObj = {
-        id: resolvedEmpId || null,
-        first_name: ticket?.employee_first_name || ticket?.employeeFirstName || null,
-        middle_name: ticket?.employee_middle_name || ticket?.employeeMiddleName || null,
-        last_name: ticket?.employee_last_name || ticket?.employeeLastName || null,
-        company_id: ticket?.company_id || ticket?.employee_company_id || ticket?.employeeCompanyId || null,
-        department: ticket?.employeeDepartment || ticket?.employee_department || ticket?.department || null,
-        image: ticket?.employeeProfileImage || ticket?.employeeProfileImageUrl || ticket?.employee_profile_image || null,
-      };
-    }
-  }
+  // Get the agent/assignee info if ticket is assigned
+  const agentId = ticket?.assignedTo;
+  const agentUser = agentId ? getEmployeeUserById(Number(agentId)) : null;
+  const agentImage = agentUser?.profileImage || DEFAULT_AVATAR;
+  const agentName = agentUser ? `${agentUser.firstName} ${agentUser.lastName}` : ticket?.assignedAgent || 'None';
 
-  let employeeUser = resolvedEmpId ? getEmployeeUserById(Number(resolvedEmpId)) : null;
+  // Determine ticket stage
+  const ticketStage = getTicketStage(ticket?.status);
 
-  // If we didn't find by numeric id, try to find by companyId/company_id string (e.g. MA0111 / EMP-002)
-  if (!employeeUser) {
-    const companyIdCandidate = ticket?.company_id || ticket?.employee_company_id || ticket?.employeeCompanyId || null;
-    const resolvedCompanyId = companyIdCandidate || empSourceObj?.company_id || empSourceObj?.companyId || null;
-    if (resolvedCompanyId) {
-      const fromStore = getEmployeeUsers().find(u => u.companyId === resolvedCompanyId || u.company_id === resolvedCompanyId || String(u.id) === String(resolvedCompanyId));
-      if (fromStore) employeeUser = fromStore;
-    }
-  }
-
-  // remoteEmployee will hold backend-fetched employee when local fixture not found
-  const [remoteEmployee, setRemoteEmployee] = useState(null);
-
-  // prefer stored fixture profileImage (camelCase key `profileImage`) and fall back to other fields
-  let employeeImage = employeeUser?.profileImage || empSourceObj?.image || ticket?.employeeProfileImage || ticket?.employee_profile_image || DEFAULT_AVATAR;
-
-  // If remoteEmployee image exists and is a media path, convert to secure URL
-  if (remoteEmployee?.image) {
-    const secure = convertToSecureUrl(remoteEmployee.image) || remoteEmployee.image;
-    employeeImage = secure;
-  }
-
-  // If we don't have a local stored user, try fetching from backend by listing employees first
-  // (some deployments don't expose per-id endpoints; listing avoids 404s)
-  useEffect(() => {
-    let cancelled = false;
-    async function tryFetch() {
-      if (employeeUser || remoteEmployee) return;
-      try {
-        const list = await backendEmployeeService.getAllEmployees().catch(() => []);
-        if (!cancelled && Array.isArray(list) && list.length) {
-          // try match by numeric id first
-          if (resolvedEmpId) {
-            const byId = list.find(e => String(e.id) === String(resolvedEmpId) || String(e.pk) === String(resolvedEmpId));
-            if (byId) {
-              setRemoteEmployee(byId);
-              return;
-            }
-          }
-
-          const companyIdCandidate = ticket?.company_id || ticket?.employee_company_id || ticket?.employeeCompanyId || empSourceObj?.company_id || empSourceObj?.companyId || null;
-          if (companyIdCandidate) {
-            const found = list.find(e => e.company_id === companyIdCandidate || e.companyId === companyIdCandidate || String(e.id) === String(companyIdCandidate));
-            if (found) {
-              setRemoteEmployee(found);
-              return;
-            }
-          }
-        }
-
-        // Avoid calling per-id endpoint when the listing returned results (to prevent 404s).
-        // Only attempt per-id fetch if the listing returned no employees.
-        if (!cancelled && (!list || !list.length) && resolvedEmpId) {
-          const data = await backendEmployeeService.getEmployeeById(resolvedEmpId).catch(() => null);
-          if (!cancelled && data) setRemoteEmployee(data);
-        }
-      } catch (e) {
-        // ignore fetch errors
-      }
-    }
-    tryFetch();
-    return () => { cancelled = true; };
-  }, [resolvedEmpId, ticket?.company_id, empSourceObj?.company_id, employeeUser, remoteEmployee]);
-
-  // ---------- Coordinator resolution & remote fetch ----------
-  // Resolve coordinator id similarly to employee
-  const resolvedCoordId = ticket?.coordinatorReview?.coordinatorId || ticket?.coordinator?.id || ticket?.assignedTo || ticket?.assigned_to || ticket?.coordinatorId || ticket?.coordinator_id || null;
-  let coordinatorUser = resolvedCoordId ? getEmployeeUserById(Number(resolvedCoordId)) : null;
-  // try find by companyId if not found
-  if (!coordinatorUser) {
-  const coordCompanyId = ticket?.coordinatorReview?.coordinatorCompanyId || ticket?.coordinatorCompanyId || ticket?.coordinator_company_id || ticket?.assignedToCompanyId || ticket?.coordinator?.company_id || ticket?.approved_by || null;
-  const resolvedCoordCompany = coordCompanyId || null;
-    if (resolvedCoordCompany) {
-      const fromStore = getEmployeeUsers().find(u => u.companyId === resolvedCoordCompany || u.company_id === resolvedCoordCompany || String(u.id) === String(resolvedCoordCompany));
-      if (fromStore) coordinatorUser = fromStore;
-    }
-  }
-
-  const [remoteCoordinator, setRemoteCoordinator] = useState(null);
-
-  // coordinator image fallback: prefer stored fixture; else remoteCoordinator; else ticket fields
-  let coordinatorImageSrc = coordinatorUser?.profileImage || remoteCoordinator?.image || ticket?.coordinator?.image || ticket?.coordinatorReview?.coordinatorProfileImage || ticket?.coordinatorProfileImageUrl || DEFAULT_AVATAR;
-  if (remoteCoordinator?.image) {
-    coordinatorImageSrc = convertToSecureUrl(remoteCoordinator.image) || remoteCoordinator.image;
-  }
-
-  // attempt to fetch coordinator from backend list if not found locally
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchCoordinator() {
-      if (coordinatorUser || remoteCoordinator) return;
-      try {
-        const list = await backendEmployeeService.getAllEmployees().catch(() => []);
-        if (!cancelled && Array.isArray(list) && list.length) {
-          if (resolvedCoordId) {
-            const found = list.find(e => String(e.id) === String(resolvedCoordId) || String(e.pk) === String(resolvedCoordId));
-            if (found) { setRemoteCoordinator(found); return; }
-          }
-          const coordCompanyId = ticket?.coordinatorReview?.coordinatorCompanyId || ticket?.coordinatorCompanyId || ticket?.coordinator_company_id || null;
-          if (coordCompanyId) {
-            const found = list.find(e => e.company_id === coordCompanyId || e.companyId === coordCompanyId || String(e.id) === String(coordCompanyId));
-            if (found) { setRemoteCoordinator(found); return; }
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-    fetchCoordinator();
-    return () => { cancelled = true; };
-  }, [resolvedCoordId, ticket?.coordinatorReview, coordinatorUser, remoteCoordinator]);
-
-  // derive department and company id using the stored user keys when available
-  const employeeDepartment = empSourceObj?.department || employeeUser?.department || ticket?.employeeDepartment || ticket?.department || null;
-  const employeeCompanyId = employeeUser?.companyId || empSourceObj?.company_id || empSourceObj?.companyId || ticket?.company_id || ticket?.employee_company_id || null;
-
-  // Use resolved coordinatorUser / remoteCoordinator to produce coordinatorImage
-  const coordinatorImage = coordinatorImageSrc;
-
-  // If we don't have explicit coordinator identity from ticket fields, try to derive
-  // from the most-recent ticket log's rawActor (generateLogs now provides rawActor).
-  // However, avoid using employee-originated log actors (e.g. withdraw actions) as
-  // the coordinator — only accept a fallback actor when it appears to be staff/coordinator.
-  let fallbackLogActor = null;
-  try {
-    if (Array.isArray(ticketLogs) && ticketLogs.length) {
-      // ticketLogs are newest-first; find the first rawActor that's not System
-      // and that appears to be a staff/coordinator/admin actor (not an employee action)
-      for (const l of ticketLogs) {
-        if (!l.rawActor) continue;
-        const actor = l.rawActor;
-        // If actor is an object, inspect role-like fields
-        if (typeof actor === 'object') {
-          const roleStr = ((actor.role || actor.user_role || actor.job_role || '') + '').toString().toLowerCase();
-          const looksLikeStaff = roleStr.includes('ticket') || roleStr.includes('coordinator') || roleStr.includes('admin') || roleStr.includes('system');
-          // Also accept if actor has department/company fields suggesting staff
-          const hasDept = Boolean(actor.department || actor.dept || actor.company_id || actor.companyId || actor.employee_department);
-          if (looksLikeStaff || hasDept) {
-            fallbackLogActor = actor;
-            break;
-          }
-          // otherwise skip (likely employee-initiated)
-        } else if (typeof actor === 'string') {
-          // if it's a string and doesn't look like 'System' or an employee id, we can tentatively accept
-          const a = actor.toLowerCase();
-          if (a && a !== 'system' && !/^emp|^ma|^user/i.test(a)) {
-            fallbackLogActor = actor;
-            break;
-          }
-        }
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  // Prepare display values that prefer explicit coordinator fields but fall back to log actor
-  let displayCoordinatorFullName = null;
-  let displayCoordinatorImage = coordinatorImage;
-
-  // existing computed coordinatorFullName may be present; prefer it
-  try {
-    if (typeof coordinatorFullName === 'string' && coordinatorFullName.trim()) displayCoordinatorFullName = coordinatorFullName;
-  } catch (e) { /* ignore */ }
-
-  if (!displayCoordinatorFullName && fallbackLogActor) {
-    if (typeof fallbackLogActor === 'object') {
-      const fFirst = fallbackLogActor.first_name || fallbackLogActor.firstName || fallbackLogActor.name || null;
-      const fMiddle = fallbackLogActor.middle_name || fallbackLogActor.middleName || '';
-      const fLast = fallbackLogActor.last_name || fallbackLogActor.lastName || '';
-      displayCoordinatorFullName = [fFirst, fMiddle, fLast].filter(Boolean).join(' ');
-      if ((!displayCoordinatorImage || displayCoordinatorImage === DEFAULT_AVATAR) && (fallbackLogActor.image || fallbackLogActor.profileImage)) {
-        displayCoordinatorImage = convertToSecureUrl(fallbackLogActor.image || fallbackLogActor.profileImage) || fallbackLogActor.image || fallbackLogActor.profileImage;
-      }
-    } else if (typeof fallbackLogActor === 'string') {
-      displayCoordinatorFullName = fallbackLogActor;
-    }
-  }
-
-  // Build nice full names for display (first [middle] last)
-  const empFirst = empSourceObj?.first_name || ticket?.employeeFirstName || ticket?.employee_first_name || employeeUser?.firstName || employeeUser?.first_name || remoteEmployee?.first_name || remoteEmployee?.firstName || (ticket?.employeeName ? ticket.employeeName.split(' ')[0] : null);
-  const empMiddle = empSourceObj?.middle_name || ticket?.employeeMiddleName || ticket?.employee_middle_name || employeeUser?.middleName || employeeUser?.middle_name || remoteEmployee?.middle_name || remoteEmployee?.middleName || '';
-  const empLast = empSourceObj?.last_name || ticket?.employeeLastName || ticket?.employee_last_name || employeeUser?.lastName || employeeUser?.last_name || remoteEmployee?.last_name || remoteEmployee?.lastName || (ticket?.employeeName ? ticket.employeeName.split(' ').slice(-1)[0] : '');
-  const employeeFullName = [empFirst, empMiddle, empLast].filter(Boolean).join(' ');
-
-  const coordFirst = ticket?.coordinatorReview?.coordinatorFirstName || ticket?.coordinator?.first_name || ticket?.coordinator?.firstName || coordinatorUser?.firstName || coordinatorUser?.first_name || remoteCoordinator?.first_name || remoteCoordinator?.firstName || ticket?.coordinatorName || (ticket?.assignedToName ? ticket.assignedToName.split(' ')[0] : '');
-  const coordMiddle = ticket?.coordinatorReview?.coordinatorMiddleName || ticket?.coordinator?.middle_name || ticket?.coordinator?.middleName || coordinatorUser?.middleName || coordinatorUser?.middle_name || remoteCoordinator?.middle_name || remoteCoordinator?.middleName || '';
-  const coordLast = ticket?.coordinatorReview?.coordinatorLastName || ticket?.coordinator?.last_name || ticket?.coordinator?.lastName || coordinatorUser?.lastName || coordinatorUser?.last_name || remoteCoordinator?.last_name || remoteCoordinator?.lastName || (ticket?.coordinatorName ? ticket.coordinatorName.split(' ').slice(-1)[0] : '');
-  const coordinatorFullName = [coordFirst, coordMiddle, coordLast].filter(Boolean).join(' ');
-
-  // Decide whether to show the coordinator block.
-  // Show when there is any coordinator identity present (coordinatorReview, assignedTo, assigned_to, coordinatorId)
-  // and the ticket is not in the 'new' status.
-  const ticketStatus = (ticket?.status || '').toString().toLowerCase();
-  const hasCoordinatorReview = Boolean(ticket?.coordinatorReview) || Boolean(resolvedCoordId) || Boolean(ticket?.assignedTo) || Boolean(ticket?.assigned_to) || Boolean(ticket?.coordinatorId) || Boolean(ticket?.coordinator_id) || Boolean(ticket?.coordinator) || Boolean(ticket?.approved_by);
-  const showCoordinator = hasCoordinatorReview && (ticketStatus !== 'new');
-
-  // Temporary debug logs to help diagnose missing coordinator block in the wild.
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line no-console
-      console.log('[Details Debug] ticketStatus:', ticketStatus, 'hasCoordinatorReview:', hasCoordinatorReview, 'showCoordinator:', showCoordinator);
-      // eslint-disable-next-line no-console
-      console.log('[Details Debug] resolvedEmpId:', resolvedEmpId, 'resolvedCoordId:', resolvedCoordId);
-      // eslint-disable-next-line no-console
-      console.log('[Details Debug] employeeUser:', employeeUser, 'remoteEmployee:', remoteEmployee);
-      // eslint-disable-next-line no-console
-      console.log('[Details Debug] coordinatorUser:', coordinatorUser, 'remoteCoordinator:', remoteCoordinator);
-      // eslint-disable-next-line no-console
-      console.log('[Details Debug] ticket.coordinatorReview:', ticket?.coordinatorReview, 'ticket.assignedTo:', ticket?.assignedTo, 'ticket.assigned_to:', ticket?.assigned_to);
-    } catch (e) {
-      // ignore
-    }
-  }, [ticket, ticketStatus, hasCoordinatorReview, showCoordinator, resolvedEmpId, resolvedCoordId, employeeUser, remoteEmployee, coordinatorUser, remoteCoordinator]);
+  // Calculate SLA status (simplified: based on priority and time elapsed)
+  const calculateSLAStatus = () => {
+    if (!ticket?.dateCreated) return 'Unknown';
+    const created = new Date(ticket.dateCreated);
+    const now = new Date();
+    const hoursDiff = (now - created) / (1000 * 60 * 60);
+    const slaHours = {
+      'Critical': 4,
+      'High': 8,
+      'Medium': 24,
+      'Low': 48
+    };
+    const slaLimit = slaHours[ticket?.priorityLevel] || 24;
+    if (hoursDiff > slaLimit) return 'Overdue';
+    if (hoursDiff > slaLimit * 0.8) return 'Due Soon';
+    return 'On Time';
+  };
 
   return (
     <div className={baseStyles.detailsGrid + ' ' + styles.detailsPanel + ' ' + styles.panelRoot}>
       <div className={styles.panelContent}>
-      {/* Horizontal timeline bar above the sections */}
-      <div className={styles.horizontalTimelineWrap}>
-        <div className={styles.horizontalLine} />
-        <div className={styles.horizontalDots}>
-          {(() => {
-            const steps = Math.max(5, ticketLogs?.length || 0);
-            const activeIndex = Math.max(0, steps - 1);
-            return Array.from({ length: steps }).map((_, i) => (
-              <div key={i} className={`${styles.dot} ${i === activeIndex ? styles.activeDot : ''}`} />
-            ));
-          })()}
-        </div>
-      </div>
-
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>Employee</div>
-        <div className={styles.userCardWrap}>
-          <div className={styles.userCard}>
-            <div className={styles.avatar}>{/* emoji fallback for now */}
-              <img src={employeeImage} alt={employeeFullName || ticket?.employeeName || 'Employee'} className={styles.avatarImageInner} onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
-            </div>
-            <div className={styles.userInfo}>
-              <div className={styles.userName}>{employeeFullName || ticket?.employeeName || '—'}</div>
-              <div className={styles.userMeta}>
-                {employeeDepartment || '—'}<br />
-                Employee ID: {employeeCompanyId || (employeeUser?.id ? String(employeeUser.id) : '—')}
+        {/* Status-based timeline */}
+        <div className={styles.horizontalTimelineWrap}>
+          <div className={styles.timelineSteps}>
+            {TIMELINE_STEPS.map((step) => {
+              const Icon = step.icon;
+              const activeStepNumber = getActiveStep(ticket?.status);
+              const isCompleted = step.id <= activeStepNumber;
+              const isActive = step.id === activeStepNumber;
+              const isRejected = ['rejected', 'withdrawn'].includes((ticket?.status || '').toLowerCase());
+              
+              return (
+                <div key={step.id} className={`${styles.timelineStep} ${isCompleted && !isActive ? styles.stepCompleted : ''} ${isActive ? styles.stepActive : ''}`}>
+                  <div className={`${styles.stepIcon} ${isCompleted ? styles.stepIconCompleted : ''} ${isActive ? styles.stepIconActive : ''}`}>
+                    <Icon />
+                  </div>
+                  <div className={styles.stepLabel}>{step.label}</div>
+                </div>
+              );
+            })}
+            {/* Show rejected/withdrawn as a terminal state */}
+            {['rejected', 'withdrawn'].includes((ticket?.status || '').toLowerCase()) && (
+              <div className={styles.timelineStep}>
+                <div className={`${styles.stepIcon} ${styles.stepIconRejected}`}>
+                  <FiXCircle />
+                </div>
+                <div className={styles.stepLabel}>{ticket.status}</div>
               </div>
-            </div>
+            )}
           </div>
         </div>
-      </div>
 
-      {showCoordinator && (
+        {/* EMPLOYEE SECTION - Always visible */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Ticket Coordinator</div>
+          <div className={styles.sectionTitle}>Employee</div>
           <div className={styles.userCardWrap}>
             <div className={styles.userCard}>
               <div className={styles.avatar}>
-                <img src={displayCoordinatorImage || DEFAULT_AVATAR} alt={displayCoordinatorFullName || 'Coordinator'} className={styles.avatarImageInner} onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
+                <img src={employeeImage} alt={ticket?.employeeName || 'Employee'} className={styles.avatarImageInner} />
               </div>
               <div className={styles.userInfo}>
-                <div className={styles.userName}>{displayCoordinatorFullName || (coordinatorUser ? `${coordinatorUser.firstName} ${coordinatorUser.lastName}` : '—')}</div>
+                <div className={styles.userName}>{ticket?.employeeName || 'None'}</div>
                 <div className={styles.userMeta}>
-                  {coordinatorUser?.department || remoteCoordinator?.department || remoteCoordinator?.dept || ticket?.department || '—'}<br />
-                  User ID: {coordinatorUser?.company_id || remoteCoordinator?.company_id || coordinatorUser?.id || remoteCoordinator?.id || ticket?.coordinatorReview?.coordinatorCompanyId || '—'}
+                  {ticket?.employeeDepartment || 'None'}<br />
+                  Employee ID: {ticket?.employeeId || 'None'}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Action Done removed — timeline displays activity and coordinator review appears under Coordinator section */}
+        {/* COORDINATOR SECTION - Visible when ticket is New/Pending (stage 1) and coordinator approved it */}
+        {['new', 'pending'].includes(ticketStage) && ticket?.coordinatorReview && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>Ticket Coordinator Review</div>
+            <div className={styles.userCardWrap}>
+              <div className={styles.userCard}>
+                <div className={styles.avatar}>
+                  <img src={coordinatorImage} alt={ticket?.coordinatorReview?.coordinatorName || 'Coordinator'} className={styles.avatarImageInner} />
+                </div>
+                <div className={styles.userInfo}>
+                  <div className={styles.userName}>{ticket?.coordinatorReview?.coordinatorName || (coordinatorUser ? `${coordinatorUser.firstName} ${coordinatorUser.lastName}` : 'None')}</div>
+                  <div className={styles.userMeta}>
+                    {coordinatorUser?.department || ticket?.department || 'None'}<br />
+                    Date Reviewed: {formatDate ? formatDate(ticket?.coordinatorReview?.dateReviewed) : ticket?.coordinatorReview?.dateReviewed || 'None'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Coordinator Actions Info */}
+            {ticket?.coordinatorReview && (
+              <div className={styles.coordinatorActionsCard}>
+                {ticket?.priorityLevel && (
+                  <div className={styles.infoField}>
+                    <div className={styles.fieldLabel}>Priority Level</div>
+                    <div className={styles.fieldValue}>{ticket.priorityLevel}</div>
+                  </div>
+                )}
+                {ticket?.department && (
+                  <div className={styles.infoField}>
+                    <div className={styles.fieldLabel}>Assigned Department</div>
+                    <div className={styles.fieldValue}>{ticket.department}</div>
+                  </div>
+                )}
+                {ticket?.coordinatorReview?.comment && (
+                  <div className={styles.infoField}>
+                    <div className={styles.fieldLabel}>Comment to Agent</div>
+                    <div className={styles.fieldValue}>{ticket.coordinatorReview.comment}</div>
+                  </div>
+                )}
+                {ticket?.coordinatorReview?.status === 'rejected' && ticket?.coordinatorReview?.rejectionComment && (
+                  <div className={styles.infoField}>
+                    <div className={styles.fieldLabel}>Rejection Reason</div>
+                    <div className={styles.fieldValue}>{ticket.coordinatorReview.rejectionComment}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ASSIGNED AGENT SECTION - Visible during In Progress stage (stage 2-3) */}
+        {['in-progress', 'completed'].includes(ticketStage) && ticket?.assignedTo && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>Assigned Agent</div>
+            <div className={styles.userCardWrap}>
+              <div className={styles.userCard}>
+                <div className={styles.avatar}>
+                  <img src={agentImage} alt={agentName} className={styles.avatarImageInner} />
+                </div>
+                <div className={styles.userInfo}>
+                  <div className={styles.userName}>{agentName}</div>
+                  <div className={styles.userMeta}>
+                    {agentUser?.department || 'None'}<br />
+                    Date Assigned: {formatDate ? formatDate(ticket?.dateAssigned) : ticket?.dateAssigned || 'None'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MONITORING VIEW - Visible to System Admins during In Progress and Completed stages */}
+        {isSystemAdmin && ['in-progress', 'completed'].includes(ticketStage) && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>Monitoring & SLA</div>
+            <div className={styles.monitoringCard}>
+              <div className={styles.infoField}>
+                <div className={styles.fieldLabel}>SLA Status</div>
+                <div className={`${styles.fieldValue} ${styles[`sla-${calculateSLAStatus().toLowerCase().replace(' ', '-')}`]}`}>
+                  {calculateSLAStatus()}
+                </div>
+              </div>
+              <div className={styles.infoField}>
+                <div className={styles.fieldLabel}>Current Status</div>
+                <div className={styles.fieldValue}>{ticket?.status || 'None'}</div>
+              </div>
+              {ticket?.targetResolutionDate && (
+                <div className={styles.infoField}>
+                  <div className={styles.fieldLabel}>Target Resolution Date</div>
+                  <div className={styles.fieldValue}>{formatDate ? formatDate(ticket.targetResolutionDate) : ticket.targetResolutionDate}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* COMPLETION INFO - Visible when ticket is Resolved, Closed, Rejected, or Withdrawn */}
+        {['completed'].includes(ticketStage) && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>Resolution Details</div>
+            <div className={styles.resolutionCard}>
+              <div className={styles.infoField}>
+                <div className={styles.fieldLabel}>Status</div>
+                <div className={styles.fieldValue}>{ticket?.status || 'None'}</div>
+              </div>
+              <div className={styles.infoField}>
+                <div className={styles.fieldLabel}>Date Completed</div>
+                <div className={styles.fieldValue}>{formatDate ? formatDate(ticket?.dateResolved || ticket?.dateClosed) : ticket?.dateResolved || ticket?.dateClosed || 'None'}</div>
+              </div>
+              {ticket?.csatRating && (
+                <div className={styles.infoField}>
+                  <div className={styles.fieldLabel}>CSAT Rating</div>
+                  <div className={styles.fieldValue}>{ticket.csatRating}/5 ⭐</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

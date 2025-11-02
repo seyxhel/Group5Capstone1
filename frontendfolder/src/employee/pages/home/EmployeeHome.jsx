@@ -90,9 +90,6 @@ const EmployeeHome = () => {
     navigate('/employee/ticket-records/all-ticket-records');
   };
 
-  const handleTrackTickets = () => {
-    navigate('/employee/active-tickets/all-active-tickets');
-  };
 
   const handleViewDetails = (ticketNumber) => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
@@ -159,9 +156,6 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          <Button variant="primary" onClick={handleTrackTickets}>
-            Track Active Tickets
-          </Button>
         </div>
 
         {recentTickets.length === 0 ? (

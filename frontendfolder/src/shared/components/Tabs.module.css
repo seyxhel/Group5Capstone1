@@ -6,8 +6,9 @@
 .tabList {
   display: flex;
   width: 100%;
-  border-bottom: 1.5px solid #e5e7eb;
-  background: #f9fafb;
+  /* subtle divider that matches card borders */
+  border-bottom: 1px solid rgba(15,23,42,0.04);
+  background: transparent; /* let the parent card background show through */
   gap: 2rem;
   align-items: stretch;
   box-sizing: border-box;
@@ -47,7 +48,7 @@
 .activeTab {
   color: #2563eb;
   border-bottom: 3px solid #2563eb;
-  background: rgba(249, 250, 251, 1);
+  background: transparent;
   font-weight: 800;
 }
 

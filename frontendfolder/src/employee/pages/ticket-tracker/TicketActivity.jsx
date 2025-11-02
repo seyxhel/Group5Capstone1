@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FiUser, FiUsers, FiTag, FiCheckCircle, FiInbox, FiClock } from 'react-icons/fi';
 import styles from './TicketActivity.module.css';
 
 export default function TicketActivity({ ticketLogs = [], initialMessages = [] }) {
@@ -14,13 +15,42 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]);
 
+  const formatDateLocal = (date) => {
+    const d = date ? new Date(date) : new Date();
+    if (isNaN(d)) return 'Invalid Date';
+    const monthName = d.toLocaleString('en-US', { month: 'long' });
+    const day = d.getDate();
+    const yearFull = d.getFullYear();
+    return `${monthName} ${day}, ${yearFull}`;
+  };
+
+  const renderLogText = (text, highlight) => {
+    if (!text) return null;
+    if (!highlight) return text;
+    const hlStr = String(highlight);
+    const lower = text.toLowerCase();
+    const hl = hlStr.toLowerCase();
+    const idx = lower.indexOf(hl);
+    if (idx === -1) return text;
+    const before = text.slice(0, idx);
+    const matched = text.slice(idx, idx + hlStr.length);
+    const after = text.slice(idx + hlStr.length);
+    return (
+      <>
+        {before}
+        <strong>{matched}</strong>
+        {after}
+      </>
+    );
+  };
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       const newMsg = {
         id: messages.length + 1,
         sender: 'You',
         message: newMessage,
-        timestamp: new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }),
+        timestamp: formatDateLocal(),
       };
       setMessages((prev) => [...prev, newMsg]);
       setNewMessage('');
@@ -36,20 +66,43 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
   };
 
   return (
-    <div className={styles.tabsContainer}>
-      <div className={styles.tabContent}>
-        {activeTab === 'logs' ? (
-          <div className={styles.logsContent}>
-            {ticketLogs.map((log) => (
-              <div key={log.id} className={styles.logEntry}>
-                <div className={styles.logUser}>{log.user}</div>
-                <div className={styles.logAction}>{log.action}</div>
-                <div className={styles.logTimestamp}>{log.timestamp}</div>
-              </div>
-            ))}
+    <div className={styles.activitySection}>
+      {activeTab === 'logs' ? (
+        <div className={`${styles['messages-logs-wrapper']} ${styles.noBorder}`}>
+              {ticketLogs.map((log) => {
+                const getInitials = (name) =>
+                  (name || '')
+                    .split(' ')
+                    .map((n) => n[0] || '')
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
+
+                const initials = getInitials(log.user);
+
+                const getLogIcon = (action) => {
+                  const a = (action || '').toLowerCase();
+                  if (a.includes('created')) return <FiInbox />;
+                  if (a.includes('assigned') || a.includes('assign')) return <FiUsers />;
+                  if (a.includes('status') || a.includes('updated') || a.includes('changed')) return <FiTag />;
+                  if (a.includes('resolved')) return <FiCheckCircle />;
+                  if (a.includes('closed')) return <FiClock />;
+                  return <FiUser />;
+                };
+
+                return (
+                  <div key={log.id} className={styles.logEntry}>
+                    <div className={styles.logAvatar}>{getLogIcon(log.action || log.text)}</div>
+                    <div className={styles.logBody}>
+                      <div className={styles.logText}>{renderLogText(log.text || log.action, log.highlight)}</div>
+                      <div className={styles.logTimestamp}>{log.timestamp}</div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         ) : (
-          <div className={styles.messageSection}>
+          <div className={styles['messages-logs-wrapper']}>
             <div className={styles.messagesContent}>
               {messages.map((msg) => (
                 <div
@@ -82,7 +135,6 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
