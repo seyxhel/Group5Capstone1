@@ -3,6 +3,7 @@ import styles from './manage-profile.module.css';
 import authService from '../../../utilities/service/authService';
 import { useNavigate } from 'react-router-dom';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
+import { API_CONFIG } from '../../../config/environment';
 
 export default function EmployeeSettings() {
   const navigate = useNavigate();
@@ -22,6 +23,100 @@ export default function EmployeeSettings() {
     }, 300);
     return () => clearTimeout(timer);
   }, []);
+
+  // Cleanup any blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (fileUrlRef.current) {
+        try { URL.revokeObjectURL(fileUrlRef.current); } catch (e) {}
+        fileUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleFileSelect = (file) => {
+    setSelectedFile(file || null);
+    if (file) {
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      const url = URL.createObjectURL(file);
+      fileUrlRef.current = url;
+      setPreviewUrl(url);
+    } else {
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      fileUrlRef.current = null;
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    // Only change currently supported: profile image upload
+    if (!selectedFile) {
+      // No file selected; nothing to save
+      return;
+    }
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        // Upload to backend
+        const fd = new FormData();
+        fd.append('image', selectedFile);
+        const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
+        const resp = await fetch(`${BASE_URL}/api/employee/upload-image/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: fd,
+        });
+
+        if (!resp.ok) {
+          let msg = 'Failed to upload profile image';
+          try {
+            const data = await resp.json();
+            msg = data?.error || data?.detail || msg;
+          } catch (e) {
+            // ignore
+          }
+          throw new Error(msg);
+        }
+
+        const data = await resp.json().catch(() => ({}));
+        // Server may return { image_url, employee } or similar
+        const newImageUrl = data?.image_url || data?.image || previewUrl;
+        // Update local user cache for immediate UI feedback
+        setUser((prev) => ({ ...(prev || {}), profileImage: newImageUrl, image: newImageUrl }));
+        try {
+          const cached = authService.getCurrentUser();
+          if (cached) {
+            const updated = { ...cached, profileImage: newImageUrl, image: newImageUrl };
+            localStorage.setItem('loggedInUser', JSON.stringify(updated));
+          }
+        } catch (e) {
+          // ignore storage errors
+        }
+      } else {
+        // Fallback: no backend token; store preview in local profile
+        setUser((prev) => ({ ...(prev || {}), profileImage: previewUrl }));
+        try {
+          const cached = authService.getCurrentUser();
+          if (cached) {
+            const updated = { ...cached, profileImage: previewUrl };
+            localStorage.setItem('loggedInUser', JSON.stringify(updated));
+          }
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Save profile changes failed:', err);
+      // Optionally show a toast here
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) {
     return (

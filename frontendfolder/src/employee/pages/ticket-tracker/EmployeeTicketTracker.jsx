@@ -94,21 +94,20 @@ const formatMoney = (value) => {
 
 // Generate logs based on ticket data and return polished sentence text for each entry
 const generateLogs = (ticket) => {
-  const logs = [];
 
+  const logs = [];
   const createdAt = ticket.dateCreated || ticket.date_created || new Date().toISOString();
 
   // 1. Ticket Created
-    logs.push({
+  logs.push({
     id: logs.length + 1,
     user: ticket.requesterName || ticket.requestedBy || 'Employee',
     action: 'Ticket Created',
     timestamp: formatDate(createdAt),
     source: 'Web Form',
     details: `Category: ${ticket.category || 'None'}`,
-    // Polished sentence
-      text: `Ticket was created on ${formatDate(createdAt)} via ${'Web Form'}. Category: ${ticket.category || 'None'}.`,
-      highlight: ticket.category || null,
+    text: `Ticket was created on ${formatDate(createdAt)} via Web Form. Category: ${ticket.category || 'None'}.`,
+    highlight: ticket.category || null,
   });
 
   // 2. Assigned to department / agent (if present)
@@ -139,22 +138,58 @@ const generateLogs = (ticket) => {
     });
   }
 
-  // 3. Status history: add current status if it's progressed beyond initial
-  const status = ticket.status || ticket.currentStatus;
-  if (status && status !== 'New' && status !== 'Pending') {
-    const at = ticket.lastUpdated || createdAt;
-    logs.push({
-      id: logs.length + 1,
-      user: 'System',
-      action: `Status Updated: ${status}`,
-      timestamp: formatDate(at),
-      source: 'System',
-      text: `Status was updated to ${status} on ${formatDate(at)}.`,
-      highlight: status,
+  // 3. Status history: add all status changes if present
+  if (Array.isArray(ticket.statusHistory) && ticket.statusHistory.length > 0) {
+    ticket.statusHistory.forEach((entry, idx) => {
+      // Normalize status display for logs: treat 'New' as 'Open' so timeline reads clearly
+      const raw = entry.status || '';
+      const displayStatus = raw === 'New' ? 'Open' : raw;
+      logs.push({
+        id: logs.length + 1,
+        user: entry.user || 'System',
+        action: `Status Updated: ${displayStatus}`,
+        timestamp: formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt),
+        source: entry.source || 'System',
+        text: `Status was updated to ${displayStatus} on ${formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt)}.`,
+        highlight: displayStatus,
+      });
     });
+  } else if (Array.isArray(ticket.logs) && ticket.logs.length > 0) {
+    // Fallback: support for 'logs' array with status changes
+    ticket.logs.forEach((entry, idx) => {
+      if (entry.status) {
+        const raw = entry.status || '';
+        const displayStatus = raw === 'New' ? 'Open' : raw;
+        logs.push({
+          id: logs.length + 1,
+          user: entry.user || 'System',
+          action: `Status Updated: ${displayStatus}`,
+          timestamp: formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt),
+          source: entry.source || 'System',
+          text: `Status was updated to ${displayStatus} on ${formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt)}.`,
+          highlight: displayStatus,
+        });
+      }
+    });
+  } else {
+    // Fallback: add current status if it's progressed beyond initial
+    const status = ticket.status || ticket.currentStatus;
+    if (status && status !== 'New' && status !== 'Pending') {
+      const at = ticket.lastUpdated || createdAt;
+      logs.push({
+        id: logs.length + 1,
+        user: 'System',
+        action: `Status Updated: ${status}`,
+        timestamp: formatDate(at),
+        source: 'System',
+        text: `Status was updated to ${status} on ${formatDate(at)}.`,
+        highlight: status,
+      });
+    }
   }
 
   // 4. Resolved / Closed (explicit)
+  const status = ticket.status || ticket.currentStatus;
   if (status === 'Resolved' || ticket.resolvedAt) {
     const resolvedAt = ticket.resolvedAt || ticket.lastUpdated || createdAt;
     logs.push({
@@ -492,7 +527,7 @@ export default function EmployeeTicketTracker() {
   const isClosable = status === 'Resolved';
 
   // Generate dynamic data based on ticket
-  const ticketLogs = generateLogs(ticket);
+  // (logs are computed later after merging status history)
 
   // Prepare Additional Details entries (filter out schedule-like entries for 'Others')
   const _dynamicEntries = ticket.dynamic_data && typeof ticket.dynamic_data === 'object' ? Object.entries(ticket.dynamic_data) : [];
@@ -567,6 +602,140 @@ export default function EmployeeTicketTracker() {
   };
 
   const ticketMessages = buildMessagesFromTicket(ticket);
+
+  // --- Local status history persistence (for additive log timeline) ---
+  const storageKeyFor = (num) => `ticketStatusHistory:${num}`;
+  const loadStatusHistory = (num) => {
+    try {
+      const raw = localStorage.getItem(storageKeyFor(num));
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  };
+  const saveStatusHistory = (num, items) => {
+    try { localStorage.setItem(storageKeyFor(num), JSON.stringify(items || [])); } catch (e) {}
+  };
+  const appendStatusHistory = (num, entry) => {
+    const current = loadStatusHistory(num);
+    const merged = [...current, entry].filter(Boolean);
+    // de-duplicate by status + user + minute-precision timestamp to avoid true duplicates
+    // but allow different statuses (Open vs Withdrawn) in the same minute
+    const seen = new Set();
+    const deduped = [];
+    const keyFor = (it) => {
+      const s = (it.status || '').toString().toLowerCase();
+      const u = (it.user || '').toString().toLowerCase();
+      const ts = it.timestamp || it.date || it.createdAt || it.created_at || '';
+      let dkey = '';
+      try {
+        const d = new Date(ts);
+        if (!isNaN(d)) dkey = d.toISOString().slice(0,16); // up to minutes
+      } catch (e) {}
+      return `${s}|${u}|${dkey}`;
+    };
+    for (const it of merged) {
+      const k = keyFor(it);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      deduped.push(it);
+    }
+    // sort ascending by timestamp
+    deduped.sort((a,b)=> new Date(a.timestamp||a.date||0) - new Date(b.timestamp||b.date||0));
+    saveStatusHistory(num, deduped);
+    return deduped;
+  };
+
+  const num = number || ticket.ticketNumber || ticket.ticket_number;
+  const backendHistory = Array.isArray(ticket.statusHistory) ? ticket.statusHistory : [];
+  const ticketLogsFromBackendLogs = Array.isArray(ticket.logs) ? ticket.logs.filter(l => l && (l.status || l.action || l.type)) : [];
+  const localHistory = num ? loadStatusHistory(num) : [];
+
+  // Merge backend statusHistory, any status-bearing entries from ticket.logs, then local history
+  const mergedHistory = [...backendHistory, ...ticketLogsFromBackendLogs, ...localHistory];
+
+  // Disable the localStorage-based initial status injection completely.
+  // This was causing duplicate "Open" entries and unnecessary "Open" entries for new tickets.
+  // The backend should provide complete statusHistory, or we'll rely on the "current status" fallback below.
+
+  // de-duplicate merged history by status + minute-precision timestamp
+  const histSeen = new Set();
+  const mergedDeduped = [];
+  const keyForHist = (it) => {
+    const s = (it.status || it.action || '').toString().toLowerCase();
+    const u = it.user || it.actor || 'system';
+    const ts = it.timestamp || it.date || it.createdAt || it.created_at || '';
+    let dkey = '';
+    try {
+      const d = new Date(ts);
+      if (!isNaN(d)) dkey = d.toISOString().slice(0,16);
+    } catch (e) {}
+    return `${s}|${u}|${dkey}`;
+  };
+  for (const it of mergedHistory) {
+    const k = keyForHist(it);
+    if (histSeen.has(k)) continue;
+    histSeen.add(k);
+    mergedDeduped.push(it);
+  }
+  // Sort by timestamp, but for entries with the same status, prefer backend entries over local
+  mergedDeduped.sort((a,b)=> {
+    const aTime = new Date(a.timestamp||a.date||0).getTime();
+    const bTime = new Date(b.timestamp||b.date||0).getTime();
+    if (aTime !== bTime) return aTime - bTime;
+    
+    // If timestamps are very close (same minute), use source to break ties:
+    // backend entries (System) should come before local entries (You/Portal)
+    const aIsLocal = (a.user === 'You' || a.source === 'Portal');
+    const bIsLocal = (b.user === 'You' || b.source === 'Portal');
+    if (aIsLocal && !bIsLocal) return 1;  // a comes after b
+    if (!aIsLocal && bIsLocal) return -1; // a comes before b
+    return 0;
+  });
+
+  // Generate logs with merged status history so entries are additive
+  const ticketLogs = generateLogs({ ...ticket, statusHistory: mergedDeduped });
+
+  // Only append current status if it's actually changed from 'New' and not in history yet.
+  // Skip for 'New' tickets to avoid unnecessary status entries when just created.
+  try {
+    const curStatus = originalStatus || ticket.status || '';
+    const curStatusLower = curStatus.toLowerCase();
+    const hasCur = mergedDeduped.some(it => ((it.status || it.action || '').toString().toLowerCase()) === curStatusLower);
+    if (curStatus && !hasCur && !['new', 'submitted', 'pending'].includes(curStatusLower)) {
+      mergedDeduped.push({ status: curStatus, timestamp: lastUpdatedRaw || dateCreatedRaw || new Date().toISOString(), user: 'System', source: 'System' });
+      // regenerate logs to include this appended status
+      // Note: call generateLogs again to recompute ticketLogs with the appended status
+      // (we shadow ticketLogs variable by reassigning)
+      // eslint-disable-next-line no-unused-vars
+      const _ticketLogs = generateLogs({ ...ticket, statusHistory: mergedDeduped });
+      // replace ticketLogs variable by mutating referenced data in TicketActivity via props later
+      // To avoid refactor, we'll reassign ticketLogs via a local variable name used by rendering below.
+      ticketLogs.length = 0; // clear existing
+      _ticketLogs.forEach(l => ticketLogs.push(l));
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Success handlers to add new log entries without reloading the page
+  const handleWithdrawSuccess = (tNum, newStatus) => {
+    try {
+      const ts = new Date().toISOString();
+      const keyNum = tNum || num;
+      appendStatusHistory(keyNum, { status: newStatus, timestamp: ts, user: 'You', source: 'Portal' });
+      // Update in-memory ticket so header/status badges refresh
+      try {
+        // mutate shallow copy in state if possible
+        // eslint-disable-next-line no-unused-vars
+        setShowWithdrawModal(false);
+        setActiveTab('logs');
+      } catch (_) {}
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // Show loading skeleton for ticket details
   if (isLoading) {
@@ -868,7 +1037,7 @@ export default function EmployeeTicketTracker() {
           <EmployeeActiveTicketsWithdrawTicketModal
             ticket={ticket}
             onClose={() => setShowWithdrawModal(false)}
-            onSuccess={typeof handleWithdrawSuccess === 'function' ? handleWithdrawSuccess : undefined}
+            onSuccess={handleWithdrawSuccess}
           />
         </ErrorBoundary>
       )}

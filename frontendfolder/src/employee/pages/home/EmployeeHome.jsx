@@ -18,30 +18,28 @@ const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const currentUser = authService.getCurrentUser();
+  const [currentUser] = useState(() => authService.getCurrentUser());
 
   useEffect(() => {
     if (!currentUser) return;
-    
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      const allTickets = getEmployeeTickets(currentUser.id);
-
-      const activeTickets = allTickets.filter(ticket => {
-        const status = ticket.status.toLowerCase();
-        return !['closed', 'rejected', 'withdrawn'].includes(status);
-      });
-
-      const sorted = activeTickets
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5);
-
-      setRecentTickets(sorted);
-      setIsLoading(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [currentUser]);
+    setIsLoading(true);
+    backendTicketService.getTicketsByEmployee(currentUser.id)
+      .then(tickets => {
+        // If backend returns {results: [...]}, use that, else use tickets directly
+        const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
+        // sort by created/submit date descending and pick the latest ticket
+        const sortedAll = ticketList
+          .slice()
+          .sort((a, b) => new Date(b.submit_date || b.dateCreated || b.createdAt || 0) - new Date(a.submit_date || a.dateCreated || a.createdAt || 0));
+        const latest = sortedAll.length > 0 ? [sortedAll[0]] : [];
+        setRecentTickets(latest);
+      })
+      .catch(err => {
+        setRecentTickets([]);
+        console.error('Failed to fetch employee tickets:', err);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const handleSubmitTicket = () => {
     navigate('/employee/submit-ticket');

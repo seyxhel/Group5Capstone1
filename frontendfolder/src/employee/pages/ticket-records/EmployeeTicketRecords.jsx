@@ -1,3 +1,14 @@
+// Normalize ticket data to handle both backend field names (snake_case) and frontend (camelCase)
+function normalizeTicket(ticket) {
+  return {
+    ...ticket,
+    ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+    subCategory: ticket.sub_category || ticket.subCategory,
+    dateCreated: ticket.submit_date || ticket.dateCreated || ticket.createdAt || ticket.created_at || null,
+    priorityLevel: ticket.priority || ticket.priorityLevel,
+    assignedTo: ticket.assigned_to || ticket.assignedTo,
+  };
+}
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { backendTicketService } from "../../../services/backend/ticketService";
@@ -96,15 +107,21 @@ const EmployeeTicketRecords = () => {
 
   const normalizedFilter = filter.replace("-ticket-records", "").toLowerCase();
 
-  // Fetch tickets from backend
+  // Fetch current employee's ticket records from backend
   useEffect(() => {
-    // Simulate loading delay
     const timer = setTimeout(() => {
-      // Get current logged-in user and only fetch their tickets
       const currentUser = authService.getCurrentUser();
-      const tickets = getEmployeeTickets(currentUser?.id);
-      setAllTickets(tickets);
-      setIsLoading(false);
+      backendTicketService.getTicketsByEmployee(currentUser?.id)
+        .then((tickets) => {
+          const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
+          const normalized = ticketList.map(normalizeTicket);
+          setAllTickets(normalized);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch employee ticket records:', err);
+          setAllTickets([]);
+        })
+        .finally(() => setIsLoading(false));
     }, 300);
 
     return () => clearTimeout(timer);

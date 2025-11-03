@@ -108,87 +108,90 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    // Simulate loading delay
     const timer = setTimeout(() => {
-      // Get current user
       const user = authService.getCurrentUser();
       setCurrentUser(user);
 
-      // Fetch all tickets
-      // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
-      const fetched = getAllTickets();
-      
-      // Filter tickets based on user role and department
-      // Coordinators and System Admins see tickets from their department
-      let ticketsToShow = fetched;
-      if (user) {
-        if (user.role === 'Ticket Coordinator') {
-          // Coordinators should see tickets for their department, and also
-          // tickets assigned directly to them. Seeded tickets may use
-          // `assignedDepartment` or `department` - check both.
-          ticketsToShow = fetched.filter(ticket => {
-            const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
-            const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
-            const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
-            return ticketDept === user.department || isAssignedToUser;
+      const loadTickets = async () => {
+        try {
+          const fetched = await backendTicketService.getAllTickets();
+          const ticketList = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+          let ticketsToShow = ticketList;
+          if (user) {
+            if (user.role === 'Ticket Coordinator') {
+              ticketsToShow = ticketList.filter(ticket => {
+                const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+                const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+                const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+                const statusLower = (ticket.status || '').toString().toLowerCase();
+                const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
+                // Coordinators see their department, assigned-to, and ALL new/untriaged tickets
+                return isNewish || ticketDept === user.department || isAssignedToUser;
+              });
+            } else if (user.role === 'System Admin') {
+              ticketsToShow = ticketList;
+            }
+          }
+          // Normalize tickets to the shape expected by the UI
+          const normalized = ticketsToShow.map((t) => {
+            const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
+            return {
+              ...t,
+              ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
+              subCategory: t.sub_category || t.subCategory || t.subcategory || '',
+              priorityLevel: t.priority || t.priorityLevel || '',
+              dateCreated,
+              assignedAgent: t.assigned_to || t.assignedTo || '',
+              assignedDepartment: t.department || t.assignedDepartment || '',
+              __effectiveStatus: computeEffectiveStatus({ status: t.status, dateCreated }),
+            };
+          })
+          // Ensure newest first regardless of backend defaults
+          .sort((a, b) => {
+            const da = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
+            const db = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+            return db - da;
           });
-        } else if (user.role === 'System Admin') {
-          // System Admins see all tickets
-          ticketsToShow = fetched;
-        }
-      }
-      
-      setAllTickets(ticketsToShow);
-      setIsLoading(false);
-    }, 300);
 
+          setAllTickets(normalized);
+          setIsLoading(false);
+        } catch (err) {
+          setAllTickets([]);
+          setIsLoading(false);
+          console.error('Failed to fetch tickets:', err);
+        }
+      };
+
+      loadTickets();
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
-  // Build dynamic category and sub-category options from the fetched tickets
+  // Build dynamic filter options from loaded tickets
   const categoryOptions = useMemo(() => {
-    const setVals = new Set();
-    (allTickets || []).forEach(t => {
-      if (t.category) setVals.add(t.category);
-    });
-    return Array.from(setVals).map(label => ({ label, category: label }));
+    const set = new Set(allTickets.map(t => t.category).filter(Boolean));
+    return Array.from(set).map(v => ({ label: v, value: v }));
   }, [allTickets]);
 
   const subCategoryOptions = useMemo(() => {
-    const map = new Map();
-    (allTickets || []).forEach(t => {
-      const cat = t.category || '';
-      const sub = t.subCategory || t.sub_category || '';
-      if (!sub) return;
-      const key = `${cat}||${sub}`;
-      if (!map.has(key)) map.set(key, { label: sub, category: cat });
-    });
-    return Array.from(map.values());
+    const set = new Set(allTickets.map(t => t.subCategory).filter(Boolean));
+    return Array.from(set).map(v => ({ label: v, value: v }));
   }, [allTickets]);
 
   const filteredTickets = useMemo(() => {
-    let result;
-      // decorate tickets with an effective status (New older than 24h -> Pending)
-      const decorated = allTickets.map(t => ({ ...t, __effectiveStatus: computeEffectiveStatus(t) }));
+    let result = allTickets;
 
-      if (normalizedStatus === "all") {
-        result = decorated;
-      } else if (Array.isArray(statusFilter)) {
-        // Handle array of statuses (e.g., ["new", "submitted", "pending"])
-        result = decorated.filter(
-          (ticket) => statusFilter.includes(ticket.__effectiveStatus?.toLowerCase())
-        );
-      } else if (statusFilter) {
-        // Handle single status string
-        result = decorated.filter(
-          (ticket) => ticket.__effectiveStatus?.toLowerCase() === statusFilter.toLowerCase()
-        );
+    // Status filter from URL
+    if (statusFilter) {
+      if (Array.isArray(statusFilter)) {
+        result = result.filter(ticket => statusFilter.includes(ticket.status?.toLowerCase()));
       } else {
-        result = decorated;
+        result = result.filter(ticket => ticket.status?.toLowerCase() === statusFilter);
       }
+    }
 
-    // Apply search filter
-    if (searchTerm.trim()) {
+    // Search term filter
+    if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
         ({ ticketNumber, subject }) =>
@@ -337,7 +340,7 @@ const CoordinatorAdminTicketManagement = () => {
                 inputStyle={{ width: '260px' }}
               />
             </div>
-        </div>
+          </div>
         
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
@@ -472,24 +475,15 @@ const CoordinatorAdminTicketManagement = () => {
         />
       )}
 
-      {modalType === "open" && selectedTicket && (
-        <CoordinatorAdminOpenTicketModal
-          ticket={selectedTicket}
-          onClose={closeModal}
-          onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Open")}
-        />
-      )}
-
       {modalType === "reject" && selectedTicket && (
         <CoordinatorAdminRejectTicketModal
           ticket={selectedTicket}
           onClose={closeModal}
           onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Rejected")}
         />
-      )}
-      </div>
-    </>
-  );
-};
 
+      )}
+    </div>
+  </>);
+}
 export default CoordinatorAdminTicketManagement;

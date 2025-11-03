@@ -24,13 +24,13 @@ export const localTicketService = {
   getEmployeeTickets: async (employeeId) => {
     await delay();
     const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
-    
-    // For local development, return ALL tickets so frontend developers can see all mock data
-    // This allows testing with any employee account to see the full range of ticket statuses
-    console.log('🎫 Local dev: Returning all tickets for frontend testing (not just employee-specific)');
+
+    // Filter tickets by employeeId
+    const employeeTickets = tickets.filter(ticket => ticket.employeeId === employeeId);
+
     return {
       success: true,
-      data: tickets // Return all tickets instead of filtering by employeeId
+      data: employeeTickets
     };
   },
 

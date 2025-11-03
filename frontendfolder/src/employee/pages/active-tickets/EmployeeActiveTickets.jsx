@@ -1,3 +1,14 @@
+// Normalize ticket data to handle both backend field names (snake_case) and frontend (camelCase)
+function normalizeTicket(ticket) {
+  return {
+    ...ticket,
+    ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+    subCategory: ticket.sub_category || ticket.subCategory,
+    dateCreated: ticket.submit_date || ticket.dateCreated || ticket.createdAt || ticket.created_at || null,
+    priorityLevel: ticket.priority || ticket.priorityLevel,
+    assignedTo: ticket.assigned_to || ticket.assignedTo,
+  };
+}
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { backendTicketService } from "../../../services/backend/ticketService";
@@ -121,9 +132,17 @@ const EmployeeActiveTickets = () => {
     const timer = setTimeout(() => {
       // Get current logged-in user and only fetch their tickets
       const currentUser = authService.getCurrentUser();
-      const tickets = getEmployeeTickets(currentUser?.id);
-      setAllActiveTickets(tickets);
-      setIsLoading(false);
+      backendTicketService.getTicketsByEmployee(currentUser?.id)
+        .then(tickets => {
+          const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
+          const normalized = ticketList.map(normalizeTicket);
+          setAllActiveTickets(normalized);
+        })
+        .catch(err => {
+          setAllActiveTickets([]);
+          console.error('Failed to fetch employee tickets:', err);
+        })
+        .finally(() => setIsLoading(false));
     }, 300);
 
     return () => clearTimeout(timer);
@@ -221,7 +240,7 @@ const EmployeeActiveTickets = () => {
 
   const [showFilter, setShowFilter] = useState(false);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.loadingMessage}>Loading tickets...</div>
