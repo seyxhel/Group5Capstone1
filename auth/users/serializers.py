@@ -408,6 +408,33 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             # Standard JWT token generation
             self.user = user_auth
+            # --- START: HDTS restriction ---
+            # Prevent users who are Employees for the HDTS system and are not Approved from logging in
+            try:
+                from system_roles.models import UserSystemRole
+                is_hdts_employee = UserSystemRole.objects.filter(
+                    user=user_auth,
+                    system__slug__iexact='hdts',
+                    role__name__iexact='Employee'
+                ).exists()
+            except Exception:
+                # If the system_roles app/models are not available for any reason,
+                # do not block login here; let higher-level checks handle it.
+                is_hdts_employee = False
+
+            if is_hdts_employee and getattr(user_auth, 'status', None) != 'Approved':
+                if getattr(user_auth, 'status', None) == 'Rejected':
+                    raise serializers.ValidationError(
+                        'Your account has been rejected by the HDTS system administrator.',
+                        code='hdts_blocked'
+                    )
+                # Default pending case
+                raise serializers.ValidationError(
+                    'Your account is pending approval by the HDTS system administrator.',
+                    code='hdts_blocked'
+                )
+            # --- END: HDTS restriction ---
+
             refresh = self.get_token(user_auth)
 
             return {
