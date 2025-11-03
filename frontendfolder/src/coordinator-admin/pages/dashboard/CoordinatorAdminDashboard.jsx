@@ -34,10 +34,7 @@ import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
-import { backendTicketService } from '../../../services/backend/ticketService';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
-import { backendArticleService } from '../../../services/backend/articleService';
-import kbService from '../../../services/kbService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -309,6 +306,7 @@ const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [chartRange, setChartRange] = useState('month');
   const [pieRange, setPieRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   // Memoize current user to avoid unstable object identity from authService
   const currentUser = useMemo(() => authService.getCurrentUser(), []);
@@ -491,27 +489,10 @@ const CoordinatorAdminDashboard = () => {
 
   // Effect: load tickets and compute dashboard data based on role and selected ranges
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoadingTickets(true);
-      setTicketError(null);
+    const timer = setTimeout(() => {
       try {
-        // Prefer backend tickets when available
-        let all = [];
-        try {
-          all = await backendTicketService.getAllTickets();
-        } catch (e) {
-          console.warn('Backend ticket fetch failed, falling back to local tickets', e);
-          all = [];
-        }
-
-        // If backend returned no tickets (for example when no token) fall back to local seeded tickets
-        if ((!Array.isArray(all) || all.length === 0) && typeof getAllTickets === 'function') {
-          const local = getAllTickets();
-          if (Array.isArray(local) && local.length) all = local;
-        }
-
-        const filtered = filterByRole(Array.isArray(all) ? all : []);
+        const all = getAllTickets();
+        const filtered = filterByRole(all);
 
         // stats per ticketPaths
         const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
@@ -527,179 +508,20 @@ const CoordinatorAdminDashboard = () => {
 
         const pie = aggregatePie(filtered.concat());
         const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
-        // Build a compact activity timeline: pick latest timestamp from each ticket and a short action
-        // Choose timestamp fields according to action (submitted vs resolved/rejected)
-        const buildTimestampFor = (t, verb) => {
-          if (verb === 'resolved') {
-            return new Date(t.closedAt || t.time_closed || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          if (verb === 'rejected') {
-            return new Date(t.rejectedAt || t.rejected_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          if (verb === 'withdrawn') {
-            return new Date(t.withdrawnAt || t.withdrawn_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          // default: submitted — use creation timestamps
-          return new Date(t.createdAt || t.dateCreated || t.submit_date || t.submitDate || t.created_at || t.update_date || 0);
-        };
 
-        const timeline = (Array.isArray(filtered) ? filtered : []).map((t) => {
-          // Prefer explicit ticket number fields (these come from backend payloads).
-          const numberRaw = t.ticketNumber || t.ticket_no || t.ticketNumber || t.ticketNo || t.ticket_number || t.number || t.reference || t.ref || t.tx || t.tx_number || null;
-          let number = numberRaw || null;
-          // If we still don't have a ticket number, try other nested fields
-          if (!number) {
-            if (t.meta && (t.meta.ticketNumber || t.meta.ticket_number)) number = t.meta.ticketNumber || t.meta.ticket_number;
-            else if (t.dynamic_data && (t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number)) number = t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number;
-          }
-          // If still missing, synthesize a readable ticket id: TX + YYYYMMDD + zero-padded internal id
-          if (!number) {
-            const created = new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0);
-            const y = String(created.getFullYear() || new Date().getFullYear());
-            const m = String((created.getMonth() + 1)).padStart(2, '0');
-            const d = String(created.getDate()).padStart(2, '0');
-            const rawId = (t.id || t.pk || t.ticket_id || t.internal_id || '') + '';
-            const padded = rawId ? rawId.padStart(6, '0') : Math.floor(Math.random() * 900000 + 100000).toString();
-            number = `TX${y}${m}${d}${padded}`;
-          }
-          const rawStatus = (t.status || computeEffectiveStatus(t) || '').toString().toLowerCase();
-          // Map status to a simple verb
-          let verb = 'submitted';
-          if (rawStatus.includes('closed') || rawStatus.includes('resolved')) verb = 'resolved';
-          else if (rawStatus.includes('rejected')) verb = 'rejected';
-          else if (rawStatus.includes('withdraw')) verb = 'withdrawn';
-          else verb = 'submitted';
-
-          // Use lastUpdated (or fallbacks) as the canonical sort key so the timeline is latest->oldest by update
-          const sortDate = new Date(t.lastUpdated || t.update_date || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.rejectedAt || t.rejected_at || t.submit_date || t.dateCreated || t.createdAt || 0);
-          const timeLabel = sortDate && !isNaN(sortDate.getTime()) ? sortDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-          const action = `Ticket ${number} ${verb}`;
-          return { time: timeLabel, action, rawTime: sortDate.getTime() };
-        })
-          .filter(i => i && Number.isFinite(i.rawTime))
-          .sort((a, b) => b.rawTime - a.rawTime)
-          .slice(0, 4);
-
-        // For user timeline, show items where a creator/employee field exists; fallback to the same timeline
-        const userTimeline = timeline.filter(item => {
-          // crude heuristic: include if ticket subject mentions employee or if any filtered ticket has employee info
-          return true;
-        }).slice(0, 4);
-
-        if (mounted) {
-          setActivityTimeline(timeline.map(i => ({ time: i.time, action: i.action })));
-          setUserActivityTimeline(userTimeline.map(i => ({ time: i.time, action: i.action })));
-
-          setTicketDataState({
-            stats,
-            tableData: ticketData.tableData,
-            pieData: pie,
-            lineData: line
-          });
-        }
-        // Fetch employees for Users tab (pending users and user activity)
-        try {
-          setLoadingUsers(true);
-          setUserError(null);
-          let employees = [];
-          try {
-            employees = await backendEmployeeService.getAllEmployees();
-          } catch (e) {
-            console.warn('Failed to fetch employees from backend:', e);
-            employees = [];
-          }
-
-          // Normalize to array
-          employees = Array.isArray(employees) ? employees : [];
-
-          // Pending users (status 'Pending') and role Employee only
-          const pending = employees.filter(u => {
-            const status = (u.status || '').toString().toLowerCase();
-            const role = (u.role || u.user_role || '').toString().toLowerCase();
-            return status === 'pending' && role === 'employee';
-          });
-
-          // Build table rows for all pending employees and lock columns order (table is scrollable)
-          const tableRows = pending.map(u => ({
-            companyId: u.companyId || u.company_id || u.company || u.companyId || u.employeeId || u.employee_id || (u.id ? `EMP-${String(u.id).padStart(3, '0')}` : ''),
-            lastName: u.lastName || u.last_name || u.surname || '',
-            firstName: u.firstName || u.first_name || u.givenName || '',
-            department: u.department || u.dept || '',
-            role: u.role || u.user_role || '',
-            status: { text: u.status || 'Pending', statusClass: 'statusPending' }
-          }));
-
-          // Stats for users tab (Pending Users count)
-          const userStats = [
-            {
-              label: 'Pending Users',
-              count: pending.length,
-              isHighlight: true,
-              position: 0,
-              path: userPaths.find(p => p.label === 'Pending Accounts')?.path
-            }
-          ];
-
-          // Build user activity logs: created/approved/rejected events (include all roles)
-          const userActions = employees.map(u => {
-            const created = new Date(u.createdAt || u.dateJoined || u.created_at || u.date_created || u.dateCreated || 0);
-            const approved = new Date(u.approvedAt || u.approved_at || u.approved_on || 0);
-            const rejected = new Date(u.rejectedAt || u.rejected_at || u.rejected_on || 0);
-            // Determine latest action
-            let actionTime = created;
-            let actionVerb = 'account created';
-            if (!isNaN(rejected.getTime()) && rejected.getTime() > (actionTime.getTime() || 0)) {
-              actionTime = rejected; actionVerb = 'account rejected by Admin';
-            } else if (!isNaN(approved.getTime()) && approved.getTime() > (actionTime.getTime() || 0)) {
-              actionTime = approved; actionVerb = 'account approved by Admin';
-            }
-            const labelId = u.companyId || u.company_id || u.employeeId || `EMP-${u.id || ''}`;
-            return { time: actionTime.getTime(), displayTime: actionTime, action: `User ${labelId} ${actionVerb}` };
-          }).filter(a => a && Number.isFinite(a.time));
-
-          userActions.sort((a, b) => b.time - a.time);
-
-          // Build pie data using backend model status values
-          // Active (Approved) counts across all roles; Pending and Rejected (Denied) count only Employee role
-          const counts = { Approved: 0, Pending: 0, Denied: 0 };
-          employees.forEach(u => {
-            const role = (u.role || u.user_role || '').toString().toLowerCase();
-            const s = (u.status || '').toString().toLowerCase();
-            if (s === 'approved' || s === 'approve') {
-              counts.Approved += 1;
-            } else if (role === 'employee') {
-              if (s === 'pending') counts.Pending += 1;
-              else if (s === 'denied' || s === 'deny' || s === 'rejected') counts.Denied += 1;
-            }
-          });
-          // Map model statuses to UI legend names: Approved -> Active, Denied -> Rejected
-          const pie = [
-            { name: 'Active', value: counts.Approved, fill: '#22C55E' },
-            { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
-            { name: 'Rejected', value: counts.Denied, fill: '#EF4444' },
-            { name: 'Inactive', value: 0, fill: '#9CA3AF' }
-          ];
-
-          if (mounted) {
-            setUserDataState({ stats: userStats, tableData: tableRows, pieData: pie, lineData: [] });
-            setUserActivityTimeline(userActions.slice(0, 4).map(a => ({ time: a.displayTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }), action: a.action })));
-          }
-        } catch (e) {
-          console.error('Error processing users for dashboard', e);
-          if (mounted) setUserError(e?.message || String(e));
-        } finally {
-          if (mounted) setLoadingUsers(false);
-        }
+        setTicketDataState({
+          stats,
+          tableData: ticketData.tableData,
+          pieData: pie,
+          lineData: line
+        });
+        setIsLoading(false);
       } catch (err) {
         console.error('Error loading tickets for dashboard', err);
-        if (mounted) setTicketError(err?.message || String(err));
-      } finally {
-        if (mounted) setLoadingTickets(false);
+        setIsLoading(false);
       }
-    };
-
-    load();
-    return () => { mounted = false; };
+    }, 300);
+    return () => clearTimeout(timer);
   }, [currentUser, chartRange, pieRange]);
 
   // Effect: load KB (articles) for KB tab cards
@@ -790,12 +612,52 @@ const CoordinatorAdminDashboard = () => {
       <div className={styles.dashboardContent}>
         <h1 className={styles.title}>Dashboard</h1>
 
-        <Tabs
-          tabs={dashboardTabs}
-          active={activeTab}
-          onChange={setActiveTab}
-        />
-        <div className={styles.tabContent}>
+        {isLoading ? (
+          <div style={{ padding: '24px' }}>
+            {/* Skeleton tabs */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} width="120px" height="36px" borderRadius="6px" />
+              ))}
+            </div>
+
+            {/* Skeleton stat cards */}
+            <div className={styles.statusCardsGrid} style={{ marginTop: 12, marginBottom: 24 }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+                  <Skeleton width="80px" height="32px" borderRadius="4px" />
+                  <Skeleton width="100%" height="20px" style={{ marginTop: '12px' }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton table */}
+            <div style={{ marginBottom: 24 }}>
+              <Skeleton width="200px" height="24px" style={{ marginBottom: '12px' }} />
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <Skeleton key={j} width={`${100/6}%`} height="40px" borderRadius="4px" />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton charts */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {[1, 2].map(i => (
+                <Skeleton key={i} width="100%" height="300px" borderRadius="8px" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Tabs
+              tabs={dashboardTabs}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
+            <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
             {activeTab === 'kb' ? (
               // KB tab: show real KB stats when available
@@ -883,11 +745,13 @@ const CoordinatorAdminDashboard = () => {
                 </div>
               </>
             )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
-  };
+};
 
   export default CoordinatorAdminDashboard;
 

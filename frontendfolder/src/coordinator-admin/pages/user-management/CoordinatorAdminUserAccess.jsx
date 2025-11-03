@@ -8,6 +8,7 @@ import Button from "../../../shared/components/Button";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 import { backendEmployeeService } from '../../../services/backend/employeeService';
@@ -44,6 +45,7 @@ const CoordinatorAdminUserAccess = () => {
   // 👇 Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.toLowerCase();
   const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
@@ -51,76 +53,27 @@ const CoordinatorAdminUserAccess = () => {
 
   // 👇 Fetch users and current user
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    // Try to fetch real users from backend; fall back to local storage fixtures
-    (async () => {
-      try {
-        const list = await backendEmployeeService.getAllEmployees().catch(() => null);
-        let fetchedUsers = null;
-        if (Array.isArray(list) && list.length) {
-          // Normalize backend employee objects to the shape used by this component
-          fetchedUsers = list
-            // hide superusers entirely
-            .filter((e) => !e.is_superuser)
-            .map((e) => ({
-              id: e.id,
-              companyId: e.company_id || e.companyId || (e.employee && e.employee.company_id) || null,
-              firstName: e.first_name || e.firstName || (e.employee && e.employee.first_name) || '',
-              lastName: e.last_name || e.lastName || (e.employee && e.employee.last_name) || '',
-              department: e.department || e.dept || (e.employee && e.employee.department) || '',
-              role: e.role || (e.user_role || '') || 'Employee',
-              status: e.status || 'Active',
-              email: e.email || null,
-              image: e.image || (e.employee && e.employee.image) || null,
-            }));
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
+
+      const fetchedUsers = getEmployeeUsers() || [];
+
+      let usersToShow = fetchedUsers;
+      if (user) {
+        if (user.role === "Ticket Coordinator") {
+          usersToShow = fetchedUsers.filter((u) => u.department === user.department);
+        } else if (user.role === "System Admin") {
+          usersToShow = fetchedUsers;
         }
-
-        if (!fetchedUsers) {
-          const local = getEmployeeUsers() || [];
-          fetchedUsers = local;
-        }
-
-        let usersToShow = fetchedUsers;
-
-        // Hide only explicit superuser accounts (is_superuser flag). Do not
-        // filter by company id here — that may legitimately belong to a
-        // non-superuser in some deployments.
-        usersToShow = (usersToShow || []).filter((u) => {
-          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
-          return !isSuper;
-        });
-
-        // Apply role-scoped visibility (Ticket Coordinators only see their dept)
-        if (user) {
-          if (user.role === "Ticket Coordinator") {
-            usersToShow = usersToShow.filter((u) => u.department === user.department);
-          } else if (user.role === "System Admin") {
-            usersToShow = usersToShow;
-          }
-        }
-
-        setAllUsers(usersToShow || []);
-      } catch (e) {
-        // fallback to local store if backend request fails
-        const fetchedUsers = getEmployeeUsers() || [];
-        let usersToShow = fetchedUsers;
-
-        // Ensure local fallback hides any entries explicitly marked as superuser
-        usersToShow = (usersToShow || []).filter((u) => {
-          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
-          return !isSuper;
-        });
-        if (user) {
-          if (user.role === "Ticket Coordinator") {
-            usersToShow = usersToShow.filter((u) => u.department === user.department);
-          } else if (user.role === "System Admin") {
-            usersToShow = usersToShow;
-          }
-        }
-        setAllUsers(usersToShow);
       }
-    })();
+
+      setAllUsers(usersToShow);
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // 👇 Combined filtering logic
@@ -259,7 +212,19 @@ const CoordinatorAdminUserAccess = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedUsers.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton width="80px" /></td>
+                        <td><Skeleton width="80px" /></td>
+                      </tr>
+                    ))
+                  ) : paginatedUsers.length === 0 ? (
                     <tr>
                       <td
                         colSpan={7}
@@ -333,14 +298,16 @@ const CoordinatorAdminUserAccess = () => {
             </div>
 
             <div className={styles.tablePagination}>
-              <TablePagination
-                currentPage={currentPage}
-                totalItems={filteredUsers.length}
-                initialItemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={setItemsPerPage}
-                alwaysShow
-              />
+              {!isLoading && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalItems={filteredUsers.length}
+                  initialItemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={setItemsPerPage}
+                  alwaysShow
+                />
+              )}
             </div>
           </div>
         </ViewCard>

@@ -4,6 +4,7 @@ import authService from '../../../utilities/service/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { convertToSecureUrl, getAccessToken } from '../../../utilities/secureMedia';
 import { useNavigate } from 'react-router-dom';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 export default function CoordinatorAdminSettings() {
   const navigate = useNavigate();
@@ -11,60 +12,42 @@ export default function CoordinatorAdminSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const bootstrap = async () => {
-      const local = authService.getCurrentUser();
-      // Prefer live backend profile when an access token exists
-      try {
-        const token = getAccessToken();
-        if (token) {
-          const remote = await backendEmployeeService.getCurrentEmployee();
-          // convert remote image to secure URL when possible
-          const secureImage = convertToSecureUrl(remote?.image) || convertToSecureUrl(remote?.profile_image) || remote?.image || remote?.profile_image;
-          setUser({ ...local, ...remote, profileImage: secureImage });
-        } else {
-          setUser(local);
-        }
-      } catch (err) {
-        // fallback to local stored user when backend call fails
-        setUser(local);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    bootstrap();
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      const u = authService.getCurrentUser();
+      setUser(u);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleImageChange = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    try {
-      // Upload using backend service (endpoint expects auth and uses current user)
-      const result = await backendEmployeeService.uploadEmployeeImage(user?.id, file);
-
-      // If server returned an image path, update the displayed image. Otherwise re-fetch profile.
-      const newImage = result?.image || result?.profile_image || result?.profileImage;
-      if (newImage) {
-        const secure = convertToSecureUrl(newImage) || newImage;
-        setUser((u) => ({ ...(u || {}), profileImage: secure }));
-      } else {
-        // re-fetch current employee to get updated image
-        try {
-          const refreshed = await backendEmployeeService.getCurrentEmployee();
-          const secureRef = convertToSecureUrl(refreshed?.image) || convertToSecureUrl(refreshed?.profile_image) || refreshed?.image || refreshed?.profile_image;
-          setUser((u) => ({ ...(u || {}), ...refreshed, profileImage: secureRef }));
-        } catch (_) {
-          // ignore -- leave current
-        }
-      }
-    } catch (uploadErr) {
-      console.error('Image upload failed', uploadErr);
-      // optionally show toast in future
-    }
-  };
-
-  if (loading) return <p>Loading...</p>;
+  if (loading) {
+    return (
+      <main className={styles.manageProfilePage}>
+        <div className={styles.manageProfileContainer}>
+          <h1>Manage Profile</h1>
+          <div className={styles.profileContent}>
+            <div className={styles.profileLeft}>
+              <div className={styles.profileCard}>
+                <Skeleton width="120px" height="120px" borderRadius="50%" />
+                <Skeleton width="200px" height="20px" style={{ marginTop: '12px' }} />
+              </div>
+            </div>
+            <div className={styles.profileRight}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ marginBottom: '24px' }}>
+                  <Skeleton width="150px" height="18px" />
+                  {[1, 2].map(j => (
+                    <Skeleton key={j} width="100%" height="36px" style={{ marginTop: '8px' }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>

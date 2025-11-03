@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -16,6 +16,7 @@ import styles from './CoordinatorAdminReports.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 // Register Chart.js components
 ChartJS.register(
@@ -33,43 +34,15 @@ ChartJS.register(
 const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [loading, setLoading] = useState(false);
-  const [priorityRange, setPriorityRange] = useState('auto');
-  const [categoryRange, setCategoryRange] = useState('auto');
-
-  // Tickets state (will fetch from backend, fallback to local storage)
-  const [allTickets, setAllTickets] = useState(() => getAllTickets());
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const remote = await backendTicketService.getAllTickets();
-        if (mounted && Array.isArray(remote) && remote.length > 0) {
-          setAllTickets(remote.map(t => ({
-            // Normalize keys similar to earlier normalization done elsewhere
-            ...t,
-            ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
-            subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || t.subcategory || '',
-            priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
-            createdAt: t.createdAt || t.created_at || t.dateCreated || t.created || null,
-            resolvedAt: t.resolvedAt || t.resolved_at || null,
-            status: t.status || (t.state || null),
-            category: t.category || t.cat || null,
-          })));
-        } else {
-          // fallback already seeded in state initializer
-        }
-      } catch (err) {
-        console.error('[Reports] failed to load tickets from backend, using local cache', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
+    const timer = setTimeout(() => setIsLoading(false), 300);
+    return () => clearTimeout(timer);
   }, []);
+
+  // Get tickets data
+  const allTickets = getAllTickets();
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {
@@ -391,6 +364,37 @@ const CoordinatorAdminTicketReports = () => {
 
     return { total, open, resolved, closed };
   }, [filteredTickets]);
+
+  if (isLoading) {
+    return (
+      <div className={styles.reportsPage}>
+        <div className={styles.pageHeader}>
+          <Skeleton width="300px" height="40px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="500px" height="20px" />
+        </div>
+
+        <div className={styles.filtersSection}>
+          <Skeleton width="200px" height="36px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="200px" height="36px" />
+        </div>
+
+        <div className={styles.statsContainer} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: '24px' }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+              <Skeleton width="80px" height="24px" style={{ marginBottom: '8px' }} />
+              <Skeleton width="100px" height="32px" />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
+          {[1, 2].map(i => (
+            <Skeleton key={i} width="100%" height="400px" borderRadius="8px" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.reportsPage}>

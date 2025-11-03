@@ -9,6 +9,7 @@ import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketF
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from "../../../utilities/service/authService";
 import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -93,6 +94,7 @@ const CoordinatorAdminTicketManagement = () => {
   // 👇 New pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
   // Map URL status to actual ticket status
@@ -106,83 +108,41 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    // Get current user
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    let isMounted = true;
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      // Get current user
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
 
-    const fetchTickets = async () => {
-      try {
-        setAllTickets([]);
-        // Attempt to fetch from backend API
-        const fetched = await backendTicketService.getAllTickets();
-        if (!isMounted) return;
-
-        // Debug: show fetched count and a small sample of statuses
-        try { console.info('[TicketManagement] fetched count:', fetched.length, 'status sample:', fetched.slice(0,5).map(x=>x.status)); } catch (err) { void err; }
-
-        // Allowed statuses for coordinator/admin views
-        const allowedStatuses = new Set([
-          'new', 'submitted', 'pending',
-          'open', 'in progress', 'in-progress',
-          'on hold', 'on-hold',
-          'withdrawn', 'closed', 'rejected', 'resolved'
-        ]);
-
-        // Normalize and filter by allowed statuses. Use substring matching to
-        // tolerate variants/extra words in the status field.
-        let ticketsToShow = (Array.isArray(fetched) ? fetched : []).filter(t => {
-          const s = (t.status || '').toString().toLowerCase();
-          const normalized = s.replace(/_/g, ' ').replace(/-/g, ' ').trim();
-          const allowedKeywords = [
-            'new', 'submitted', 'pending',
-            'open', 'in progress', 'on hold', 'withdrawn', 'closed', 'rejected', 'resolved'
-          ];
-          return allowedKeywords.some(k => normalized.includes(k));
-        });
-
-        // Filter tickets based on user role and department
-        if (user) {
-          if (user.role === 'Ticket Coordinator') {
-            // Coordinators see tickets from their department.
-            // If the page is the "all" status, show all tickets regardless of department.
-            // Otherwise restrict to the coordinator's department.
-            if (normalizedStatus !== 'all') {
-              ticketsToShow = ticketsToShow.filter(ticket => {
-                const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
-                const userDept = (user.department || '').toString();
-                return ticketDept && userDept && ticketDept === userDept;
-              });
-            }
-          } else if (user.role === 'System Admin') {
-            // System Admins see all tickets
-            ticketsToShow = fetched;
-          }
+      // Fetch all tickets
+      // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
+      const fetched = getAllTickets();
+      
+      // Filter tickets based on user role and department
+      // Coordinators and System Admins see tickets from their department
+      let ticketsToShow = fetched;
+      if (user) {
+        if (user.role === 'Ticket Coordinator') {
+          // Coordinators should see tickets for their department, and also
+          // tickets assigned directly to them. Seeded tickets may use
+          // `assignedDepartment` or `department` - check both.
+          ticketsToShow = fetched.filter(ticket => {
+            const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+            const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+            const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+            return ticketDept === user.department || isAssignedToUser;
+          });
+        } else if (user.role === 'System Admin') {
+          // System Admins see all tickets
+          ticketsToShow = fetched;
         }
-
-        try { console.info('[TicketManagement] after dept filter sample:', ticketsToShow.slice(0,3)); } catch(e) { void e; }
-
-        // Normalize ticket identifier fields so UI can always render Ticket No.
-        const normalizedTickets = ticketsToShow.map(t => ({
-          ...t,
-          ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
-          subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || '',
-          // Normalize priority for UI badge
-          priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
-          // Normalize assigned agent (leave null/unassigned if backend didn't set it)
-          assignedAgent: (t.assigned_to && (typeof t.assigned_to === 'string' ? t.assigned_to : (t.assigned_to?.first_name ? `${t.assigned_to.first_name} ${t.assigned_to.last_name}` : String(t.assigned_to)))) || t.assignedAgent || null,
-        }));
-
-        setAllTickets(normalizedTickets);
-      } catch (err) {
-        console.error('[TicketManagement] error fetching tickets:', err);
-        setAllTickets([]);
       }
-    };
+      
+      setAllTickets(ticketsToShow);
+      setIsLoading(false);
+    }, 300);
 
-    fetchTickets();
-
-    return () => { isMounted = false; };
+    return () => clearTimeout(timer);
   }, []);
 
   // Build dynamic category and sub-category options from the fetched tickets
@@ -395,7 +355,21 @@ const CoordinatorAdminTicketManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedTickets.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton width="100px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                  </tr>
+                ))
+              ) : paginatedTickets.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#6b7280", fontStyle: "italic" }}>
                     No tickets found for this status or search.
@@ -477,14 +451,16 @@ const CoordinatorAdminTicketManagement = () => {
           </table>
         </div>
         <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredTickets.length}
-            initialItemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
-            alwaysShow={true}
-          />
+          {!isLoading && (
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredTickets.length}
+              initialItemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              alwaysShow={true}
+            />
+          )}
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import ViewCard from '../../../shared/components/ViewCard';
@@ -271,53 +272,83 @@ export default function CoordinatorAdminTicketTracker() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isLoading, setIsLoading] = useState(true);
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
-  const tickets = getAllTickets();
-  const [ticket, setTicket] = useState(null);
-  const [loadingTicket, setLoadingTicket] = useState(false);
 
-  // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow
-  // (show latest ticket). If local storage doesn't contain the ticket, try
-  // fetching from the backend by ticket number.
   useEffect(() => {
-    let mounted = true;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber]);
 
-    const findLocal = () => {
-      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
-      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
-    };
+  const tickets = getAllTickets();
+  const ticket = ticketNumber
+    ? getTicketByNumber(ticketNumber)
+    : tickets && tickets.length > 0
+    ? tickets[tickets.length - 1]
+    : null;
 
-    const local = findLocal();
-    if (local) {
-      setTicket(local);
-      return () => { mounted = false; };
-    }
+  if (isLoading) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
 
-    if (ticketNumber) {
-      setLoadingTicket(true);
-      (async () => {
-        try {
-          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
-          if (mounted) setTicket(fetched || null);
-        } catch (err) {
-          // keep behavior consistent with employee view: log error and show not found
-          // so the UI doesn't crash — user can retry from Ticket Management page.
-          // No rethrow here to avoid unhandled promise errors in the UI.
-          // eslint-disable-next-line no-console
-          console.error('Error fetching ticket by number:', err);
-          if (mounted) setTicket(null);
-        } finally {
-          if (mounted) setLoadingTicket(false);
-        }
-      })();
-    } else {
-      setTicket(local);
-    }
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  const {
+    ticketNumber: number,
+    subject,
+    category,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
+    description,
+    fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+    scheduledRequest,
+  } = ticket;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const status = computeEffectiveStatus(ticket) || originalStatus;
+  const statusSteps = getStatusSteps(status);
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const ticketLogs = generateLogs(ticket);
+  const userRole = authService.getUserRole();
+  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const canPerformActions = userRole === 'Ticket Coordinator';
 
-    return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketNumber, JSON.stringify(tickets)]);
   // Sync heights between left and right columns so both match the taller one.
   // This effect is declared unconditionally so Hooks order remains stable
   useEffect(() => {

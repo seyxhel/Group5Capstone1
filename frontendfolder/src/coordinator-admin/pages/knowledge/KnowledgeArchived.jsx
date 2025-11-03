@@ -5,6 +5,7 @@ import FilterPanel from '../../../shared/table/FilterPanel';
 import Button from '../../../shared/components/Button';
 import TablePagination from '../../../shared/table/TablePagination';
 import kbService from '../../../services/kbService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const KnowledgeArchived = () => {
   const [articles, setArticles] = useState([]);
@@ -134,10 +135,20 @@ const KnowledgeArchived = () => {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton width="100%" height="40px" /></td>
+                    <td><Skeleton width="100%" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="100px" height="40px" /></td>
+                    <td><Skeleton width="120px" height="40px" /></td>
+                  </tr>
+                ))
+              ) : paginated.length === 0 ? (
                 <tr>
                     <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
-                    {loading ? 'Loading…' : 'No archived articles found.'}
+                    No archived articles found.
                   </td>
                 </tr>
               ) : (
