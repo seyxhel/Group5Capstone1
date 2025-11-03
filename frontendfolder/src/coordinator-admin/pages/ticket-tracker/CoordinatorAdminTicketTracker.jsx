@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
-// import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
+import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
@@ -277,12 +277,20 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
 
-  const tickets = getAllTickets();
-  const ticket = ticketNumber
-    ? getTicketByNumber(ticketNumber)
-    : tickets && tickets.length > 0
-    ? tickets[tickets.length - 1]
-    : null;
+  // Determine initial ticket using local storage helper (mock) and set into state
+  useEffect(() => {
+    try {
+      const tickets = getAllTickets();
+      const selected = ticketNumber
+        ? getTicketByNumber(ticketNumber)
+        : tickets && tickets.length > 0
+        ? tickets[tickets.length - 1]
+        : null;
+      setTicket(selected);
+    } catch (e) {
+      // ignore
+    }
+  }, [ticketNumber]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -325,30 +333,7 @@ export default function CoordinatorAdminTicketTracker() {
       </div>
     );
   }
-  const {
-    ticketNumber: number,
-    subject,
-    category,
-    subCategory,
-    status: originalStatus,
-    dateCreated,
-    lastUpdated,
-    description,
-    fileUploaded,
-    priorityLevel,
-    department,
-    assignedTo,
-    scheduledRequest,
-  } = ticket;
-  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
-  const status = computeEffectiveStatus(ticket) || originalStatus;
-  const statusSteps = getStatusSteps(status);
-  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
-  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
-  const ticketLogs = generateLogs(ticket);
-  const userRole = authService.getUserRole();
-  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
-  const canPerformActions = userRole === 'Ticket Coordinator';
+  
 
   // Sync heights between left and right columns so both match the taller one.
   // This effect must be declared unconditionally (above any early returns)

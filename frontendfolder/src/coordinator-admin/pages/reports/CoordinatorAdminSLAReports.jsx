@@ -277,7 +277,7 @@ const CoordinatorAdminSLAReports = () => {
 
   return (
     <div className={styles.reportsPage}>
-      {loading && (
+      {isLoading && (
         <div className={styles.loadingOverlay}>
           <div>Loading SLA reports...</div>
         </div>

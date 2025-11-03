@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -35,6 +35,8 @@ const CoordinatorAdminTicketReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [priorityRange, setPriorityRange] = useState('auto');
+  const [categoryRange, setCategoryRange] = useState('auto');
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 300);
@@ -398,7 +400,7 @@ const CoordinatorAdminTicketReports = () => {
 
   return (
     <div className={styles.reportsPage}>
-      {loading && (
+      {isLoading && (
         <div className={styles.loadingOverlay}>
           <div>Loading ticket reports...</div>
         </div>

@@ -32,24 +32,45 @@ export const backendTicketService = {
       const token = localStorage.getItem('access_token');
       if (!token) {
         console.error('No access token found');
-        return []; // Return empty array instead of throwing to prevent infinite loop
+        return [];
       }
 
-      const response = await fetch(`${BASE_URL}/api/tickets/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      // Fetch first page
+      const initialUrl = `${BASE_URL}/api/tickets/?page_size=50`;
+      let url = initialUrl;
+      let allResults = [];
 
-      handleAuthError(response);
+      while (url) {
+        const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch tickets');
+        handleAuthError(response);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch tickets: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // If API returns paginated shape { results: [...], next: <url> }
+        if (Array.isArray(data)) {
+          // Not paginated - return the array directly
+          return data;
+        }
+
+        if (data && Array.isArray(data.results)) {
+          allResults = allResults.concat(data.results);
+          // next can be absolute or relative; if relative, prefix BASE_URL
+          url = data.next || null;
+          if (url && url.startsWith('/')) url = `${BASE_URL}${url}`;
+        } else {
+          // Unknown shape - return as-is (fallback)
+          return data;
+        }
       }
 
-      return await response.json();
+      return allResults;
     } catch (error) {
       console.error('Error fetching tickets:', error);
-      // Return empty array to prevent infinite retry loop
       return [];
     }
   },

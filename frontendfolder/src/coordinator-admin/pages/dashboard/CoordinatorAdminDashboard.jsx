@@ -521,15 +521,80 @@ const CoordinatorAdminDashboard = () => {
           const pie = aggregatePie(filtered.concat());
           const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
 
+          // Build an activity timeline from tickets: include latest relevant event per ticket
+          // Show max 5 entries (latest to oldest) based on last-updated (or created if not updated)
+          const events = (filtered || []).map(t => {
+            const id = t.ticket_number || t.ticketNumber || t.ticket_id || t.id || 'Unknown';
+            const created = t.submit_date || t.submitDate || t.dateCreated || t.createdAt || t.created_at || null;
+            const updated = t.lastUpdated || t.update_date || t.updatedAt || t.updated_at || t.updateDate || null;
+
+            // Determine canonical status for mapping
+            const rawStatus = (t.status || '').toString().toLowerCase();
+            let actionKey = null;
+            if (rawStatus.includes('new') || rawStatus.includes('submitted') || rawStatus.includes('pending')) actionKey = 'submitted';
+            else if (rawStatus.includes('open')) actionKey = 'approved';
+            else if (rawStatus.includes('rejected')) actionKey = 'rejected';
+            else if (rawStatus.includes('withdraw')) actionKey = 'withdrawn';
+            else if (rawStatus.includes('resolved')) actionKey = 'resolved';
+            else if (rawStatus.includes('on hold') || rawStatus.includes('on-hold')) actionKey = 'on hold';
+            else if (rawStatus.includes('closed')) actionKey = 'closed';
+            else actionKey = 'submitted';
+
+            // Use updated time when available, otherwise created time
+            const time = updated || created;
+            const timeSort = time ? new Date(time).getTime() : 0;
+            return { ticketId: id, time, timeSort, actionKey };
+          })
+            .filter(e => e.timeSort > 0)
+            .sort((a, b) => b.timeSort - a.timeSort);
+
+          // Format into UI-friendly list and limit to 5
+          const fmt = (d) => {
+            try {
+              const dt = new Date(d);
+              if (isNaN(dt)) return '';
+              return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+            } catch (e) { return ''; }
+          };
+
+          const actionLabel = (k) => {
+            switch (k) {
+              case 'submitted': return 'submitted';
+              case 'approved': return 'approved';
+              case 'rejected': return 'rejected';
+              case 'withdrawn': return 'withdrawn';
+              case 'resolved': return 'resolved';
+              case 'on hold': return 'on hold';
+              case 'closed': return 'closed';
+              default: return k;
+            }
+          };
+
+          const timeline = events.slice(0, 5).map(e => ({ time: fmt(e.time), action: `Ticket ${e.ticketId} ${actionLabel(e.actionKey)}` }));
+          setActivityTimeline(timeline);
+          setUserActivityTimeline(timeline);
+
           if (!mounted) return;
-          // Build table data for "Tickets to Review" - only show tickets with effective status 'New'
-          const newTickets = (filtered || []).filter(t => computeEffectiveStatus(t) === 'New');
-          const tableRows = newTickets.slice(0, 5).map(t => {
+          // Build table data for "Tickets to Review" - include tickets that have NOT been triaged
+          // by a coordinator (no priority and no department assigned). Treat these as New.
+          const untriaged = (filtered || []).filter(t => {
+            const hasPriority = !!(t.priority || t.priorityLevel);
+            const hasDepartment = !!(t.department || t.assignedDepartment || t.assigned_to_department || t.assigned_to);
+            return !hasPriority && !hasDepartment;
+          })
+            // ensure newest first
+            .sort((a, b) => {
+              const da = new Date(a.submit_date || a.submitDate || a.dateCreated || a.createdAt || a.created_at || 0).getTime() || 0;
+              const db = new Date(b.submit_date || b.submitDate || b.dateCreated || b.createdAt || b.created_at || 0).getTime() || 0;
+              return db - da;
+            });
+          const tableRows = untriaged.map(t => {
             const ticketNumber = t.ticket_number || t.ticketNumber || t.ticket_id || t.id;
             const subject = t.subject || t.title || '';
             const category = t.category || t.category_name || t.cat || '';
             const subCategory = t.sub_category || t.subCategory || t.subcategory || '';
-            const statusDisplay = computeEffectiveStatus(t) || (t.status || 'New');
+            // Consider untriaged tickets as New for the Tickets to Review view
+            const statusDisplay = 'New';
             const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || '';
             return {
               ticketNumber,
@@ -720,7 +785,8 @@ const CoordinatorAdminDashboard = () => {
                       title={'Tickets to Review'}
                       headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
                       data={ticketData.tableData}
-                      bodyStyle={{ maxHeight: '260px', overflowY: 'auto' }}
+                      // header is 50px and rows are 50px tall; 5 rows + header = 300px
+                      bodyStyle={{ maxHeight: '300px', overflowY: 'auto' }}
                     />
                   ) : (
                     // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)

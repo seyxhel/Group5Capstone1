@@ -814,30 +814,36 @@ const normalizeTicket = (t) => {
   return ticket;
 };
 
-// FORCE RESET / seed localStorage with normalized tickets (remove after first load if desired)
+// Seed localStorage with normalized tickets only if no tickets exist yet.
+// This avoids overwriting live or backend-driven data on every page load.
+// If you need to force-reset the seeded tickets during development, remove the
+// condition or clear localStorage manually (localStorage.removeItem('tickets')).
 if (typeof window !== 'undefined') {
-  // Normalize seed and force-assign to Rumi (ticket coordinator) so dev users
-  // can view all tickets under the coordinator while editing.
-  const normalized = TICKETS.map(t => {
-    const nt = normalizeTicket(t);
-    // Force coordinator assignment to Rumi (id: 3)
-    nt.assignedTo = 3;
-    nt.assignedToName = 'Rumi Nakamura';
-    // Attach a coordinator-only review object so coordinator/system admin views
-    // can show who reviewed the ticket and any coordinator notes without
-    // confusing that with the assigned agent fields. Keep existing fields
-    // for backward compatibility, but centralize review info here.
-    nt.coordinatorReview = nt.coordinatorReview || {
-      coordinatorId: nt.reviewedById || nt.assignedTo || null,
-      coordinatorName: nt.reviewedBy || nt.assignedToName || null,
-      comment: nt.coordinatorComment || null,
-      reviewedAt: nt.dateReviewed || null,
-      visibleTo: ['Ticket Coordinator', 'System Admin'],
-    };
-    return nt;
-  });
-  localStorage.setItem('tickets', JSON.stringify(normalized));
-  console.log('🔄 FORCE RESET: Seeded tickets (normalized categories) - all assigned to Rumi (id:3)');
+  try {
+    const existing = localStorage.getItem('tickets');
+    if (!existing) {
+      const normalized = TICKETS.map(t => normalizeTicket(t));
+      localStorage.setItem('tickets', JSON.stringify(normalized));
+      console.log('🔄 Seeded tickets into localStorage (normalized categories)');
+    } else {
+      // If tickets already present, do not overwrite them. Ensure categories are normalized.
+      try {
+        const parsed = JSON.parse(existing);
+        const normalized = parsed.map(normalizeTicket);
+        if (JSON.stringify(normalized) !== JSON.stringify(parsed)) {
+          localStorage.setItem('tickets', JSON.stringify(normalized));
+          console.log('🔄 Normalized existing tickets in localStorage');
+        }
+      } catch (e) {
+        // if parsing fails, overwrite with fresh seed
+        const normalized = TICKETS.map(t => normalizeTicket(t));
+        localStorage.setItem('tickets', JSON.stringify(normalized));
+        console.log('🔄 Seeded tickets into localStorage (replaced corrupted data)');
+      }
+    }
+  } catch (e) {
+    // silent fallback in non-browser or restricted environments
+  }
 }
 
 export const getEmployeeTickets = (employeeId) => {
