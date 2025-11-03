@@ -277,67 +277,78 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
 
+  const tickets = getAllTickets();
+  const ticket = ticketNumber
+    ? getTicketByNumber(ticketNumber)
+    : tickets && tickets.length > 0
+    ? tickets[tickets.length - 1]
+    : null;
+
   useEffect(() => {
-    let cancelled = false;
-    const normalize = (t) => {
-      if (!t) return null;
-      const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
-      const lastUpdated = t.update_date || t.updated_at || t.updatedAt || null;
-      return {
-        ...t,
-        ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
-        subCategory: t.sub_category || t.subCategory || t.subcategory || '',
-        priorityLevel: t.priority || t.priorityLevel || '',
-        dateCreated,
-        lastUpdated,
-        assignedTo: t.assigned_to || t.assignedTo || '',
-        fileAttachments: t.attachments || t.files || t.fileUploaded || [],
-      };
-    };
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber, ticket]);
 
-    setIsLoading(true);
-    backendTicketService
-      .getTicketByNumber(ticketNumber)
-      .then((data) => {
-        if (cancelled) return;
-        // Some backends send {result} or the ticket directly
-        const t = Array.isArray(data) ? data[0] : data;
-        setTicket(normalize(t));
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to load ticket by number:', err);
-        // Fallback: fetch all tickets and find by number
-        backendTicketService
-          .getAllTickets()
-          .then((list) => {
-            if (cancelled) return;
-            const ticketList = Array.isArray(list) ? list : (list?.results || []);
-            const found = ticketList.find(
-              (t) => (t.ticket_number || t.ticket_id || t.ticketNumber || t.id)?.toString() === ticketNumber
-            );
-            setTicket(normalize(found || null));
-          })
-          .catch((e2) => {
-            if (cancelled) return;
-            console.error('Fallback list fetch failed:', e2);
-            setTicket(null);
-          })
-          .finally(() => {
-            if (cancelled) return;
-            setIsLoading(false);
-          });
-        return; // prevent final finally from double-setting
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoading(false);
-      });
+  if (isLoading && !ticket) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [ticketNumber]);
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  const {
+    ticketNumber: number,
+    subject,
+    category,
+    subCategory,
+    status: originalStatus,
+    dateCreated,
+    lastUpdated,
+    description,
+    fileUploaded,
+    priorityLevel,
+    department,
+    assignedTo,
+    scheduledRequest,
+  } = ticket;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const status = computeEffectiveStatus(ticket) || originalStatus;
+  const statusSteps = getStatusSteps(status);
+  const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const ticketLogs = generateLogs(ticket);
+  const userRole = authService.getUserRole();
+  const canSeeCoordinatorReview = userRole === 'Ticket Coordinator' || userRole === 'System Admin';
+  const canPerformActions = userRole === 'Ticket Coordinator';
 
   // Sync heights between left and right columns so both match the taller one.
   // This effect must be declared unconditionally (above any early returns)
@@ -833,11 +844,9 @@ export default function CoordinatorAdminTicketTracker() {
                 fullHeight={true}
                 className={detailStyles.tabsFill}
               >
-                {activeTab === 'details' && (
+                {activeTab === 'details' ? (
                   <CoordinatorAdminTicketDetails ticket={ticket} ticketLogs={ticketLogs} canSeeCoordinatorReview={canSeeCoordinatorReview} formatDate={formatDate} />
-                )}
-
-                {activeTab === 'logs' && (
+                ) : (
                   <CoordinatorAdminTicketLogs ticketLogs={ticketLogs} />
                 )}
               </Tabs>
