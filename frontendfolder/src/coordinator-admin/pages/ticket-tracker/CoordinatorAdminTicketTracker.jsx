@@ -194,13 +194,6 @@ export default function CoordinatorAdminTicketTracker() {
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [ticketNumber]);
-
   const tickets = getAllTickets();
   const ticket = ticketNumber
     ? getTicketByNumber(ticketNumber)
@@ -208,7 +201,14 @@ export default function CoordinatorAdminTicketTracker() {
     ? tickets[tickets.length - 1]
     : null;
 
-  if (isLoading) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber, ticket]);
+
+  if (isLoading && !ticket) {
     return (
       <ViewCard>
         <div className={styles.contentGrid}>
@@ -581,11 +581,9 @@ export default function CoordinatorAdminTicketTracker() {
                 fullHeight={true}
                 className={detailStyles.tabsFill}
               >
-                {activeTab === 'details' && (
+                {activeTab === 'details' ? (
                   <CoordinatorAdminTicketDetails ticket={ticket} ticketLogs={ticketLogs} canSeeCoordinatorReview={canSeeCoordinatorReview} formatDate={formatDate} />
-                )}
-
-                {activeTab === 'logs' && (
+                ) : (
                   <CoordinatorAdminTicketLogs ticketLogs={ticketLogs} />
                 )}
               </Tabs>
