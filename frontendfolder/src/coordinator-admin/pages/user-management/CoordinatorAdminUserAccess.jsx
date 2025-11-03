@@ -8,6 +8,7 @@ import Button from "../../../shared/components/Button";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
 import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 
@@ -43,6 +44,7 @@ const CoordinatorAdminUserAccess = () => {
   // 👇 Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.toLowerCase();
   const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
@@ -50,21 +52,27 @@ const CoordinatorAdminUserAccess = () => {
 
   // 👇 Fetch users and current user
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
 
-    const fetchedUsers = getEmployeeUsers() || [];
+      const fetchedUsers = getEmployeeUsers() || [];
 
-    let usersToShow = fetchedUsers;
-    if (user) {
-      if (user.role === "Ticket Coordinator") {
-        usersToShow = fetchedUsers.filter((u) => u.department === user.department);
-      } else if (user.role === "System Admin") {
-        usersToShow = fetchedUsers;
+      let usersToShow = fetchedUsers;
+      if (user) {
+        if (user.role === "Ticket Coordinator") {
+          usersToShow = fetchedUsers.filter((u) => u.department === user.department);
+        } else if (user.role === "System Admin") {
+          usersToShow = fetchedUsers;
+        }
       }
-    }
 
-    setAllUsers(usersToShow);
+      setAllUsers(usersToShow);
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // 👇 Combined filtering logic
@@ -202,7 +210,19 @@ const CoordinatorAdminUserAccess = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedUsers.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton width="80px" /></td>
+                        <td><Skeleton width="80px" /></td>
+                      </tr>
+                    ))
+                  ) : paginatedUsers.length === 0 ? (
                     <tr>
                       <td
                         colSpan={7}
@@ -276,14 +296,16 @@ const CoordinatorAdminUserAccess = () => {
             </div>
 
             <div className={styles.tablePagination}>
-              <TablePagination
-                currentPage={currentPage}
-                totalItems={filteredUsers.length}
-                initialItemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={setItemsPerPage}
-                alwaysShow
-              />
+              {!isLoading && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalItems={filteredUsers.length}
+                  initialItemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={setItemsPerPage}
+                  alwaysShow
+                />
+              )}
             </div>
           </div>
         </ViewCard>

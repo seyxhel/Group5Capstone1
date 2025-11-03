@@ -9,6 +9,7 @@ import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketF
 import { getAllTickets } from "../../../utilities/storages/ticketStorage";
 import authService from "../../../utilities/service/authService";
 import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -93,6 +94,7 @@ const CoordinatorAdminTicketManagement = () => {
   // 👇 New pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
   // Map URL status to actual ticket status
@@ -106,35 +108,41 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    // Get current user
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      // Get current user
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
 
-  // Fetch all tickets
-  // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
-  const fetched = getAllTickets();
-    
-    // Filter tickets based on user role and department
-    // Coordinators and System Admins see tickets from their department
-    let ticketsToShow = fetched;
-    if (user) {
-      if (user.role === 'Ticket Coordinator') {
-        // Coordinators should see tickets for their department, and also
-        // tickets assigned directly to them. Seeded tickets may use
-        // `assignedDepartment` or `department` - check both.
-        ticketsToShow = fetched.filter(ticket => {
-          const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
-          const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
-          const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
-          return ticketDept === user.department || isAssignedToUser;
-        });
-      } else if (user.role === 'System Admin') {
-        // System Admins see all tickets
-        ticketsToShow = fetched;
+      // Fetch all tickets
+      // getEmployeeTicketsByRumi() was referenced but doesn't exist; use getAllTickets()
+      const fetched = getAllTickets();
+      
+      // Filter tickets based on user role and department
+      // Coordinators and System Admins see tickets from their department
+      let ticketsToShow = fetched;
+      if (user) {
+        if (user.role === 'Ticket Coordinator') {
+          // Coordinators should see tickets for their department, and also
+          // tickets assigned directly to them. Seeded tickets may use
+          // `assignedDepartment` or `department` - check both.
+          ticketsToShow = fetched.filter(ticket => {
+            const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+            const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+            const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+            return ticketDept === user.department || isAssignedToUser;
+          });
+        } else if (user.role === 'System Admin') {
+          // System Admins see all tickets
+          ticketsToShow = fetched;
+        }
       }
-    }
-    
-    setAllTickets(ticketsToShow);
+      
+      setAllTickets(ticketsToShow);
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const filteredTickets = useMemo(() => {
@@ -323,7 +331,21 @@ const CoordinatorAdminTicketManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedTickets.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton width="100px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                  </tr>
+                ))
+              ) : paginatedTickets.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#6b7280", fontStyle: "italic" }}>
                     No tickets found for this status or search.
@@ -405,14 +427,16 @@ const CoordinatorAdminTicketManagement = () => {
           </table>
         </div>
         <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredTickets.length}
-            initialItemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
-            alwaysShow={true}
-          />
+          {!isLoading && (
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredTickets.length}
+              initialItemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              alwaysShow={true}
+            />
+          )}
         </div>
       </div>
 

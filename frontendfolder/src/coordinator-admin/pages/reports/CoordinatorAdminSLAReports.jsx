@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Pie, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 // Register Chart.js components
 ChartJS.register(
@@ -27,6 +28,12 @@ ChartJS.register(
 const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Get tickets data
   const allTickets = getAllTickets();
@@ -235,6 +242,37 @@ const CoordinatorAdminSLAReports = () => {
       }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className={styles.reportsPage}>
+        <div className={styles.pageHeader}>
+          <Skeleton width="300px" height="40px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="500px" height="20px" />
+        </div>
+
+        <div className={styles.filtersSection}>
+          <Skeleton width="200px" height="36px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="200px" height="36px" />
+        </div>
+
+        <div className={styles.statsContainer} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: '24px' }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+              <Skeleton width="80px" height="24px" style={{ marginBottom: '8px' }} />
+              <Skeleton width="100px" height="32px" />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
+          {[1, 2].map(i => (
+            <Skeleton key={i} width="100%" height="400px" borderRadius="8px" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.reportsPage}>

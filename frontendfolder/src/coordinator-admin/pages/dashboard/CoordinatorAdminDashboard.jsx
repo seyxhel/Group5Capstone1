@@ -34,6 +34,7 @@ import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
 import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -302,6 +303,7 @@ const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [chartRange, setChartRange] = useState('month');
   const [pieRange, setPieRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
   // Ticket Coordinators only see the Tickets tab on dashboard
@@ -512,34 +514,39 @@ const CoordinatorAdminDashboard = () => {
 
   // Effect: load tickets and compute dashboard data based on role and selected ranges
   useEffect(() => {
-    try {
-      const all = getAllTickets();
-      const filtered = filterByRole(all);
+    const timer = setTimeout(() => {
+      try {
+        const all = getAllTickets();
+        const filtered = filterByRole(all);
 
-      // stats per ticketPaths
-      const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
-      filtered.forEach(t => {
-        const s = computeEffectiveStatus(t);
-        // only increment if status maps to one of the ticketPaths labels
-        const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
-        if (mapLabel) {
-          const target = stats.find(st => st.label === mapLabel.label);
-          if (target) target.count += 1;
-        }
-      });
+        // stats per ticketPaths
+        const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+        filtered.forEach(t => {
+          const s = computeEffectiveStatus(t);
+          // only increment if status maps to one of the ticketPaths labels
+          const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+          if (mapLabel) {
+            const target = stats.find(st => st.label === mapLabel.label);
+            if (target) target.count += 1;
+          }
+        });
 
-      const pie = aggregatePie(filtered.concat());
-      const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+        const pie = aggregatePie(filtered.concat());
+        const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
 
-      setTicketDataState({
-        stats,
-        tableData: ticketData.tableData,
-        pieData: pie,
-        lineData: line
-      });
-    } catch (err) {
-      console.error('Error loading tickets for dashboard', err);
-    }
+        setTicketDataState({
+          stats,
+          tableData: ticketData.tableData,
+          pieData: pie,
+          lineData: line
+        });
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error loading tickets for dashboard', err);
+        setIsLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
   }, [currentUser, chartRange, pieRange]);
 
   const userData = {
@@ -612,12 +619,52 @@ const CoordinatorAdminDashboard = () => {
       <div className={styles.dashboardContent}>
         <h1 className={styles.title}>Dashboard</h1>
 
-        <Tabs
-          tabs={dashboardTabs}
-          active={activeTab}
-          onChange={setActiveTab}
-        />
-        <div className={styles.tabContent}>
+        {isLoading ? (
+          <div style={{ padding: '24px' }}>
+            {/* Skeleton tabs */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} width="120px" height="36px" borderRadius="6px" />
+              ))}
+            </div>
+
+            {/* Skeleton stat cards */}
+            <div className={styles.statusCardsGrid} style={{ marginTop: 12, marginBottom: 24 }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+                  <Skeleton width="80px" height="32px" borderRadius="4px" />
+                  <Skeleton width="100%" height="20px" style={{ marginTop: '12px' }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton table */}
+            <div style={{ marginBottom: 24 }}>
+              <Skeleton width="200px" height="24px" style={{ marginBottom: '12px' }} />
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <Skeleton key={j} width={`${100/6}%`} height="40px" borderRadius="4px" />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton charts */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {[1, 2].map(i => (
+                <Skeleton key={i} width="100%" height="300px" borderRadius="8px" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Tabs
+              tabs={dashboardTabs}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
+            <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
             {activeTab === 'kb' ? (
               // KB tab could show quick KB stats; reuse placeholder stat cards
@@ -690,10 +737,12 @@ const CoordinatorAdminDashboard = () => {
                 </div>
               </>
             )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
-  };
+};
 
 export default CoordinatorAdminDashboard;

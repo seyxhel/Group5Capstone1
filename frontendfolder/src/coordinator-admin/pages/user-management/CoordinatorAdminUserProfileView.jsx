@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ViewCard from '../../../shared/components/ViewCard';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
 import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
@@ -10,20 +11,28 @@ export default function CoordinatorAdminUserProfileView() {
   const { companyId } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!companyId) return;
-    // try to resolve by numeric id first then fallback to companyId search
-    const numeric = Number(companyId);
-    let found = null;
-    if (!Number.isNaN(numeric)) {
-      found = getEmployeeUserById(numeric);
-    }
-    if (!found) {
-      const all = getEmployeeUsers();
-      found = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
-    }
-    setUser(found || null);
+    const timer = setTimeout(() => {
+      if (!companyId) {
+        setIsLoading(false);
+        return;
+      }
+      // try to resolve by numeric id first then fallback to companyId search
+      const numeric = Number(companyId);
+      let found = null;
+      if (!Number.isNaN(numeric)) {
+        found = getEmployeeUserById(numeric);
+      }
+      if (!found) {
+        const all = getEmployeeUsers();
+        found = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
+      }
+      setUser(found || null);
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [companyId]);
 
   // Get activity logs for this user
@@ -61,16 +70,33 @@ export default function CoordinatorAdminUserProfileView() {
       />
 
       <ViewCard>
-        <div className={styles.container}>
-          {!user ? (
-            <div className={styles.notFound}>No user found for ID <strong>{companyId}</strong>.</div>
-          ) : (
-            <>
-              <h2 className={styles.title}>{user.firstName} {user.lastName}</h2>
+        {isLoading ? (
+          <div className={styles.container}>
+            <Skeleton width="300px" height="24px" />
+            <div style={{ marginTop: '24px' }}>
+              <Skeleton width="100px" height="100px" borderRadius="6px" />
+              <Skeleton width="200px" height="20px" style={{ marginTop: '12px' }} />
+              <Skeleton width="150px" height="16px" style={{ marginTop: '8px' }} />
+              <Skeleton width="150px" height="16px" style={{ marginTop: '8px' }} />
+            </div>
+            <div style={{ marginTop: '24px' }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ marginBottom: '16px' }}>
+                  <Skeleton width="100px" height="14px" />
+                  <Skeleton width="100%" height="20px" style={{ marginTop: '4px' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : !user ? (
+          <div className={styles.notFound}>No user found for ID <strong>{companyId}</strong>.</div>
+        ) : (
+          <>
+            <h2 className={styles.title}>{user.firstName} {user.lastName}</h2>
 
-              <div className={styles.contentWrapper}>
-                {/* Profile Section */}
-                <div className={styles.profileSection}>
+            <div className={styles.contentWrapper}>
+              {/* Profile Section */}
+              <div className={styles.profileSection}>
                   <div className={styles.profileHeader}>
                     <div className={styles.avatarContainer}>
                       {user.profileImage ? (
@@ -136,7 +162,6 @@ export default function CoordinatorAdminUserProfileView() {
               </div>
             </>
           )}
-        </div>
       </ViewCard>
     </main>
   );

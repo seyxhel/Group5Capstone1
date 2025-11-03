@@ -1,9 +1,10 @@
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
 import { getEmployeeTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import TicketActivity from './TicketActivity';
@@ -321,7 +322,16 @@ export default function EmployeeTicketTracker() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [activeTab, setActiveTab] = useState('messages'); // 'logs' or 'messages'
+  const [isLoading, setIsLoading] = useState(true);
   // preview state removed - attachments now open in a new tab
+
+  useEffect(() => {
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber]);
 
   // Get current logged-in user
   const currentUser = authService.getCurrentUser();
@@ -381,6 +391,46 @@ export default function EmployeeTicketTracker() {
   // Generate dynamic data based on ticket
   const ticketLogs = generateLogs(ticket);
   const ticketMessages = generateMessages(ticket);
+
+  // Show loading skeleton for ticket details
+  if (isLoading) {
+    return (
+      <>
+        <main className={styles.employeeTicketTrackerPage}>
+          <ViewCard>
+            <div className={styles.contentGrid}>
+              <div className={styles.leftColumn}>
+                <section className={styles.ticketCard}>
+                  <div className={styles.ticketHeader}>
+                    <div className={styles.headerLeft}>
+                      <Skeleton width="100px" height="32px" />
+                      <Skeleton width="300px" height="28px" style={{ marginLeft: '12px' }} />
+                    </div>
+                    <Skeleton width="100px" height="32px" />
+                  </div>
+                  <div className={styles.ticketMeta}>
+                    <Skeleton width="200px" height="20px" />
+                    <Skeleton width="200px" height="20px" style={{ marginTop: '8px' }} />
+                  </div>
+                  <div className={styles.detailsGrid}>
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i}>
+                        <Skeleton width="100px" height="12px" />
+                        <Skeleton width="100%" height="20px" style={{ marginTop: '8px' }} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <div className={styles.rightColumn}>
+                <Skeleton width="100%" height="300px" />
+              </div>
+            </div>
+          </ViewCard>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>

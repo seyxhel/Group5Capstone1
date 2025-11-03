@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import styles from './manage-profile.module.css';
 import authService from '../../../utilities/service/authService';
 import { useNavigate } from 'react-router-dom';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 export default function CoordinatorAdminSettings() {
   const navigate = useNavigate();
@@ -9,12 +10,42 @@ export default function CoordinatorAdminSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const u = authService.getCurrentUser();
-    setUser(u);
-    setLoading(false);
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      const u = authService.getCurrentUser();
+      setUser(u);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) {
+    return (
+      <main className={styles.manageProfilePage}>
+        <div className={styles.manageProfileContainer}>
+          <h1>Manage Profile</h1>
+          <div className={styles.profileContent}>
+            <div className={styles.profileLeft}>
+              <div className={styles.profileCard}>
+                <Skeleton width="120px" height="120px" borderRadius="50%" />
+                <Skeleton width="200px" height="20px" style={{ marginTop: '12px' }} />
+              </div>
+            </div>
+            <div className={styles.profileRight}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ marginBottom: '24px' }}>
+                  <Skeleton width="150px" height="18px" />
+                  {[1, 2].map(j => (
+                    <Skeleton key={j} width="100%" height="36px" style={{ marginTop: '8px' }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>

@@ -5,6 +5,7 @@ import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
 import InputField from "../../../shared/components/InputField";
+import Skeleton from "../../../shared/components/Skeleton/Skeleton";
 
 import TablePagination from "../../../shared/table/TablePagination";
 import EmployeeTicketFilter, { ACTIVE_TICKET_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
@@ -104,6 +105,7 @@ const EmployeeActiveTickets = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allActiveTickets, setAllActiveTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,10 +116,16 @@ const EmployeeActiveTickets = () => {
   const [selectedClose, setSelectedClose] = useState(null);
 
   useEffect(() => {
-    // Get current logged-in user and only fetch their tickets
-    const currentUser = authService.getCurrentUser();
-    const tickets = getEmployeeTickets(currentUser?.id);
-    setAllActiveTickets(tickets);
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      // Get current logged-in user and only fetch their tickets
+      const currentUser = authService.getCurrentUser();
+      const tickets = getEmployeeTickets(currentUser?.id);
+      setAllActiveTickets(tickets);
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
@@ -266,7 +274,20 @@ const EmployeeActiveTickets = () => {
               <TableHeader />
             </thead>
             <tbody>
-              {displayedTickets.length > 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="100px" /></td>
+                    <td><Skeleton width="80px" /></td>
+                  </tr>
+                ))
+              ) : displayedTickets.length > 0 ? (
                 displayedTickets.map((ticket, index) => (
                   <TableItem 
                     key={index} 
@@ -288,16 +309,18 @@ const EmployeeActiveTickets = () => {
         </div>
 
         {/* Pagination */}
-        <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredTickets.length}
-            initialItemsPerPage={pageSize}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setPageSize}
-            alwaysShow={true}
-          />
-        </div>
+        {!isLoading && (
+          <div className={styles.tablePagination}>
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredTickets.length}
+              initialItemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setPageSize}
+              alwaysShow={true}
+            />
+          </div>
+        )}
 
       </div>
 

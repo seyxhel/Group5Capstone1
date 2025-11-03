@@ -6,6 +6,7 @@ import {
   IoFolderOpen,
   IoChevronForward
 } from 'react-icons/io5';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
@@ -16,23 +17,30 @@ import authService from '../../../utilities/service/authService';
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const currentUser = authService.getCurrentUser();
 
   useEffect(() => {
     if (!currentUser) return;
     
-    const allTickets = getEmployeeTickets(currentUser.id);
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      const allTickets = getEmployeeTickets(currentUser.id);
 
-    const activeTickets = allTickets.filter(ticket => {
-      const status = ticket.status.toLowerCase();
-      return !['closed', 'rejected', 'withdrawn'].includes(status);
-    });
+      const activeTickets = allTickets.filter(ticket => {
+        const status = ticket.status.toLowerCase();
+        return !['closed', 'rejected', 'withdrawn'].includes(status);
+      });
 
-    const sorted = activeTickets
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 5);
+      const sorted = activeTickets
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 5);
 
-    setRecentTickets(sorted);
+      setRecentTickets(sorted);
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [currentUser]);
 
   const handleSubmitTicket = () => {
@@ -100,7 +108,32 @@ const EmployeeHome = () => {
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
         </div>
 
-        {recentTickets.length === 0 ? (
+        {isLoading ? (
+          <div className={styles.ticketList}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className={styles.ticketItem}>
+                <div className={styles.ticketInfo}>
+                  <div className={styles.ticketHeader}>
+                    <div className={styles.ticketNumber}><Skeleton width="80px" /></div>
+                    <Skeleton width="100px" height="24px" />
+                  </div>
+                  <div className={styles.ticketDetailsGrid}>
+                    {[1, 2, 3, 4].map(j => (
+                      <div key={j}>
+                        <div className={styles.ticketLabel}><Skeleton width="80px" height="12px" /></div>
+                        <div className={styles.ticketValue}><Skeleton width="100%" /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.ticketActions}>
+                  <div className={styles.lastUpdated}><Skeleton width="150px" /></div>
+                  <Skeleton width="120px" height="36px" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : recentTickets.length === 0 ? (
           <div className={styles.noTickets}>
             <p>No active tickets to display.</p>
             <Button variant="primary" onClick={handleSubmitTicket}>

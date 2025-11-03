@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import ViewCard from '../../../shared/components/ViewCard';
@@ -189,14 +190,46 @@ export default function CoordinatorAdminTicketTracker() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isLoading, setIsLoading] = useState(true);
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber]);
+
   const tickets = getAllTickets();
   const ticket = ticketNumber
     ? getTicketByNumber(ticketNumber)
     : tickets && tickets.length > 0
     ? tickets[tickets.length - 1]
     : null;
+
+  if (isLoading) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
+
   if (!ticket) {
     return (
       <div className={styles.employeeTicketTrackerPage}>
