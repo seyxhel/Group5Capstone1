@@ -33,7 +33,8 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
+import kbService from '../../../services/kbService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
@@ -81,8 +82,10 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
     );
   };
 
-const DataTable = ({ title, headers, data, bodyStyle = {} }) => (
-  <div className={tableStyles.tableContainer}>
+const DataTable = ({ title, headers, data, bodyStyle = {}, lockLeft = 0 }) => {
+  const containerClass = `${tableStyles.tableContainer} ${lockLeft ? tableStyles[`lockLeft${lockLeft}`] : ''}`;
+  return (
+    <div className={containerClass}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
       {/* Manage buttons removed per design request */}
@@ -121,7 +124,8 @@ const DataTable = ({ title, headers, data, bodyStyle = {} }) => (
       )}
     </div>
   </div>
-);
+  );
+};
 
 const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse, visibleNames = null }) => {
   // Transform data for Chart.js
@@ -487,41 +491,71 @@ const CoordinatorAdminDashboard = () => {
     });
   };
 
-  // Effect: load tickets and compute dashboard data based on role and selected ranges
+  // Effect: load tickets from backend and compute dashboard data based on role and selected ranges
   useEffect(() => {
+    let mounted = true;
     const timer = setTimeout(() => {
-      try {
-        const all = getAllTickets();
-        const filtered = filterByRole(all);
+      (async () => {
+        try {
+          setIsLoading(true);
+          // fetch from backend service (returns array or { results: [] })
+          const fetched = await backendTicketService.getAllTickets();
+          const all = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-        // stats per ticketPaths
-        const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
-        filtered.forEach(t => {
-          const s = computeEffectiveStatus(t);
-          // only increment if status maps to one of the ticketPaths labels
-          const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
-          if (mapLabel) {
-            const target = stats.find(st => st.label === mapLabel.label);
-            if (target) target.count += 1;
-          }
-        });
+          if (!mounted) return;
 
-        const pie = aggregatePie(filtered.concat());
-        const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+          const filtered = filterByRole(all);
 
-        setTicketDataState({
-          stats,
-          tableData: ticketData.tableData,
-          pieData: pie,
-          lineData: line
-        });
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error loading tickets for dashboard', err);
-        setIsLoading(false);
-      }
+          // stats per ticketPaths
+          const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+          filtered.forEach(t => {
+            const s = computeEffectiveStatus(t);
+            // only increment if status maps to one of the ticketPaths labels
+            const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+            if (mapLabel) {
+              const target = stats.find(st => st.label === mapLabel.label);
+              if (target) target.count += 1;
+            }
+          });
+
+          const pie = aggregatePie(filtered.concat());
+          const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+
+          if (!mounted) return;
+          // Build table data for "Tickets to Review" - only show tickets with effective status 'New'
+          const newTickets = (filtered || []).filter(t => computeEffectiveStatus(t) === 'New');
+          const tableRows = newTickets.slice(0, 5).map(t => {
+            const ticketNumber = t.ticket_number || t.ticketNumber || t.ticket_id || t.id;
+            const subject = t.subject || t.title || '';
+            const category = t.category || t.category_name || t.cat || '';
+            const subCategory = t.sub_category || t.subCategory || t.subcategory || '';
+            const statusDisplay = computeEffectiveStatus(t) || (t.status || 'New');
+            const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || '';
+            return {
+              ticketNumber,
+              subject,
+              category,
+              subCategory,
+              status: { text: statusDisplay, statusClass: `status${statusDisplay.replace(/\s+/g,'')}` },
+              dateCreated: dateCreated ? String(dateCreated).slice(0,10) : ''
+            };
+          });
+
+          setTicketDataState({
+            stats,
+            tableData: tableRows,
+            pieData: pie,
+            lineData: line
+          });
+        } catch (err) {
+          console.error('Error loading tickets for dashboard', err);
+          if (mounted) setTicketDataState(null);
+        } finally {
+          if (mounted) setIsLoading(false);
+        }
+      })();
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { mounted = false; clearTimeout(timer); };
   }, [currentUser, chartRange, pieRange]);
 
   // Effect: load KB (articles) for KB tab cards
@@ -686,6 +720,7 @@ const CoordinatorAdminDashboard = () => {
                       title={'Tickets to Review'}
                       headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
                       data={ticketData.tableData}
+                      bodyStyle={{ maxHeight: '260px', overflowY: 'auto' }}
                     />
                   ) : (
                     // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
