@@ -3,6 +3,7 @@ import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import styles from './EmployeeFAQs.module.css';
 import ViewCard from '../../../shared/components/ViewCard';
 import InputField from '../../../shared/components/InputField';
+import kbService from '../../../services/kbService';
 
 const EmployeeFAQs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,12 +15,12 @@ const EmployeeFAQs = () => {
     setExpandedIndex(expandedIndex === index ? null : index);
   };
 
-  // Filter articles by search term (search in subject and description)
+  // Filter articles by search term (search in question and answer)
   const filteredFaqs = articles.filter((faq) => {
     const query = searchTerm.toLowerCase();
     return (
-      (faq.subject || '').toLowerCase().includes(query) ||
-      (faq.description || '').toLowerCase().includes(query)
+      (faq.question || '').toLowerCase().includes(query) ||
+      (faq.answer || '').toLowerCase().includes(query)
     );
   });
 
@@ -32,12 +33,15 @@ const EmployeeFAQs = () => {
         if (!isMounted) return;
         // kbService maps archived -> archived and visibility normalized to 'Employee', etc.
         const visible = (all || []).filter(a => !a.archived && (a.visibility || '').toLowerCase() === 'employee');
-        // normalize shape to match previous `faqs` structure: { subject, description }
+        // normalize shape to provide `question` and `answer` fields that the UI expects.
         // NOTE: backend / adapter sometimes returns `subject`/`description` or `title`/`content`.
         const mapped = visible.map(a => ({
+          id: a.id,
           subject: a.subject ?? a.title ?? a.name ?? '',
           description: a.description ?? a.content ?? a.body ?? '',
-          id: a.id
+          // UI expects question/answer, so map those as well
+          question: a.subject ?? a.title ?? a.name ?? '',
+          answer: a.description ?? a.content ?? a.body ?? ''
         }));
         setArticles(mapped);
       } catch (err) {

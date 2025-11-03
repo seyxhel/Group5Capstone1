@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiInbox, FiCheckCircle, FiClock, FiXCircle, FiAlertCircle } from 'react-icons/fi';
 import baseStyles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
 import styles from './CoordinatorAdminTicketDetails.module.css';
 import { getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
 import authService from '../../../utilities/service/authService';
+import { convertToSecureUrl, getAccessToken, isSecureUrl } from '../../../utilities/secureMedia';
 
 const DEFAULT_AVATAR = '/MapLogo.png';
 
@@ -84,16 +86,115 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
 
   // Resolve user profile images using the stored users fixture
   const employeeUser = ticket?.employeeId ? getEmployeeUserById(Number(ticket.employeeId)) : null;
-  const employeeImage = employeeUser?.profileImage || ticket?.employeeProfileImage || DEFAULT_AVATAR;
+  const [remoteEmployee, setRemoteEmployee] = useState(null);
+  const rawEmployeeImage = (remoteEmployee && (remoteEmployee.image || remoteEmployee.profile_image)) || employeeUser?.profileImage || ticket?.employeeProfileImage || DEFAULT_AVATAR;
+  const absoluteFallback = (img) => {
+    if (!img) return null;
+    if (img.startsWith('http')) return img;
+    const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'http://localhost:8000/media/';
+    const clean = img.startsWith('/') ? img.slice(1) : img;
+    return `${MEDIA_URL}${clean}`;
+  };
+  // Resolve image while avoiding converting the frontend default avatar into a backend URL
+  const resolveImage = (raw) => {
+    if (!raw) return DEFAULT_AVATAR;
+    // If it's the local frontend default asset, return it as-is
+    if (raw === DEFAULT_AVATAR) return DEFAULT_AVATAR;
+    try {
+      const secure = convertToSecureUrl(raw);
+      const abs = absoluteFallback(raw);
+      const final = secure || abs || raw || DEFAULT_AVATAR;
+      console.log('CoordinatorAdminTicketDetails.resolveImage', { raw, secure, abs, final, isSecure: isSecureUrl(secure) });
+      return final;
+    } catch (e) {
+      console.warn('CoordinatorAdminTicketDetails.resolveImage error', e, 'raw=', raw);
+      return raw || DEFAULT_AVATAR;
+    }
+  };
+
+  const employeeImage = resolveImage(rawEmployeeImage);
+  console.log('CoordinatorAdminTicketDetails: employeeImage resolved=', employeeImage, 'raw=', rawEmployeeImage);
+
+  // Try to fetch authoritative employee data from backend when available
+  useEffect(() => {
+    let mounted = true;
+    console.log('CoordinatorAdminTicketDetails: mount/useEffect ticket=', ticket);
+    try {
+      const tok = getAccessToken();
+      console.log('CoordinatorAdminTicketDetails: access token present=', !!tok, tok ? `(len=${tok.length})` : tok);
+    } catch (e) {
+      console.warn('CoordinatorAdminTicketDetails: getAccessToken error', e);
+    }
+    const loadEmployee = async () => {
+      try {
+        if (!ticket) return;
+
+        // If ticket already includes an embedded employee object, prefer that
+        const embedded = ticket.employee || ticket.requester || ticket.requested_by || ticket.createdBy || ticket.created_by;
+        console.log('CoordinatorAdminTicketDetails: embedded employee found=', !!embedded, embedded);
+        if (embedded && Object.keys(embedded).length > 0) {
+          // If the embedded object already contains an image field, use it.
+          const hasImage = !!(embedded.image || embedded.profile_image || embedded.photo || embedded.photo_url);
+          console.log('CoordinatorAdminTicketDetails: embedded hasImage=', hasImage);
+          if (hasImage) {
+            if (mounted) setRemoteEmployee(embedded);
+            return;
+          }
+
+          // Embedded present but missing image info — fetch authoritative employee by id to enrich record
+          const embId = embedded.id || embedded.employee_id || embedded.user_id || null;
+          if (embId) {
+            console.log('CoordinatorAdminTicketDetails: embedded missing image, fetching full employee by id=', embId);
+            const emp2 = await backendEmployeeService.getEmployeeById(embId).catch(() => null);
+            console.log('CoordinatorAdminTicketDetails: fetched employee to enrich embedded=', emp2);
+            if (!mounted) return;
+            if (emp2) {
+              setRemoteEmployee(emp2);
+              return;
+            }
+            // If enrichment failed, fall back to using the embedded object
+            if (mounted) setRemoteEmployee(embedded);
+            return;
+          }
+
+          // No embId found — use embedded as-is
+          if (mounted) setRemoteEmployee(embedded);
+          return;
+        }
+
+        // Derive an employee id from multiple possible fields
+        const id = ticket.employeeId || ticket.employee_id || ticket.employeeId || ticket.requester_id || ticket.requested_by_id || ticket.createdBy?.id || ticket.created_by?.id || null;
+        console.log('CoordinatorAdminTicketDetails: derived employee id=', id);
+        if (!id) return;
+
+        // backendEmployeeService.getEmployeeById may throw if not available
+        const emp = await backendEmployeeService.getEmployeeById(id).catch(() => null);
+        console.log('CoordinatorAdminTicketDetails: fetched employee result=', emp);
+        if (!mounted) return;
+        if (emp) {
+          console.log('CoordinatorAdminTicketDetails: setting remoteEmployee');
+          setRemoteEmployee(emp);
+        }
+      } catch (e) {
+        console.warn('Failed to fetch remote employee for ticket details:', e);
+      }
+    };
+    loadEmployee();
+    return () => { mounted = false; };
+  }, [ticket]);
 
   const coordinatorId = ticket?.coordinatorReview?.coordinatorId || ticket?.assignedTo || null;
   const coordinatorUser = coordinatorId ? getEmployeeUserById(Number(coordinatorId)) : null;
-  const coordinatorImage = coordinatorUser?.profileImage || ticket?.coordinatorReview?.coordinatorProfileImage || DEFAULT_AVATAR;
+  const rawCoordinatorImage = coordinatorUser?.profileImage || ticket?.coordinatorReview?.coordinatorProfileImage || DEFAULT_AVATAR;
+  const coordinatorImage = resolveImage(rawCoordinatorImage);
+  console.log('CoordinatorAdminTicketDetails: coordinatorImage resolved=', coordinatorImage, 'raw=', rawCoordinatorImage);
 
   // Get the agent/assignee info if ticket is assigned
   const agentId = ticket?.assignedTo;
   const agentUser = agentId ? getEmployeeUserById(Number(agentId)) : null;
-  const agentImage = agentUser?.profileImage || DEFAULT_AVATAR;
+  const rawAgentImage = agentUser?.profileImage || DEFAULT_AVATAR;
+  const agentImage = resolveImage(rawAgentImage);
+  console.log('CoordinatorAdminTicketDetails: agentImage resolved=', agentImage, 'raw=', rawAgentImage);
   const agentName = agentUser ? `${agentUser.firstName} ${agentUser.lastName}` : ticket?.assignedAgent || 'None';
 
   // Determine ticket stage
@@ -157,13 +258,41 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
           <div className={styles.userCardWrap}>
             <div className={styles.userCard}>
               <div className={styles.avatar}>
-                <img src={employeeImage} alt={ticket?.employeeName || 'Employee'} className={styles.avatarImageInner} />
+                <img
+                  src={employeeImage}
+                  alt={ticket?.employeeName || 'Employee'}
+                  className={styles.avatarImageInner}
+                  onError={(e) => {
+                    console.warn('Employee image failed to load:', e.currentTarget.src, 'ticket:', ticket?.ticketNumber || ticket?.id || ticket?.employeeId);
+                    e.currentTarget.src = DEFAULT_AVATAR;
+                  }}
+                />
               </div>
               <div className={styles.userInfo}>
-                <div className={styles.userName}>{ticket?.employeeName || 'None'}</div>
+                <div className={styles.userName}>
+                  {
+                    // Prefer remote employee names, then local fixture, then ticket fields
+                    (remoteEmployee && ((remoteEmployee.first_name || remoteEmployee.firstName || '') + ' ' + (remoteEmployee.last_name || remoteEmployee.lastName || '')).trim())
+                    || (employeeUser && `${employeeUser.firstName || ''} ${employeeUser.lastName || ''}`.trim())
+                    || ticket?.employeeName
+                    || 'None'
+                  }
+                </div>
                 <div className={styles.userMeta}>
-                  {ticket?.employeeDepartment || 'None'}<br />
-                  Employee ID: {ticket?.employeeId || 'None'}
+                  {
+                    // department
+                    (remoteEmployee && (remoteEmployee.department || remoteEmployee.dept))
+                    || ticket?.employeeDepartment
+                    || (employeeUser && employeeUser.department)
+                    || 'None'
+                  }
+                  <br />
+                  Employee ID: {
+                    (remoteEmployee && (remoteEmployee.company_id || remoteEmployee.companyId || remoteEmployee.employee_id))
+                    || ticket?.employeeId
+                    || (employeeUser && (employeeUser.employeeId || employeeUser.id))
+                    || 'None'
+                  }
                 </div>
               </div>
             </div>
@@ -177,7 +306,15 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
             <div className={styles.userCardWrap}>
               <div className={styles.userCard}>
                 <div className={styles.avatar}>
-                  <img src={coordinatorImage} alt={ticket?.coordinatorReview?.coordinatorName || 'Coordinator'} className={styles.avatarImageInner} />
+                  <img
+                    src={coordinatorImage}
+                    alt={ticket?.coordinatorReview?.coordinatorName || 'Coordinator'}
+                    className={styles.avatarImageInner}
+                    onError={(e) => {
+                      console.warn('Coordinator image failed to load:', e.currentTarget.src, 'ticket:', ticket?.ticketNumber || ticket?.id);
+                      e.currentTarget.src = DEFAULT_AVATAR;
+                    }}
+                  />
                 </div>
                 <div className={styles.userInfo}>
                   <div className={styles.userName}>{ticket?.coordinatorReview?.coordinatorName || (coordinatorUser ? `${coordinatorUser.firstName} ${coordinatorUser.lastName}` : 'None')}</div>
@@ -227,7 +364,15 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
             <div className={styles.userCardWrap}>
               <div className={styles.userCard}>
                 <div className={styles.avatar}>
-                  <img src={agentImage} alt={agentName} className={styles.avatarImageInner} />
+                  <img
+                    src={agentImage}
+                    alt={agentName}
+                    className={styles.avatarImageInner}
+                    onError={(e) => {
+                      console.warn('Agent image failed to load:', e.currentTarget.src, 'ticket:', ticket?.ticketNumber || ticket?.id);
+                      e.currentTarget.src = DEFAULT_AVATAR;
+                    }}
+                  />
                 </div>
                 <div className={styles.userInfo}>
                   <div className={styles.userName}>{agentName}</div>

@@ -41,6 +41,16 @@ const formatDate = (date) => {
   const yy = String(yearFull).slice(-2);
   return `${monthName} ${day}, ${yearFull}`;
 };
+// Provide a date-only formatter used in a few places (keeps same style as formatDate)
+const formatDateOnly = (date) => {
+  if (!date) return null;
+  try {
+    const v = formatDate(date);
+    return v === 'None' ? null : v;
+  } catch (e) {
+    return String(date);
+  }
+};
 const toTitleCase = (str) => {
   if (!str && str !== 0) return '';
   return String(str)

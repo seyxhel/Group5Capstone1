@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { backendTicketService } from '../../../services/backend/ticketService';
+import { addComment } from '../../../utilities/storages/ticketStorage';
 import { FiPaperclip, FiSend, FiChevronDown } from 'react-icons/fi';
 import styles from './TicketMessaging.module.css';
 
@@ -17,7 +19,7 @@ const getInitials = (name) => {
     .slice(0, 2);
 };
 
-export default function TicketMessaging({ initialMessages = [] }) {
+export default function TicketMessaging({ initialMessages = [], ticketId = null, ticketNumber = null }) {
   const [messages, setMessages] = useState(
     initialMessages.map(msg => ({
       ...msg,
@@ -79,6 +81,22 @@ export default function TicketMessaging({ initialMessages = [] }) {
     };
 
     setMessages(prev => [...prev, newMsg]);
+    // Persist the message locally so it remains after reload
+    try {
+      const tgt = ticketNumber || ticketId || null;
+      if (tgt) {
+        addComment(tgt, { id: newMsg.id, message: newMsg.message, created_at: new Date().toISOString(), user: { id: 'current', name: 'You' }, is_internal: false });
+      }
+    } catch (e) {
+      console.error('Failed to persist message locally:', e);
+    }
+
+    // If backend is available, create a comment on the server (best-effort)
+    if (ticketId) {
+      backendTicketService.createComment(ticketId, newMessage).catch(err => {
+        console.warn('Failed to send comment to backend (will keep local copy):', err);
+      });
+    }
     setNewMessage('');
 
     // Simulate typing response

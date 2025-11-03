@@ -72,6 +72,17 @@ const formatDate = (date) => {
   return `${monthName} ${day}, ${yearFull}`;
 };
 
+// Format a date value to a user-friendly date-only string (reuses formatDate)
+const formatDateOnly = (date) => {
+  if (!date) return null;
+  try {
+    const v = formatDate(date);
+    return v === 'None' ? null : v;
+  } catch (e) {
+    return String(date);
+  }
+};
+
 // Format number with thousands separators and two decimal places
 const formatMoney = (value) => {
   if (value === null || value === undefined || value === '') return 'N/A';
@@ -787,7 +798,11 @@ export default function EmployeeTicketTracker() {
                 {activeTab === 'logs' ? (
                   <TicketActivity ticketLogs={ticketLogs} />
                 ) : (
-                  <TicketMessaging initialMessages={ticketMessages} />
+                  <TicketMessaging
+                    initialMessages={ticketMessages}
+                    ticketId={ticket.id || ticket.ticketId || ticket.ticket_id}
+                    ticketNumber={ticket.ticket_number || ticket.ticketNumber || number}
+                  />
                 )}
               </Tabs>
             </div>

@@ -923,6 +923,28 @@ export const updateTicket = (ticketNumber, updates) => {
   return null;
 };
 
+// Append a comment to a ticket (local storage).
+export const addComment = (ticketNumber, comment) => {
+  const tickets = getEmployeeTickets();
+  const idx = tickets.findIndex(t => t.ticketNumber === ticketNumber || t.ticket_number === ticketNumber || String(t.id) === String(ticketNumber));
+  if (idx === -1) return null;
+  const ticket = tickets[idx];
+  // Ensure comments array exists
+  ticket.comments = Array.isArray(ticket.comments) ? ticket.comments : (Array.isArray(ticket.comment) ? ticket.comment : []);
+  // Normalize comment shape
+  const c = {
+    id: comment.id ?? Date.now(),
+    comment: comment.comment ?? comment.message ?? comment.body ?? comment.text ?? '',
+    created_at: comment.created_at ?? comment.createdAt ?? new Date().toISOString(),
+    user: comment.user ?? comment.author ?? null,
+    is_internal: comment.is_internal ?? comment.isInternal ?? false,
+  };
+  ticket.comments.push(c);
+  ticket.updatedAt = new Date().toISOString();
+  localStorage.setItem('tickets', JSON.stringify(tickets));
+  return ticket;
+};
+
 export const submitCSAT = (ticketNumber, rating, comment) => {
   return updateTicket(ticketNumber, {
     csatRating: rating,

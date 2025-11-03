@@ -1158,6 +1158,25 @@ def list_employees(request):
     serializer = EmployeeSerializer(employees, many=True)
     return Response(serializer.data)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_employee(request, pk):
+    """
+    Return a single employee by primary key. Permissions mirror list_employees: only staff, Ticket Coordinator, or System Admin can access arbitrary employees.
+    """
+    # Permission check
+    if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
+        return Response({'detail': 'Permission denied.'}, status=403)
+
+    try:
+        employee = Employee.objects.get(pk=pk)
+    except Employee.DoesNotExist:
+        return Response({'detail': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = EmployeeSerializer(employee)
+    return Response(serializer.data)
+
 class IsSystemAdmin(BasePermission):
     def has_permission(self, request, view):
         return hasattr(request.user, 'role') and request.user.role == "System Admin"
