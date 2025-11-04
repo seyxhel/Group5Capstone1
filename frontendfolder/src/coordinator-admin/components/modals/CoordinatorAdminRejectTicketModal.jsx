@@ -32,6 +32,8 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
 
       onSuccess?.(ticket.ticketNumber, "Rejected"); // ✅ update parent
       onClose();
+      // Immediately refresh the page so the tracker/list reloads fresh data from backend
+      try { window.location.reload(); } catch (e) { /* ignore */ }
     } catch (err) {
       toast.error("Failed to reject ticket. Please try again.", {
         position: "top-right",

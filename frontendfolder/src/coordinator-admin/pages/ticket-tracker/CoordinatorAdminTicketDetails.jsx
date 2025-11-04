@@ -214,6 +214,55 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   // Determine ticket stage
   const ticketStage = getTicketStage(ticket?.status);
 
+  // Helper: detect whether ticket ever passed through one of the progressive stages
+  const passedThroughProgressiveStages = (t) => {
+    if (!t) return false;
+    const targets = ['in progress', 'on hold', 'resolved', 'closed'];
+    const checkStringForTargets = (s) => {
+      if (!s) return false;
+      const low = String(s).toLowerCase();
+      return targets.some(ts => low.includes(ts));
+    };
+
+    try {
+      // 1) activity/logs array entries
+      const arraysToCheck = [t.activity, t.activity_logs, t.logs, t.history, t.status_history, t.status_changes];
+      for (const arr of arraysToCheck) {
+        if (Array.isArray(arr) && arr.length > 0) {
+          for (const it of arr) {
+            if (!it) continue;
+            // check common fields
+            if (checkStringForTargets(it.type || it.action || it.detail || it.details || it.note || it.status || it.new_status || it.text || it.message)) return true;
+            // check serialized message content
+            if (checkStringForTargets(JSON.stringify(it))) return true;
+          }
+        }
+      }
+
+      // 2) raw object fields
+      const raw = t.raw || t;
+      if (raw) {
+        if (checkStringForTargets(raw.status) || checkStringForTargets(raw.current_status) || checkStringForTargets(raw.previous_statuses) || checkStringForTargets(raw.status_history)) return true;
+        // deep scan for any nested status strings
+        const rawStr = JSON.stringify(raw);
+        if (checkStringForTargets(rawStr)) return true;
+      }
+    } catch (e) {
+      // ignore parse errors
+      console.warn('passedThroughProgressiveStages error', e);
+    }
+
+    return false;
+  };
+
+  // Don't show Assigned Agent for terminal Rejected tickets. For Withdrawn, hide only if it never passed through progressive stages.
+  const statusLower = (ticket?.status || '').toLowerCase();
+  const isRejected = statusLower === 'rejected';
+  const isWithdrawn = statusLower === 'withdrawn';
+  const withdrewWithoutProgress = isWithdrawn && !passedThroughProgressiveStages(ticket);
+  const hideAssignedAgent = isRejected || withdrewWithoutProgress;
+  console.debug('Assigned agent visibility:', { status: ticket?.status, isRejected, isWithdrawn, withdrewWithoutProgress, hideAssignedAgent });
+
   // Calculate SLA status (simplified: based on priority and time elapsed)
   const calculateSLAStatus = () => {
     if (!ticket?.dateCreated) return 'Unknown';
@@ -371,31 +420,53 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
           </div>
         )}
 
-        {/* ASSIGNED AGENT SECTION - Visible during In Progress stage (stage 2-3) */}
-        {['in-progress', 'completed'].includes(ticketStage) && ticket?.assignedTo && (
+        {/* ASSIGNED AGENT SECTION - Visible during In Progress and Completed stages
+            Show a placeholder when there is no assigned agent so the UI can be wired to backend later */}
+  {['in-progress', 'completed'].includes(ticketStage) && !hideAssignedAgent && (
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Assigned Agent</div>
             <div className={styles.userCardWrap}>
-              <div className={styles.userCard}>
-                <div className={styles.avatar}>
-                  <img
-                    src={agentImage}
-                    alt={agentName}
-                    className={styles.avatarImageInner}
-                    onError={(e) => {
-                      console.warn('Agent image failed to load:', e.currentTarget.src, 'ticket:', ticket?.ticketNumber || ticket?.id);
-                      e.currentTarget.src = DEFAULT_AVATAR;
-                    }}
-                  />
-                </div>
-                <div className={styles.userInfo}>
-                  <div className={styles.userName}>{agentName}</div>
-                  <div className={styles.userMeta}>
-                    {agentUser?.department || 'None'}<br />
-                    Date Assigned: {formatDate ? formatDate(ticket?.dateAssigned) : ticket?.dateAssigned || 'None'}
+              {ticket?.assignedTo ? (
+                <div className={styles.userCard}>
+                  <div className={styles.avatar}>
+                    <img
+                      src={agentImage}
+                      alt={agentName}
+                      className={styles.avatarImageInner}
+                      onError={(e) => {
+                        console.warn('Agent image failed to load:', e.currentTarget.src, 'ticket:', ticket?.ticketNumber || ticket?.id);
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
+                    />
+                  </div>
+                  <div className={styles.userInfo}>
+                    <div className={styles.userName}>{agentName}</div>
+                    <div className={styles.userMeta}>
+                      {agentUser?.department || 'None'}<br />
+                      Date Assigned: {formatDate ? formatDate(ticket?.dateAssigned) : ticket?.dateAssigned || 'None'}
+                    </div>
                   </div>
                 </div>
-              </div>
+                ) : (
+                // Placeholder card when no agent is assigned yet
+                <div className={styles.userCard}>
+                  <div className={styles.avatar}>
+                    <img
+                      src={DEFAULT_AVATAR}
+                      alt="Unassigned"
+                      className={styles.avatarImageInner}
+                      onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                    />
+                  </div>
+                  <div className={styles.userInfo}>
+                    <div className={styles.userName}>Unassigned</div>
+                    <div className={styles.userMeta}>
+                      -<br />
+                      Date Assigned: None
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

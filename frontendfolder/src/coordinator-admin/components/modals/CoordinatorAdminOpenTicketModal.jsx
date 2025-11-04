@@ -53,6 +53,9 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
       });
       onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
       onClose();
+      // Immediately refresh the page so the tracker reloads fresh data from backend
+      // and avoids transient 'Unknown' status being visible.
+      try { window.location.reload(); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error('OpenTicket error:', err);
       toast.error("Failed to approve ticket. Please try again.", {

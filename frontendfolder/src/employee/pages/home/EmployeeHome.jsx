@@ -27,19 +27,23 @@ const EmployeeHome = () => {
       .then(tickets => {
         // If backend returns {results: [...]}, use that, else use tickets directly
         const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
-        // sort by created/submit date descending and pick the latest ticket
-        const sortedAll = ticketList
+        // sort by last-updated (update_date / updatedAt / lastUpdated) descending and pick up to 5
+        const sortedByUpdated = ticketList
           .slice()
-          .sort((a, b) => new Date(b.submit_date || b.dateCreated || b.createdAt || 0) - new Date(a.submit_date || a.dateCreated || a.createdAt || 0));
-        const latest = sortedAll.length > 0 ? [sortedAll[0]] : [];
-        setRecentTickets(latest);
+          .sort((a, b) => {
+            const aUpdated = new Date(a.update_date || a.lastUpdated || a.updatedAt || a.updated_at || a.time_closed || a.closedAt || a.submit_date || a.dateCreated || a.createdAt || 0).getTime();
+            const bUpdated = new Date(b.update_date || b.lastUpdated || b.updatedAt || b.updated_at || b.time_closed || b.closedAt || b.submit_date || b.dateCreated || b.createdAt || 0).getTime();
+            return bUpdated - aUpdated;
+          });
+        const latestFive = sortedByUpdated.slice(0, 5);
+        setRecentTickets(latestFive);
       })
       .catch(err => {
         setRecentTickets([]);
         console.error('Failed to fetch employee tickets:', err);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [currentUser]);
 
   const handleSubmitTicket = () => {
     navigate('/employee/submit-ticket');
@@ -147,14 +151,14 @@ const EmployeeHome = () => {
             ))}
           </div>
         ) : recentTickets.length === 0 ? (
-          <div className={styles.noTickets}>
-            <p>{loading ? 'Loading tickets...' : 'No active tickets to display.'}</p>
-            {!loading && (
-              <Button variant="primary" onClick={handleSubmitTicket}>
-                Submit a Ticket
-              </Button>
-            )}
-          </div>
+            <div className={styles.noTickets}>
+              <p>{isLoading ? 'Loading tickets...' : 'No active tickets to display.'}</p>
+              {!isLoading && (
+                <Button variant="primary" onClick={handleSubmitTicket}>
+                  Submit a Ticket
+                </Button>
+              )}
+            </div>
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {

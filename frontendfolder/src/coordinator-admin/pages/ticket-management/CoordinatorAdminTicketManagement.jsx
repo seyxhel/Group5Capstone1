@@ -108,6 +108,8 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
+    // Always refresh tickets when the URL status changes or when the page is visited
+    setIsLoading(true);
     const timer = setTimeout(() => {
       const user = authService.getCurrentUser();
       setCurrentUser(user);
@@ -119,15 +121,25 @@ const CoordinatorAdminTicketManagement = () => {
           let ticketsToShow = ticketList;
           if (user) {
             if (user.role === 'Ticket Coordinator') {
-              ticketsToShow = ticketList.filter(ticket => {
-                const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
-                const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
-                const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
-                const statusLower = (ticket.status || '').toString().toLowerCase();
-                const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
-                // Coordinators see their department, assigned-to, and ALL new/untriaged tickets
-                return isNewish || ticketDept === user.department || isAssignedToUser;
-              });
+              // If the URL requests a specific status (e.g., withdrawn-tickets), allow the page to
+              // consider the full ticket list so the status-specific filter can surface matching tickets
+              // (otherwise coordinators' department/assignment filtering may accidentally hide them).
+              const normalizedStatus = status.replace('-tickets', '').toLowerCase();
+              // For coordinators: when viewing the "all" page, show the full ticket list (all statuses).
+              // For specific-status pages, apply coordinator scoping (department/assignment/new tickets)
+              if (normalizedStatus === 'all') {
+                ticketsToShow = ticketList;
+              } else {
+                ticketsToShow = ticketList.filter(ticket => {
+                  const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+                  const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+                  const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+                  const statusLower = (ticket.status || '').toString().toLowerCase();
+                  const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
+                  // Coordinators see their department, assigned-to, and ALL new/untriaged tickets
+                  return isNewish || ticketDept === user.department || isAssignedToUser;
+                });
+              }
             } else if (user.role === 'System Admin') {
               ticketsToShow = ticketList;
             }
@@ -135,21 +147,23 @@ const CoordinatorAdminTicketManagement = () => {
           // Normalize tickets to the shape expected by the UI
           const normalized = ticketsToShow.map((t) => {
             const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
+            const lastUpdated = t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || null;
             return {
               ...t,
               ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
               subCategory: t.sub_category || t.subCategory || t.subcategory || '',
               priorityLevel: t.priority || t.priorityLevel || '',
               dateCreated,
+              lastUpdated,
               assignedAgent: t.assigned_to || t.assignedTo || '',
               assignedDepartment: t.department || t.assignedDepartment || '',
               __effectiveStatus: computeEffectiveStatus({ status: t.status, dateCreated }),
             };
           })
-          // Ensure newest first regardless of backend defaults
+          // Ensure newest-first based on last updated timestamp (newest -> oldest)
           .sort((a, b) => {
-            const da = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
-            const db = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+            const da = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+            const db = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
             return db - da;
           });
 
@@ -165,7 +179,7 @@ const CoordinatorAdminTicketManagement = () => {
       loadTickets();
     }, 300);
     return () => clearTimeout(timer);
-  }, []);
+  }, [status]);
 
   // Build dynamic filter options from loaded tickets
   const categoryOptions = useMemo(() => {

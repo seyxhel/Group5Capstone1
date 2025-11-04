@@ -612,6 +612,8 @@ export default function CoordinatorAdminTicketTracker() {
   const uiCategory = (category === 'General Request') ? 'Others' : category;
   // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
   const status = computeEffectiveStatus(ticket) || originalStatus;
+  // Safely build a CSS class key from the status string (guard against undefined)
+  const safeStatusClass = `status${String(status || '').replace(/\s+/g, '')}`;
   const statusSteps = getStatusSteps(status);
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
@@ -686,8 +688,8 @@ export default function CoordinatorAdminTicketTracker() {
                     </div>
                     <h2 className={styles.ticketSubject}>{subject || `Ticket No. ${number}`}</h2>
                   </div>
-                  <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
-                    {status}
+                    <div className={`${styles.statusBadge} ${styles[safeStatusClass]}`}>
+                    {status || 'Unknown'}
                   </div>
                 </div>
                 {/* Ticket meta: compact metadata shown under header */}

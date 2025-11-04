@@ -687,20 +687,20 @@ const CoordinatorAdminDashboard = () => {
           setUserActivityTimeline(timeline);
 
           if (!mounted) return;
-          // Build table data for "Tickets to Review" - include tickets that have NOT been triaged
-          // by a coordinator (no priority and no department assigned). Treat these as New.
-          const untriaged = (filtered || []).filter(t => {
-            const hasPriority = !!(t.priority || t.priorityLevel);
-            const hasDepartment = !!(t.department || t.assignedDepartment || t.assigned_to_department || t.assigned_to);
-            return !hasPriority && !hasDepartment;
+          // Build table data for "Tickets to Review" - mimic Django admin filter status__exact=New
+          // i.e., show tickets whose status is exactly New (case-insensitive)
+          const newTickets = (filtered || []).filter(t => {
+            const statusLower = (t.status || '').toString().toLowerCase();
+            return statusLower === 'new';
           })
-            // ensure newest first
+            // ensure newest first by created/submitted date
             .sort((a, b) => {
               const da = new Date(a.submit_date || a.submitDate || a.dateCreated || a.createdAt || a.created_at || 0).getTime() || 0;
               const db = new Date(b.submit_date || b.submitDate || b.dateCreated || b.createdAt || b.created_at || 0).getTime() || 0;
               return db - da;
             });
-          const tableRows = untriaged.map(t => {
+          const tableRows = newTickets.map(t => {
+            // NOTE: 'newTickets' contains tickets with status exactly 'New' (case-insensitive)
             const ticketNumber = t.ticket_number || t.ticketNumber || t.ticket_id || t.id;
             const subject = t.subject || t.title || '';
             const category = t.category || t.category_name || t.cat || '';
