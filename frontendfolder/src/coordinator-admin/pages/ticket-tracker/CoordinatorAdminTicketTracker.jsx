@@ -279,17 +279,82 @@ export default function CoordinatorAdminTicketTracker() {
 
   // Determine initial ticket using local storage helper (mock) and set into state
   useEffect(() => {
-    try {
-      const tickets = getAllTickets();
-      const selected = ticketNumber
-        ? getTicketByNumber(ticketNumber)
-        : tickets && tickets.length > 0
-        ? tickets[tickets.length - 1]
-        : null;
-      setTicket(selected);
-    } catch (e) {
-      // ignore
-    }
+    let mounted = true;
+    const loadTicket = async () => {
+      try {
+        if (ticketNumber) {
+          // Try backend first
+          try {
+            const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+            // backend returns a ticket object or throws
+            if (fetched) {
+              // Normalize backend ticket to the UI shape expected by this component
+              const t = fetched;
+              const normalized = {
+                id: t.id || t.ticket_number || t.ticketNumber || null,
+                ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
+                subject: t.subject || t.title || '',
+                category: t.category || t.category_name || '',
+                status: t.status || '',
+                createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
+                dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
+                lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
+                assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
+                assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
+                department: t.department || t.assignedDepartment || null,
+                activity: t.activity || t.logs || t.comments || [],
+                attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
+                description: t.description || t.details || '',
+                // normalize embedded/requester/employee info if present so details tab can render author information
+                // Preserve any embedded object as `employee` so existing detail code that checks ticket.employee works
+                employee: t.employee || t.requester || t.requested_by || t.created_by || null,
+                // employeeId may be provided as t.employee (id or object), employee_id, requester_id, etc.
+                employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
+                  || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
+                // Try to build a display name from embedded employee/requester objects when available
+                employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
+                  || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
+                  || t.employeeName || null,
+                employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
+                employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
+                employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
+                raw: t,
+              };
+              if (mounted) setTicket(normalized);
+              return;
+            }
+          } catch (err) {
+            // backend call failed — fall through to local storage fallback
+            console.warn('Backend ticket fetch failed, falling back to local storage', err);
+          }
+          // Fallback: try local storage helper
+          try {
+            const local = getTicketByNumber(ticketNumber);
+            if (mounted) setTicket(local || null);
+            return;
+          } catch (e) {
+            if (mounted) setTicket(null);
+            return;
+          }
+        }
+
+        // No ticketNumber in URL — use last ticket from local storage as before
+        try {
+          const tickets = getAllTickets();
+          const selected = tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+          if (mounted) setTicket(selected);
+        } catch (e) {
+          if (mounted) setTicket(null);
+        }
+      } catch (outerErr) {
+        console.error('Error initializing ticket tracker', outerErr);
+        if (mounted) setTicket(null);
+      }
+    };
+
+    loadTicket();
+
+    return () => { mounted = false; };
   }, [ticketNumber]);
 
   useEffect(() => {
@@ -298,42 +363,6 @@ export default function CoordinatorAdminTicketTracker() {
     }, 300);
     return () => clearTimeout(timer);
   }, [ticketNumber, ticket]);
-
-  if (isLoading && !ticket) {
-    return (
-      <ViewCard>
-        <div className={styles.contentGrid}>
-          <div className={styles.leftColumn}>
-            <Skeleton width="100px" height="32px" />
-            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} style={{ marginTop: '16px' }}>
-                <Skeleton width="150px" height="20px" />
-                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
-              </div>
-            ))}
-          </div>
-          <div className={styles.rightColumn}>
-            <Skeleton width="100%" height="300px" />
-          </div>
-        </div>
-      </ViewCard>
-    );
-  }
-
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
-    );
-  }
-  
 
   // Sync heights between left and right columns so both match the taller one.
   // This effect must be declared unconditionally (above any early returns)
@@ -423,6 +452,43 @@ export default function CoordinatorAdminTicketTracker() {
       if (rightColRef.current) rightColRef.current.style.minHeight = '';
     };
   }, [ticketNumber, ticket, activeTab]);
+
+  if (isLoading && !ticket) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  
+
 
   if (isLoading) {
     return (

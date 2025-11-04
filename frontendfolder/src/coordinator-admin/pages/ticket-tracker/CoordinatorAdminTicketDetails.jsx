@@ -125,6 +125,20 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
     } catch (e) {
       console.warn('CoordinatorAdminTicketDetails: getAccessToken error', e);
     }
+    // Extra debug: log possible employee fields so we can see why id derivation fails
+    try {
+      console.log('CoordinatorAdminTicketDetails: possible employee fields', {
+        employeeField: ticket?.employee,
+        employee_id: ticket?.employee_id,
+        employeeId: ticket?.employeeId,
+        requester: ticket?.requester,
+        requester_id: ticket?.requester_id,
+        created_by: ticket?.created_by,
+        raw: ticket?.raw,
+      });
+    } catch (e) {
+      console.warn('CoordinatorAdminTicketDetails: debug logging failed', e);
+    }
     const loadEmployee = async () => {
       try {
         if (!ticket) return;
@@ -289,7 +303,7 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
                   <br />
                   Employee ID: {
                     (remoteEmployee && (remoteEmployee.company_id || remoteEmployee.companyId || remoteEmployee.employee_id))
-                    || ticket?.employeeId
+                    || ticket?.employeeCompanyId || ticket?.employeeId
                     || (employeeUser && (employeeUser.employeeId || employeeUser.id))
                     || 'None'
                   }
