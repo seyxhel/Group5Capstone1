@@ -54,26 +54,49 @@ const CoordinatorAdminUserAccess = () => {
   // 👇 Fetch users and current user
   useEffect(() => {
     // Simulate loading delay
+    let mounted = true;
     const timer = setTimeout(() => {
-      const user = authService.getCurrentUser();
-      setCurrentUser(user);
+      (async () => {
+        try {
+          setIsLoading(true);
+          const user = authService.getCurrentUser();
+          setCurrentUser(user);
 
-      const fetchedUsers = getEmployeeUsers() || [];
+          // Fetch real users from backend
+          const fetched = await backendEmployeeService.getAllEmployees();
+          const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-      let usersToShow = fetchedUsers;
-      if (user) {
-        if (user.role === "Ticket Coordinator") {
-          usersToShow = fetchedUsers.filter((u) => u.department === user.department);
-        } else if (user.role === "System Admin") {
-          usersToShow = fetchedUsers;
+          // Normalize to the UI shape expected by this page
+          const normalized = raw.map(u => ({
+            companyId: u.company_id || u.companyId || u.companyId || '',
+            lastName: u.last_name || u.lastName || u.last_name || '',
+            firstName: u.first_name || u.firstName || u.first_name || '',
+            department: u.department || '',
+            role: u.role || '',
+            status: u.status || '',
+            // keep original raw object for other actions if needed
+            _raw: u,
+          }));
+
+          let usersToShow = normalized;
+          if (user) {
+            if (user.role === "Ticket Coordinator") {
+              usersToShow = normalized.filter((u) => u.department === user.department);
+            } else if (user.role === "System Admin") {
+              usersToShow = normalized;
+            }
+          }
+
+          if (mounted) setAllUsers(usersToShow);
+        } catch (err) {
+          console.error('Failed to load users for User Access page', err);
+        } finally {
+          if (mounted) setIsLoading(false);
         }
-      }
-
-      setAllUsers(usersToShow);
-      setIsLoading(false);
+      })();
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => { mounted = false; clearTimeout(timer); };
   }, []);
 
   // 👇 Combined filtering logic

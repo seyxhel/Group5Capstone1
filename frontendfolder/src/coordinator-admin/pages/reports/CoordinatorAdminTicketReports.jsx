@@ -15,7 +15,6 @@ import {
 import styles from './CoordinatorAdminReports.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 // Register Chart.js components
@@ -37,14 +36,63 @@ const CoordinatorAdminTicketReports = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [priorityRange, setPriorityRange] = useState('auto');
   const [categoryRange, setCategoryRange] = useState('auto');
+  const [allTickets, setAllTickets] = useState([]);
 
+  // Load tickets from backend and normalize them for the reports
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const fetched = await backendTicketService.getAllTickets();
+        const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-  // Get tickets data
-  const allTickets = getAllTickets();
+        const normalized = raw.map(t => {
+          // Normalize backend shapes to the report's expected shape (createdAt/resolvedAt etc.)
+          const createdAt = t.submit_date || t.created_at || t.createdAt || t.submitDate || t.createdAt || null;
+          const resolvedAt = t.time_closed || t.resolved_at || t.resolvedAt || t.closedAt || t.closed_at || null;
+          const priority = t.priority || t.priorityLevel || t.priority_level || 'Not Set';
+          const category = t.category || t.category_name || t.cat || 'Unknown';
+
+          const employeeName = (t.employee && (t.employee.first_name || t.employee.last_name)) ? `${t.employee.first_name || ''} ${t.employee.last_name || ''}`.trim() : (t.employeeName || t.employee_name || '');
+
+          return {
+            id: t.id || t.ticket_number || t.ticketNumber || null,
+            ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || '',
+            employeeId: (t.employee && t.employee.id) || t.employeeId || t.employee_id || null,
+            employeeName: employeeName,
+            employeeDepartment: (t.employee && t.employee.department) || t.department || t.employeeDepartment || '',
+            subject: t.subject || t.title || '',
+            category: category,
+            subcategory: t.sub_category || t.subcategory || t.subCategory || '',
+            priority: priority,
+            description: t.description || '',
+            assignedDepartment: t.department || t.assignedDepartment || '',
+            status: t.status || '',
+            assignedToName: (t.assigned_to && (t.assigned_to_name || t.assignedToName)) || t.assignedToName || t.assigned_to || null,
+            reviewedBy: t.reviewedBy || t.reviewed_by || null,
+            createdAt: createdAt,
+            updatedAt: t.update_date || t.updatedAt || t.updated_at || null,
+            resolvedAt: resolvedAt,
+            closedAt: t.time_closed || t.closedAt || t.closed_at || null,
+            rejectionReason: t.rejection_reason || t.rejectionReason || t.rejectionReason || null,
+            slaStatus: t.sla_status || t.slaStatus || null,
+            raw: t
+          };
+        });
+
+        if (mounted) setAllTickets(normalized);
+      } catch (err) {
+        console.error('Failed to load tickets for reports', err);
+        if (mounted) setAllTickets([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // Filter tickets by date range
   const filteredTickets = useMemo(() => {

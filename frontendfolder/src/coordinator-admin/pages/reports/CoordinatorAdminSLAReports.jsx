@@ -11,7 +11,7 @@ import {
   Legend
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
+import { backendTicketService } from '../../../services/backend/ticketService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 // Register Chart.js components
@@ -29,14 +29,46 @@ const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-
+  const [allTickets, setAllTickets] = useState([]);
+  // Load tickets from backend
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const fetched = await backendTicketService.getAllTickets();
+        const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-  // Get tickets data
-  const allTickets = getAllTickets();
+        const normalized = raw.map(t => {
+          const createdAt = t.submit_date || t.created_at || t.createdAt || t.submitDate || null;
+          const resolvedAt = t.time_closed || t.resolved_at || t.resolvedAt || t.closedAt || null;
+          const priorityLevel = t.priority || t.priorityLevel || t.priority_level || 'Not Set';
+
+          return {
+            id: t.id || t.ticket_number || t.ticketNumber || null,
+            ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || '',
+            createdAt,
+            resolvedAt,
+            priorityLevel,
+            status: t.status || '',
+            // preserve other fields used by SLA calculations or UI
+            resolvedAtRaw: resolvedAt,
+            raw: t
+          };
+        });
+
+        if (mounted) setAllTickets(normalized);
+      } catch (err) {
+        console.error('Failed to load tickets for SLA reports', err);
+        if (mounted) setAllTickets([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // SLA time limits (in hours)
   const SLA_LIMITS = {

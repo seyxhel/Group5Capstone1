@@ -35,6 +35,7 @@ import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import kbService from '../../../services/kbService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
@@ -336,6 +337,117 @@ const CoordinatorAdminDashboard = () => {
   const [userDataState, setUserDataState] = useState(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
+
+  // Load users for the Users tab (and for Pending Users stat/table)
+  useEffect(() => {
+    let mounted = true;
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      setUserError(null);
+      try {
+        const fetched = await backendEmployeeService.getAllEmployees();
+        const all = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+
+        if (!mounted) return;
+
+        // Filter for role Employee and status Pending for the Pending Users card/table
+        const pending = all.filter(u => (u.role || '').toLowerCase() === 'employee' && (u.status || '').toLowerCase() === 'pending');
+
+        // Build table rows expected by DataTable
+        const tableRows = pending.slice(0, 100).map(u => ({
+          companyId: u.company_id || u.companyId || u.companyId || '',
+          lastName: u.last_name || u.lastName || u.lastName || u.lastName || u.last_name || '',
+          firstName: u.first_name || u.firstName || u.firstName || u.first_name || '',
+          department: u.department || '',
+          role: u.role || '',
+          status: { text: u.status || 'Pending', statusClass: `status${(u.status || 'Pending').replace(/\s+/g,'')}` }
+        }));
+
+        // Build pie data using explicit employee statuses
+        // Pending: only employees with status === 'Pending'
+        // Rejected: only employees with status === 'Denied' or 'Rejected'
+        // Active: employees with status === 'Approved' (unchanged behavior)
+        const counts = { Active: 0, Pending: 0, Rejected: 0 };
+        all.forEach(u => {
+          const s = (u.status || '').toLowerCase();
+          const role = (u.role || '').toLowerCase();
+          // Active remains unchanged (count all approved users)
+          if (s === 'approved') {
+            counts.Active += 1;
+            return;
+          }
+          // Pending and Rejected must be employees only
+          if (role === 'employee') {
+            if (s === 'pending') {
+              counts.Pending += 1;
+            } else if (s === 'denied' || s === 'rejected') {
+              counts.Rejected += 1;
+            }
+          }
+        });
+        const pieData = [
+          { name: 'Active', value: counts.Active, fill: '#22C55E' },
+          { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
+          { name: 'Rejected', value: counts.Rejected, fill: '#EF4444' }
+        ];
+
+        // Build user activity timeline from employee.recent_logs (serializer provides recent_logs)
+        const allLogs = [];
+        all.forEach(u => {
+          const cid = u.company_id || u.companyId || '';
+          const logs = Array.isArray(u.recent_logs) ? u.recent_logs : [];
+          logs.forEach(l => {
+            // l: { action, details, performed_by, timestamp }
+            const timestamp = l.timestamp ? new Date(l.timestamp) : null;
+            if (!timestamp || isNaN(timestamp.getTime())) return;
+            let actionText = '';
+            switch ((l.action || '').toLowerCase()) {
+              case 'created':
+                // No brackets around the company id
+                actionText = `User ${cid} account created`;
+                break;
+              case 'approved':
+                // Never expose who approved; always show 'by Admin'
+                actionText = `User ${cid} approved by Admin`;
+                break;
+              case 'rejected':
+                // Never expose who rejected; always show 'by Admin'
+                actionText = `User ${cid} rejected by Admin`;
+                break;
+              default:
+                // For other actions fall back to details (do not reveal performed_by)
+                actionText = l.details || `${l.action}`;
+            }
+            allLogs.push({ time: timestamp, timeSort: timestamp.getTime(), action: actionText });
+          });
+        });
+
+        allLogs.sort((a, b) => b.timeSort - a.timeSort);
+        const fmtTime = (d) => {
+          try {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+          } catch (e) { return ''; }
+        };
+        const activity = allLogs.slice(0, 5).map(l => ({ time: fmtTime(l.time), action: l.action }));
+
+        if (mounted) {
+          setUserDataState({ stats: [{ label: 'Pending Users', count: pending.length, isHighlight: false, position: 0, path: '/admin/user-access/pending-users' }], tableData: tableRows, pieData, lineData: userData?.lineData || [] });
+          setUserActivityTimeline(activity);
+        }
+      } catch (err) {
+        console.error('Error loading users for dashboard', err);
+        if (mounted) setUserError(err?.message || String(err));
+      } finally {
+        if (mounted) setLoadingUsers(false);
+      }
+    };
+
+    // Load users on mount and when switching to Users tab
+    if (activeTab === 'users') loadUsers();
+    // Also load once on mount so stat cards show counts immediately
+    // (but keep load lightweight by only running once more)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const ticketData = ticketDataState || {
     stats: ticketPaths.map((item, i) => ({

@@ -11,6 +11,26 @@ export default function CoordinatorAdminSettings() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle profile image change (upload to backend and update UI)
+  const handleImageChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    try {
+      setLoading(true);
+      // Try to use id from user object; backend endpoint does not require id but service API accepts it
+      const employeeId = user?.id || user?.employeeId || user?.employee_id || null;
+      const res = await backendEmployeeService.uploadEmployeeImage(employeeId, file);
+      const imageUrl = res?.image_url || res?.image || res?.imageUrl || null;
+      // If backend returns an image URL, use it; otherwise create an object URL as fallback
+      const displayUrl = imageUrl || URL.createObjectURL(file);
+      setUser(prev => ({ ...(prev || {}), profileImage: displayUrl, image: displayUrl }));
+    } catch (err) {
+      console.error('Failed to upload profile image', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Simulate loading delay
     const timer = setTimeout(() => {
