@@ -34,3 +34,7 @@ media/ticket_attachments/
 backend/backend/__pycache__/
 backend/core/__pycache__/
 backend/core/migrations/__pycache__/
+
+# Local environment variables - do NOT commit
+# This project keeps a `.env` at repository root for local dev; ensure it's ignored
+.env
