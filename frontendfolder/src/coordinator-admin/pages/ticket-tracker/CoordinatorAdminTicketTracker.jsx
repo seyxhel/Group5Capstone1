@@ -110,22 +110,39 @@ const generateLogs = (ticket) => {
   // Include any activity entries if present
   if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
     ticket.activity.forEach((a) => {
-      const who = a.user || a.performedBy || 'User';
-      const when = formatDate(a.timestamp || a.date || a.createdAt);
+      // Normalize user to a display string (backend may provide object or string)
+      const whoRaw = a.user || a.performedBy || a.performed_by || a.requester || 'User';
+      let who = 'User';
+      if (typeof whoRaw === 'string') who = whoRaw;
+      else if (typeof whoRaw === 'object' && whoRaw !== null) {
+        const first = whoRaw.first_name || whoRaw.firstName || whoRaw.first || '';
+        const last = whoRaw.last_name || whoRaw.lastName || whoRaw.last || '';
+        const full = `${first} ${last}`.trim();
+        if (full) who = full;
+        else if (whoRaw.name) who = whoRaw.name;
+        else if (whoRaw.role) who = whoRaw.role;
+        else if (whoRaw.id) who = `User ${whoRaw.id}`;
+        else who = 'User';
+      }
+
+      const whenRaw = a.timestamp || a.date || a.createdAt || null;
+      const when = formatDate(whenRaw);
       const details = a.details || a.note || a.action || '';
       let sentence = '';
-      if (a.type && a.type.toLowerCase().includes('comment')) {
-        sentence = `${who} commented on ${when}: "${details || 'No details provided.'}"`;
+      const whenSuffix = when && when !== 'None' ? ` on ${when}` : '';
+      if (a.type && typeof a.type === 'string' && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented${whenSuffix}: "${details || 'No details provided.'}"`;
       } else if (details) {
-        sentence = `${who} performed an action on ${when}: ${details}.`;
+        sentence = `${who} performed an action${whenSuffix}: ${details}.`;
       } else {
-        sentence = `${who} performed an activity on ${when}.`;
+        sentence = `${who} performed an activity${whenSuffix}.`;
       }
       logs.push({
         id: logs.length + 1,
         user: who,
         action: a.action || a.type || 'Activity',
-        timestamp: when,
+        // only set timestamp when there is a valid date string
+        timestamp: when && when !== 'None' ? when : null,
         text: sentence,
       });
     });

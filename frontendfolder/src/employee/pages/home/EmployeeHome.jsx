@@ -27,14 +27,30 @@ const EmployeeHome = () => {
       .then(tickets => {
         // If backend returns {results: [...]}, use that, else use tickets directly
         const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
-        // sort by last-updated (update_date / updatedAt / lastUpdated) descending and pick up to 5
-        const sortedByUpdated = ticketList
-          .slice()
-          .sort((a, b) => {
-            const aUpdated = new Date(a.update_date || a.lastUpdated || a.updatedAt || a.updated_at || a.time_closed || a.closedAt || a.submit_date || a.dateCreated || a.createdAt || 0).getTime();
-            const bUpdated = new Date(b.update_date || b.lastUpdated || b.updatedAt || b.updated_at || b.time_closed || b.closedAt || b.submit_date || b.dateCreated || b.createdAt || 0).getTime();
-            return bUpdated - aUpdated;
-          });
+        // Helper: compute a robust numeric timestamp for "last updated" using many possible fields
+        const getLastUpdatedTs = (t) => {
+          if (!t) return 0;
+          const candidates = [
+            t.update_date, t.lastUpdated, t.updatedAt, t.updated_at, t.time_closed, t.closedAt,
+            t.modifiedAt, t.dateModified, t.submitted_at, t.submit_date, t.dateCreated, t.createdAt, t.created_at
+          ];
+          for (const c of candidates) {
+            if (c === null || c === undefined) continue;
+            // If it's a number already
+            if (typeof c === 'number' && isFinite(c)) return c;
+            // Try parsing strings / ISO dates
+            try {
+              const parsed = Date.parse(String(c));
+              if (!isNaN(parsed)) return parsed;
+            } catch (e) {
+              // ignore
+            }
+          }
+          return 0;
+        };
+
+        // sort by last-updated timestamp (newest first) and pick up to 5
+        const sortedByUpdated = ticketList.slice().sort((a, b) => getLastUpdatedTs(b) - getLastUpdatedTs(a));
         const latestFive = sortedByUpdated.slice(0, 5);
         setRecentTickets(latestFive);
       })
