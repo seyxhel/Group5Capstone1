@@ -2,3 +2,121 @@
    shared layout provides page padding and background. Keep this file
    for page-scoped utilities only. */
 .container { display: block; }
+
+/* Two-column layout for editor + edit-log panel when editing an article */
+.twoColumn {
+   display: grid;
+   /* Keep the left editor flexible and make the edit-log column responsive.
+      Right column is at least 300px and can grow on wider viewports. */
+   grid-template-columns: 1fr minmax(300px, 42vw);
+   /* Space between columns (editor and edit-log) */
+   gap: 10px;
+   /* Keep items top-aligned so cards size to their content rather than stretching */
+   align-items: start;
+
+}
+
+.leftColumn {
+   min-width: 0; /* allow children to shrink */
+}
+
+/* Page-specific override to make the form fill the available left column
+   space between the editor and the edit-log column. Applied by passing
+   className={styles.wideForm} to <FormCard>. */
+/* wideForm removed — we keep form defaults and expand the right column instead */
+
+.rightColumn {
+   position: relative;
+   display: flex;
+   flex-direction: column;
+   /* match the top offset used by formContainer so cards line up */
+   padding-top: 8px;
+   /* small right gutter so cards don't butt up directly against viewport */
+   padding-right: 8px;
+}
+
+.editLog {
+   background: #fff;
+   border: 1px solid #dadada;
+   padding: 25px;
+   border-radius: 25px;
+   /* small right gap to the column edge */
+   margin-right: 5px;
+   /* match the main form card shadow for consistent visual weight */
+   box-shadow: 0 0 20px rgba(211,211,211,0.3);
+   /* allow editLog to grow and fill the right column height */
+   display: flex;
+   flex-direction: column;
+   /* do not grow to fill the column; size to content height */
+   flex: 0 0 auto;
+   /* make the card sticky but constrain its height so it doesn't grow past the viewport
+      and allow the inner list to scroll. Keep overflow:hidden so the rounded radius
+      clips the inner scrollbar for a neat appearance. */
+   position: sticky;
+   top: 24px; /* adjust to match header spacing if needed */
+   max-height: 645px; /* fixed height as requested */
+   overflow: hidden; /* clip inner scrollbar to the rounded card */
+   /* ensure the card fits while leaving the requested right margin */
+   width: calc(100% - 5px);
+   box-sizing: border-box;
+}
+
+.editLog h3 { margin-top: 0; margin-bottom: 8px; font-size: 0.9rem; font-weight: bold; color: #333; }
+.logList { display: flex; flex-direction: column; gap: 10px; }
+.logEntry { border-top: 1px dashed #f0f0f0; padding-top: 8px; }
+.logEntry:first-child { border-top: none; padding-top: 0; }
+.logAction { font-weight: normal; }
+.logWhen { color: #666; font-size: 0.9rem; }
+.logBy { color: #333; font-size: 0.9rem; }
+.logNote { margin-top: 12px; color: #666; }
+
+.logListAlt { display:flex; flex-direction:column; gap:12px; box-sizing: border-box; width: 100%; scrollbar-gutter: stable; }
+.logAltEntry { background: #fff; padding: 10px; border-radius:20px; border:1px solid #f0f0f0; box-sizing: border-box; width:100%; overflow: visible; word-wrap: break-word; }
+.entrySubject { font-weight: normal; margin-bottom:1.5px; word-wrap: break-word; overflow-wrap: break-word; }
+.entrySubject strong { font-weight: 600; margin-right: 8px; }
+.entryDescription { color:#333; margin-bottom:8px; padding-right:16px; word-wrap: break-word; overflow-wrap: break-word; }
+.entryDescription strong { font-weight: 600; margin-right: 8px; display: inline-block; }
+.entryWhen { color:#666; font-size:0.9rem; margin-bottom:6px; }
+.clamped {
+   display: -webkit-box;
+   -webkit-box-orient: vertical;
+   -webkit-line-clamp: 3;
+   /* standard property (when supported) */
+   line-clamp: 3;
+   overflow: hidden;
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   /* Ensure the box sizing doesn't cause overlap */
+   box-sizing: border-box;
+}
+.readMoreBtn {
+   background: none;
+   border: none;
+   color: #2563eb; /* blue-ish */
+   padding: 0;
+   margin: 8px 0 0 0;
+   cursor: pointer;
+   font-size: 0.9rem;
+   display: block;
+   margin-left: auto; /* push the button to the right edge */
+   margin-right: 10px;
+}
+.lastChange { margin-top:12px; color:#444; font-weight:600; }
+
+/* Let the log list grow with its content so the card stretches to fit entries. */
+.logListAlt {
+   /* Make the inner list scrollable while the parent .editLog remains sticky.
+      flex: 1 allows it to take available space inside the constrained card.
+      overflow-y:auto creates the internal scrollbar which will be clipped by
+      .editLog's border-radius because .editLog has overflow:hidden. */
+   flex: 1 1 auto;
+   overflow-y: scroll;
+   padding-right: 6px; /* give a small inset so text doesn't sit beneath the scrollbar */
+}
+
+.logAltEntry { min-height: auto; }
+
+/* Optional: nicer scrollbar for webkit browsers */
+.logListAlt::-webkit-scrollbar { width: 10px; }
+.logListAlt::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 6px; }
+.logListAlt::-webkit-scrollbar-track { background: transparent; }

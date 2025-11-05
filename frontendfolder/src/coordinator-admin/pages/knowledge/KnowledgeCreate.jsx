@@ -6,6 +6,7 @@ import FormActions from '../../../shared/components/FormActions';
 import styles from './knowledge.module.css';
 import ArticleEditor from '../../../shared/kb/ArticleEditor';
 import kbService from '../../../services/kbService';
+import ArticleEditLog from './ArticleEditLog';
 
 const KnowledgeCreate = () => {
   const [saving, setSaving] = useState(false);
@@ -95,26 +96,36 @@ const KnowledgeCreate = () => {
       <Breadcrumb root="Knowledge Base" currentPage={isEdit ? 'Edit Article' : 'Create Article'} rootNavigatePage="/admin/knowledge/articles" title={isEdit ? 'Edit Knowledge Article' : 'Create Knowledge Article'} />
 
       <section>
-        <FormCard>
-          <form onSubmit={handleSubmit}>
-            <ArticleEditor
-              initial={editorData}
-              categories={categories}
-              onChangeData={setEditorData}
-              onSave={handleSave}
-              disabled={saving}
-              externalErrors={validationErrors}
-            />
+        <div className={styles.twoColumn}>
+          <div className={styles.leftColumn}>
+            <FormCard>
+              <form onSubmit={handleSubmit}>
+                <ArticleEditor
+                  initial={editorData}
+                  categories={categories}
+                  onChangeData={setEditorData}
+                  onSave={handleSave}
+                  disabled={saving}
+                  externalErrors={validationErrors}
+                />
 
-            <FormActions
-              onCancel={onCancel}
-              cancelLabel="Cancel"
-              submitLabel={saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Save Article')}
-              submitDisabled={saving}
-              submitVariant="primary"
-            />
-          </form>
-        </FormCard>
+                <FormActions
+                  onCancel={onCancel}
+                  cancelLabel="Cancel"
+                  submitLabel={saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Save Article')}
+                  submitDisabled={saving}
+                  submitVariant="primary"
+                />
+              </form>
+            </FormCard>
+          </div>
+
+          {isEdit && editingId ? (
+            <aside className={styles.rightColumn}>
+              <ArticleEditLog articleId={editingId} />
+            </aside>
+          ) : null}
+        </div>
       </section>
     </div>
   );

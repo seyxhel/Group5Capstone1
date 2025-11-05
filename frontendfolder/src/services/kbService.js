@@ -90,6 +90,32 @@ export const getArticle = async (id) => {
   }
 };
 
+// --- Local edit-history helpers (stored in localStorage)
+const historyKey = (articleId) => `kb:history:${articleId}`;
+
+export const getHistory = (articleId) => {
+  try {
+    const raw = localStorage.getItem(historyKey(articleId));
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to read article history from localStorage', e);
+    return [];
+  }
+};
+
+const addHistoryEntry = (articleId, entry) => {
+  try {
+    const key = historyKey(articleId);
+    const cur = getHistory(articleId) || [];
+    // push new entry to front (we'll sort when reading)
+    cur.push(entry);
+    localStorage.setItem(key, JSON.stringify(cur));
+  } catch (e) {
+    console.error('Failed to write article history to localStorage', e);
+  }
+};
+
 export const submitArticle = async (data) => {
   try {
     // Map UI format to backend format
@@ -102,6 +128,17 @@ export const submitArticle = async (data) => {
     
     const article = await backendArticleService.createArticle(backendData);
     
+    // Record initial creation to local history
+    try {
+      addHistoryEntry(article.id, {
+        subject: article.subject,
+        description: article.description,
+        when: article.updated_at || new Date().toISOString(),
+      });
+    } catch (e) {
+      // swallow
+    }
+
     return {
       id: article.id,
       title: article.subject,
@@ -132,6 +169,9 @@ export const updateArticle = async (id, data) => {
       
       // Fetch the updated article
       const article = await backendArticleService.getArticleById(id);
+      // record archive/restore action into history as an entry
+      try { addHistoryEntry(article.id, { subject: article.subject, description: article.description, when: article.updated_at || new Date().toISOString() }); } catch (e) {}
+
       return {
         id: article.id,
         title: article.subject,
@@ -152,7 +192,15 @@ export const updateArticle = async (id, data) => {
       if (data.visibility) backendData.visibility = capitalizeVisibility(data.visibility);
       
       const article = await backendArticleService.updateArticle(id, backendData);
-      
+      // record update to local history
+      try {
+        addHistoryEntry(article.id, {
+          subject: article.subject,
+          description: article.description,
+          when: article.updated_at || new Date().toISOString(),
+        });
+      } catch (e) {}
+
       return {
         id: article.id,
         title: article.subject,
@@ -210,6 +258,7 @@ export default {
   getArticle,
   submitArticle,
   updateArticle,
+  getHistory,
   listFeedback,
   submitFeedback,
   deleteArticle,
