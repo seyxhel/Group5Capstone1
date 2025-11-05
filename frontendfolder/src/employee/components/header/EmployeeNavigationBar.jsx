@@ -9,6 +9,7 @@ import authService from '../../../utilities/service/authService';
 import { backendAuthService } from '../../../services/backend/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 // Fallback profile image
 const DEFAULT_PROFILE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23e0e0e0"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" font-size="40" fill="%23666"%3E?%3C/text%3E%3C/svg%3E';
@@ -65,18 +66,11 @@ const EmployeeNavBar = () => {
         console.log('Fetched employee profile:', profile);
         
         if (profile.image) {
-          // Build the full image URL
-          const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-          let imageUrl = profile.image;
-          
-          // If image is a relative path, prepend the base URL
-          if (!imageUrl.startsWith('http')) {
-            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-            imageUrl = `${BASE_URL}${imageUrl}`;
+          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
+          if (resolved) {
+            console.log('Profile image URL:', resolved);
+            setProfileImageUrl(resolved);
           }
-          
-          console.log('Profile image URL:', imageUrl);
-          setProfileImageUrl(imageUrl);
         }
       } catch (error) {
         console.error('Failed to fetch profile image:', error);
@@ -242,6 +236,47 @@ const EmployeeNavBar = () => {
         });
       } catch (err) {}
     };
+  }, []);
+
+  // Listen for profile updates (dispatched by settings or other UI)
+  useEffect(() => {
+    const onProfileUpdated = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+        const current = authService.getCurrentUser();
+        const currentId = current?.id || current?.companyId || current?.company_id || null;
+
+        // If the event is for a different user, ignore it
+        if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
+
+        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        if (newImg) {
+          setProfileImageUrl(newImg);
+          return;
+        }
+
+        // If no explicit image provided (or no event id), attempt to re-fetch profile once
+        backendEmployeeService.getCurrentEmployee()
+          .then((profile) => {
+            if (profile && profile.image) {
+              const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+              let imageUrl = profile.image;
+              if (!imageUrl.startsWith('http')) {
+                imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+                imageUrl = `${BASE_URL}${imageUrl}`;
+              }
+              setProfileImageUrl(imageUrl);
+            }
+          })
+          .catch(() => {});
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
   }, []);
 
   // Track which URLs we've attempted an authenticated fetch for to avoid retry loops

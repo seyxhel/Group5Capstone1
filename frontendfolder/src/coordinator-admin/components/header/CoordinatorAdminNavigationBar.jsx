@@ -8,6 +8,7 @@ import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -68,13 +69,8 @@ const CoordinatorAdminNavBar = () => {
         const profile = await backendEmployeeService.getCurrentEmployee();
         // profile.image may be a relative path like 'employee_images/xyz.jpg'
         if (profile?.image) {
-          const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-          let imageUrl = profile.image;
-          if (!imageUrl.startsWith('http')) {
-            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-            imageUrl = `${BASE_URL}${imageUrl}`;
-          }
-          setProfileImageUrl(imageUrl);
+          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
+          if (resolved) setProfileImageUrl(resolved);
         }
       } catch (err) {
         // keep default on error
@@ -84,6 +80,46 @@ const CoordinatorAdminNavBar = () => {
 
     if (currentUser) fetchProfileImage();
   }, [currentUser]);
+
+  // Listen for profile updates dispatched by settings or other UI
+  useEffect(() => {
+    const onProfileUpdated = (e) => {
+      console.debug('[CoordinatorAdminNav] profile:updated event', e && e.detail);
+      try {
+        const detail = e?.detail || {};
+        const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+        const current = authService.getCurrentUser();
+        const currentId = current?.id || current?.companyId || current?.company_id || null;
+
+        // If the event is for a different user, ignore it
+        if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
+
+        // If the event includes a resolved (and cache-busted) image URL, use it directly
+        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        if (newImg) {
+          setProfileImageUrl(newImg);
+          return;
+        }
+      } catch (err) {
+        // fall through to re-fetch below
+      }
+
+      // Fallback: re-fetch profile once if event didn't provide an image
+      backendEmployeeService.getCurrentEmployee()
+        .then((profile) => {
+          if (!profile) return;
+          const imgCandidate = profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profileImage;
+          const resolved = resolveMediaUrl(imgCandidate);
+          if (resolved) setProfileImageUrl(resolved);
+        })
+        .catch((err) => {
+          console.warn('[CoordinatorAdminNav] failed to re-fetch profile after profile:updated', err);
+        });
+    };
+
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
+  }, []);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
