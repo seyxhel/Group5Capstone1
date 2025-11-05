@@ -509,12 +509,12 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
                 <div className={styles.fieldLabel}>Date Completed</div>
                 <div className={styles.fieldValue}>{formatDate ? formatDate(ticket?.dateResolved || ticket?.dateClosed) : ticket?.dateResolved || ticket?.dateClosed || 'None'}</div>
               </div>
-              {ticket?.csatRating && (
-                <div className={styles.infoField}>
-                  <div className={styles.fieldLabel}>CSAT Rating</div>
-                  <div className={styles.fieldValue}>{ticket.csatRating}/5 ⭐</div>
+              <div className={styles.infoField}>
+                <div className={styles.fieldLabel}>CSAT Rating</div>
+                <div className={styles.fieldValue}>
+                  {ticket?.csatRating ? `${ticket.csatRating}/5 ⭐` : '5/5 ⭐'}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
