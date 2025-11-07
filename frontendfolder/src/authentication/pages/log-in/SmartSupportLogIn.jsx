@@ -54,45 +54,14 @@ const SmartSupportLogIn = () => {
         return;
       }
 
-      // Debug: log the response data to see what backend returns
-      console.log('Login response data:', data);
-
-      // Persist a frontend-friendly loggedInUser object so other parts
-      // of the app (which read `loggedInUser`) keep working.
-      const tokenUser = backendAuthService.getCurrentUser();
-      const storedUser = {
-        id: tokenUser?.id || null,
-        email: tokenUser?.email || email,
-        role: (data.role || '').trim() || null,
-        firstName: data.first_name || '',
-        middleName: data.middle_name || '',
-        lastName: data.last_name || '',
-        suffix: data.suffix || '',
-        companyId: data.company_id || '',
-        department: data.department || '',
-      };
-      
-      // Debug: log what we're storing
-      console.log('Storing user data:', storedUser);
-      localStorage.setItem('loggedInUser', JSON.stringify(storedUser));
-
-      // Dispatch auth:login event to start the inactivity watcher
+      // After a successful login, AuthContext will fetch the user profile
+      // (cookie-based). We simply notify the app and allow the `useEffect`
+      // above to redirect based on the fetched profile.
       try {
         window.dispatchEvent(new CustomEvent('auth:login'));
         console.log('[SmartSupportLogIn] Dispatched auth:login event');
       } catch (e) {
         console.warn('[SmartSupportLogIn] Failed to dispatch auth:login', e);
-      }
-
-      const role = storedUser.role?.trim().toLowerCase();
-
-      if (role === 'employee') {
-        navigate('/employee/home');
-      } else if (role === 'ticket coordinator' || role === 'system admin') {
-        navigate('/admin/dashboard');
-      } else {
-        // If backend didn't return a role, fallback to JWT claims or show error
-        setErrorMessage('Invalid user role. Please contact administrator.');
       }
     } catch (err) {
       console.error("Login error:", err);

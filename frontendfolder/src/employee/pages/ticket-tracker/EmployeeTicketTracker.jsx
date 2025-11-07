@@ -4,6 +4,7 @@ import styles from './EmployeeTicketTracker.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
@@ -374,8 +375,8 @@ export default function EmployeeTicketTracker() {
     return () => clearTimeout(timer);
   }, [ticketNumber]);
 
-  // Get current logged-in user
-  const currentUser = authService.getCurrentUser();
+  // Get current logged-in user from AuthContext
+  const { user: currentUser } = useAuth();
   
   // Get only the current user's tickets
   const tickets = getEmployeeTickets(currentUser?.id);

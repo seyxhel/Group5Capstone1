@@ -10,6 +10,7 @@ function normalizeTicket(ticket) {
   };
 }
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from '../../../context/AuthContext';
 import { useParams, useNavigate } from "react-router-dom";
 import { backendTicketService } from "../../../services/backend/ticketService";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
@@ -126,13 +127,14 @@ const EmployeeActiveTickets = () => {
   const [selectedWithdraw, setSelectedWithdraw] = useState(null);
   const [selectedClose, setSelectedClose] = useState(null);
 
+  const { user: currentUser } = useAuth();
+
   // Fetch tickets from backend
   useEffect(() => {
     // Simulate loading delay
     const timer = setTimeout(() => {
-      // Get current logged-in user and only fetch their tickets
-      const currentUser = authService.getCurrentUser();
-      backendTicketService.getTicketsByEmployee(currentUser?.id)
+  // Only fetch tickets for the current authenticated user
+  backendTicketService.getTicketsByEmployee(currentUser?.id)
         .then(tickets => {
           const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
           const normalized = ticketList.map(normalizeTicket);

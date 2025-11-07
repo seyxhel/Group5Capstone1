@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import { FaEdit, FaTimes, FaEye } from "react-icons/fa";
 
 import styles from "./CoordinatorAdminTicketManagement.module.css";
+import { useAuth } from '../../../context/AuthContext';
 import TablePagination from "../../../shared/table/TablePagination";
 import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
 import { backendTicketService } from '../../../services/backend/ticketService';
@@ -111,8 +112,7 @@ const CoordinatorAdminTicketManagement = () => {
     // Always refresh tickets when the URL status changes or when the page is visited
     setIsLoading(true);
     const timer = setTimeout(() => {
-      const user = authService.getCurrentUser();
-      setCurrentUser(user);
+  const user = currentUser;
 
       const loadTickets = async () => {
         try {

@@ -6,6 +6,7 @@ import CoordinatorAdminNotifications from '../pop-ups/CoordinatorAdminNotificati
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
 import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
@@ -38,7 +39,8 @@ const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
-  const currentUser = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
+  console.debug('[CoordinatorAdminNav] currentUser:', currentUser);
   const DEFAULT_PROFILE_IMAGE = '/media/employee_images/default-profile.png'; // relative path on backend (matches backend filename)
   const BACKEND_BASE_URL = 'http://localhost:8000';
   // Inline SVG fallback used if the PNG looks wrong or fails to load
@@ -86,10 +88,10 @@ const CoordinatorAdminNavBar = () => {
     const onProfileUpdated = (e) => {
       console.debug('[CoordinatorAdminNav] profile:updated event', e && e.detail);
       try {
-        const detail = e?.detail || {};
-        const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
-        const current = authService.getCurrentUser();
-        const currentId = current?.id || current?.companyId || current?.company_id || null;
+  const detail = e?.detail || {};
+  const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+  const current = currentUser;
+  const currentId = current?.id || current?.companyId || current?.company_id || null;
 
         // If the event is for a different user, ignore it
         if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
@@ -266,7 +268,7 @@ const CoordinatorAdminNavBar = () => {
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{currentUser?.role}</span>
+          <span className={styles['admin-badge']}>{currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '')}</span>
         </div>
       </section>
 
@@ -283,9 +285,17 @@ const CoordinatorAdminNavBar = () => {
                 className={styles['avatar-image']} 
               />
             </div>
-            <div className={styles['mobile-profile-info']}>
-              <h3>{`${currentUser?.first_name} ${currentUser?.last_name}`}</h3>
-              <span className={styles['admin-badge']}>{currentUser?.role}</span>
+              <div className={styles['mobile-profile-info']}>
+                {(() => {
+                  const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
+                  const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
+                  return (
+                    <>
+                      <h3>{`${first} ${last}`.trim()}</h3>
+                      <span className={styles['admin-badge']}>{currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '')}</span>
+                    </>
+                  );
+                })()}
               <div className={styles['mobile-profile-actions']}>
                 <button 
                   className={styles['mobile-settings-btn']}
@@ -400,8 +410,17 @@ const CoordinatorAdminNavBar = () => {
                   <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${currentUser?.first_name} ${currentUser?.last_name}`}</h3>
-                  <span className={styles['admin-badge']}>{currentUser?.role}</span>
+                  {(() => {
+                    const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
+                    const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
+                    const roleDisplay = currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '');
+                    return (
+                      <>
+                        <h3>{`${first} ${last}`.trim()}</h3>
+                        <span className={styles['admin-badge']}>{roleDisplay}</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div className={styles['profile-menu']}>

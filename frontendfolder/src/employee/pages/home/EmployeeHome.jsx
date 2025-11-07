@@ -18,7 +18,8 @@ const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUser] = useState(() => authService.getCurrentUser());
+  // Prefer AuthContext user as source-of-truth
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (!currentUser) return;

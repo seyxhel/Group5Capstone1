@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import styles from './manage-profile.module.css';
 import { useAuth } from '../../../context/AuthContext';
+import authService from '../../../utilities/service/authService';
 import { useNavigate } from 'react-router-dom';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import { API_CONFIG } from '../../../config/environment';
@@ -10,7 +11,7 @@ import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 export default function EmployeeSettings({ editingUserId = null }) {
   const navigate = useNavigate();
-  const { user: authUser } = useAuth();
+  const { user: authUser, setUser: setAuthUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -82,7 +83,7 @@ export default function EmployeeSettings({ editingUserId = null }) {
   useEffect(() => {
     // Simulate loading delay; prefer freshest data from backend when authenticated
     const timer = setTimeout(() => {
-      const cached = authService.getCurrentUser();
+  const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
       const token = localStorage.getItem('access_token');
 
       if (token) {
@@ -97,7 +98,9 @@ export default function EmployeeSettings({ editingUserId = null }) {
             const resolved = resolveMediaUrl(imgCandidate);
             if (resolved) merged.profileImage = resolved;
 
-            setUser(merged);
+      setUser(merged);
+      // keep AuthContext in sync if we have an auth context setter
+      try { if (setAuthUser) setAuthUser(merged); } catch (e) {}
             setLoading(false);
           })
           .catch((_) => {
@@ -169,7 +172,7 @@ export default function EmployeeSettings({ editingUserId = null }) {
         // Update local user cache for immediate UI feedback
         setUser((prev) => ({ ...(prev || {}), profileImage: resolvedWithCache, image: resolvedWithCache }));
         try {
-          const cached = authService.getCurrentUser();
+          const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
           // Only overwrite the global `loggedInUser` if we're updating the authenticated user's own profile
           const cachedId = cached?.id || cached?.companyId || cached?.company_id;
             // Determine which profile id we're editing. Allow parent to override
@@ -177,7 +180,9 @@ export default function EmployeeSettings({ editingUserId = null }) {
             const profileId = editingUserId || (user && (user.id || user.companyId || user.company_id)) || null;
             if (cached && profileId && String(cachedId) === String(profileId)) {
               const updated = { ...cached, profileImage: resolvedWithCache, image: resolvedWithCache };
-              localStorage.setItem('loggedInUser', JSON.stringify(updated));
+              try { localStorage.setItem('user', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('loggedInUser', JSON.stringify(updated)); } catch (e) {}
+              try { if (setAuthUser) setAuthUser(updated); } catch (e) {}
             }
         } catch (e) {
           // ignore storage errors
@@ -193,10 +198,12 @@ export default function EmployeeSettings({ editingUserId = null }) {
         // Fallback: no backend token; store preview in local profile
         setUser((prev) => ({ ...(prev || {}), profileImage: previewUrl }));
         try {
-          const cached = authService.getCurrentUser();
+          const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
           if (cached) {
             const updated = { ...cached, profileImage: previewUrl };
-            localStorage.setItem('loggedInUser', JSON.stringify(updated));
+            try { localStorage.setItem('user', JSON.stringify(updated)); } catch (e) {}
+            try { localStorage.setItem('loggedInUser', JSON.stringify(updated)); } catch (e) {}
+            try { if (setAuthUser) setAuthUser(updated); } catch (e) {}
           }
         } catch (e) {}
         try { toast.success('Profile image updated successfully.'); } catch (e) {}

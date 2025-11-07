@@ -1,9 +1,9 @@
 import { useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
-import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
@@ -290,85 +290,58 @@ export default function CoordinatorAdminTicketTracker() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  // Loading by default while we fetch from backend
   const [isLoading, setIsLoading] = useState(true);
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
 
-  // Determine initial ticket using local storage helper (mock) and set into state
+  // Move auth hook to top-level so hooks order is stable across renders
+  const { user: authUser, isTicketCoordinator, isAdmin } = useAuth();
+
+  // Background load: try to refresh from backend but don't block the immediate render
   useEffect(() => {
     let mounted = true;
     const loadTicket = async () => {
+      if (!ticketNumber) return;
       try {
-        if (ticketNumber) {
-          // Try backend first
-          try {
-            const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
-            // backend returns a ticket object or throws
-            if (fetched) {
-              // Normalize backend ticket to the UI shape expected by this component
-              const t = fetched;
-              const normalized = {
-                id: t.id || t.ticket_number || t.ticketNumber || null,
-                ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
-                subject: t.subject || t.title || '',
-                category: t.category || t.category_name || '',
-                status: t.status || '',
-                createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
-                dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
-                lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
-                assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
-                assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
-                department: t.department || t.assignedDepartment || null,
-                activity: t.activity || t.logs || t.comments || [],
-                attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
-                description: t.description || t.details || '',
-                // normalize embedded/requester/employee info if present so details tab can render author information
-                // Preserve any embedded object as `employee` so existing detail code that checks ticket.employee works
-                employee: t.employee || t.requester || t.requested_by || t.created_by || null,
-                // employeeId may be provided as t.employee (id or object), employee_id, requester_id, etc.
-                employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
-                  || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
-                // Try to build a display name from embedded employee/requester objects when available
-                employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
-                  || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
-                  || t.employeeName || null,
-                employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
-                employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
-                employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
-                raw: t,
-              };
-              if (mounted) setTicket(normalized);
-              return;
-            }
-          } catch (err) {
-            // backend call failed — fall through to local storage fallback
-            console.warn('Backend ticket fetch failed, falling back to local storage', err);
-          }
-          // Fallback: try local storage helper
-          try {
-            const local = getTicketByNumber(ticketNumber);
-            if (mounted) setTicket(local || null);
-            return;
-          } catch (e) {
-            if (mounted) setTicket(null);
-            return;
-          }
-        }
-
-        // No ticketNumber in URL — use last ticket from local storage as before
-        try {
-          const tickets = getAllTickets();
-          const selected = tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
-          if (mounted) setTicket(selected);
-        } catch (e) {
-          if (mounted) setTicket(null);
-        }
-      } catch (outerErr) {
-        console.error('Error initializing ticket tracker', outerErr);
-        if (mounted) setTicket(null);
+        const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+        if (!fetched) return;
+        // Normalize backend ticket to the UI shape expected by this component
+        const t = fetched;
+        const normalized = {
+          id: t.id || t.ticket_number || t.ticketNumber || null,
+          ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
+          subject: t.subject || t.title || '',
+          category: t.category || t.category_name || '',
+          status: t.status || '',
+          createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
+          dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
+          lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
+          assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
+          assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
+          department: t.department || t.assignedDepartment || null,
+          activity: t.activity || t.logs || t.comments || [],
+          attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
+          description: t.description || t.details || '',
+          employee: t.employee || t.requester || t.requested_by || t.created_by || null,
+          employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
+            || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
+          employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
+            || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
+            || t.employeeName || null,
+          employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
+          employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
+          employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
+          raw: t,
+        };
+        if (mounted) setTicket(normalized);
+      } catch (err) {
+        // backend may be slow or unavailable; don't overwrite the local ticket
+        console.warn('Backend ticket fetch failed (background)', err);
       }
     };
 
+    // Kick off background fetch when viewing a specific ticketNumber
     loadTicket();
 
     return () => { mounted = false; };
@@ -637,7 +610,7 @@ export default function CoordinatorAdminTicketTracker() {
   const ticketLogs = generateLogs(ticket);
   
   // Use external auth service to determine role
-  const { user: authUser, isTicketCoordinator, isAdmin } = useAuth();
+  // (hook already called earlier near the top to keep hook order stable)
   const userRole = authService.getUserRole(); // fallback for old authService if needed
   
   // Only Ticket Coordinator can see coordinator review and perform actions (Open/Reject)

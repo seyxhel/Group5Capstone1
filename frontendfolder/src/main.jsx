@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
 import AuthExpiredModal from './shared/components/AuthExpiredModal';
 import createSessionTimeout from './utils/sessionTimeout';
 

@@ -10,6 +10,8 @@ import { backendAuthService } from '../../../services/backend/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
 import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
+import { convertToSecureUrl, isSecureUrl } from '../../../utilities/secureMedia';
+import { useAuth } from '../../../context/AuthContext';
 
 // Fallback profile image
 const DEFAULT_PROFILE_IMAGE = 'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg';
@@ -54,7 +56,8 @@ const EmployeeNavBar = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const profileImageUrl = currentUser?.image || currentUser?.profileImage || DEFAULT_PROFILE_IMAGE;
+  // track profile image via state so we can update it dynamically
+  const [profileImageUrl, setProfileImageUrl] = useState(currentUser?.image || currentUser?.profileImage || DEFAULT_PROFILE_IMAGE);
   const [backendAvailable, setBackendAvailable] = useState(true); // Always assume backend is available
   const scrolled = useScrollShrink(0, { debug: true });
 
@@ -155,14 +158,18 @@ const EmployeeNavBar = () => {
     return `${firstName}${middleName ? ' ' + middleName : ''} ${lastName}`.trim();
   };
 
-  const resolveUser = () => (authService.getCurrentUser ? authService.getCurrentUser() : null);
+  const getCachedUser = () => {
+    if (currentUser) return currentUser;
+    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; }
+  };
+  const resolveUser = () => getCachedUser();
 
   const getProfileImageSrc = () => {
     const user = resolveUser();
     // support multiple possible keys used across the app
-    const imgCandidate = user?.profile_image || user?.image || user?.profileImage || user?.profileImg || employeeBonjingData.profileImage;
+  const imgCandidate = user?.profile_image || user?.image || user?.profileImage || user?.profileImg || DEFAULT_PROFILE_IMAGE;
 
-    if (!imgCandidate) return employeeBonjingData.profileImage;
+  if (!imgCandidate) return DEFAULT_PROFILE_IMAGE;
 
     // Track any created object URLs so we can revoke them on unmount
     if (!getProfileImageSrc._createdUrlsRef) getProfileImageSrc._createdUrlsRef = [];
@@ -196,7 +203,7 @@ const EmployeeNavBar = () => {
     if (typeof imgCandidate === 'string' && imgCandidate.startsWith('data:')) return imgCandidate;
 
     // If backend is down, avoid constructing remote MEDIA URLs to prevent connection errors
-    if (!backendAvailable) return employeeBonjingData.profileImage;
+  if (!backendAvailable) return DEFAULT_PROFILE_IMAGE;
 
     // If it's a string, handle secure/absolute/relative paths
     if (typeof imgCandidate === 'string') {
@@ -223,7 +230,7 @@ const EmployeeNavBar = () => {
       return `${MEDIA_URL}${clean}`;
     }
 
-    return employeeBonjingData.profileImage;
+  return DEFAULT_PROFILE_IMAGE;
   };
 
   // Revoke any object URLs created for file blobs when the component unmounts
@@ -244,8 +251,8 @@ const EmployeeNavBar = () => {
       try {
         const detail = e?.detail || {};
         const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
-        const current = authService.getCurrentUser();
-        const currentId = current?.id || current?.companyId || current?.company_id || null;
+  const current = getCachedUser();
+  const currentId = current?.id || current?.companyId || current?.company_id || null;
 
         // If the event is for a different user, ignore it
         if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;

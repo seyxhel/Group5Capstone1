@@ -3,15 +3,14 @@ import EmployeeNavBar from '../components/header/EmployeeNavigationBar';
 import Breadcrumb from '../../shared/components/Breadcrumb';
 import { getEmployeeTickets } from '../../utilities/storages/ticketStorage';
 import { isActiveStatus } from '../../utilities/helpers/statusMapper';
-import authService from '../../utilities/service/authService';
+import { useAuth } from '../../context/AuthContext';
 import PageLayout from '../../shared/layouts/PageLayout';
 
-const getHeaderConfig = (path) => {
+const getHeaderConfig = (path, currentUser) => {
   const ticketMatch = matchPath({ path: '/employee/ticket-tracker/:ticketNumber', end: true }, path);
 
   if (ticketMatch) {
     const ticketNumber = ticketMatch.params.ticketNumber;
-    const currentUser = authService.getCurrentUser();
     const tickets = getEmployeeTickets(currentUser?.id);
     const ticket = tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
     const isActive = ticket && isActiveStatus(ticket.status);
@@ -46,7 +45,8 @@ const getHeaderConfig = (path) => {
 
 const EmployeeLayout = () => {
   const { pathname } = useLocation();
-  const headerConfig = getHeaderConfig(pathname);
+  const { user: currentUser } = useAuth();
+  const headerConfig = getHeaderConfig(pathname, currentUser);
 
   return (
     <PageLayout Navbar={EmployeeNavBar}>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from '../../../context/AuthContext';
 import { useNavigate, useParams } from "react-router-dom";
 import { FaCheck, FaTimes, FaEye } from "react-icons/fa";
 
@@ -26,13 +27,14 @@ const userAccessConfig = [
     const role = u.role?.toLowerCase();
     return role === "system admin" || role === "admin";
   }},
-  { key: "pending-users", label: "Pending Users", filter: (u) => u.status?.toLowerCase() === "pending" },
+  { key: "pending-users", label: "Pending Users", filter: (u) => u.status?.toLowerCase() === "pending" && u.role?.toLowerCase() === "employee" && !!u.hasHdts },
   { key: "rejected-users", label: "Rejected Users", filter: (u) => u.status?.toLowerCase() === "rejected" },
 ];
 
 const CoordinatorAdminUserAccess = () => {
   const { status = "all-users" } = useParams();
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
 
   const [currentUser, setCurrentUser] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
@@ -60,26 +62,63 @@ const CoordinatorAdminUserAccess = () => {
     let mounted = true;
     const timer = setTimeout(() => {
       (async () => {
-        try {
-          setIsLoading(true);
-          const user = authService.getCurrentUser();
-          setCurrentUser(user);
+  try {
+  setIsLoading(true);
+  // prefer AuthContext user when available
+  setCurrentUser(authUser || (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch(e){return null;} })());
 
-          // Fetch real users from backend
-          const fetched = await backendEmployeeService.getAllEmployees();
-          const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+          // Fetch real users from the AUTH service (HDTS user store)
+          // This pulls user records from the `auth` app/database instead of
+          // the main backend employees endpoint.
+          const fetched = await authUserService.getAllHdtsUsers();
+          // authUserService may return either an array or an object like
+          // { count: X, users: [...] } — handle both shapes and also
+          // { results: [...] } when applicable.
+          const raw = Array.isArray(fetched)
+            ? fetched
+            : (Array.isArray(fetched?.users)
+                ? fetched.users
+                : (Array.isArray(fetched?.results) ? fetched.results : (fetched || [])));
+
+          console.log('UserAccess - fetched raw users length:', Array.isArray(raw) ? raw.length : typeof raw, fetched);
 
           // Normalize to the UI shape expected by this page
-          const normalized = raw.map(u => ({
-            companyId: u.company_id || u.companyId || u.companyId || '',
-            lastName: u.last_name || u.lastName || u.last_name || '',
-            firstName: u.first_name || u.firstName || u.first_name || '',
-            department: u.department || '',
-            role: u.role || '',
-            status: u.status || '',
-            // keep original raw object for other actions if needed
-            _raw: u,
-          }));
+          const normalized = raw.map(u => {
+            // Derive role: prefer explicit `role`, but many auth users store
+            // roles inside `system_roles` array (with system_slug and role_name)
+            let derivedRole = u.role || u.role_name || null;
+            if (!derivedRole && Array.isArray(u.system_roles)) {
+              const hdts = u.system_roles.find(r => r.system_slug === 'hdts' || r.system === 'hdts');
+              if (hdts) derivedRole = hdts.role_name || hdts.role || null;
+            }
+
+            // Derive status: many APIs use `status`, `account_status` or boolean `is_active`.
+            let derivedStatus = u.status || u.account_status || null;
+            if (!derivedStatus && typeof u.is_active === 'boolean') {
+              derivedStatus = u.is_active ? 'Active' : 'Inactive';
+            }
+            // Normalize common variants
+            if (derivedStatus && typeof derivedStatus === 'string') {
+              derivedStatus = derivedStatus.trim();
+            }
+
+            // Company id fallback: try multiple fields, finally use id
+            const companyId = u.company_id || u.companyId || u.employee_id || u.employeeId || u.id || '';
+
+            const hasHdts = Array.isArray(u.system_roles) ? !!u.system_roles.find(r => (r.system_slug === 'hdts' || r.system === 'hdts' || r.system_slug === 'HDTS' || r.system === 'HDTS')) : false;
+
+            return {
+              companyId,
+              lastName: u.last_name || u.lastName || u.surname || u.last || '',
+              firstName: u.first_name || u.firstName || u.given_name || u.first || '',
+              department: u.department || u.dept || '',
+              role: derivedRole || '',
+              status: derivedStatus || '',
+              hasHdts,
+              // keep original raw object for other actions if needed
+              _raw: u,
+            };
+          });
 
           let usersToShow = normalized;
           if (user) {

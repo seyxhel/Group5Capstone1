@@ -10,6 +10,7 @@ function normalizeTicket(ticket) {
   };
 }
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from '../../../context/AuthContext';
 import { useParams, useNavigate } from "react-router-dom";
 import { backendTicketService } from "../../../services/backend/ticketService";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
@@ -107,10 +108,12 @@ const EmployeeTicketRecords = () => {
 
   const normalizedFilter = filter.replace("-ticket-records", "").toLowerCase();
 
+  // Current logged-in user from AuthContext
+  const { user: currentUser } = useAuth();
+
   // Fetch current employee's ticket records from backend
   useEffect(() => {
     const timer = setTimeout(() => {
-      const currentUser = authService.getCurrentUser();
       backendTicketService.getTicketsByEmployee(currentUser?.id)
         .then((tickets) => {
           const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);

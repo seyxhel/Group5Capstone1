@@ -11,6 +11,7 @@ import FormActions from '../../../shared/components/FormActions';
 import FormCard from '../../../shared/components/FormCard';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
 import ITSupportForm from './ITSupportForm';
 import AssetCheckInForm, { mockAssets } from './AssetCheckInForm';
 import AssetCheckOutForm from './AssetCheckOutForm';
@@ -32,7 +33,7 @@ import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
 export default function EmployeeTicketSubmissionForm() {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = authService.getCurrentUser();
+  const { user: currentUser } = useAuth();
   
   const [formData, setFormData] = useState({
     subject: '',

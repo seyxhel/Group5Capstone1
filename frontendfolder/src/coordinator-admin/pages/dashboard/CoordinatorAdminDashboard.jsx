@@ -26,6 +26,7 @@ ChartJS.register(
 );
 
 import styles from './CoordinatorAdminDashboard.module.css';
+import { useAuth } from '../../../context/AuthContext';
 import Tabs from '../../../shared/components/Tabs';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
@@ -36,6 +37,7 @@ import authService from '../../../utilities/service/authService';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import kbService from '../../../services/kbService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { authUserService } from '../../../services/auth/userService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
@@ -330,8 +332,8 @@ const CoordinatorAdminDashboard = () => {
         role: derivedRole
       };
     }
-    const fallbackUser = authService.getCurrentUser();
-    console.log('Dashboard - Fallback to old authService:', fallbackUser);
+    const fallbackUser = (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
+    console.log('Dashboard - Fallback to localStorage user:', fallbackUser);
     return fallbackUser;
   }, [user, isAdmin, isTicketCoordinator]);
   
@@ -370,81 +372,217 @@ const CoordinatorAdminDashboard = () => {
       setLoadingUsers(true);
       setUserError(null);
       try {
-        const fetched = await backendEmployeeService.getAllEmployees();
-        const all = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+        // Prefer the auth service HDTS users (auth DB) for user counts and
+        // pending approvals. Fall back to backend employee endpoint if auth
+        // service call fails.
+        let fetched;
+        try {
+          fetched = await authUserService.getAllHdtsUsers();
+        } catch (e) {
+          console.warn('Auth user service failed, falling back to backend employee service', e);
+          fetched = await backendEmployeeService.getAllEmployees();
+        }
+        // Extract array from possible response shapes: array, { users: [...] }, { results: [...] }
+        const all = Array.isArray(fetched)
+          ? fetched
+          : (Array.isArray(fetched?.users) ? fetched.users : (Array.isArray(fetched?.results) ? fetched.results : (fetched || [])));
+
+        console.log('Dashboard - loaded users count:', Array.isArray(all) ? all.length : typeof all, fetched);
 
         if (!mounted) return;
 
-        // Filter for role Employee and status Pending for the Pending Users card/table
-        const pending = all.filter(u => (u.role || '').toLowerCase() === 'employee' && (u.status || '').toLowerCase() === 'pending');
+        // Normalize users similarly to the User Access page and detect pending users
+        const normalizedAll = all.map(u => {
+          let derivedRole = u.role || u.role_name || null;
+          if (!derivedRole && Array.isArray(u.system_roles)) {
+            const hdts = u.system_roles.find(r => r.system_slug === 'hdts' || r.system === 'hdts');
+            if (hdts) derivedRole = hdts.role_name || hdts.role || null;
+          }
 
-        // Build table rows expected by DataTable
+          let derivedStatus = u.status || u.account_status || null;
+          if (!derivedStatus && typeof u.is_active === 'boolean') {
+            derivedStatus = u.is_active ? 'Active' : 'Inactive';
+          }
+          if (derivedStatus && typeof derivedStatus === 'string') derivedStatus = derivedStatus.trim();
+
+          const hasHdts = Array.isArray(u.system_roles) ? !!u.system_roles.find(r => (r.system_slug === 'hdts' || r.system === 'hdts' || r.system_slug === 'HDTS' || r.system === 'HDTS')) : false;
+
+          return {
+            _raw: u,
+            companyId: u.company_id || u.companyId || u.employee_id || u.employeeId || u.id || '',
+            lastName: u.last_name || u.lastName || u.surname || u.last || '',
+            firstName: u.first_name || u.firstName || u.given_name || u.first || '',
+            department: u.department || u.dept || '',
+            role: derivedRole || '',
+            status: derivedStatus || '',
+            hasHdts,
+          };
+        });
+
+        const pending = normalizedAll.filter(u => (u.role || '').toLowerCase() === 'employee' && (u.status || '').toLowerCase() === 'pending' && !!u.hasHdts);
+
+        // Build table rows expected by DataTable (use normalized shape)
         const tableRows = pending.slice(0, 100).map(u => ({
-          companyId: u.company_id || u.companyId || u.companyId || '',
-          lastName: u.last_name || u.lastName || u.lastName || u.lastName || u.last_name || '',
-          firstName: u.first_name || u.firstName || u.firstName || u.first_name || '',
+          companyId: u.companyId || '',
+          lastName: u.lastName || '',
+          firstName: u.firstName || '',
           department: u.department || '',
           role: u.role || '',
           status: { text: u.status || 'Pending', statusClass: `status${(u.status || 'Pending').replace(/\s+/g,'')}` }
         }));
 
-        // Build pie data using explicit employee statuses
-        // Pending: only employees with status === 'Pending'
-        // Rejected: only employees with status === 'Denied' or 'Rejected'
-        // Active: employees with status === 'Approved' (unchanged behavior)
-        const counts = { Active: 0, Pending: 0, Rejected: 0 };
-        all.forEach(u => {
-          const s = (u.status || '').toLowerCase();
+        // Build pie data according to HDTS rules:
+        // Active = all Admin and Ticket Coordinator users (any status) + Employees with status 'approved'/'active'
+        // Pending = Employees only with status 'pending'
+        // Rejected = Employees only with status 'rejected' or 'denied'
+        // Inactive = all HDTS users where is_active === false
+        const counts = { Active: 0, Pending: 0, Rejected: 0, Inactive: 0 };
+
+        normalizedAll.forEach(u => {
           const role = (u.role || '').toLowerCase();
-          // Active remains unchanged (count all approved users)
-          if (s === 'approved') {
+          const status = (u.status || '').toLowerCase();
+          const isHdts = !!u.hasHdts;
+
+          // Inactive: explicit isActive flag false on the account
+          if (u._raw && typeof u._raw.is_active === 'boolean' && u._raw.is_active === false && isHdts) {
+            counts.Inactive += 1;
+            // continue counting other categories? Inactive is a separate slice; do not double-count in Active/Pending/Rejected
+            return;
+          }
+
+          // Pending and Rejected - only for Employees in HDTS
+          if (isHdts && role === 'employee') {
+            if (status === 'pending') {
+              counts.Pending += 1;
+              return;
+            }
+            if (status === 'rejected' || status === 'denied') {
+              counts.Rejected += 1;
+              return;
+            }
+          }
+
+          // Active: All Admins and Ticket Coordinators in HDTS
+          if (isHdts && (role.includes('admin') || role.includes('ticket coordinator') || role.includes('system admin'))) {
             counts.Active += 1;
             return;
           }
-          // Pending and Rejected must be employees only
-          if (role === 'employee') {
-            if (s === 'pending') {
-              counts.Pending += 1;
-            } else if (s === 'denied' || s === 'rejected') {
-              counts.Rejected += 1;
-            }
+
+          // Employees who are approved/active count as Active
+          if (isHdts && role === 'employee' && (status === 'approved' || status === 'active')) {
+            counts.Active += 1;
+            return;
           }
         });
+
         const pieData = [
           { name: 'Active', value: counts.Active, fill: '#22C55E' },
           { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
-          { name: 'Rejected', value: counts.Rejected, fill: '#EF4444' }
+          { name: 'Rejected', value: counts.Rejected, fill: '#EF4444' },
+          { name: 'Inactive', value: counts.Inactive, fill: '#9CA3AF' }
         ];
 
-        // Build user activity timeline from employee.recent_logs (serializer provides recent_logs)
+        // Build user activity timeline from available audit/log fields on users.
+        // The auth DB may expose logs under `recent_logs`, `logs`, `activity`, or `audit_logs`.
         const allLogs = [];
-        all.forEach(u => {
-          const cid = u.company_id || u.companyId || '';
-          const logs = Array.isArray(u.recent_logs) ? u.recent_logs : [];
+        normalizedAll.forEach(u => {
+          const cid = u.companyId || u._raw?.company_id || u._raw?.companyId || '';
+          const raw = u._raw || {};
+          const possibleLogKeys = ['recent_logs', 'logs', 'activity', 'audit_logs', 'user_logs'];
+          let logs = [];
+          for (const k of possibleLogKeys) {
+            if (Array.isArray(raw[k])) { logs = raw[k]; break; }
+          }
+
+          // If no structured logs found, maybe there's a single `last_action` object
+          if (!logs.length && raw.last_action && typeof raw.last_action === 'object') logs = [raw.last_action];
+
           logs.forEach(l => {
-            // l: { action, details, performed_by, timestamp }
-            const timestamp = l.timestamp ? new Date(l.timestamp) : null;
+            // l: { action, details, performed_by, timestamp } or similar
+            const ts = l.timestamp || l.time || l.created_at || l.date || l.performed_at;
+            const timestamp = ts ? new Date(ts) : null;
             if (!timestamp || isNaN(timestamp.getTime())) return;
             let actionText = '';
-            switch ((l.action || '').toLowerCase()) {
+            const act = (l.action || l.type || l.event || '').toString().toLowerCase();
+            switch (act) {
               case 'created':
-                // No brackets around the company id
+              case 'account_created':
                 actionText = `User ${cid} account created`;
                 break;
               case 'approved':
-                // Never expose who approved; always show 'by Admin'
+              case 'account_approved':
                 actionText = `User ${cid} approved by Admin`;
                 break;
               case 'rejected':
-                // Never expose who rejected; always show 'by Admin'
+              case 'denied':
+              case 'account_rejected':
                 actionText = `User ${cid} rejected by Admin`;
                 break;
               default:
-                // For other actions fall back to details (do not reveal performed_by)
-                actionText = l.details || `${l.action}`;
+                actionText = l.details || l.message || l.description || `${l.action || l.type || ''}`;
             }
             allLogs.push({ time: timestamp, timeSort: timestamp.getTime(), action: actionText });
           });
+          
+          // Additional fallback: if structured logs are absent, synthesize events
+          // from common timestamp fields on the user object (created_at, date_joined, approved_at, rejected_at)
+          const fallbackTimestamps = {
+            created: raw.created_at || raw.date_joined || raw.date_created || raw.created || raw.registered_at,
+            approved: raw.approved_at || raw.approved_on || raw.date_approved,
+            rejected: raw.rejected_at || raw.denied_at || raw.date_rejected,
+          };
+
+          if (fallbackTimestamps.created) {
+            const ts = new Date(fallbackTimestamps.created);
+            if (!isNaN(ts.getTime())) allLogs.push({ time: ts, timeSort: ts.getTime(), action: `User ${cid} account created` });
+          }
+          // Determine if an approver/rejector was recorded on the user object
+          const approver = raw.approved_by || raw.approved_by_id || raw.approved_by_username || raw.approved_by_email || (raw.approved_by && (raw.approved_by.username || raw.approved_by.email));
+          const rejector = raw.rejected_by || raw.rejected_by_id || raw.rejected_by_username || raw.rejected_by_email || (raw.rejected_by && (raw.rejected_by.username || raw.rejected_by.email));
+
+          if (fallbackTimestamps.approved) {
+            const ts = new Date(fallbackTimestamps.approved);
+            if (!isNaN(ts.getTime())) {
+              const by = approver ? ` by ${typeof approver === 'string' ? approver : 'Admin'}` : '';
+              allLogs.push({ time: ts, timeSort: ts.getTime(), action: `User ${cid} approved${by}` });
+            }
+          }
+          if (fallbackTimestamps.rejected) {
+            const ts = new Date(fallbackTimestamps.rejected);
+            if (!isNaN(ts.getTime())) {
+              const by = rejector ? ` by ${typeof rejector === 'string' ? rejector : 'Admin'}` : '';
+              allLogs.push({ time: ts, timeSort: ts.getTime(), action: `User ${cid} rejected${by}` });
+            }
+          }
+
+          // debug: show what we found per-user so it's easy to see why no approved/rejected appears
+          console.debug('Dashboard - timeline candidate flags for', cid, {
+            created: fallbackTimestamps.created,
+            approved: fallbackTimestamps.approved,
+            rejected: fallbackTimestamps.rejected,
+            approver: approver || null,
+            rejector: rejector || null,
+            status: u.status || u._raw?.status
+          });
+          // If there are no explicit approved/rejected timestamps, try to infer
+          // approval/rejection from status + updated/modified timestamps.
+          const updatedCandidates = raw.updated_at || raw.modified_at || raw.updated || raw.date_updated || raw.last_modified || raw.modified_on || raw.changed_at;
+          const lastLoginCandidate = raw.last_login || raw.last_logged_in || raw.lastSignIn || raw.last_sign_in;
+          const createdTs = fallbackTimestamps.created ? new Date(fallbackTimestamps.created) : null;
+          const updatedTs = updatedCandidates ? new Date(updatedCandidates) : null;
+          const lastLoginTs = lastLoginCandidate ? new Date(lastLoginCandidate) : null;
+          // If status indicates approved/active and updated time is after created, mark as approved
+          const normStatus = (u.status || '').toString().toLowerCase();
+          if (!fallbackTimestamps.approved && (normStatus === 'approved' || normStatus === 'active') && updatedTs && createdTs && !isNaN(updatedTs.getTime()) && updatedTs.getTime() > createdTs.getTime()) {
+            allLogs.push({ time: updatedTs, timeSort: updatedTs.getTime(), action: `User ${cid} approved by Admin` });
+          } else if (!fallbackTimestamps.approved && (normStatus === 'approved' || normStatus === 'active') && lastLoginTs && createdTs && !isNaN(lastLoginTs.getTime()) && lastLoginTs.getTime() > createdTs.getTime()) {
+            // fallback: use first login time as proxy for approval
+            allLogs.push({ time: lastLoginTs, timeSort: lastLoginTs.getTime(), action: `User ${cid} approved by Admin` });
+          }
+          // If status indicates rejected/denied and updated time exists, mark as rejected
+          if (!fallbackTimestamps.rejected && (normStatus === 'rejected' || normStatus === 'denied') && updatedTs && !isNaN(updatedTs.getTime())) {
+            allLogs.push({ time: updatedTs, timeSort: updatedTs.getTime(), action: `User ${cid} rejected by Admin` });
+          }
         });
 
         allLogs.sort((a, b) => b.timeSort - a.timeSort);
@@ -457,6 +595,7 @@ const CoordinatorAdminDashboard = () => {
 
         if (mounted) {
           setUserDataState({ stats: [{ label: 'Pending Users', count: pending.length, isHighlight: false, position: 0, path: '/admin/user-access/pending-users' }], tableData: tableRows, pieData, lineData: userData?.lineData || [] });
+          console.debug('Dashboard - built activity (first pass):', activity);
           setUserActivityTimeline(activity);
         }
       } catch (err) {
@@ -710,6 +849,7 @@ const CoordinatorAdminDashboard = () => {
 
           const timeline = events.slice(0, 5).map(e => ({ time: fmt(e.time), action: `Ticket ${e.ticketId} ${actionLabel(e.actionKey)}` }));
           setActivityTimeline(timeline);
+          console.debug('Dashboard - built activity (second pass):', timeline);
           setUserActivityTimeline(timeline);
 
           if (!mounted) return;
@@ -961,8 +1101,8 @@ const CoordinatorAdminDashboard = () => {
                     isAdmin={currentUser?.role === 'System Admin' || currentUser?.role === 'Admin' || isAdmin}
                     // Browse All should lead to the appropriate admin list pages
                     onBrowse={() => navigate(activeTab === 'tickets' ? '/admin/ticket-management/all-tickets' : '/admin/user-access/all-users')}
-                    // For Users tab show Active, Pending, and Rejected slices
-                    visibleNames={activeTab === 'tickets' ? null : ['Active', 'Pending', 'Rejected']}
+                    // For Users tab show Active, Pending, Rejected and Inactive slices
+                    visibleNames={activeTab === 'tickets' ? null : ['Active', 'Pending', 'Rejected', 'Inactive']}
                   />
                   <TrendLineChart
                     data={(() => {

@@ -10,7 +10,10 @@ import React, {
 import axios from "axios";
 
 const AuthContext = createContext();
-const AUTH_URL = import.meta.env.VITE_AUTH_URL || "";
+// Default to backend running on localhost:8003 when VITE_AUTH_URL is not provided
+// This prevents the frontend dev server from answering API requests with HTML
+// during local development.
+const AUTH_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:8003";
 const PROFILE_URL = `${AUTH_URL}/api/v1/users/profile/`;
 const LOGIN_URL = `${AUTH_URL}/api/v1/token/obtain/`;
 const LOGOUT_URL = `${AUTH_URL}/api/v1/token/logout/`; // optional
