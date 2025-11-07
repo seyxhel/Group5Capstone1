@@ -392,15 +392,11 @@
   height: 500px;
   overflow-y: auto;
   background-color: #ffffff;
+  gap: 16px;
+  /* remove top padding so content is flush under tabs */
+  padding: 0 24px 24px 24px;
 }
 
-/* Logs Content */
-.logsContent {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px;
-}
 
 .logEntry {
   padding: 16px;
@@ -416,23 +412,36 @@
 }
 
 .logUser {
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.8125rem; /* slightly smaller for compact logs */
+  font-weight: 600;
   color: #111827;
   margin-bottom: 6px;
 }
 
 .logAction {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: #374151;
   margin-bottom: 6px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .logTimestamp {
   font-size: 0.75rem;
   color: #9ca3af;
   font-weight: 500;
+}
+
+/* Polished sentence text for log entries */
+.logText {
+  font-size: 0.8125rem;
+  color: #374151;
+  font-weight: 400;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.logText strong {
+  font-weight: var(--font-semibold);
 }
 
 /* Not Found */

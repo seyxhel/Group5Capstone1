@@ -4,7 +4,7 @@ import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import authService from '../../../utilities/service/authService';
-import { useAuth } from '../../../context/AuthContext';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorAdminOpenTicketModal';
 import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorAdminRejectTicketModal';
 import ViewCard from '../../../shared/components/ViewCard';
@@ -30,39 +30,26 @@ const getStatusSteps = (status) =>
     id,
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
-const formatDate = (date) =>
-  date ? new Date(date).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'None';
-// Date-only formatter used for schedule displays (keeps behaviour similar to employee view)
+const formatDate = (date) => {
+  if (!date) return 'None';
+  const d = new Date(date);
+  if (isNaN(d)) return 'None';
+  const monthName = d.toLocaleString('en-US', { month: 'long' });
+  const day = d.getDate();
+  const yearFull = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const yy = String(yearFull).slice(-2);
+  return `${monthName} ${day}, ${yearFull}`;
+};
+// Provide a date-only formatter used in a few places (keeps same style as formatDate)
 const formatDateOnly = (date) => {
   if (!date) return null;
   try {
-    if (date instanceof Date) {
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    if (typeof date === 'string') {
-      const trimmed = date.trim();
-      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
-      const m = ymd.exec(trimmed);
-      if (m) {
-        const y = parseInt(m[1], 10);
-        const mo = parseInt(m[2], 10) - 1;
-        const d = parseInt(m[3], 10);
-        const dt = new Date(y, mo, d);
-        return dt.toLocaleString('en-US', { dateStyle: 'short' });
-      }
-      const parsed = new Date(trimmed);
-      if (isNaN(parsed.getTime())) return 'Invalid Date';
-      return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    const asNum = Number(date);
-    if (!isNaN(asNum)) {
-      const parsed = new Date(asNum);
-      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-    return 'Invalid Date';
+    const v = formatDate(date);
+    return v === 'None' ? null : v;
   } catch (e) {
-    return 'Invalid Date';
+    return String(date);
   }
 };
 const toTitleCase = (str) => {
@@ -82,137 +69,86 @@ const formatMoney = (value) => {
 const generateLogs = (ticket) => {
   // Build logs with raw timestamps, then sort newest-first before formatting for display
   const logs = [];
-  // helper to determine if the actor matches the current logged-in user
-  const currentUser = authService.getCurrentUser();
-  const matchesCurrentUser = (actor) => {
-    if (!currentUser || actor === null || actor === undefined) return false;
-    const curId = currentUser.id || currentUser.user_id || null;
-    const curCompany = currentUser.companyId || currentUser.company_id || currentUser.companyid || currentUser.company || null;
-    const curEmail = (currentUser.email || '').toLowerCase();
-    const curName = ((currentUser.firstName || currentUser.first_name || '') + ' ' + (currentUser.lastName || currentUser.last_name || '')).trim().toLowerCase();
-
-    // actor can be primitive id, string, or object
-    if (typeof actor === 'number' || (typeof actor === 'string' && /^\d+$/.test(actor))) {
-      if (curId && Number(actor) === Number(curId)) return true;
-    }
-
-    if (typeof actor === 'string') {
-      const a = actor.toLowerCase();
-      if (curCompany && a === String(curCompany).toLowerCase()) return true;
-      if (a === curEmail) return true;
-      if (curName && a === curName) return true;
-      if (curName && a.includes(curName)) return true;
-      return false;
-    }
-
-    if (typeof actor === 'object') {
-      if (curId && actor.id && Number(actor.id) === Number(curId)) return true;
-      const aCompany = actor.companyId || actor.company_id || actor.company || null;
-      const aEmail = (actor.email || '').toLowerCase();
-      const aName = ((actor.first_name || actor.firstName || '') + ' ' + (actor.last_name || actor.lastName || '')).trim().toLowerCase();
-      if (curCompany && aCompany && String(aCompany).toLowerCase() === String(curCompany).toLowerCase()) return true;
-      if (aEmail && curEmail && aEmail === curEmail) return true;
-      if (aName && curName && aName === curName) return true;
-      if (aName && curName && aName.includes(curName)) return true;
-    }
-
-    return false;
-  };
-
-  // Include persisted comments (they often include status-change messages)
-  const comments = Array.isArray(ticket.comments) ? ticket.comments : (Array.isArray(ticket.comment) ? ticket.comment : []);
-  // If there is an explicit rejection/approval comment, filter out the terse "Status changed to <X>"
-  // comment entries so we don't show duplicate lines in the logs (e.g. both "Ticket rejected by..." and
-  // "Status changed to Rejected").
-  const hasRejectionDetail = comments.some((c) => {
-    const txt = (c.comment || c.message || c.body || c.text || '').toString().toLowerCase();
-    return txt.includes('rejected by') || txt.includes('rejection reason') || txt.includes('rejection:') || txt.includes('rejection_reason');
-  });
-  comments.forEach((c) => {
-    try {
-      const commentUser = c.user || c.author || null;
-      const actionText = (c.comment || c.message || c.body || c.text || '').toString();
-      // Skip terse status-change comment when we already have a detailed rejection comment
-      if (hasRejectionDetail && /status changed to\s*rejected/i.test(actionText)) return;
-      // For admin/coordinator logs, avoid showing general employee chat comments (e.g. "why?").
-      // Allow employee-originated comments only when they represent a withdrawal or other
-      // explicit status action (contain keywords like 'withdraw' / 'withdrawn').
-      try {
-        const roleStr = (commentUser && (commentUser.role || commentUser.user_role || '') + '') || '';
-        const isEmployee = roleStr.toString().toLowerCase().includes('employee') || roleStr.toString().toLowerCase().includes('user');
-        if (isEmployee) {
-          const allowedForEmployee = /\b(withdrawn|withdraw|ticket withdrawn|withdrawal)\b/i.test(actionText);
-          if (!allowedForEmployee) return; // skip generic employee comments
-        }
-      } catch (e) {
-        // ignore role parsing errors and continue
-      }
-      let userLabel = 'Support Team';
-      if (commentUser) {
-        if (matchesCurrentUser(commentUser)) {
-          userLabel = 'You';
-        } else {
-          const role = ((commentUser.role || commentUser.user_role || '') + '').toString().toLowerCase();
-          if (role.includes('ticket') || role.includes('coordinator') || role.includes('admin') || role.includes('system')) {
-            userLabel = 'Coordinator';
-          } else if (role.includes('employee') || role.includes('user')) {
-            userLabel = 'Employee';
-          } else {
-            const name = commentUser.first_name || commentUser.firstName || commentUser.name || commentUser.full_name || commentUser.fullName;
-            userLabel = name ? name : 'Support Team';
-          }
-        }
-      }
-
-      logs.push({
-        id: c.id || `c-${Math.random().toString(36).slice(2, 9)}`,
-        user: userLabel,
-        action: c.comment || c.message || c.body || c.text || '',
-        rawTimestamp: c.created_at || c.createdAt || c.timestamp || null,
-        rawActor: commentUser || null,
-      });
-    } catch (e) {
-      // ignore malformed comment
-    }
-  });
-
-  // Synthetic system-created entry (if no existing comment representing creation)
+  const createdAt = ticket.dateCreated || ticket.createdAt || new Date().toISOString();
+  // Creation
   logs.push({
-    id: 'system-created',
+    id: logs.length + 1,
     user: 'System',
-    action: `Ticket #${ticket.ticket_number || ticket.ticketNumber} created - ${ticket.category}`,
-    rawTimestamp: ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.submit_date,
+    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
+    timestamp: formatDate(createdAt),
+    text: `Ticket #${ticket.ticketNumber} was created on ${formatDate(createdAt)}${ticket.category ? ` in the ${ticket.category} category` : ''}.`,
+    highlight: ticket.category || null,
   });
 
-  // Assigned entry
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  if (assignedToName) {
-    const assignedActor = typeof ticket.assignedTo === 'object' ? ticket.assignedTo : null;
-    const assignedLabel = assignedActor && matchesCurrentUser(assignedActor) ? 'You' : assignedToName;
-    logs.push({ id: 'assigned', user: assignedLabel, action: `Assigned to ${ticket.department} department`, rawTimestamp: ticket.dateCreated || ticket.submit_date, rawActor: assignedActor });
+  if (assignedToName || ticket.department) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const deptPart = ticket.department ? ` to the ${ticket.department} department` : '';
+    const agentPart = assignedToName ? ` by ${assignedToName}` : '';
+    logs.push({
+      id: logs.length + 1,
+      user: assignedToName || 'Coordinator',
+      action: `Assigned${deptPart}${agentPart}`,
+      timestamp: formatDate(at),
+      text: `Assigned${deptPart}${agentPart} on ${formatDate(at)}.`,
+      highlight: ticket.department || assignedToName || null,
+    });
   }
 
-  // If current ticket status is not New/Pending and there wasn't an explicit status-change comment
-  // ensure we still surface a status-change entry (fallback)
-  const hasStatusComment = logs.some((l) => typeof l.action === 'string' && l.action.toLowerCase().includes('status changed'));
-  // If we already detected a detailed rejection/approval comment, skip adding the synthetic
-  // fallback 'Status changed to ...' entry to avoid duplicates.
-  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending' && !hasStatusComment && !hasRejectionDetail) {
-    const performer = ticket.approved_by || ticket.rejected_by || ticket.coordinator || ticket.employee || null;
-    const isMe = matchesCurrentUser(performer);
-    const userLabel = isMe ? 'You' : (typeof performer === 'string' ? 'Coordinator' : (performer && performer.first_name ? (matchesCurrentUser(performer) ? 'You' : (performer.first_name + ' ' + (performer.last_name || ''))) : 'Coordinator'));
-    logs.push({ id: 'status-change', user: userLabel, action: `Status changed to ${ticket.status}`, rawTimestamp: ticket.lastUpdated || ticket.update_date || ticket.updatedAt || null, rawActor: performer });
+  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending') {
+    const at = ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Status changed to ${ticket.status}`,
+      timestamp: formatDate(at),
+      text: `Status changed to ${ticket.status} on ${formatDate(at)}.`,
+      highlight: ticket.status,
+    });
   }
 
-  // Sort newest -> oldest by rawTimestamp
-  logs.sort((a, b) => {
-    const ta = a.rawTimestamp ? new Date(a.rawTimestamp) : new Date(0);
-    const tb = b.rawTimestamp ? new Date(b.rawTimestamp) : new Date(0);
-    return tb.getTime() - ta.getTime();
-  });
+  // Include any activity entries if present
+  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
+    ticket.activity.forEach((a) => {
+      // Normalize user to a display string (backend may provide object or string)
+      const whoRaw = a.user || a.performedBy || a.performed_by || a.requester || 'User';
+      let who = 'User';
+      if (typeof whoRaw === 'string') who = whoRaw;
+      else if (typeof whoRaw === 'object' && whoRaw !== null) {
+        const first = whoRaw.first_name || whoRaw.firstName || whoRaw.first || '';
+        const last = whoRaw.last_name || whoRaw.lastName || whoRaw.last || '';
+        const full = `${first} ${last}`.trim();
+        if (full) who = full;
+        else if (whoRaw.name) who = whoRaw.name;
+        else if (whoRaw.role) who = whoRaw.role;
+        else if (whoRaw.id) who = `User ${whoRaw.id}`;
+        else who = 'User';
+      }
 
-  // Format timestamps for display but preserve rawActor for downstream components
-  return logs.map((l) => ({ id: l.id, user: l.user, action: l.action, timestamp: formatDate(l.rawTimestamp), rawActor: l.rawActor || null }));
+      const whenRaw = a.timestamp || a.date || a.createdAt || null;
+      const when = formatDate(whenRaw);
+      const details = a.details || a.note || a.action || '';
+      let sentence = '';
+      const whenSuffix = when && when !== 'None' ? ` on ${when}` : '';
+      if (a.type && typeof a.type === 'string' && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented${whenSuffix}: "${details || 'No details provided.'}"`;
+      } else if (details) {
+        sentence = `${who} performed an action${whenSuffix}: ${details}.`;
+      } else {
+        sentence = `${who} performed an activity${whenSuffix}.`;
+      }
+      logs.push({
+        id: logs.length + 1,
+        user: who,
+        action: a.action || a.type || 'Activity',
+        // only set timestamp when there is a valid date string
+        timestamp: when && when !== 'None' ? when : null,
+        text: sentence,
+      });
+    });
+  }
+
+  return logs;
 };
 const renderAttachments = (files) => {
   if (!files) return <div className={styles.detailValue}>No attachments</div>;
@@ -350,58 +286,103 @@ const computeEffectiveStatus = (ticket) => {
 
 export default function CoordinatorAdminTicketTracker() {
   const { ticketNumber } = useParams();
+  const [ticket, setTicket] = useState(null);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isLoading, setIsLoading] = useState(true);
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
-  const tickets = getAllTickets();
-  const [ticket, setTicket] = useState(null);
-  const [loadingTicket, setLoadingTicket] = useState(false);
 
-  // Support both direct links (/ticket-tracker/:ticketNumber) and normal flow
-  // (show latest ticket). If local storage doesn't contain the ticket, try
-  // fetching from the backend by ticket number.
+  // Determine initial ticket using local storage helper (mock) and set into state
   useEffect(() => {
     let mounted = true;
+    const loadTicket = async () => {
+      try {
+        if (ticketNumber) {
+          // Try backend first
+          try {
+            const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
+            // backend returns a ticket object or throws
+            if (fetched) {
+              // Normalize backend ticket to the UI shape expected by this component
+              const t = fetched;
+              const normalized = {
+                id: t.id || t.ticket_number || t.ticketNumber || null,
+                ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
+                subject: t.subject || t.title || '',
+                category: t.category || t.category_name || '',
+                status: t.status || '',
+                createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
+                dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
+                lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
+                assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
+                assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
+                department: t.department || t.assignedDepartment || null,
+                activity: t.activity || t.logs || t.comments || [],
+                attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
+                description: t.description || t.details || '',
+                // normalize embedded/requester/employee info if present so details tab can render author information
+                // Preserve any embedded object as `employee` so existing detail code that checks ticket.employee works
+                employee: t.employee || t.requester || t.requested_by || t.created_by || null,
+                // employeeId may be provided as t.employee (id or object), employee_id, requester_id, etc.
+                employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
+                  || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
+                // Try to build a display name from embedded employee/requester objects when available
+                employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
+                  || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
+                  || t.employeeName || null,
+                employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
+                employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
+                employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
+                raw: t,
+              };
+              if (mounted) setTicket(normalized);
+              return;
+            }
+          } catch (err) {
+            // backend call failed — fall through to local storage fallback
+            console.warn('Backend ticket fetch failed, falling back to local storage', err);
+          }
+          // Fallback: try local storage helper
+          try {
+            const local = getTicketByNumber(ticketNumber);
+            if (mounted) setTicket(local || null);
+            return;
+          } catch (e) {
+            if (mounted) setTicket(null);
+            return;
+          }
+        }
 
-    const findLocal = () => {
-      if (!ticketNumber) return tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
-      return getTicketByNumber(ticketNumber) || tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
+        // No ticketNumber in URL — use last ticket from local storage as before
+        try {
+          const tickets = getAllTickets();
+          const selected = tickets && tickets.length > 0 ? tickets[tickets.length - 1] : null;
+          if (mounted) setTicket(selected);
+        } catch (e) {
+          if (mounted) setTicket(null);
+        }
+      } catch (outerErr) {
+        console.error('Error initializing ticket tracker', outerErr);
+        if (mounted) setTicket(null);
+      }
     };
 
-    const local = findLocal();
-    if (local) {
-      setTicket(local);
-      return () => { mounted = false; };
-    }
-
-    if (ticketNumber) {
-      setLoadingTicket(true);
-      (async () => {
-        try {
-          const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
-          if (mounted) setTicket(fetched || null);
-        } catch (err) {
-          // keep behavior consistent with employee view: log error and show not found
-          // so the UI doesn't crash — user can retry from Ticket Management page.
-          // No rethrow here to avoid unhandled promise errors in the UI.
-          // eslint-disable-next-line no-console
-          console.error('Error fetching ticket by number:', err);
-          if (mounted) setTicket(null);
-        } finally {
-          if (mounted) setLoadingTicket(false);
-        }
-      })();
-    } else {
-      setTicket(local);
-    }
+    loadTicket();
 
     return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketNumber, JSON.stringify(tickets)]);
+  }, [ticketNumber]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber, ticket]);
+
   // Sync heights between left and right columns so both match the taller one.
-  // This effect is declared unconditionally so Hooks order remains stable
+  // This effect must be declared unconditionally (above any early returns)
   useEffect(() => {
     let rAF = null;
     let resizeTimer = null;
@@ -410,19 +391,16 @@ export default function CoordinatorAdminTicketTracker() {
     let observer = null;
 
     const sync = () => {
-      // Use requestAnimationFrame for smoother reads/writes
       if (rAF) cancelAnimationFrame(rAF);
       rAF = requestAnimationFrame(() => {
         const left = leftColRef.current;
         const right = rightColRef.current;
         if (!left || !right) return;
-        // Reset any previously set minHeight so natural layout can collapse first
         left.style.minHeight = '';
         right.style.minHeight = '';
         const leftH = left.getBoundingClientRect().height;
         const rightH = right.getBoundingClientRect().height;
         const maxH = Math.max(leftH, rightH);
-        // Apply the taller height as min-height so content can still grow if needed
         left.style.minHeight = `${maxH}px`;
         right.style.minHeight = `${maxH}px`;
       });
@@ -430,7 +408,6 @@ export default function CoordinatorAdminTicketTracker() {
 
     // Initial sync and on ticket/tab changes
     sync();
-    // re-sync shortly after to account for images/fonts loading that change layout
     const lateTimer = setTimeout(sync, 220);
 
     // watch images inside columns so when they load we re-sync
@@ -442,7 +419,6 @@ export default function CoordinatorAdminTicketTracker() {
       if (!left || !right) return;
       const nodeImgs = [...left.querySelectorAll('img'), ...right.querySelectorAll('img')];
       nodeImgs.forEach((img) => {
-        // if already complete, ignore
         if (img.complete) return;
         const h = () => sync();
         img.addEventListener('load', h);
@@ -457,8 +433,7 @@ export default function CoordinatorAdminTicketTracker() {
     // MutationObserver to detect dynamic content changes (attachments, tabs, etc.)
     try {
       const target = leftColRef.current?.parentElement || document.body;
-      observer = new MutationObserver((mutations) => {
-        // debounce inside
+      observer = new MutationObserver(() => {
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(sync, 120);
       });
@@ -495,19 +470,79 @@ export default function CoordinatorAdminTicketTracker() {
     };
   }, [ticketNumber, ticket, activeTab]);
 
+  if (isLoading && !ticket) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
+
   if (!ticket) {
     return (
       <div className={styles.employeeTicketTrackerPage}>
         <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>{loadingTicket ? 'Loading Ticket...' : 'No Ticket Found'}</h1>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
         </div>
         <p className={styles.notFound}>
-          {loadingTicket ? 'Fetching ticket details...' : 'No ticket data available. Please navigate from the Ticket Management page or check your ticket number.'}
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
+        </p>
+      </div>
+    );
+  }
+  
+
+
+  if (isLoading) {
+    return (
+      <ViewCard>
+        <div className={styles.contentGrid}>
+          <div className={styles.leftColumn}>
+            <Skeleton width="100px" height="32px" />
+            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ marginTop: '16px' }}>
+                <Skeleton width="150px" height="20px" />
+                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
+              </div>
+            ))}
+          </div>
+          <div className={styles.rightColumn}>
+            <Skeleton width="100%" height="300px" />
+          </div>
+        </div>
+      </ViewCard>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className={styles.employeeTicketTrackerPage}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>No Ticket Found</h1>
+        </div>
+        <p className={styles.notFound}>
+          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
         </p>
       </div>
     );
   }
   const {
+    ticketNumber: ticketNumberFromTicket,
     subject,
     category,
     subCategory,
@@ -519,7 +554,20 @@ export default function CoordinatorAdminTicketTracker() {
     priorityLevel,
     department,
     assignedTo,
+    scheduledRequest,
   } = ticket;
+  // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
+  const effectiveStatus = computeEffectiveStatus(ticket) || originalStatus;
+  const effectiveStatusSteps = getStatusSteps(effectiveStatus);
+  const effectiveAttachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
+  const effectiveFormCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
+  const effectiveTicketLogs = generateLogs(ticket);
+  const effectiveUserRole = authService.getUserRole();
+  const canSeeEffectiveCoordinatorReview = effectiveUserRole === 'Ticket Coordinator' || effectiveUserRole === 'System Admin';
+  const canPerformEffectiveActions = effectiveUserRole === 'Ticket Coordinator';
+
+
+  
 
   // Normalize created/updated timestamps from various payload shapes
   const dateCreatedRaw = ticket.dateCreated || ticket.dateCreated || ticket.submit_date || ticket.createdAt || ticket.created_at || ticket.created || ticket.date_created || ticket.submitted_at || ticket.submitDate || null;
@@ -581,6 +629,8 @@ export default function CoordinatorAdminTicketTracker() {
   const uiCategory = (category === 'General Request') ? 'Others' : category;
   // Compute effective status: treat New older than 24 hours as Pending for coordinator/admin view
   const status = computeEffectiveStatus(ticket) || originalStatus;
+  // Safely build a CSS class key from the status string (guard against undefined)
+  const safeStatusClass = `status${String(status || '').replace(/\s+/g, '')}`;
   const statusSteps = getStatusSteps(status);
   const attachments = ticket.fileAttachments || ticket.attachments || ticket.files || fileUploaded;
   const formCategories = ['IT Support', 'Asset Check In', 'Asset Check Out', 'New Budget Proposal', 'Others', 'General Request'];
@@ -595,7 +645,7 @@ export default function CoordinatorAdminTicketTracker() {
   const canSeeCoordinatorReview = isTicketCoordinator || userRole === 'Ticket Coordinator';
   const canPerformActions = isTicketCoordinator; // ONLY Ticket Coordinator, not Admin
 
-  // Handler used by modal children to indicate success (open/reject actions completed).
+  // Handler used by modal children to indicate success (open/re
   // Accepts an optional updatedTicket object. If not provided we attempt to re-fetch
   // the ticket by number so the UI reflects the latest backend state.
   const handleModalSuccess = async (updatedTicket) => {
@@ -661,8 +711,8 @@ export default function CoordinatorAdminTicketTracker() {
                     </div>
                     <h2 className={styles.ticketSubject}>{subject || `Ticket No. ${number}`}</h2>
                   </div>
-                  <div className={`${styles.statusBadge} ${styles[`status${status.replace(/\s+/g, '')}`]}`}>
-                    {status}
+                    <div className={`${styles.statusBadge} ${styles[safeStatusClass]}`}>
+                    {status || 'Unknown'}
                   </div>
                 </div>
                 {/* Ticket meta: compact metadata shown under header */}
@@ -870,11 +920,9 @@ export default function CoordinatorAdminTicketTracker() {
                 fullHeight={true}
                 className={detailStyles.tabsFill}
               >
-                {activeTab === 'details' && (
+                {activeTab === 'details' ? (
                   <CoordinatorAdminTicketDetails ticket={ticket} ticketLogs={ticketLogs} canSeeCoordinatorReview={canSeeCoordinatorReview} formatDate={formatDate} />
-                )}
-
-                {activeTab === 'logs' && (
+                ) : (
                   <CoordinatorAdminTicketLogs ticketLogs={ticketLogs} />
                 )}
               </Tabs>

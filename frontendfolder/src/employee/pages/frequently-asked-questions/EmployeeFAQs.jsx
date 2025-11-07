@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import styles from './EmployeeFAQs.module.css';
+import ViewCard from '../../../shared/components/ViewCard';
+import InputField from '../../../shared/components/InputField';
 import kbService from '../../../services/kbService';
 
 const EmployeeFAQs = () => {
@@ -13,12 +15,12 @@ const EmployeeFAQs = () => {
     setExpandedIndex(expandedIndex === index ? null : index);
   };
 
-  // Filter articles by search term (search in subject and description)
+  // Filter articles by search term (search in question and answer)
   const filteredFaqs = articles.filter((faq) => {
     const query = searchTerm.toLowerCase();
     return (
-      (faq.subject || '').toLowerCase().includes(query) ||
-      (faq.description || '').toLowerCase().includes(query)
+      (faq.question || '').toLowerCase().includes(query) ||
+      (faq.answer || '').toLowerCase().includes(query)
     );
   });
 
@@ -31,12 +33,15 @@ const EmployeeFAQs = () => {
         if (!isMounted) return;
         // kbService maps archived -> archived and visibility normalized to 'Employee', etc.
         const visible = (all || []).filter(a => !a.archived && (a.visibility || '').toLowerCase() === 'employee');
-        // normalize shape to match previous `faqs` structure: { subject, description }
+        // normalize shape to provide `question` and `answer` fields that the UI expects.
         // NOTE: backend / adapter sometimes returns `subject`/`description` or `title`/`content`.
         const mapped = visible.map(a => ({
+          id: a.id,
           subject: a.subject ?? a.title ?? a.name ?? '',
           description: a.description ?? a.content ?? a.body ?? '',
-          id: a.id
+          // UI expects question/answer, so map those as well
+          question: a.subject ?? a.title ?? a.name ?? '',
+          answer: a.description ?? a.content ?? a.body ?? ''
         }));
         setArticles(mapped);
       } catch (err) {
@@ -54,58 +59,51 @@ const EmployeeFAQs = () => {
   // No debug helpers in production: resume normal behavior
 
   return (
-    <div className={styles.faqContainer}>
-      <div className={styles.searchWrapper}>
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder="Search FAQs..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setExpandedIndex(null);
-          }}
-        />
-      </div>
+    <ViewCard>
+      <div className={styles.faqContainer}>
+        <div className={styles.searchWrapper}>
+          <InputField
+            placeholder="Search FAQs..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setExpandedIndex(null);
+            }}
+            inputStyle={{ width: '100%' }}
+            aria-label="Search FAQs"
+          />
+        </div>
 
-      {/* debug UI removed */}
-
-  <ul className={styles.faqList}>
-        {loading ? (
-          <div className={styles.noResults}>Loading...</div>
-        ) : filteredFaqs.length > 0 ? (
-          filteredFaqs.map((faq, index) => (
-            <li key={faq.id || index} className={styles.faqItem} data-testid={`faq-item-${index}`}>
-              <div
-                className={styles.faqQuestion}
-                onClick={() => { toggleAnswer(index); }}
-                role="button"
-                aria-expanded={expandedIndex === index}
-                data-subject={faq.subject}
-              >
-                <span data-testid={`faq-subject-${index}`}>{faq.subject}</span>
-                {expandedIndex === index ? (
-                  <FiChevronDown className={styles.faqArrow} />
-                ) : (
-                  <FiChevronRight className={styles.faqArrow} />
-                )}
-              </div>
-              {expandedIndex === index && (
-                <div className={styles.faqAnswer}>
-                  <p data-testid={`faq-description-${index}`}>{faq.description}</p>
+        <ul className={styles.faqList}>
+          {filteredFaqs.length > 0 ? (
+            filteredFaqs.map((faq, index) => (
+              <li key={index} className={styles.faqItem}>
+                <div
+                  className={styles.faqQuestion}
+                  onClick={() => toggleAnswer(index)}
+                >
+                  <span>{faq.question}</span>
+                  {expandedIndex === index ? (
+                    <FiChevronDown className={styles.faqArrow} />
+                  ) : (
+                    <FiChevronRight className={styles.faqArrow} />
+                  )}
                 </div>
-              )}
-            </li>
-          ))
-        ) : (
-          <div className={styles.noResults}>
-            No results found for "{searchTerm}"
-          </div>
-        )}
-      </ul>
-
-      {/* debug UI removed */}
-    </div>
+                {expandedIndex === index && (
+                  <div className={styles.faqAnswer}>
+                    <p>{faq.answer}</p>
+                  </div>
+                )}
+              </li>
+            ))
+          ) : (
+            <div className={styles.noResults}>
+              No results found for "{searchTerm}"
+            </div>
+          )}
+        </ul>
+        </div>
+    </ViewCard>
   );
 };
 

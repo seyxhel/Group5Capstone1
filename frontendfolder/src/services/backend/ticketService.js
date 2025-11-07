@@ -35,16 +35,46 @@ const handleAuthError = (response) => {
 export const backendTicketService = {
   async getAllTickets() {
     try {
-      const response = await fetch(`${BASE_URL}/api/tickets/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-        credentials: 'include', // Send cookies
-      });
-      handleAuthError(response);
-      if (!response.ok) {
-        throw new Error('Failed to fetch tickets');
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error('No access token found');
+        return [];
       }
-      return await response.json();
+
+      // Fetch first page
+      const initialUrl = `${BASE_URL}/api/tickets/?page_size=50`;
+      let url = initialUrl;
+      let allResults = [];
+
+      while (url) {
+        const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+
+        handleAuthError(response);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch tickets: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // If API returns paginated shape { results: [...], next: <url> }
+        if (Array.isArray(data)) {
+          // Not paginated - return the array directly
+          return data;
+        }
+
+        if (data && Array.isArray(data.results)) {
+          allResults = allResults.concat(data.results);
+          // next can be absolute or relative; if relative, prefix BASE_URL
+          url = data.next || null;
+          if (url && url.startsWith('/')) url = `${BASE_URL}${url}`;
+        } else {
+          // Unknown shape - return as-is (fallback)
+          return data;
+        }
+      }
+
+      return allResults;
     } catch (error) {
       console.error('Error fetching tickets:', error);
       return [];

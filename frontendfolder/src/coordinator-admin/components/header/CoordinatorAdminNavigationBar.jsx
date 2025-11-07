@@ -8,7 +8,7 @@ import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
-import { useAuth } from '../../../context/AuthContext';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -38,12 +38,88 @@ const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
-  const { user: currentUser } = useAuth();
-  const FALLBACK_SVG = 'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg';
+  const currentUser = authService.getCurrentUser();
+  const DEFAULT_PROFILE_IMAGE = '/media/employee_images/default-profile.png'; // relative path on backend (matches backend filename)
+  const BACKEND_BASE_URL = 'http://localhost:8000';
+  // Inline SVG fallback used if the PNG looks wrong or fails to load
+  const FALLBACK_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23007bff"/%3E%3Ctext x="50" y="55" text-anchor="middle" font-size="36" fill="%23fff"%3E%3C/tspan%3E%3C/text%3E%3C/svg%3E';
 
-  // Use image directly from context user data
-  const profileImageUrl = currentUser?.profile_picture || FALLBACK_SVG;
+  // Helper to get correct image URL (always return absolute URL pointing to backend)
+  const getProfileImageUrl = (user) => {
+    let image = user?.profileImage;
+    if (!image || image === '' || image === null) {
+      // Return backend absolute URL for default image
+      return `${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE.startsWith('/') ? DEFAULT_PROFILE_IMAGE : `/${DEFAULT_PROFILE_IMAGE}`}`;
+    }
+    // If image is a relative path, prepend backend base URL
+    if (!image.startsWith('http')) {
+      image = image.startsWith('/') ? image : `/${image}`;
+      return `${BACKEND_BASE_URL}${image}`;
+    }
+    return image;
+  };
 
+  // State to hold the actual profile image URL fetched from backend
+  const [profileImageUrl, setProfileImageUrl] = useState(`${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE}`);
+
+  // Fetch current employee profile from backend to get freshest image path
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      try {
+        const profile = await backendEmployeeService.getCurrentEmployee();
+        // profile.image may be a relative path like 'employee_images/xyz.jpg'
+        if (profile?.image) {
+          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
+          if (resolved) setProfileImageUrl(resolved);
+        }
+      } catch (err) {
+        // keep default on error
+        console.error('Failed to fetch admin profile image:', err);
+      }
+    };
+
+    if (currentUser) fetchProfileImage();
+  }, [currentUser]);
+
+  // Listen for profile updates dispatched by settings or other UI
+  useEffect(() => {
+    const onProfileUpdated = (e) => {
+      console.debug('[CoordinatorAdminNav] profile:updated event', e && e.detail);
+      try {
+        const detail = e?.detail || {};
+        const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+        const current = authService.getCurrentUser();
+        const currentId = current?.id || current?.companyId || current?.company_id || null;
+
+        // If the event is for a different user, ignore it
+        if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
+
+        // If the event includes a resolved (and cache-busted) image URL, use it directly
+        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        if (newImg) {
+          setProfileImageUrl(newImg);
+          return;
+        }
+      } catch (err) {
+        // fall through to re-fetch below
+      }
+
+      // Fallback: re-fetch profile once if event didn't provide an image
+      backendEmployeeService.getCurrentEmployee()
+        .then((profile) => {
+          if (!profile) return;
+          const imgCandidate = profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profileImage;
+          const resolved = resolveMediaUrl(imgCandidate);
+          if (resolved) setProfileImageUrl(resolved);
+        })
+        .catch((err) => {
+          console.warn('[CoordinatorAdminNav] failed to re-fetch profile after profile:updated', err);
+        });
+    };
+
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
+  }, []);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -67,6 +143,14 @@ const CoordinatorAdminNavBar = () => {
     localStorage.removeItem('loggedInUser');
     localStorage.removeItem('user');
     localStorage.removeItem('chatbotMessages');
+    
+    // Dispatch auth:logout event to stop the inactivity watcher
+    try {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      console.log('[CoordinatorAdminNavigationBar] Dispatched auth:logout event');
+    } catch (e) {
+      console.warn('[CoordinatorAdminNavigationBar] Failed to dispatch auth:logout', e);
+    }
     
     setIsMobileMenuOpen(false);
     // Navigate to login and pass a flag so the login page can show a brief

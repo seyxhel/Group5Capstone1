@@ -122,35 +122,138 @@
 /* Horizontal timeline */
 .horizontalTimelineWrap {
   position: relative;
-  padding: 18px 10px 6px 10px;
+  padding: 32px 0 20px 0;
+  margin-bottom: 16px;
 }
-.horizontalLine {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  top: 50%;
-  height: 2px;
-  background: var(--gray-300);
-  transform: translateY(-50%);
-  z-index: 1;
-}
-.horizontalDots {
+
+.timelineSteps {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   position: relative;
   z-index: 2;
-  padding: 0 20px;
 }
-.dot {
-  width: 14px;
-  height: 14px;
-  background: var(--gray-300);
+
+.timelineStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  position: relative;
+}
+
+/* Progressive connecting line - only appears after completed steps */
+.timelineStep::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 28px;
+  width: 100%;
+  height: 2px;
+  background: #cbd5e1;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.timelineStep:not(:first-child)::before {
+  left: -50%;
+}
+
+/* Show line for completed and active steps (not future steps) */
+.timelineStep:not(:first-child).stepCompleted::before,
+.timelineStep:not(:first-child).stepActive::before {
+  opacity: 1;
+  background: #667eea;
+}
+
+.stepIcon {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(0,0,0,0.03) inset;
+  background: #f1f5f9;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 24px;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
 }
-.activeDot {
-  background: var(--primary-color);
-  box-shadow: 0 0 0 6px rgba(0,0,0,0.04) inset;
+
+.stepIcon svg {
+  stroke-width: 2;
+}
+
+.stepIconCompleted {
+  background: #667eea;
+  border-color: #667eea;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.stepIconActive {
+  background: #ffffff;
+  border-color: #667eea;
+  border-width: 3px;
+  color: #667eea;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+}
+
+.stepIconRejected {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+}
+
+.stepLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  line-height: 1.2;
+}
+
+@media (max-width: 768px) {
+  .horizontalTimelineWrap {
+    padding: 24px 0 16px 0;
+  }
+  
+  .timelineStep::before {
+    top: 24px;
+  }
+  
+  .stepIcon {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+  
+  .stepLabel {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .timelineStep::before {
+    top: 21px;
+  }
+  
+  .stepIcon {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+  
+  .stepLabel {
+    font-size: 9px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -194,3 +297,74 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* Coordinator Actions Info */
+.coordinatorActionsCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  padding: 16px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.monitoringCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resolutionCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.infoField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+}
+
+.fieldValue {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 400;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* SLA Status Colors */
+.sla-overdue {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.sla-due-soon {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.sla-on-time {
+  color: #10b981;
+  font-weight: 600;
+}
+

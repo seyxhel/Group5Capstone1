@@ -7,7 +7,9 @@ import styles from "./CoordinatorAdminTicketManagement.module.css";
 import TablePagination from "../../../shared/table/TablePagination";
 import CoordinatorTicketFilter from "../../components/filters/CoordinatorTicketFilter";
 import { backendTicketService } from '../../../services/backend/ticketService';
-import { useAuth } from '../../../context/AuthContext.jsx';
+import authService from "../../../utilities/service/authService";
+import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
 import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
@@ -92,6 +94,7 @@ const CoordinatorAdminTicketManagement = () => {
   // 👇 New pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
   // Map URL status to actual ticket status
@@ -105,126 +108,104 @@ const CoordinatorAdminTicketManagement = () => {
       : normalizedStatus.replace(/-/g, " ");
 
   useEffect(() => {
-    let isMounted = true;
+    // Always refresh tickets when the URL status changes or when the page is visited
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      const user = authService.getCurrentUser();
+      setCurrentUser(user);
 
-    const fetchTickets = async () => {
-      try {
-        setAllTickets([]);
-        // Attempt to fetch from backend API
-        const fetched = await backendTicketService.getAllTickets();
-        if (!isMounted) return;
-
-        // Debug: show fetched count and a small sample of statuses
-        try { console.info('[TicketManagement] fetched count:', fetched.length, 'status sample:', fetched.slice(0,5).map(x=>x.status)); } catch (err) { void err; }
-
-        // Allowed statuses for coordinator/admin views
-        const allowedStatuses = new Set([
-          'new', 'submitted', 'pending',
-          'open', 'in progress', 'in-progress',
-          'on hold', 'on-hold',
-          'withdrawn', 'closed', 'rejected', 'resolved'
-        ]);
-
-        // Normalize and filter by allowed statuses. Use substring matching to
-        // tolerate variants/extra words in the status field.
-        let ticketsToShow = (Array.isArray(fetched) ? fetched : []).filter(t => {
-          const s = (t.status || '').toString().toLowerCase();
-          const normalized = s.replace(/_/g, ' ').replace(/-/g, ' ').trim();
-          const allowedKeywords = [
-            'new', 'submitted', 'pending',
-            'open', 'in progress', 'on hold', 'withdrawn', 'closed', 'rejected', 'resolved'
-          ];
-          return allowedKeywords.some(k => normalized.includes(k));
-        });
-
-        // Filter tickets based on user role and department
-        if (currentUser) {
-          if (currentUser.role === 'Ticket Coordinator') {
-            // Coordinators see tickets from their department.
-            // If the page is the "all" status, show all tickets regardless of department.
-            // Otherwise restrict to the coordinator's department.
-            if (normalizedStatus !== 'all') {
-              ticketsToShow = ticketsToShow.filter(ticket => {
-                const ticketDept = (ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || '').toString();
-                const userDept = (currentUser.department || '').toString();
-                return ticketDept && userDept && ticketDept === userDept;
-              });
+      const loadTickets = async () => {
+        try {
+          const fetched = await backendTicketService.getAllTickets();
+          const ticketList = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+          let ticketsToShow = ticketList;
+          if (user) {
+            if (user.role === 'Ticket Coordinator') {
+              // If the URL requests a specific status (e.g., withdrawn-tickets), allow the page to
+              // consider the full ticket list so the status-specific filter can surface matching tickets
+              // (otherwise coordinators' department/assignment filtering may accidentally hide them).
+              const normalizedStatus = status.replace('-tickets', '').toLowerCase();
+              // For coordinators: when viewing the "all" page, show the full ticket list (all statuses).
+              // For specific-status pages, apply coordinator scoping (department/assignment/new tickets)
+              if (normalizedStatus === 'all') {
+                ticketsToShow = ticketList;
+              } else {
+                ticketsToShow = ticketList.filter(ticket => {
+                  const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+                  const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+                  const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+                  const statusLower = (ticket.status || '').toString().toLowerCase();
+                  const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
+                  // Coordinators see their department, assigned-to, and ALL new/untriaged tickets
+                  return isNewish || ticketDept === user.department || isAssignedToUser;
+                });
+              }
+            } else if (user.role === 'System Admin') {
+              ticketsToShow = ticketList;
             }
-          } else if (currentUser.role === 'System Admin') {
-            // System Admins see all tickets
-            ticketsToShow = fetched;
           }
+          // Normalize tickets to the shape expected by the UI
+          const normalized = ticketsToShow.map((t) => {
+            const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
+            const lastUpdated = t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || null;
+            return {
+              ...t,
+              ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
+              subCategory: t.sub_category || t.subCategory || t.subcategory || '',
+              priorityLevel: t.priority || t.priorityLevel || '',
+              dateCreated,
+              lastUpdated,
+              assignedAgent: t.assigned_to || t.assignedTo || '',
+              assignedDepartment: t.department || t.assignedDepartment || '',
+              __effectiveStatus: computeEffectiveStatus({ status: t.status, dateCreated }),
+            };
+          })
+          // Ensure newest-first based on last updated timestamp (newest -> oldest)
+          .sort((a, b) => {
+            const da = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+            const db = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+            return db - da;
+          });
+
+          setAllTickets(normalized);
+          setIsLoading(false);
+        } catch (err) {
+          setAllTickets([]);
+          setIsLoading(false);
+          console.error('Failed to fetch tickets:', err);
         }
+      };
 
-        try { console.info('[TicketManagement] after dept filter sample:', ticketsToShow.slice(0,3)); } catch(e) { void e; }
+      loadTickets();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [status]);
 
-        // Normalize ticket identifier fields so UI can always render Ticket No.
-        const normalizedTickets = ticketsToShow.map(t => ({
-          ...t,
-          ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
-          subCategory: t.subCategory || t.sub_category || t.subcategory || t.sub_cat || '',
-          // Normalize priority for UI badge
-          priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
-          // Normalize assigned agent (leave null/unassigned if backend didn't set it)
-          assignedAgent: (t.assigned_to && (typeof t.assigned_to === 'string' ? t.assigned_to : (t.assigned_to?.first_name ? `${t.assigned_to.first_name} ${t.assigned_to.last_name}` : String(t.assigned_to)))) || t.assignedAgent || null,
-        }));
-
-        setAllTickets(normalizedTickets);
-      } catch (err) {
-        console.error('[TicketManagement] error fetching tickets:', err);
-        setAllTickets([]);
-      }
-    };
-
-    fetchTickets();
-
-    return () => { isMounted = false; };
-  }, [currentUser]);
-
-  // Build dynamic category and sub-category options from the fetched tickets
+  // Build dynamic filter options from loaded tickets
   const categoryOptions = useMemo(() => {
-    const setVals = new Set();
-    (allTickets || []).forEach(t => {
-      if (t.category) setVals.add(t.category);
-    });
-    return Array.from(setVals).map(label => ({ label, category: label }));
+    const set = new Set(allTickets.map(t => t.category).filter(Boolean));
+    return Array.from(set).map(v => ({ label: v, value: v }));
   }, [allTickets]);
 
   const subCategoryOptions = useMemo(() => {
-    const map = new Map();
-    (allTickets || []).forEach(t => {
-      const cat = t.category || '';
-      const sub = t.subCategory || t.sub_category || '';
-      if (!sub) return;
-      const key = `${cat}||${sub}`;
-      if (!map.has(key)) map.set(key, { label: sub, category: cat });
-    });
-    return Array.from(map.values());
+    const set = new Set(allTickets.map(t => t.subCategory).filter(Boolean));
+    return Array.from(set).map(v => ({ label: v, value: v }));
   }, [allTickets]);
 
   const filteredTickets = useMemo(() => {
-    let result;
-      // decorate tickets with an effective status (New older than 24h -> Pending)
-      const decorated = allTickets.map(t => ({ ...t, __effectiveStatus: computeEffectiveStatus(t) }));
+    let result = allTickets;
 
-      if (normalizedStatus === "all") {
-        result = decorated;
-      } else if (Array.isArray(statusFilter)) {
-        // Handle array of statuses (e.g., ["new", "submitted", "pending"])
-        result = decorated.filter(
-          (ticket) => statusFilter.includes(ticket.__effectiveStatus?.toLowerCase())
-        );
-      } else if (statusFilter) {
-        // Handle single status string
-        result = decorated.filter(
-          (ticket) => ticket.__effectiveStatus?.toLowerCase() === statusFilter.toLowerCase()
-        );
+    // Status filter from URL
+    if (statusFilter) {
+      if (Array.isArray(statusFilter)) {
+        result = result.filter(ticket => statusFilter.includes(ticket.status?.toLowerCase()));
       } else {
-        result = decorated;
+        result = result.filter(ticket => ticket.status?.toLowerCase() === statusFilter);
       }
+    }
 
-    // Apply search filter
-    if (searchTerm.trim()) {
+    // Search term filter
+    if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
         ({ ticketNumber, subject }) =>
@@ -366,15 +347,14 @@ const CoordinatorAdminTicketManagement = () => {
           <div className={styles.tableHeader}>
             <h2>{headingMap[normalizedStatus] || "Ticket Management"}</h2>
             <div className={styles.tableActions}>
-              <input
-                className={styles.searchBar}
-              type="search"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+              <InputField
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                inputStyle={{ width: '260px' }}
+              />
+            </div>
           </div>
-        </div>
         
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
@@ -392,7 +372,21 @@ const CoordinatorAdminTicketManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedTickets.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton width="100px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                  </tr>
+                ))
+              ) : paginatedTickets.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#6b7280", fontStyle: "italic" }}>
                     No tickets found for this status or search.
@@ -474,24 +468,18 @@ const CoordinatorAdminTicketManagement = () => {
           </table>
         </div>
         <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredTickets.length}
-            initialItemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
-            alwaysShow={true}
-          />
+          {!isLoading && (
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredTickets.length}
+              initialItemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              alwaysShow={true}
+            />
+          )}
         </div>
       </div>
-
-      {modalType === "open" && selectedTicket && (
-        <CoordinatorAdminOpenTicketModal
-          ticket={selectedTicket}
-          onClose={closeModal}
-          onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Open")}
-        />
-      )}
 
       {modalType === "open" && selectedTicket && (
         <CoordinatorAdminOpenTicketModal
@@ -507,10 +495,9 @@ const CoordinatorAdminTicketManagement = () => {
           onClose={closeModal}
           onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Rejected")}
         />
-      )}
-      </div>
-    </>
-  );
-};
 
+      )}
+    </div>
+  </>);
+}
 export default CoordinatorAdminTicketManagement;

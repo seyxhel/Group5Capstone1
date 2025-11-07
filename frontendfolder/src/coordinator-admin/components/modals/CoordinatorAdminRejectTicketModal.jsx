@@ -31,7 +31,14 @@ const CoordinatorAdminRejectTicketModal = ({ ticket, onClose, onSuccess }) => {
       });
 
       onSuccess?.(ticket.ticketNumber, "Rejected"); // ✅ update parent
-      onClose();
+      // Navigate directly to the ticket tracker page for this ticket so the
+      // UI reloads from the backend. We do this without explicitly closing the modal
+      // to avoid flashes — the browser will navigate away immediately.
+      try {
+        const tn = encodeURIComponent(ticket.ticketNumber || ticket.ticket_number || ticket.id || '');
+        if (tn) window.location.href = `/admin/ticket-tracker/${tn}`;
+        else window.location.reload();
+      } catch (e) { /* ignore */ }
     } catch (err) {
       toast.error("Failed to reject ticket. Please try again.", {
         position: "top-right",

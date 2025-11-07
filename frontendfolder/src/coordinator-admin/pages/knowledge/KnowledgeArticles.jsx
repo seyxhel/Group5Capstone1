@@ -9,6 +9,7 @@ import FilterPanel from '../../../shared/table/FilterPanel';
 import fpStyles from '../../../shared/table/FilterPanel.module.css';
 import kbService from '../../../services/kbService';
 import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const KnowledgeArticles = () => {
   const navigate = useNavigate();
@@ -224,10 +225,22 @@ const KnowledgeArticles = () => {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton width="100%" height="40px" /></td>
+                    <td><Skeleton width="100%" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="100px" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="60px" height="40px" /></td>
+                    <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
+                    <td><Skeleton width="120px" height="40px" /></td>
+                  </tr>
+                ))
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
-                    {loading ? 'Loading…' : 'No articles found for this category or search.'}
+                    No articles found for this category or search.
                   </td>
                 </tr>
               ) : (

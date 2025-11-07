@@ -9,7 +9,7 @@ import authService from '../../../utilities/service/authService';
 import { backendAuthService } from '../../../services/backend/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
-import { useAuth } from '../../../context/AuthContext';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 // Fallback profile image
 const DEFAULT_PROFILE_IMAGE = 'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg';
@@ -58,6 +58,31 @@ const EmployeeNavBar = () => {
   const [backendAvailable, setBackendAvailable] = useState(true); // Always assume backend is available
   const scrolled = useScrollShrink(0, { debug: true });
 
+  // Fetch employee profile with image on mount
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      try {
+        const profile = await backendEmployeeService.getCurrentEmployee();
+        console.log('Fetched employee profile:', profile);
+        
+        if (profile.image) {
+          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
+          if (resolved) {
+            console.log('Profile image URL:', resolved);
+            setProfileImageUrl(resolved);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile image:', error);
+        // Keep using the default image on error
+      }
+    };
+
+    if (currentUser) {
+      fetchProfileImage();
+    }
+  }, [currentUser]);
+
   const dropdowns = {
     active: {
       label: 'Active Tickets',
@@ -101,6 +126,14 @@ const EmployeeNavBar = () => {
     localStorage.removeItem('loggedInUser');
     localStorage.removeItem('user');
     localStorage.removeItem('chatbotMessages');
+    
+    // Dispatch auth:logout event to stop the inactivity watcher
+    try {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      console.log('[EmployeeNavigationBar] Dispatched auth:logout event');
+    } catch (e) {
+      console.warn('[EmployeeNavigationBar] Failed to dispatch auth:logout', e);
+    }
     
     // Close any open menus
     setShowProfileMenu(false);
@@ -203,6 +236,47 @@ const EmployeeNavBar = () => {
         });
       } catch (err) {}
     };
+  }, []);
+
+  // Listen for profile updates (dispatched by settings or other UI)
+  useEffect(() => {
+    const onProfileUpdated = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+        const current = authService.getCurrentUser();
+        const currentId = current?.id || current?.companyId || current?.company_id || null;
+
+        // If the event is for a different user, ignore it
+        if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
+
+        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        if (newImg) {
+          setProfileImageUrl(newImg);
+          return;
+        }
+
+        // If no explicit image provided (or no event id), attempt to re-fetch profile once
+        backendEmployeeService.getCurrentEmployee()
+          .then((profile) => {
+            if (profile && profile.image) {
+              const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+              let imageUrl = profile.image;
+              if (!imageUrl.startsWith('http')) {
+                imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+                imageUrl = `${BASE_URL}${imageUrl}`;
+              }
+              setProfileImageUrl(imageUrl);
+            }
+          })
+          .catch(() => {});
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
   }, []);
 
   // Track which URLs we've attempted an authenticated fetch for to avoid retry loops

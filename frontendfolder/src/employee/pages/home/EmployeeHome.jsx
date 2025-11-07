@@ -6,6 +6,7 @@ import {
   IoFolderOpen,
   IoChevronForward
 } from 'react-icons/io5';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import EmployeeHomeFloatingButtons from './EmployeeHomeFloatingButtons';
 import Button from '../../../shared/components/Button';
 import styles from './EmployeeHome.module.css';
@@ -16,67 +17,49 @@ import { useAuth } from '../../../context/AuthContext';
 const EmployeeHome = () => {
   const navigate = useNavigate();
   const [recentTickets, setRecentTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const { user: currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser] = useState(() => authService.getCurrentUser());
 
   useEffect(() => {
-    let isMounted = true; // Prevent state updates if component unmounts
+    if (!currentUser) return;
+    setIsLoading(true);
+    backendTicketService.getTicketsByEmployee(currentUser.id)
+      .then(tickets => {
+        // If backend returns {results: [...]}, use that, else use tickets directly
+        const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
+        // Helper: compute a robust numeric timestamp for "last updated" using many possible fields
+        const getLastUpdatedTs = (t) => {
+          if (!t) return 0;
+          const candidates = [
+            t.update_date, t.lastUpdated, t.updatedAt, t.updated_at, t.time_closed, t.closedAt,
+            t.modifiedAt, t.dateModified, t.submitted_at, t.submit_date, t.dateCreated, t.createdAt, t.created_at
+          ];
+          for (const c of candidates) {
+            if (c === null || c === undefined) continue;
+            // If it's a number already
+            if (typeof c === 'number' && isFinite(c)) return c;
+            // Try parsing strings / ISO dates
+            try {
+              const parsed = Date.parse(String(c));
+              if (!isNaN(parsed)) return parsed;
+            } catch (e) {
+              // ignore
+            }
+          }
+          return 0;
+        };
 
-    const fetchRecentTickets = async () => {
-      // Check if user is authenticated before making API calls
-      const token = localStorage.getItem('access_token');
-      // if (!token) {
-      //   console.error('No access token found. User may need to log in again.');
-      //   if (isMounted) {
-      //     setRecentTickets([]);
-      //     setLoading(false);
-      //   }
-      //   return;
-      // }
-      
-      try {
-        if (isMounted) setLoading(true);
-        
-        // Fetch all tickets from backend (will filter by employee on backend)
-        const allTickets = await backendTicketService.getAllTickets();
-        
-        if (!isMounted) return; // Don't update state if component unmounted
-
-        console.log('Fetched tickets from backend:', allTickets);
-
-        // Filter for active tickets (exclude only closed, include withdrawn and rejected)
-        const activeTickets = allTickets.filter(ticket => {
-          const status = (ticket.status || '').toLowerCase();
-          return status !== 'closed';
-        });
-
-        // Sort by last-updated timestamp (most recent first). Fall back to creation date when
-        // update timestamps are missing. This ensures 'Recent Tickets' reflects activity, not just creation.
-        const getLastUpdated = (t) => new Date(
-          t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || 0
-        );
-
-        const sorted = activeTickets
-          .sort((a, b) => getLastUpdated(b) - getLastUpdated(a))
-          .slice(0, 5);
-
-        console.log('Recent active tickets:', sorted);
-        setRecentTickets(sorted);
-      } catch (error) {
-        console.error('Error fetching tickets:', error);
-        if (isMounted) setRecentTickets([]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchRecentTickets();
-
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Empty dependency array - only fetch once on mount
+        // sort by last-updated timestamp (newest first) and pick up to 5
+        const sortedByUpdated = ticketList.slice().sort((a, b) => getLastUpdatedTs(b) - getLastUpdatedTs(a));
+        const latestFive = sortedByUpdated.slice(0, 5);
+        setRecentTickets(latestFive);
+      })
+      .catch(err => {
+        setRecentTickets([]);
+        console.error('Failed to fetch employee tickets:', err);
+      })
+      .finally(() => setIsLoading(false));
+  }, [currentUser]);
 
   const handleSubmitTicket = () => {
     navigate('/employee/submit-ticket');
@@ -90,9 +73,6 @@ const EmployeeHome = () => {
     navigate('/employee/ticket-records/all-ticket-records');
   };
 
-  const handleTrackTickets = () => {
-    navigate('/employee/active-tickets/all-active-tickets');
-  };
 
   const handleViewDetails = (ticketNumber) => {
     navigate(`/employee/ticket-tracker/${ticketNumber}`);
@@ -159,20 +139,42 @@ const EmployeeHome = () => {
       <div className={styles.recentTickets}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Tickets</h2>
-          <Button variant="primary" onClick={handleTrackTickets}>
-            Track Active Tickets
-          </Button>
         </div>
 
-        {recentTickets.length === 0 ? (
-          <div className={styles.noTickets}>
-            <p>{loading ? 'Loading tickets...' : 'No active tickets to display.'}</p>
-            {!loading && (
-              <Button variant="primary" onClick={handleSubmitTicket}>
-                Submit a Ticket
-              </Button>
-            )}
+        {isLoading ? (
+          <div className={styles.ticketList}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className={styles.ticketItem}>
+                <div className={styles.ticketInfo}>
+                  <div className={styles.ticketHeader}>
+                    <div className={styles.ticketNumber}><Skeleton width="80px" /></div>
+                    <Skeleton width="100px" height="24px" />
+                  </div>
+                  <div className={styles.ticketDetailsGrid}>
+                    {[1, 2, 3, 4].map(j => (
+                      <div key={j}>
+                        <div className={styles.ticketLabel}><Skeleton width="80px" height="12px" /></div>
+                        <div className={styles.ticketValue}><Skeleton width="100%" /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.ticketActions}>
+                  <div className={styles.lastUpdated}><Skeleton width="150px" /></div>
+                  <Skeleton width="120px" height="36px" />
+                </div>
+              </div>
+            ))}
           </div>
+        ) : recentTickets.length === 0 ? (
+            <div className={styles.noTickets}>
+              <p>{isLoading ? 'Loading tickets...' : 'No active tickets to display.'}</p>
+              {!isLoading && (
+                <Button variant="primary" onClick={handleSubmitTicket}>
+                  Submit a Ticket
+                </Button>
+              )}
+            </div>
         ) : (
           <div className={styles.ticketList}>
             {recentTickets.map(ticket => {

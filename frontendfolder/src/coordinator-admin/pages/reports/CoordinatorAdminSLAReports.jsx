@@ -11,8 +11,8 @@ import {
   Legend
 } from 'chart.js';
 import styles from './CoordinatorAdminReports.module.css';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 // Register Chart.js components
 ChartJS.register(
@@ -28,33 +28,44 @@ ChartJS.register(
 const CoordinatorAdminSLAReports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
-  const [loading, setLoading] = useState(false);
-
-  // Tickets state (fetch from backend, fallback to local storage)
-  const [allTickets, setAllTickets] = useState(() => getAllTickets());
-
+  const [isLoading, setIsLoading] = useState(true);
+  const [allTickets, setAllTickets] = useState([]);
+  // Load tickets from backend
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      setLoading(true);
+      setIsLoading(true);
       try {
-        const remote = await backendTicketService.getAllTickets();
-        if (mounted && Array.isArray(remote) && remote.length > 0) {
-          setAllTickets(remote.map(t => ({
-            ...t,
-            ticketNumber: t.ticketNumber || t.ticket_number || t.ticket_id || t.ticketId || t.id,
-            priorityLevel: t.priority || t.priorityLevel || t.priority_level || null,
-            createdAt: t.createdAt || t.created_at || t.dateCreated || t.created || null,
-            resolvedAt: t.resolvedAt || t.resolved_at || null,
-            status: t.status || (t.state || null),
-          })));
-        }
+        const fetched = await backendTicketService.getAllTickets();
+        const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+
+        const normalized = raw.map(t => {
+          const createdAt = t.submit_date || t.created_at || t.createdAt || t.submitDate || null;
+          const resolvedAt = t.time_closed || t.resolved_at || t.resolvedAt || t.closedAt || null;
+          const priorityLevel = t.priority || t.priorityLevel || t.priority_level || 'Not Set';
+
+          return {
+            id: t.id || t.ticket_number || t.ticketNumber || null,
+            ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || '',
+            createdAt,
+            resolvedAt,
+            priorityLevel,
+            status: t.status || '',
+            // preserve other fields used by SLA calculations or UI
+            resolvedAtRaw: resolvedAt,
+            raw: t
+          };
+        });
+
+        if (mounted) setAllTickets(normalized);
       } catch (err) {
-        console.error('[SLA Reports] failed to load tickets from backend, using local cache', err);
+        console.error('Failed to load tickets for SLA reports', err);
+        if (mounted) setAllTickets([]);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
+
     load();
     return () => { mounted = false; };
   }, []);
@@ -265,9 +276,40 @@ const CoordinatorAdminSLAReports = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className={styles.reportsPage}>
+        <div className={styles.pageHeader}>
+          <Skeleton width="300px" height="40px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="500px" height="20px" />
+        </div>
+
+        <div className={styles.filtersSection}>
+          <Skeleton width="200px" height="36px" style={{ marginBottom: '12px' }} />
+          <Skeleton width="200px" height="36px" />
+        </div>
+
+        <div className={styles.statsContainer} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: '24px' }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+              <Skeleton width="80px" height="24px" style={{ marginBottom: '8px' }} />
+              <Skeleton width="100px" height="32px" />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
+          {[1, 2].map(i => (
+            <Skeleton key={i} width="100%" height="400px" borderRadius="8px" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.reportsPage}>
-      {loading && (
+      {isLoading && (
         <div className={styles.loadingOverlay}>
           <div>Loading SLA reports...</div>
         </div>

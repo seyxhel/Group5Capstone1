@@ -28,21 +28,23 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
         autoClose: 3000,
       });
 
-      // Notify parent, then close modal and refresh the page so the UI
-      // immediately reflects the Withdrawn status. We use a short timeout
-      // to allow the modal to unmount cleanly before reloading.
-      onSuccess?.(ticket.ticket_number || ticket.ticketNumber, "Withdrawn");
-      onClose();
-      setTimeout(() => {
-        try {
-          window.location.reload();
-        } catch (e) {
-          // If reload fails (rare), log and silently continue.
-          // The parent onSuccess should also update state where possible.
-          // eslint-disable-next-line no-console
-          console.error('Failed to reload after withdraw:', e);
-        }
-      }, 250);
+      // Notify parent. If parent provided onSuccess, assume it will update UI
+      // and skip the hard reload. Otherwise, close and reload as a fallback.
+      const hadHandler = typeof onSuccess === 'function';
+      if (hadHandler) {
+        try { onSuccess(ticket.ticket_number || ticket.ticketNumber, "Withdrawn"); } catch (_) {}
+        onClose();
+      } else {
+        onClose();
+        setTimeout(() => {
+          try {
+            window.location.reload();
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to reload after withdraw:', e);
+          }
+        }, 250);
+      }
     } catch (err) {
       toast.error(err.message || "Failed to withdraw ticket. Please try again.", {
         position: "top-right",

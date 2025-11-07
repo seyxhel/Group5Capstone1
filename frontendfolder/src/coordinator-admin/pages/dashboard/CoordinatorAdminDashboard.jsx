@@ -33,13 +33,10 @@ import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
 import Button from '../../../shared/components/Button';
 import KnowledgeDashboard from '../knowledge/KnowledgeDashboard';
 import authService from '../../../utilities/service/authService';
-import { useAuth } from '../../../context/AuthContext';
-import { getAllTickets } from '../../../utilities/storages/ticketStorage';
 import { backendTicketService } from '../../../services/backend/ticketService';
-import { backendEmployeeService } from '../../../services/backend/employeeService';
-import { backendArticleService } from '../../../services/backend/articleService';
-import { authUserService } from '../../../services/auth/userService';
 import kbService from '../../../services/kbService';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const ticketPaths = [
   { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
@@ -86,8 +83,10 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
     );
   };
 
-const DataTable = ({ title, headers, data, bodyStyle = {} }) => (
-  <div className={tableStyles.tableContainer}>
+const DataTable = ({ title, headers, data, bodyStyle = {}, lockLeft = 0 }) => {
+  const containerClass = `${tableStyles.tableContainer} ${lockLeft ? tableStyles[`lockLeft${lockLeft}`] : ''}`;
+  return (
+    <div className={containerClass}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
       {/* Manage buttons removed per design request */}
@@ -126,7 +125,8 @@ const DataTable = ({ title, headers, data, bodyStyle = {} }) => (
       )}
     </div>
   </div>
-);
+  );
+};
 
 const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse, visibleNames = null }) => {
   // Transform data for Chart.js
@@ -311,6 +311,7 @@ const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
   const [chartRange, setChartRange] = useState('month');
   const [pieRange, setPieRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   
   // Use AuthContext for role-based access
@@ -361,6 +362,117 @@ const CoordinatorAdminDashboard = () => {
   const [userDataState, setUserDataState] = useState(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userError, setUserError] = useState(null);
+
+  // Load users for the Users tab (and for Pending Users stat/table)
+  useEffect(() => {
+    let mounted = true;
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      setUserError(null);
+      try {
+        const fetched = await backendEmployeeService.getAllEmployees();
+        const all = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+
+        if (!mounted) return;
+
+        // Filter for role Employee and status Pending for the Pending Users card/table
+        const pending = all.filter(u => (u.role || '').toLowerCase() === 'employee' && (u.status || '').toLowerCase() === 'pending');
+
+        // Build table rows expected by DataTable
+        const tableRows = pending.slice(0, 100).map(u => ({
+          companyId: u.company_id || u.companyId || u.companyId || '',
+          lastName: u.last_name || u.lastName || u.lastName || u.lastName || u.last_name || '',
+          firstName: u.first_name || u.firstName || u.firstName || u.first_name || '',
+          department: u.department || '',
+          role: u.role || '',
+          status: { text: u.status || 'Pending', statusClass: `status${(u.status || 'Pending').replace(/\s+/g,'')}` }
+        }));
+
+        // Build pie data using explicit employee statuses
+        // Pending: only employees with status === 'Pending'
+        // Rejected: only employees with status === 'Denied' or 'Rejected'
+        // Active: employees with status === 'Approved' (unchanged behavior)
+        const counts = { Active: 0, Pending: 0, Rejected: 0 };
+        all.forEach(u => {
+          const s = (u.status || '').toLowerCase();
+          const role = (u.role || '').toLowerCase();
+          // Active remains unchanged (count all approved users)
+          if (s === 'approved') {
+            counts.Active += 1;
+            return;
+          }
+          // Pending and Rejected must be employees only
+          if (role === 'employee') {
+            if (s === 'pending') {
+              counts.Pending += 1;
+            } else if (s === 'denied' || s === 'rejected') {
+              counts.Rejected += 1;
+            }
+          }
+        });
+        const pieData = [
+          { name: 'Active', value: counts.Active, fill: '#22C55E' },
+          { name: 'Pending', value: counts.Pending, fill: '#FBBF24' },
+          { name: 'Rejected', value: counts.Rejected, fill: '#EF4444' }
+        ];
+
+        // Build user activity timeline from employee.recent_logs (serializer provides recent_logs)
+        const allLogs = [];
+        all.forEach(u => {
+          const cid = u.company_id || u.companyId || '';
+          const logs = Array.isArray(u.recent_logs) ? u.recent_logs : [];
+          logs.forEach(l => {
+            // l: { action, details, performed_by, timestamp }
+            const timestamp = l.timestamp ? new Date(l.timestamp) : null;
+            if (!timestamp || isNaN(timestamp.getTime())) return;
+            let actionText = '';
+            switch ((l.action || '').toLowerCase()) {
+              case 'created':
+                // No brackets around the company id
+                actionText = `User ${cid} account created`;
+                break;
+              case 'approved':
+                // Never expose who approved; always show 'by Admin'
+                actionText = `User ${cid} approved by Admin`;
+                break;
+              case 'rejected':
+                // Never expose who rejected; always show 'by Admin'
+                actionText = `User ${cid} rejected by Admin`;
+                break;
+              default:
+                // For other actions fall back to details (do not reveal performed_by)
+                actionText = l.details || `${l.action}`;
+            }
+            allLogs.push({ time: timestamp, timeSort: timestamp.getTime(), action: actionText });
+          });
+        });
+
+        allLogs.sort((a, b) => b.timeSort - a.timeSort);
+        const fmtTime = (d) => {
+          try {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+          } catch (e) { return ''; }
+        };
+        const activity = allLogs.slice(0, 5).map(l => ({ time: fmtTime(l.time), action: l.action }));
+
+        if (mounted) {
+          setUserDataState({ stats: [{ label: 'Pending Users', count: pending.length, isHighlight: false, position: 0, path: '/admin/user-access/pending-users' }], tableData: tableRows, pieData, lineData: userData?.lineData || [] });
+          setUserActivityTimeline(activity);
+        }
+      } catch (err) {
+        console.error('Error loading users for dashboard', err);
+        if (mounted) setUserError(err?.message || String(err));
+      } finally {
+        if (mounted) setLoadingUsers(false);
+      }
+    };
+
+    // Load users on mount and when switching to Users tab
+    if (activeTab === 'users') loadUsers();
+    // Also load once on mount so stat cards show counts immediately
+    // (but keep load lightweight by only running once more)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const ticketData = ticketDataState || {
     stats: ticketPaths.map((item, i) => ({
@@ -517,310 +629,136 @@ const CoordinatorAdminDashboard = () => {
     });
   };
 
-  // Effect: load tickets and compute dashboard data based on role and selected ranges
+  // Effect: load tickets from backend and compute dashboard data based on role and selected ranges
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
-      setLoadingTickets(true);
-      setTicketError(null);
-      try {
-        // Prefer backend tickets when available
-        let all = [];
+    const timer = setTimeout(() => {
+      (async () => {
         try {
-          all = await backendTicketService.getAllTickets();
-          console.log('📊 Admin Dashboard: Fetched tickets from backend:', all.length, 'tickets');
-          console.log('📊 Sample ticket:', all[0]);
-        } catch (e) {
-          console.warn('Backend ticket fetch failed, falling back to local tickets', e);
-          all = [];
-        }
+          setIsLoading(true);
+          // fetch from backend service (returns array or { results: [] })
+          const fetched = await backendTicketService.getAllTickets();
+          const all = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-        // If backend returned no tickets (for example when no token) fall back to local seeded tickets
-        if ((!Array.isArray(all) || all.length === 0) && typeof getAllTickets === 'function') {
-          console.log('⚠️ Admin Dashboard: No backend tickets, using local seeded data');
-          const local = getAllTickets();
-          if (Array.isArray(local) && local.length) all = local;
-        }
+          if (!mounted) return;
 
-        const filtered = filterByRole(Array.isArray(all) ? all : []);
+          const filtered = filterByRole(all);
 
-        // stats per ticketPaths
-        const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
-        filtered.forEach(t => {
-          const s = computeEffectiveStatus(t);
-          // only increment if status maps to one of the ticketPaths labels
-          const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
-          if (mapLabel) {
-            const target = stats.find(st => st.label === mapLabel.label);
-            if (target) target.count += 1;
-          }
-        });
-
-        const pie = aggregatePie(filtered.concat());
-        const line = aggregateLine(
-          filtered.concat(), 
-          (currentUser?.role === 'Admin' || isAdmin) && chartRange === 'yearly' ? 'yearly' : chartRange
-        );
-        // Build a compact activity timeline: pick latest timestamp from each ticket and a short action
-        // Choose timestamp fields according to action (submitted vs resolved/rejected)
-        const buildTimestampFor = (t, verb) => {
-          if (verb === 'resolved') {
-            return new Date(t.closedAt || t.time_closed || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          if (verb === 'rejected') {
-            return new Date(t.rejectedAt || t.rejected_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          if (verb === 'withdrawn') {
-            return new Date(t.withdrawnAt || t.withdrawn_at || t.lastUpdated || t.updatedAt || t.update_date || t.createdAt || 0);
-          }
-          // default: submitted — use creation timestamps
-          return new Date(t.createdAt || t.dateCreated || t.submit_date || t.submitDate || t.created_at || t.update_date || 0);
-        };
-
-        const timeline = (Array.isArray(filtered) ? filtered : []).map((t) => {
-          // Prefer explicit ticket number fields (these come from backend payloads).
-          const numberRaw = t.ticketNumber || t.ticket_no || t.ticketNumber || t.ticketNo || t.ticket_number || t.number || t.reference || t.ref || t.tx || t.tx_number || null;
-          let number = numberRaw || null;
-          // If we still don't have a ticket number, try other nested fields
-          if (!number) {
-            if (t.meta && (t.meta.ticketNumber || t.meta.ticket_number)) number = t.meta.ticketNumber || t.meta.ticket_number;
-            else if (t.dynamic_data && (t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number)) number = t.dynamic_data.ticketNumber || t.dynamic_data.ticket_number;
-          }
-          // If still missing, synthesize a readable ticket id: TX + YYYYMMDD + zero-padded internal id
-          if (!number) {
-            const created = new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0);
-            const y = String(created.getFullYear() || new Date().getFullYear());
-            const m = String((created.getMonth() + 1)).padStart(2, '0');
-            const d = String(created.getDate()).padStart(2, '0');
-            const rawId = (t.id || t.pk || t.ticket_id || t.internal_id || '') + '';
-            const padded = rawId ? rawId.padStart(6, '0') : Math.floor(Math.random() * 900000 + 100000).toString();
-            number = `TX${y}${m}${d}${padded}`;
-          }
-          const rawStatus = (t.status || computeEffectiveStatus(t) || '').toString().toLowerCase();
-          // Map status to a simple verb
-          let verb = 'submitted';
-          if (rawStatus.includes('closed') || rawStatus.includes('resolved')) verb = 'resolved';
-          else if (rawStatus.includes('rejected')) verb = 'rejected';
-          else if (rawStatus.includes('withdraw')) verb = 'withdrawn';
-          else verb = 'submitted';
-
-          // Use lastUpdated (or fallbacks) as the canonical sort key so the timeline is latest->oldest by update
-          const sortDate = new Date(t.lastUpdated || t.update_date || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.rejectedAt || t.rejected_at || t.submit_date || t.dateCreated || t.createdAt || 0);
-          const timeLabel = sortDate && !isNaN(sortDate.getTime()) ? sortDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-          const action = `Ticket ${number} ${verb}`;
-          return { time: timeLabel, action, rawTime: sortDate.getTime() };
-        })
-          .filter(i => i && Number.isFinite(i.rawTime))
-          .sort((a, b) => b.rawTime - a.rawTime) // Sort by timestamp: newest to oldest (latest activities first)
-          .slice(0, 4);
-
-        // For user timeline, show items where a creator/employee field exists; fallback to the same timeline
-        const userTimeline = timeline.filter(item => {
-          // crude heuristic: include if ticket subject mentions employee or if any filtered ticket has employee info
-          return true;
-        }).slice(0, 4);
-
-        if (mounted) {
-          setActivityTimeline(timeline.map(i => ({ time: i.time, action: i.action })));
-          setUserActivityTimeline(userTimeline.map(i => ({ time: i.time, action: i.action })));
-
-          // Build table data from filtered tickets (limit to 5 rows for scrollable display)
-          const tableData = filtered.slice(0, 5).map(t => {
-            // Get ticket number with fallback
-            const numberRaw = t.ticketNumber || t.ticket_no || t.ticket_number || t.number || t.reference || t.ref || t.tx || t.tx_number || null;
-            let number = numberRaw || null;
-            if (!number) {
-              const created = new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0);
-              const y = String(created.getFullYear() || new Date().getFullYear());
-              const m = String((created.getMonth() + 1)).padStart(2, '0');
-              const d = String(created.getDate()).padStart(2, '0');
-              const rawId = (t.id || t.pk || t.ticket_id || t.internal_id || '') + '';
-              const padded = rawId ? rawId.padStart(6, '0') : Math.floor(Math.random() * 900000 + 100000).toString();
-              number = `TX${y}${m}${d}${padded}`;
+          // stats per ticketPaths
+          const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+          filtered.forEach(t => {
+            const s = computeEffectiveStatus(t);
+            // only increment if status maps to one of the ticketPaths labels
+            const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+            if (mapLabel) {
+              const target = stats.find(st => st.label === mapLabel.label);
+              if (target) target.count += 1;
             }
+          });
 
+          const pie = aggregatePie(filtered.concat());
+          const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+
+          // Build an activity timeline from tickets: include latest relevant event per ticket
+          // Show max 5 entries (latest to oldest) based on last-updated (or created if not updated)
+          const events = (filtered || []).map(t => {
+            const id = t.ticket_number || t.ticketNumber || t.ticket_id || t.id || 'Unknown';
+            const created = t.submit_date || t.submitDate || t.dateCreated || t.createdAt || t.created_at || null;
+            const updated = t.lastUpdated || t.update_date || t.updatedAt || t.updated_at || t.updateDate || null;
+
+            // Determine canonical status for mapping
+            const rawStatus = (t.status || '').toString().toLowerCase();
+            let actionKey = null;
+            if (rawStatus.includes('new') || rawStatus.includes('submitted') || rawStatus.includes('pending')) actionKey = 'submitted';
+            else if (rawStatus.includes('open')) actionKey = 'approved';
+            else if (rawStatus.includes('rejected')) actionKey = 'rejected';
+            else if (rawStatus.includes('withdraw')) actionKey = 'withdrawn';
+            else if (rawStatus.includes('resolved')) actionKey = 'resolved';
+            else if (rawStatus.includes('on hold') || rawStatus.includes('on-hold')) actionKey = 'on hold';
+            else if (rawStatus.includes('closed')) actionKey = 'closed';
+            else actionKey = 'submitted';
+
+            // Use updated time when available, otherwise created time
+            const time = updated || created;
+            const timeSort = time ? new Date(time).getTime() : 0;
+            return { ticketId: id, time, timeSort, actionKey };
+          })
+            .filter(e => e.timeSort > 0)
+            .sort((a, b) => b.timeSort - a.timeSort);
+
+          // Format into UI-friendly list and limit to 5
+          const fmt = (d) => {
+            try {
+              const dt = new Date(d);
+              if (isNaN(dt)) return '';
+              return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+            } catch (e) { return ''; }
+          };
+
+          const actionLabel = (k) => {
+            switch (k) {
+              case 'submitted': return 'submitted';
+              case 'approved': return 'approved';
+              case 'rejected': return 'rejected';
+              case 'withdrawn': return 'withdrawn';
+              case 'resolved': return 'resolved';
+              case 'on hold': return 'on hold';
+              case 'closed': return 'closed';
+              default: return k;
+            }
+          };
+
+          const timeline = events.slice(0, 5).map(e => ({ time: fmt(e.time), action: `Ticket ${e.ticketId} ${actionLabel(e.actionKey)}` }));
+          setActivityTimeline(timeline);
+          setUserActivityTimeline(timeline);
+
+          if (!mounted) return;
+          // Build table data for "Tickets to Review" - mimic Django admin filter status__exact=New
+          // i.e., show tickets whose status is exactly New (case-insensitive)
+          const newTickets = (filtered || []).filter(t => {
+            const statusLower = (t.status || '').toString().toLowerCase();
+            return statusLower === 'new';
+          })
+            // ensure newest first by created/submitted date
+            .sort((a, b) => {
+              const da = new Date(a.submit_date || a.submitDate || a.dateCreated || a.createdAt || a.created_at || 0).getTime() || 0;
+              const db = new Date(b.submit_date || b.submitDate || b.dateCreated || b.createdAt || b.created_at || 0).getTime() || 0;
+              return db - da;
+            });
+          const tableRows = newTickets.map(t => {
+            // NOTE: 'newTickets' contains tickets with status exactly 'New' (case-insensitive)
+            const ticketNumber = t.ticket_number || t.ticketNumber || t.ticket_id || t.id;
+            const subject = t.subject || t.title || '';
+            const category = t.category || t.category_name || t.cat || '';
+            const subCategory = t.sub_category || t.subCategory || t.subcategory || '';
+            // Consider untriaged tickets as New for the Tickets to Review view
+            const statusDisplay = 'New';
+            const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || '';
             return {
-              ticketNumber: number,
-              subject: t.subject || t.title || t.issue || 'No subject',
-              category: t.category || t.category_name || 'Uncategorized',
-              subCategory: t.subCategory || t.sub_category || t.subcategory || '-',
-              status: {
-                text: computeEffectiveStatus(t),
-                statusClass: 'status' + computeEffectiveStatus(t).replace(/\s+/g, '')
-              },
-              dateCreated: new Date(t.createdAt || t.dateCreated || t.submit_date || t.created_at || 0).toLocaleDateString()
+              ticketNumber,
+              subject,
+              category,
+              subCategory,
+              status: { text: statusDisplay, statusClass: `status${statusDisplay.replace(/\s+/g,'')}` },
+              dateCreated: dateCreated ? String(dateCreated).slice(0,10) : ''
             };
           });
 
           setTicketDataState({
             stats,
-            tableData,
+            tableData: tableRows,
             pieData: pie,
             lineData: line
           });
-        }
-        // Fetch all users from auth service for Users tab
-        try {
-          setLoadingUsers(true);
-          setUserError(null);
-          let allUsers = [];
-          try {
-            // Fetch all HDTS users from auth service
-            allUsers = await authUserService.getAllHdtsUsers();
-            console.log('📋 Admin Dashboard: Fetched all HDTS users from auth service:', allUsers.length, 'users');
-          } catch (e) {
-            console.warn('Failed to fetch HDTS users from auth service:', e);
-            allUsers = [];
-          }
-
-          // Normalize to array
-          allUsers = Array.isArray(allUsers) ? allUsers : [];
-
-          // Fetch pending HDTS employees from auth service (pending employees only)
-          let pendingEmployees = [];
-          try {
-            pendingEmployees = await authUserService.getPendingHdtsUsers();
-            console.log('📋 Admin Dashboard: Fetched pending HDTS employees from auth service:', pendingEmployees.length, 'users');
-          } catch (e) {
-            console.warn('Failed to fetch pending HDTS employees from auth service, falling back to client-side filter:', e);
-
-            // Fallback: Filter pending employees from the all-users list
-            pendingEmployees = allUsers.filter(u => {
-              const status = (u.status || '').toLowerCase();
-              const roles = u.system_roles || u.systemRoles || [];
-              const hasEmployeeRole = roles.some(r => {
-                const roleName = (r.role_name || r.role || '').toLowerCase();
-                return roleName === 'employee';
-              });
-              return status === 'pending' && hasEmployeeRole;
-            });
-            console.log('📋 Admin Dashboard: Pending employees (fallback filter):', pendingEmployees.length, 'from', allUsers.length, 'total users');
-          }
-
-          // Build table rows for User Approval table (pending employees only)
-          // Columns: Company ID, Last Name, First Name, Department, Status
-          const tableRows = pendingEmployees.map(u => {
-            return {
-              companyId: u.company_id || u.companyId || u.username || `USER-${u.id}`,
-              lastName: u.last_name || '',
-              firstName: u.first_name || '',
-              department: u.department || '',
-              status: { 
-                text: 'Pending', 
-                statusClass: 'statusPending' 
-              }
-            };
-          });
-
-          // Count users by status
-          // Active: All HDTS users EXCEPT Employee role with status=Pending or Rejected
-          //         (Admin/Ticket Coordinator with Pending status still count as Active)
-          // Pending: Employee role only + status=Pending
-          // Rejected: Employee role only + status=Rejected
-          const activeCount = allUsers.filter(u => {
-            const status = (u.status || '').toLowerCase();
-            const roles = u.system_roles || u.systemRoles || [];
-            const hasEmployeeRole = roles.some(r => {
-              const roleName = (r.role_name || r.role || '').toLowerCase();
-              return roleName === 'employee';
-            });
-            // Exclude only if Employee role AND (Pending OR Rejected)
-            const isExcluded = hasEmployeeRole && (status === 'pending' || status === 'rejected');
-            return !isExcluded;
-          }).length;
-          const pendingCount = allUsers.filter(u => {
-            const status = (u.status || '').toLowerCase();
-            const roles = u.system_roles || u.systemRoles || [];
-            const hasEmployeeRole = roles.some(r => {
-              const roleName = (r.role_name || r.role || '').toLowerCase();
-              return roleName === 'employee';
-            });
-            return status === 'pending' && hasEmployeeRole;
-          }).length;
-          const rejectedCount = allUsers.filter(u => {
-            const status = (u.status || '').toLowerCase();
-            const roles = u.system_roles || u.systemRoles || [];
-            const hasEmployeeRole = roles.some(r => {
-              const roleName = (r.role_name || r.role || '').toLowerCase();
-              return roleName === 'employee';
-            });
-            return status === 'rejected' && hasEmployeeRole;
-          }).length;
-
-          // Stats for users tab - show pending employees count
-          const userStats = [
-            {
-              label: 'Pending Users',
-              count: pendingEmployees.length,
-              isHighlight: true,
-              position: 0,
-              path: userPaths.find(p => p.label === 'Pending Accounts')?.path
-            }
-          ];
-
-          // Build user activity logs: one action per user based on current status
-          const userActions = allUsers.map(u => {
-            const labelId = u.company_id || u.companyId || u.username || `USER-${u.id}`;
-            const status = (u.status || '').toLowerCase();
-            
-            if (status === 'pending') {
-              // Show account creation time for pending users
-              const created = new Date(u.date_joined || u.created_at || 0);
-              return { 
-                time: created.getTime(), 
-                displayTime: created, 
-                action: `User ${labelId} account created` 
-              };
-            } else if (status === 'approved') {
-              // Show approval time - use approved_at if available
-              const approved = new Date(u.approved_at || u.last_login || u.updated_at || u.date_joined || 0);
-              return { 
-                time: approved.getTime(), 
-                displayTime: approved, 
-                action: `User ${labelId} approved by Admin` 
-              };
-            } else if (status === 'rejected') {
-              // Show rejection time - use rejected_at if available
-              const rejected = new Date(u.rejected_at || u.updated_at || u.date_joined || 0);
-              return { 
-                time: rejected.getTime(), 
-                displayTime: rejected, 
-                action: `User ${labelId} rejected by Admin` 
-              };
-            }
-            return null;
-          }).filter(a => a && Number.isFinite(a.time));
-
-          // Sort by timestamp: newest to oldest (latest activities first)
-          userActions.sort((a, b) => b.time - a.time);
-
-          // Build pie data - showing Active (all HDTS users), Pending (Employees), and Rejected (Employees)
-          const pie = [
-            { name: 'Active', value: activeCount, fill: '#10B981' },
-            { name: 'Pending', value: pendingCount, fill: '#FBBF24' },
-            { name: 'Rejected', value: rejectedCount, fill: '#EF4444' }
-          ];
-
-          if (mounted) {
-            setUserDataState({ stats: userStats, tableData: tableRows, pieData: pie, lineData: [] });
-            setUserActivityTimeline(userActions.slice(0, 4).map(a => ({ time: a.displayTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true }), action: a.action })));
-          }
-        } catch (e) {
-          console.error('Error processing users for dashboard', e);
-          if (mounted) setUserError(e?.message || String(e));
+        } catch (err) {
+          console.error('Error loading tickets for dashboard', err);
+          if (mounted) setTicketDataState(null);
         } finally {
-          if (mounted) setLoadingUsers(false);
+          if (mounted) setIsLoading(false);
         }
-      } catch (err) {
-        console.error('Error loading tickets for dashboard', err);
-        if (mounted) setTicketError(err?.message || String(err));
-      } finally {
-        if (mounted) setLoadingTickets(false);
-      }
-    };
-
-    load();
-    return () => { mounted = false; };
+      })();
+    }, 300);
+    return () => { mounted = false; clearTimeout(timer); };
   }, [currentUser, chartRange, pieRange]);
 
   // Effect: load KB (articles) for KB tab cards
@@ -911,12 +849,52 @@ const CoordinatorAdminDashboard = () => {
       <div className={styles.dashboardContent}>
         <h1 className={styles.title}>Dashboard</h1>
 
-        <Tabs
-          tabs={dashboardTabs}
-          active={activeTab}
-          onChange={setActiveTab}
-        />
-        <div className={styles.tabContent}>
+        {isLoading ? (
+          <div style={{ padding: '24px' }}>
+            {/* Skeleton tabs */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} width="120px" height="36px" borderRadius="6px" />
+              ))}
+            </div>
+
+            {/* Skeleton stat cards */}
+            <div className={styles.statusCardsGrid} style={{ marginTop: 12, marginBottom: 24 }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+                  <Skeleton width="80px" height="32px" borderRadius="4px" />
+                  <Skeleton width="100%" height="20px" style={{ marginTop: '12px' }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton table */}
+            <div style={{ marginBottom: 24 }}>
+              <Skeleton width="200px" height="24px" style={{ marginBottom: '12px' }} />
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <Skeleton key={j} width={`${100/6}%`} height="40px" borderRadius="4px" />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton charts */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {[1, 2].map(i => (
+                <Skeleton key={i} width="100%" height="300px" borderRadius="8px" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Tabs
+              tabs={dashboardTabs}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
+            <div className={styles.tabContent}>
           <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
             {activeTab === 'kb' ? (
               // KB tab: show real KB stats when available
@@ -939,25 +917,27 @@ const CoordinatorAdminDashboard = () => {
               </div>
             ) : (
               <>
-            {/* Hide Tickets to Review for Admin and System Admin roles */}
-            {!((currentUser?.role === 'System Admin' || currentUser?.role === 'Admin' || isAdmin) && activeTab === 'tickets') && (
-              activeTab === 'tickets' ? (
-                <DataTable
-                  title={'Tickets to Review'}
-                  headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-                  data={ticketData.tableData}
-                  bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
-                />
-              ) : (
-                // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
-                <DataTable
-                  title={'User Approval'}
-                  headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Status']}
-                  data={userData.tableData}
-                  bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
-                />
-              )
-            )}                <div style={{ position: 'relative', marginTop: 12 }}>
+                {!(currentUser?.role === 'System Admin' && activeTab === 'tickets') && (
+                  activeTab === 'tickets' ? (
+                    <DataTable
+                      title={'Tickets to Review'}
+                      headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
+                      data={ticketData.tableData}
+                      // header is 50px and rows are 50px tall; 5 rows + header = 300px
+                      bodyStyle={{ maxHeight: '300px', overflowY: 'auto' }}
+                    />
+                  ) : (
+                    // Users tab: show Pending Users table with locked columns and max 5 rows scrollable (rows area only)
+                    <DataTable
+                      title={'User Approval'}
+                      headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
+                      data={userData.tableData}
+                      bodyStyle={{ maxHeight: '320px', overflowY: 'auto' }}
+                    />
+                  )
+                )}
+
+                <div style={{ position: 'relative', marginTop: 12 }}>
                   <div style={{ position: 'absolute', top: 8, right: 8 }}>
                     <select
                       value={chartRange}
@@ -1003,11 +983,13 @@ const CoordinatorAdminDashboard = () => {
                 </div>
               </>
             )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
-  };
+};
 
   export default CoordinatorAdminDashboard;
 

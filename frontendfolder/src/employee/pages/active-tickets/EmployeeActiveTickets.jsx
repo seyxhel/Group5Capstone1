@@ -1,9 +1,22 @@
+// Normalize ticket data to handle both backend field names (snake_case) and frontend (camelCase)
+function normalizeTicket(ticket) {
+  return {
+    ...ticket,
+    ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+    subCategory: ticket.sub_category || ticket.subCategory,
+    dateCreated: ticket.submit_date || ticket.dateCreated || ticket.createdAt || ticket.created_at || null,
+    priorityLevel: ticket.priority || ticket.priorityLevel,
+    assignedTo: ticket.assigned_to || ticket.assignedTo,
+  };
+}
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { backendTicketService } from "../../../services/backend/ticketService";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
+import InputField from "../../../shared/components/InputField";
+import Skeleton from "../../../shared/components/Skeleton/Skeleton";
 
 import TablePagination from "../../../shared/table/TablePagination";
 import EmployeeTicketFilter, { ACTIVE_TICKET_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
@@ -103,7 +116,7 @@ const EmployeeActiveTickets = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [allActiveTickets, setAllActiveTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,46 +128,24 @@ const EmployeeActiveTickets = () => {
 
   // Fetch tickets from backend
   useEffect(() => {
-    let isMounted = true;
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      // Get current logged-in user and only fetch their tickets
+      const currentUser = authService.getCurrentUser();
+      backendTicketService.getTicketsByEmployee(currentUser?.id)
+        .then(tickets => {
+          const ticketList = Array.isArray(tickets) ? tickets : (tickets.results || []);
+          const normalized = ticketList.map(normalizeTicket);
+          setAllActiveTickets(normalized);
+        })
+        .catch(err => {
+          setAllActiveTickets([]);
+          console.error('Failed to fetch employee tickets:', err);
+        })
+        .finally(() => setIsLoading(false));
+    }, 300);
 
-    const fetchTickets = async () => {
-      try {
-        setLoading(true);
-        // Fetch all tickets from backend (will be filtered by employee on backend)
-        const tickets = await backendTicketService.getAllTickets();
-        
-        if (!isMounted) return;
-
-        // Normalize ticket data to handle backend field names
-        const normalizedTickets = tickets.map(ticket => ({
-          id: ticket.id,
-          ticketNumber: ticket.ticket_number || ticket.ticketNumber,
-          subject: ticket.subject,
-          status: ticket.status,
-          priorityLevel: ticket.priority || ticket.priorityLevel,
-          category: ticket.category,
-          subCategory: ticket.sub_category || ticket.subCategory,
-          dateCreated: ticket.submit_date || ticket.dateCreated,
-          lastUpdated: ticket.update_date || ticket.lastUpdated,
-          description: ticket.description,
-          assignedTo: ticket.assigned_to || ticket.assignedTo,
-          department: ticket.department
-        }));
-
-        setAllActiveTickets(normalizedTickets);
-      } catch (error) {
-        console.error('Error fetching tickets:', error);
-        if (isMounted) setAllActiveTickets([]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchTickets();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   const [activeFilters, setActiveFilters] = useState({
@@ -249,7 +240,7 @@ const EmployeeActiveTickets = () => {
 
   const [showFilter, setShowFilter] = useState(false);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.loadingMessage}>Loading tickets...</div>
@@ -295,12 +286,11 @@ const EmployeeActiveTickets = () => {
         <div className={styles.tableHeader}>
           <h2>{headingMap[filter] || "Active Tickets"}</h2>
           <div className={styles.tableActions}>
-            <input
-              className={styles.searchBar}
-              type="search"
+            <InputField
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              inputStyle={{ width: '260px' }}
             />
           </div>
         </div>
@@ -312,7 +302,20 @@ const EmployeeActiveTickets = () => {
               <TableHeader />
             </thead>
             <tbody>
-              {displayedTickets.length > 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton width="80px" /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton /></td>
+                    <td><Skeleton width="100px" /></td>
+                    <td><Skeleton width="80px" /></td>
+                  </tr>
+                ))
+              ) : displayedTickets.length > 0 ? (
                 displayedTickets.map((ticket, index) => (
                   <TableItem 
                     key={index} 
@@ -334,16 +337,18 @@ const EmployeeActiveTickets = () => {
         </div>
 
         {/* Pagination */}
-        <div className={styles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filteredTickets.length}
-            initialItemsPerPage={pageSize}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setPageSize}
-            alwaysShow={true}
-          />
-        </div>
+        {!isLoading && (
+          <div className={styles.tablePagination}>
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredTickets.length}
+              initialItemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setPageSize}
+              alwaysShow={true}
+            />
+          </div>
+        )}
 
       </div>
 

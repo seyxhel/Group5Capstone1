@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import styles from './EmployeeTicketTracker.module.css';
 import { backendTicketService } from '../../../services/backend/ticketService';
 import { toEmployeeStatus } from '../../../utilities/helpers/statusMapper';
-import { useAuth } from '../../../context/AuthContext';
+import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import EmployeeActiveTicketsWithdrawTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsWithdrawTicketModal';
 import EmployeeActiveTicketsCloseTicketModal from '../../components/modals/active-tickets/EmployeeActiveTicketsCloseTicketModal';
 import TicketActivity from './TicketActivity';
@@ -61,104 +62,25 @@ const DetailField = ({ label, value }) => (
 
 const formatDate = (date) => {
   if (!date) return 'None';
-  try {
-    // If it's already a Date
-    if (date instanceof Date) {
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
-    }
-
-    // Normalize strings like 'YYYY-MM-DD' which can be parsed inconsistently across browsers
-    if (typeof date === 'string') {
-      const trimmed = date.trim();
-      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
-      const m = ymd.exec(trimmed);
-      if (m) {
-        const y = parseInt(m[1], 10);
-        const mo = parseInt(m[2], 10) - 1;
-        const d = parseInt(m[3], 10);
-        const dt = new Date(y, mo, d);
-        return dt.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
-      }
-
-      // Fallback to Date parsing for ISO and other formats
-      const parsed = new Date(trimmed);
-      if (isNaN(parsed.getTime())) return 'Invalid Date';
-      return parsed.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
-    }
-
-    // Fallback: attempt to create Date from number
-    const asNum = Number(date);
-    if (!isNaN(asNum)) {
-      const parsed = new Date(asNum);
-      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
-    }
-
-    return 'Invalid Date';
-  } catch (e) {
-    return 'Invalid Date';
-  }
+  const d = new Date(date);
+  if (isNaN(d)) return 'None';
+  const monthName = d.toLocaleString('en-US', { month: 'long' }); // October
+  const day = d.getDate();
+  const yearFull = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const yy = String(yearFull).slice(-2);
+  return `${monthName} ${day}, ${yearFull}`;
 };
 
-// Date-only formatter (no time) used for schedule displays
+// Format a date value to a user-friendly date-only string (reuses formatDate)
 const formatDateOnly = (date) => {
-  if (!date) return 'None';
+  if (!date) return null;
   try {
-    if (date instanceof Date) {
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-
-    if (typeof date === 'string') {
-      const trimmed = date.trim();
-      const ymd = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/;
-      const m = ymd.exec(trimmed);
-      if (m) {
-        const y = parseInt(m[1], 10);
-        const mo = parseInt(m[2], 10) - 1;
-        const d = parseInt(m[3], 10);
-        const dt = new Date(y, mo, d);
-        return dt.toLocaleString('en-US', { dateStyle: 'short' });
-      }
-
-      const parsed = new Date(trimmed);
-      if (isNaN(parsed.getTime())) return 'Invalid Date';
-      return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-
-    const asNum = Number(date);
-    if (!isNaN(asNum)) {
-      const parsed = new Date(asNum);
-      if (!isNaN(parsed.getTime())) return parsed.toLocaleString('en-US', { dateStyle: 'short' });
-    }
-
-    return 'Invalid Date';
+    const v = formatDate(date);
+    return v === 'None' ? null : v;
   } catch (e) {
-    return 'Invalid Date';
-  }
-};
-
-// Format for logs: YYYY-MM-DD hh:mm AM/PM (e.g., 2025-10-24 02:51 PM)
-const formatLogTimestamp = (date) => {
-  if (!date) return 'None';
-  try {
-    const d = date instanceof Date ? date : new Date(date);
-    if (isNaN(d.getTime())) return 'Invalid Date';
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours === 0 ? 12 : hours;
-    const hourStr = String(hours).padStart(2, '0');
-
-    return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
-  } catch (e) {
-    return 'Invalid Date';
+    return String(date);
   }
 };
 
@@ -170,79 +92,163 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 };
 
-// Helper to render dynamic values safely (objects/arrays -> JSON string inside <pre>)
-const renderDynamicValue = (val) => {
-  if (val === null || val === undefined || val === '') return 'None';
-  if (typeof val === 'object') {
-    try {
-      return <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
-    } catch (e) {
-      return String(val);
-    }
-  }
-  return String(val);
-};
+// Generate logs based on ticket data and return polished sentence text for each entry
+const generateLogs = (ticket) => {
 
-// Generate logs based on ticket data (start with any persisted logs)
-// Accept currentUser to decide labels for certain status changes
-const generateLogs = (ticket, currentUser) => {
-  // Collect logs and keep raw timestamps for sorting. We will format timestamps
-  // for display after sorting so we can order latest -> oldest.
-  const logs = Array.isArray(ticket?.logs) ? ticket.logs.map((l, idx) => ({
-    id: l.id || idx + 1,
-    user: l.user || 'You',
-    action: l.action || `Status changed to ${ticket.status}`,
-    rawTimestamp: l.timestamp || ticket.update_date || ticket.submit_date,
-  })) : [];
+  const logs = [];
+  const createdAt = ticket.dateCreated || ticket.date_created || new Date().toISOString();
 
-  // System-created entry
+  // 1. Ticket Created
   logs.push({
     id: logs.length + 1,
-    user: 'System',
-    action: `Ticket #${ticket.ticket_number} created - ${ticket.category}`,
-    rawTimestamp: ticket.submit_date,
+    user: ticket.requesterName || ticket.requestedBy || 'Employee',
+    action: 'Ticket Created',
+    timestamp: formatDate(createdAt),
+    source: 'Web Form',
+    details: `Category: ${ticket.category || 'None'}`,
+    text: `Ticket was created on ${formatDate(createdAt)} via Web Form. Category: ${ticket.category || 'None'}.`,
+    highlight: ticket.category || null,
   });
 
-  // Handle assignedTo as object or string
-  const assignedToName = typeof ticket.assigned_to === 'object' ? ticket.assigned_to?.name : ticket.assigned_to;
-  if (assignedToName) {
+  // 2. Assigned to department / agent (if present)
+  const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
+  if (ticket.department) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const agentText = assignedToName ? ` by ${assignedToName}` : '';
+    const sentence = `Ticket was routed to the ${ticket.department} department${agentText} on ${formatDate(at)}.`;
     logs.push({
       id: logs.length + 1,
-      user: assignedToName,
-      action: `Assigned to ${ticket.department} department`,
-      rawTimestamp: ticket.submit_date,
+      user: 'Coordinator',
+      action: `Assigned to ${ticket.department}`,
+      timestamp: formatDate(at),
+      source: 'System',
+      text: sentence,
+      highlight: ticket.department,
+    });
+  } else if (assignedToName) {
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    logs.push({
+      id: logs.length + 1,
+      user: 'Coordinator',
+      action: `Assigned to ${assignedToName}`,
+      timestamp: formatDate(at),
+      source: 'System',
+      text: `Assigned to ${assignedToName} on ${formatDate(at)}.`,
+      highlight: assignedToName,
     });
   }
 
-  // Add status change log for Withdrawn (attributed to the employee 'You')
-  if (ticket.status === 'Withdrawn') {
+  // 3. Status history: add all status changes if present
+  if (Array.isArray(ticket.statusHistory) && ticket.statusHistory.length > 0) {
+    ticket.statusHistory.forEach((entry, idx) => {
+      // Normalize status display for logs: treat 'New' as 'Open' so timeline reads clearly
+      const raw = entry.status || '';
+      const displayStatus = raw === 'New' ? 'Open' : raw;
+      logs.push({
+        id: logs.length + 1,
+        user: entry.user || 'System',
+        action: `Status Updated: ${displayStatus}`,
+        timestamp: formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt),
+        source: entry.source || 'System',
+        text: `Status was updated to ${displayStatus} on ${formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt)}.`,
+        highlight: displayStatus,
+      });
+    });
+  } else if (Array.isArray(ticket.logs) && ticket.logs.length > 0) {
+    // Fallback: support for 'logs' array with status changes
+    ticket.logs.forEach((entry, idx) => {
+      if (entry.status) {
+        const raw = entry.status || '';
+        const displayStatus = raw === 'New' ? 'Open' : raw;
+        logs.push({
+          id: logs.length + 1,
+          user: entry.user || 'System',
+          action: `Status Updated: ${displayStatus}`,
+          timestamp: formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt),
+          source: entry.source || 'System',
+          text: `Status was updated to ${displayStatus} on ${formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt)}.`,
+          highlight: displayStatus,
+        });
+      }
+    });
+  } else {
+    // Fallback: add current status if it's progressed beyond initial
+    const status = ticket.status || ticket.currentStatus;
+    if (status && status !== 'New' && status !== 'Pending') {
+      const at = ticket.lastUpdated || createdAt;
+      logs.push({
+        id: logs.length + 1,
+        user: 'System',
+        action: `Status Updated: ${status}`,
+        timestamp: formatDate(at),
+        source: 'System',
+        text: `Status was updated to ${status} on ${formatDate(at)}.`,
+        highlight: status,
+      });
+    }
+  }
+
+  // 4. Resolved / Closed (explicit)
+  const status = ticket.status || ticket.currentStatus;
+  if (status === 'Resolved' || ticket.resolvedAt) {
+    const resolvedAt = ticket.resolvedAt || ticket.lastUpdated || createdAt;
     logs.push({
       id: logs.length + 1,
-      user: 'You',
-      action: `Status changed to Withdrawn`,
-      rawTimestamp: ticket.time_closed || ticket.update_date,
+      user: ticket.resolvedBy || 'Agent',
+      action: 'Ticket Resolved',
+      timestamp: formatDate(resolvedAt),
+      source: 'Portal',
+      text: `Ticket was marked as resolved on ${formatDate(resolvedAt)}.`,
+      highlight: 'resolved',
     });
   }
 
-  // Sort logs newest-first by timestamp
-  logs.sort((a, b) => {
-    const ta = a.rawTimestamp || a.timestamp;
-    const tb = b.rawTimestamp || b.timestamp;
-    const da = new Date(ta);
-    const db = new Date(tb);
-    if (isNaN(da.getTime()) && isNaN(db.getTime())) return 0;
-    if (isNaN(da.getTime())) return 1;
-    if (isNaN(db.getTime())) return -1;
-    return db.getTime() - da.getTime();
-  });
+  if (status === 'Closed' || ticket.closedAt) {
+    const closedAt = ticket.closedAt || ticket.lastUpdated || new Date().toISOString();
+    logs.push({
+      id: logs.length + 1,
+      user: ticket.closedBy || 'System',
+      action: 'Ticket Closed',
+      timestamp: formatDate(closedAt),
+      source: 'System',
+      text: `Ticket was closed on ${formatDate(closedAt)}.`,
+      highlight: 'closed',
+    });
+  }
 
-  // Format timestamps for display and remove rawTimestamp
-  return logs.map((l) => ({
-    id: l.id,
-    user: l.user,
-    action: l.action,
-    timestamp: formatLogTimestamp(l.rawTimestamp || l.timestamp),
-  }));
+  // 5. Include any message/activity entries as action logs (if present)
+  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
+    ticket.activity.forEach((a) => {
+      const who = a.user || a.performedBy || a.actor || 'Agent';
+      const when = formatDate(a.timestamp || a.date || a.createdAt);
+      const details = a.details || a.note || a.message || a.action || '';
+      // Build a natural sentence depending on available fields
+      let sentence = '';
+      if (a.type && a.type.toLowerCase().includes('comment')) {
+        sentence = `${who} commented on ${when}: "${details || a.note || 'No details provided.'}"`;
+      } else if (a.action && (a.action.toLowerCase().includes('status') || a.action.toLowerCase().includes('changed')) ) {
+        sentence = `${who} updated the ticket: ${a.action} on ${when}.`;
+      } else if (a.action && a.action.toLowerCase().includes('assign')) {
+        sentence = `${who} assigned the ticket on ${when}${details ? ` — ${details}` : ''}.`;
+      } else if (details) {
+        sentence = `${who} added an activity on ${when}: "${details}."`;
+      } else {
+        sentence = `${who} performed an action (${a.action || a.type || 'Activity'}) on ${when}.`;
+      }
+
+      logs.push({
+        id: logs.length + 1,
+        user: who,
+        action: a.action || a.type || 'Activity',
+        timestamp: when,
+        details: a.details || a.note || undefined,
+        source: a.source || 'Portal',
+        text: sentence,
+      });
+    });
+  }
+
+  return logs;
 };
 
 // Generate messages based on ticket data
@@ -357,10 +363,19 @@ export default function EmployeeTicketTracker() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [activeTab, setActiveTab] = useState('messages'); // 'logs' or 'messages'
+  const [isLoading, setIsLoading] = useState(true);
   // preview state removed - attachments now open in a new tab
 
-  // Get current logged-in user from AuthContext
-  const { user: currentUser } = useAuth();
+  useEffect(() => {
+    // Simulate loading delay
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ticketNumber]);
+
+  // Get current logged-in user
+  const currentUser = authService.getCurrentUser();
   
   // Get only the current user's tickets
   const tickets = getEmployeeTickets(currentUser?.id);
@@ -503,7 +518,7 @@ export default function EmployeeTicketTracker() {
   const isClosable = status === 'Resolved';
 
   // Generate dynamic data based on ticket
-  const ticketLogs = generateLogs(ticket);
+  // (logs are computed later after merging status history)
 
   // Prepare Additional Details entries (filter out schedule-like entries for 'Others')
   const _dynamicEntries = ticket.dynamic_data && typeof ticket.dynamic_data === 'object' ? Object.entries(ticket.dynamic_data) : [];
@@ -579,12 +594,185 @@ export default function EmployeeTicketTracker() {
 
   const ticketMessages = buildMessagesFromTicket(ticket);
 
+  // --- Local status history persistence (for additive log timeline) ---
+  const storageKeyFor = (num) => `ticketStatusHistory:${num}`;
+  const loadStatusHistory = (num) => {
+    try {
+      const raw = localStorage.getItem(storageKeyFor(num));
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  };
+  const saveStatusHistory = (num, items) => {
+    try { localStorage.setItem(storageKeyFor(num), JSON.stringify(items || [])); } catch (e) {}
+  };
+  const appendStatusHistory = (num, entry) => {
+    const current = loadStatusHistory(num);
+    const merged = [...current, entry].filter(Boolean);
+    // de-duplicate by status + user + minute-precision timestamp to avoid true duplicates
+    // but allow different statuses (Open vs Withdrawn) in the same minute
+    const seen = new Set();
+    const deduped = [];
+    const keyFor = (it) => {
+      const s = (it.status || '').toString().toLowerCase();
+      const u = (it.user || '').toString().toLowerCase();
+      const ts = it.timestamp || it.date || it.createdAt || it.created_at || '';
+      let dkey = '';
+      try {
+        const d = new Date(ts);
+        if (!isNaN(d)) dkey = d.toISOString().slice(0,16); // up to minutes
+      } catch (e) {}
+      return `${s}|${u}|${dkey}`;
+    };
+    for (const it of merged) {
+      const k = keyFor(it);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      deduped.push(it);
+    }
+    // sort ascending by timestamp
+    deduped.sort((a,b)=> new Date(a.timestamp||a.date||0) - new Date(b.timestamp||b.date||0));
+    saveStatusHistory(num, deduped);
+    return deduped;
+  };
+
+  const num = number || ticket.ticketNumber || ticket.ticket_number;
+  const backendHistory = Array.isArray(ticket.statusHistory) ? ticket.statusHistory : [];
+  const ticketLogsFromBackendLogs = Array.isArray(ticket.logs) ? ticket.logs.filter(l => l && (l.status || l.action || l.type)) : [];
+  const localHistory = num ? loadStatusHistory(num) : [];
+
+  // Merge backend statusHistory, any status-bearing entries from ticket.logs, then local history
+  const mergedHistory = [...backendHistory, ...ticketLogsFromBackendLogs, ...localHistory];
+
+  // Disable the localStorage-based initial status injection completely.
+  // This was causing duplicate "Open" entries and unnecessary "Open" entries for new tickets.
+  // The backend should provide complete statusHistory, or we'll rely on the "current status" fallback below.
+
+  // de-duplicate merged history by status + minute-precision timestamp
+  const histSeen = new Set();
+  const mergedDeduped = [];
+  const keyForHist = (it) => {
+    const s = (it.status || it.action || '').toString().toLowerCase();
+    const u = it.user || it.actor || 'system';
+    const ts = it.timestamp || it.date || it.createdAt || it.created_at || '';
+    let dkey = '';
+    try {
+      const d = new Date(ts);
+      if (!isNaN(d)) dkey = d.toISOString().slice(0,16);
+    } catch (e) {}
+    return `${s}|${u}|${dkey}`;
+  };
+  for (const it of mergedHistory) {
+    const k = keyForHist(it);
+    if (histSeen.has(k)) continue;
+    histSeen.add(k);
+    mergedDeduped.push(it);
+  }
+  // Sort by timestamp, but for entries with the same status, prefer backend entries over local
+  mergedDeduped.sort((a,b)=> {
+    const aTime = new Date(a.timestamp||a.date||0).getTime();
+    const bTime = new Date(b.timestamp||b.date||0).getTime();
+    if (aTime !== bTime) return aTime - bTime;
+    
+    // If timestamps are very close (same minute), use source to break ties:
+    // backend entries (System) should come before local entries (You/Portal)
+    const aIsLocal = (a.user === 'You' || a.source === 'Portal');
+    const bIsLocal = (b.user === 'You' || b.source === 'Portal');
+    if (aIsLocal && !bIsLocal) return 1;  // a comes after b
+    if (!aIsLocal && bIsLocal) return -1; // a comes before b
+    return 0;
+  });
+
+  // Generate logs with merged status history so entries are additive
+  const ticketLogs = generateLogs({ ...ticket, statusHistory: mergedDeduped });
+
+  // Only append current status if it's actually changed from 'New' and not in history yet.
+  // Skip for 'New' tickets to avoid unnecessary status entries when just created.
+  try {
+    const curStatus = originalStatus || ticket.status || '';
+    const curStatusLower = curStatus.toLowerCase();
+    const hasCur = mergedDeduped.some(it => ((it.status || it.action || '').toString().toLowerCase()) === curStatusLower);
+    if (curStatus && !hasCur && !['new', 'submitted', 'pending'].includes(curStatusLower)) {
+      mergedDeduped.push({ status: curStatus, timestamp: lastUpdatedRaw || dateCreatedRaw || new Date().toISOString(), user: 'System', source: 'System' });
+      // regenerate logs to include this appended status
+      // Note: call generateLogs again to recompute ticketLogs with the appended status
+      // (we shadow ticketLogs variable by reassigning)
+      // eslint-disable-next-line no-unused-vars
+      const _ticketLogs = generateLogs({ ...ticket, statusHistory: mergedDeduped });
+      // replace ticketLogs variable by mutating referenced data in TicketActivity via props later
+      // To avoid refactor, we'll reassign ticketLogs via a local variable name used by rendering below.
+      ticketLogs.length = 0; // clear existing
+      _ticketLogs.forEach(l => ticketLogs.push(l));
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Success handlers to add new log entries without reloading the page
+  const handleWithdrawSuccess = (tNum, newStatus) => {
+    try {
+      const ts = new Date().toISOString();
+      const keyNum = tNum || num;
+      appendStatusHistory(keyNum, { status: newStatus, timestamp: ts, user: 'You', source: 'Portal' });
+      // Update in-memory ticket so header/status badges refresh
+      try {
+        // mutate shallow copy in state if possible
+        // eslint-disable-next-line no-unused-vars
+        setShowWithdrawModal(false);
+        setActiveTab('logs');
+      } catch (_) {}
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Show loading skeleton for ticket details
+  if (isLoading) {
+    return (
+      <>
+        <main className={styles.employeeTicketTrackerPage}>
+          <ViewCard>
+            <div className={styles.contentGrid}>
+              <div className={styles.leftColumn}>
+                <section className={styles.ticketCard}>
+                  <div className={styles.ticketHeader}>
+                    <div className={styles.headerLeft}>
+                      <Skeleton width="100px" height="32px" />
+                      <Skeleton width="300px" height="28px" style={{ marginLeft: '12px' }} />
+                    </div>
+                    <Skeleton width="100px" height="32px" />
+                  </div>
+                  <div className={styles.ticketMeta}>
+                    <Skeleton width="200px" height="20px" />
+                    <Skeleton width="200px" height="20px" style={{ marginTop: '8px' }} />
+                  </div>
+                  <div className={styles.detailsGrid}>
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i}>
+                        <Skeleton width="100px" height="12px" />
+                        <Skeleton width="100%" height="20px" style={{ marginTop: '8px' }} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <div className={styles.rightColumn}>
+                <Skeleton width="100%" height="300px" />
+              </div>
+            </div>
+          </ViewCard>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       
       <main className={styles.employeeTicketTrackerPage}>
         <ViewCard>
-
         {/* Two Column Layout */}
         <div className={styles.contentGrid}>
           {/* Left Column - Ticket Information */}
@@ -794,52 +982,41 @@ export default function EmployeeTicketTracker() {
 
           {/* Right Column - Actions and Details */}
           <div className={styles.rightColumn}>
-            {/* Action Button */}
-            {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  // log to help debug modal issues
-                  try {
-                    console.log('Action button clicked. isClosable=', isClosable, 'ticket=', ticket && (ticket.id || ticket.ticket_number || ticket.ticketNumber));
-                  } catch (e) {}
-                  isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true);
-                }}
-                className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
-              >
-                {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
-              </Button>
-            )}
-
-            <Tabs
-              tabs={[
-                { label: 'Messages', value: 'messages' },
-                { label: 'Logs', value: 'logs' },
-              ]}
-              active={activeTab}
-              onChange={setActiveTab}
-            >
-              {activeTab === 'logs' ? (
-                <TicketActivity ticketLogs={ticketLogs} />
-              ) : (
-                <TicketMessaging
-                  ticketId={ticket.id || ticket.ticket_id || ticket.ticketNumber || ticket.ticket_number}
-                  initialMessages={ticketMessages}
-                  onCommentCreated={(created) => {
-                    // Merge newly created comment into ticket state so UI updates immediately
-                    try {
-                      const existing = ticket.comments ? [...ticket.comments] : [];
-                      existing.push(created);
-                      const updated = { ...ticket, comments: existing };
-                      setTicket(updated);
-                    } catch (e) {
-                      console.warn('Failed to merge created comment into ticket state', e);
-                    }
-                  }}
-                />
+            <div className={styles.innerSticky}>
+              {/* Action Button */}
+              {!['Closed', 'Rejected', 'Withdrawn'].includes(status) && (
+                <Button
+                  variant="primary"
+                  onClick={() =>
+                    isClosable ? setShowCloseModal(true) : setShowWithdrawModal(true)
+                  }
+                  className={`${styles.ticketActionButton} ${isClosable ? styles.closeButton : styles.withdrawButton}`}
+                >
+                  {isClosable ? 'Close Ticket' : 'Withdraw Ticket'}
+                </Button>
               )}
-            </Tabs>
+
+              <Tabs
+                tabs={[
+                  { label: 'Messages', value: 'messages' },
+                  { label: 'Logs', value: 'logs' },
+                ]}
+                active={activeTab}
+                onChange={setActiveTab}
+                className={`${styles['messages-logs-wrapper']} ${activeTab === 'logs' ? styles.noBorder : ''}`}
+              >
+                {activeTab === 'logs' ? (
+                  <TicketActivity ticketLogs={ticketLogs} />
+                ) : (
+                  <TicketMessaging
+                    initialMessages={ticketMessages}
+                    ticketId={ticket.id || ticket.ticketId || ticket.ticket_id}
+                    ticketNumber={ticket.ticket_number || ticket.ticketNumber || number}
+                  />
+                )}
+              </Tabs>
             </div>
+          </div>
         </div>
   
         </ViewCard>
@@ -851,7 +1028,7 @@ export default function EmployeeTicketTracker() {
           <EmployeeActiveTicketsWithdrawTicketModal
             ticket={ticket}
             onClose={() => setShowWithdrawModal(false)}
-            onSuccess={typeof handleWithdrawSuccess === 'function' ? handleWithdrawSuccess : undefined}
+            onSuccess={handleWithdrawSuccess}
           />
         </ErrorBoundary>
       )}

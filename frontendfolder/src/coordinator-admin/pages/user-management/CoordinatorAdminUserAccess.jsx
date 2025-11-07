@@ -7,6 +7,8 @@ import ViewCard from "../../../shared/components/ViewCard";
 import Button from "../../../shared/components/Button";
 import TablePagination from "../../../shared/table/TablePagination";
 import FilterPanel from "../../../shared/table/FilterPanel";
+import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 import { authUserService } from '../../../services/auth/userService';
@@ -46,6 +48,7 @@ const CoordinatorAdminUserAccess = () => {
   // 👇 Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedStatus = status.toLowerCase();
   const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
@@ -53,82 +56,50 @@ const CoordinatorAdminUserAccess = () => {
 
   // 👇 Fetch users and current user
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    // Fetch users from auth service (http://localhost:8003/api/v1/hdts/user-management/users/api/)
-    (async () => {
-      try {
-        const list = await authUserService.getAllHdtsUsers().catch(() => null);
-        let fetchedUsers = null;
-        if (Array.isArray(list) && list.length) {
-          // Normalize auth service user objects to the shape used by this component
-          fetchedUsers = list
-            // hide superusers entirely
-            .filter((e) => !e.is_superuser)
-            .map((e) => {
-              // Extract role from system_roles array
-              const hdtsRole = (e.system_roles || []).find(r => r.system_slug === 'hdts' || r.system === 'hdts');
-              const roleName = hdtsRole?.role_name || hdtsRole?.role || 'Employee';
-              
-              return {
-                id: e.id,
-                companyId: e.company_id || e.companyId || null,
-                firstName: e.first_name || e.firstName || '',
-                lastName: e.last_name || e.lastName || '',
-                department: e.department || '',
-                role: roleName,
-                status: e.status || 'Active',
-                email: e.email || null,
-                image: e.profile_picture || e.image || null,
-              };
-            });
-        }
+    // Simulate loading delay
+    let mounted = true;
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          setIsLoading(true);
+          const user = authService.getCurrentUser();
+          setCurrentUser(user);
 
-        if (!fetchedUsers) {
-          const local = getEmployeeUsers() || [];
-          fetchedUsers = local;
-        }
+          // Fetch real users from backend
+          const fetched = await backendEmployeeService.getAllEmployees();
+          const raw = Array.isArray(fetched) ? fetched : (fetched?.results || []);
 
-        let usersToShow = fetchedUsers;
+          // Normalize to the UI shape expected by this page
+          const normalized = raw.map(u => ({
+            companyId: u.company_id || u.companyId || u.companyId || '',
+            lastName: u.last_name || u.lastName || u.last_name || '',
+            firstName: u.first_name || u.firstName || u.first_name || '',
+            department: u.department || '',
+            role: u.role || '',
+            status: u.status || '',
+            // keep original raw object for other actions if needed
+            _raw: u,
+          }));
 
-        // Hide only explicit superuser accounts (is_superuser flag). Do not
-        // filter by company id here — that may legitimately belong to a
-        // non-superuser in some deployments.
-        usersToShow = (usersToShow || []).filter((u) => {
-          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
-          return !isSuper;
-        });
-
-        // Apply role-scoped visibility (Ticket Coordinators only see their dept)
-        if (user) {
-          if (user.role === "Ticket Coordinator") {
-            usersToShow = usersToShow.filter((u) => u.department === user.department);
-          } else if (user.role === "System Admin") {
-            usersToShow = usersToShow;
+          let usersToShow = normalized;
+          if (user) {
+            if (user.role === "Ticket Coordinator") {
+              usersToShow = normalized.filter((u) => u.department === user.department);
+            } else if (user.role === "System Admin") {
+              usersToShow = normalized;
+            }
           }
-        }
 
-        setAllUsers(usersToShow || []);
-      } catch (e) {
-        // fallback to local store if backend request fails
-        const fetchedUsers = getEmployeeUsers() || [];
-        let usersToShow = fetchedUsers;
-
-        // Ensure local fallback hides any entries explicitly marked as superuser
-        usersToShow = (usersToShow || []).filter((u) => {
-          const isSuper = !!(u.is_superuser || u.isSuperuser || u.isSuperUser || u.is_super);
-          return !isSuper;
-        });
-        if (user) {
-          if (user.role === "Ticket Coordinator") {
-            usersToShow = usersToShow.filter((u) => u.department === user.department);
-          } else if (user.role === "System Admin") {
-            usersToShow = usersToShow;
-          }
+          if (mounted) setAllUsers(usersToShow);
+        } catch (err) {
+          console.error('Failed to load users for User Access page', err);
+        } finally {
+          if (mounted) setIsLoading(false);
         }
-        setAllUsers(usersToShow);
-      }
-    })();
+      })();
+    }, 300);
+
+    return () => { mounted = false; clearTimeout(timer); };
   }, []);
 
   // 👇 Combined filtering logic
@@ -237,12 +208,11 @@ const CoordinatorAdminUserAccess = () => {
             <div className={styles.tableHeader}>
               <h2>{title}</h2>
               <div className={styles.tableActions}>
-                <input
-                  className={styles.searchBar}
-                  type="search"
+                <InputField
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  inputStyle={{ width: '260px' }}
                 />
                 <Button
                   variant="primary"
@@ -268,7 +238,19 @@ const CoordinatorAdminUserAccess = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedUsers.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton width="80px" /></td>
+                        <td><Skeleton width="80px" /></td>
+                      </tr>
+                    ))
+                  ) : paginatedUsers.length === 0 ? (
                     <tr>
                       <td
                         colSpan={7}
@@ -342,14 +324,16 @@ const CoordinatorAdminUserAccess = () => {
             </div>
 
             <div className={styles.tablePagination}>
-              <TablePagination
-                currentPage={currentPage}
-                totalItems={filteredUsers.length}
-                initialItemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={setItemsPerPage}
-                alwaysShow
-              />
+              {!isLoading && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalItems={filteredUsers.length}
+                  initialItemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={setItemsPerPage}
+                  alwaysShow
+                />
+              )}
             </div>
           </div>
         </ViewCard>

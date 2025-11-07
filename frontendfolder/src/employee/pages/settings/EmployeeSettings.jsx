@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
 import styles from './manage-profile.module.css';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { API_CONFIG, FEATURES } from '../../../config/environment.js';
-import { toast } from 'react-toastify';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
+import { API_CONFIG } from '../../../config/environment';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
-export default function EmployeeSettings() {
+export default function EmployeeSettings({ editingUserId = null }) {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
   const [user, setUser] = useState(null);
@@ -14,165 +17,291 @@ export default function EmployeeSettings() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileUrlRef = useRef(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const verifyTimerRef = useRef(null);
 
-  useEffect(() => {
-    if (authUser) {
-      setUser(authUser);
-      setLoading(false);
+  // Password validation helper copied from create-account logic
+  const getPasswordErrorMessage = (password) => {
+    if (!password || password.trim() === "") {
+      return "Password must be at least 8 characters long and include uppercase, number, and special character.";
     }
-  }, [authUser]);
+    const hasMinLength = password.length >= 8;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>`~\-_=\\/;\'\[\]]/.test(password);
+
+    const missing = {
+      upper: !hasUpper,
+      lower: !hasLower,
+      digit: !hasDigit,
+      special: !hasSpecial,
+    };
+
+    const missingKeys = Object.entries(missing)
+      .filter(([_, isMissing]) => isMissing)
+      .map(([key]) => key);
+
+    const descriptors = {
+      upper: "uppercase",
+      lower: "lowercase",
+      digit: "number",
+      special: "special character",
+    };
+
+    const buildList = (items) => {
+      if (items.length === 1) return descriptors[items[0]];
+      if (items.length === 2)
+        return `${descriptors[items[0]]} and ${descriptors[items[1]]}`;
+      return (
+        items
+          .slice(0, -1)
+          .map((key) => descriptors[key])
+          .join(", ") +
+        ", and " +
+        descriptors[items[items.length - 1]]
+      );
+    };
+
+    if (!hasMinLength && missingKeys.length) {
+      return `Password must be at least 8 characters long and include ${buildList(missingKeys)}.`;
+    } else if (!hasMinLength) {
+      return "Password must be at least 8 characters long.";
+    } else if (missingKeys.length) {
+      return `Password must include ${buildList(missingKeys)}.`;
+    }
+
+    return null;
+  };
 
   useEffect(() => {
-    // Cleanup object URL when component unmounts or when preview changes
+    // Simulate loading delay; prefer freshest data from backend when authenticated
+    const timer = setTimeout(() => {
+      const cached = authService.getCurrentUser();
+      const token = localStorage.getItem('access_token');
+
+      if (token) {
+        // Try to fetch latest employee profile from backend; fall back to cached user
+        backendEmployeeService.getCurrentEmployee()
+          .then((data) => {
+            // Server may return snake_case or camelCase keys; merge with cached for any missing values
+            const merged = { ...(cached || {}), ...(data || {}) };
+
+            // Resolve image URL similarly to the navbar logic so relative media paths work
+            const imgCandidate = merged.profile_image || merged.image || merged.profileImage || merged.image_url || merged.imageUrl;
+            const resolved = resolveMediaUrl(imgCandidate);
+            if (resolved) merged.profileImage = resolved;
+
+            setUser(merged);
+            setLoading(false);
+          })
+          .catch((_) => {
+            setUser(cached);
+            setLoading(false);
+          });
+      } else {
+        setUser(cached);
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Cleanup any blob URLs on unmount
+  useEffect(() => {
     return () => {
       if (fileUrlRef.current) {
-        URL.revokeObjectURL(fileUrlRef.current);
+        try { URL.revokeObjectURL(fileUrlRef.current); } catch (e) {}
         fileUrlRef.current = null;
       }
     };
   }, []);
 
-  // Set preview URL from auth user's profile image if available
-  useEffect(() => {
-    if (authUser && !selectedFile) {
-      const makeAbsolute = (img) => {
-        if (!img) return null;
-        if (/^https?:\/\//i.test(img)) return img;
-
-        const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '')}/media/`;
-
-        if (img.startsWith('/media/') || img.startsWith('media/')) {
-          const clean = img.replace(/^\/?media\//, '');
-          return `${MEDIA_URL}${clean}`;
-        }
-
-        if (img.startsWith('/')) {
-          const base = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-          return `${base}${img}`;
-        }
-
-        return `${MEDIA_URL}${img}`;
-      };
-
-      const image = authUser.profileImage || authUser.profile_image || authUser.image || authUser.profile_picture;
-      const abs = makeAbsolute(image);
-      if (abs) {
-        setPreviewUrl(abs);
-      }
+  const handleFileSelect = (file) => {
+    setSelectedFile(file || null);
+    if (file) {
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      const url = URL.createObjectURL(file);
+      fileUrlRef.current = url;
+      setPreviewUrl(url);
+    } else {
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      fileUrlRef.current = null;
+      setPreviewUrl(null);
     }
-  }, [authUser, selectedFile]);
+  };
 
   const handleSaveChanges = async () => {
-    // If no new file selected, nothing to do
+    // Only change currently supported: profile image upload
     if (!selectedFile) {
-      toast.info('No changes to save.');
+      // No file selected; nothing to save
       return;
     }
-
-    if (!user || !user.id) {
-      toast.error('Unable to determine current user. Please log in again.');
-      return;
-    }
-
     setUploading(true);
     try {
-      let updatedUser = { ...user };
-
-      if (FEATURES && FEATURES.ENABLE_FILE_UPLOAD) {
-        try {
-          const result = await backendEmployeeService.uploadEmployeeImage(user.id, selectedFile);
-          if (result) {
-            if (result.employee && typeof result.employee === 'object') {
-              updatedUser = { ...updatedUser, ...result.employee };
-            } else if (result.user && typeof result.user === 'object') {
-              updatedUser = { ...updatedUser, ...result.user };
-            } else {
-              const imageField = result.profileImage || result.image || result.profile_image || result.url;
-              if (imageField) {
-                updatedUser.profileImage = imageField;
-                updatedUser.profile_image = imageField;
-                updatedUser.image = imageField;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('Upload failed, falling back to local storage image:', err);
-          // fallback to local data-URL
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        const res = await backendEmployeeService.uploadEmployeeImage(null, selectedFile);
+        const newImageUrl = res?.image_url || res?.image || res?.imageUrl || previewUrl;
+        // Resolve to an absolute URL so listeners (navbars) can update immediately
+        const resolvedImageUrl = resolveMediaUrl(newImageUrl) || newImageUrl || previewUrl;
+        // Append a cache-busting query param so browsers load the updated file
+        const addCacheBuster = (u) => {
           try {
-            const dataUrl = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(selectedFile);
-            });
-            updatedUser.profileImage = dataUrl;
-            updatedUser.profile_image = dataUrl;
-            updatedUser.image = dataUrl;
-            toast.info('Using local preview image since upload failed.');
-          } catch (e) {
-            console.warn('Failed to convert image to data URL for fallback:', e);
-          }
-        }
-      } else {
-        // File upload disabled (local dev mode) - persist preview as data URL
+            if (!u || typeof u !== 'string') return u;
+            if (u.startsWith('data:') || u.startsWith('blob:')) return u;
+            const sep = u.includes('?') ? '&' : '?';
+            return `${u}${sep}v=${Date.now()}`;
+          } catch (e) { return u; }
+        };
+        const resolvedWithCache = addCacheBuster(resolvedImageUrl);
+
+        // Update local user cache for immediate UI feedback
+        setUser((prev) => ({ ...(prev || {}), profileImage: resolvedWithCache, image: resolvedWithCache }));
         try {
-          const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(selectedFile);
-          });
-          updatedUser.profileImage = dataUrl;
-          updatedUser.profile_image = dataUrl;
-          updatedUser.image = dataUrl;
-          toast.info('Profile image saved locally (development mode).');
+          const cached = authService.getCurrentUser();
+          // Only overwrite the global `loggedInUser` if we're updating the authenticated user's own profile
+          const cachedId = cached?.id || cached?.companyId || cached?.company_id;
+            // Determine which profile id we're editing. Allow parent to override
+            // via `editingUserId` when this settings component is used by admin.
+            const profileId = editingUserId || (user && (user.id || user.companyId || user.company_id)) || null;
+            if (cached && profileId && String(cachedId) === String(profileId)) {
+              const updated = { ...cached, profileImage: resolvedWithCache, image: resolvedWithCache };
+              localStorage.setItem('loggedInUser', JSON.stringify(updated));
+            }
         } catch (e) {
-          console.warn('Failed to convert image to data URL for local save:', e);
-          throw e;
+          // ignore storage errors
         }
+
+        // Notify user and other UI pieces (navbar, modals) that profile image changed
+        try { toast.success('Profile image updated successfully.'); } catch (e) {}
+        try {
+          const profileId = editingUserId || (user && (user.id || user.companyId || user.company_id)) || null;
+          window.dispatchEvent(new CustomEvent('profile:updated', { detail: { profileImage: resolvedWithCache, userId: profileId } }));
+        } catch (e) {}
+      } else {
+        // Fallback: no backend token; store preview in local profile
+        setUser((prev) => ({ ...(prev || {}), profileImage: previewUrl }));
+        try {
+          const cached = authService.getCurrentUser();
+          if (cached) {
+            const updated = { ...cached, profileImage: previewUrl };
+            localStorage.setItem('loggedInUser', JSON.stringify(updated));
+          }
+        } catch (e) {}
+        try { toast.success('Profile image updated successfully.'); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('profile:updated', { detail: { profileImage: previewUrl } })); } catch (e) {}
       }
-
-      // Persist updated user in localStorage so navbar and other components can pick it up
-      try {
-        localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
-      } catch (e) {
-        console.warn('Failed to persist updated user to localStorage', e);
-      }
-
-      // Update preview immediately
-      if (updatedUser.profileImage) setPreviewUrl(updatedUser.profileImage);
-
-      toast.success('Profile image updated successfully.');
-
-      // Give toast a moment to show, then reload so navbar/modal update
-      setTimeout(() => {
-        window.location.reload();
-      }, 900);
     } catch (err) {
-      console.error('Failed to save image:', err);
-      toast.error(err?.message || 'Failed to save image. Please try again.');
+      console.error('Save profile changes failed:', err);
+      try { toast.error(err?.message || 'Failed to upload profile image'); } catch (e) {}
     } finally {
       setUploading(false);
     }
   };
 
-  const handleFileSelect = (f) => {
-    if (!f) return;
-    const maxSize = 5 * 1024 * 1024;
-    if (f.size > maxSize) {
-      toast.error('Selected image is too large. Maximum size is 5MB.');
-      return;
-    }
-    if (fileUrlRef.current) {
-      URL.revokeObjectURL(fileUrlRef.current);
-    }
-    const url = URL.createObjectURL(f);
-    fileUrlRef.current = url;
-    setPreviewUrl(url);
-    setSelectedFile(f);
+  // Verify current password with backend (debounced on input)
+  const verifyCurrentPassword = (pwd) => {
+    if (verifyTimerRef.current) clearTimeout(verifyTimerRef.current);
+    // reset state
+    setIsPasswordVerified(false);
+    setPasswordError('');
+    if (!pwd || pwd.length === 0) return;
+    setVerifyingPassword(true);
+    verifyTimerRef.current = setTimeout(async () => {
+      try {
+        await backendEmployeeService.verifyCurrentPassword(pwd);
+        setIsPasswordVerified(true);
+        setPasswordError('');
+      } catch (err) {
+        setIsPasswordVerified(false);
+        setPasswordError('Incorrect current password');
+      } finally {
+        setVerifyingPassword(false);
+      }
+    }, 500); // 500ms debounce
   };
 
-  if (loading) return <p>Loading...</p>;
+  const handleCurrentPasswordChange = (e) => {
+    const v = e.target.value;
+    setCurrentPassword(v);
+    // reset new/confirm on change
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsPasswordVerified(false);
+    setPasswordError('');
+    verifyCurrentPassword(v);
+  };
+
+  const canSaveNewPassword = () => {
+    return isPasswordVerified && newPassword.length >= 8 && newPassword === confirmPassword;
+  };
+
+  const handleClearPasswords = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsPasswordVerified(false);
+    setPasswordError('');
+  };
+
+  const handleSaveNewPassword = async () => {
+    if (!canSaveNewPassword()) return;
+    try {
+      // Use explicit change-password endpoint which expects current + new password
+      await backendEmployeeService.changePassword(currentPassword, newPassword);
+      // Reset fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setIsPasswordVerified(false);
+      setPasswordError('');
+      // Show success toast
+      toast.success('Password changed successfully.');
+    } catch (err) {
+      const msg = err?.message || 'Failed to update password';
+      setPasswordError(msg);
+      toast.error(msg);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className={styles.manageProfilePage}>
+        <div className={styles.manageProfileContainer}>
+          <h1>Manage Profile</h1>
+          <div className={styles.profileContent}>
+            <div className={styles.profileLeft}>
+              <div className={styles.profileCard}>
+                <Skeleton width="120px" height="120px" borderRadius="50%" />
+                <Skeleton width="200px" height="20px" style={{ marginTop: '12px' }} />
+              </div>
+            </div>
+            <div className={styles.profileRight}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ marginBottom: '24px' }}>
+                  <Skeleton width="150px" height="18px" />
+                  {[1, 2].map(j => (
+                    <Skeleton key={j} width="100%" height="36px" style={{ marginTop: '8px' }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>
@@ -271,31 +400,47 @@ export default function EmployeeSettings() {
                       <input type="email" value={user?.email || ''} readOnly />
                     </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Upload Profile Picture</label>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e.target.files && e.target.files[0])} />
-                    </div>
+                    {/* Upload Profile Picture input removed from Personal Information per request */}
                   </div>
 
-                  <button className={styles.saveButton} type="button" onClick={handleSaveChanges} disabled={uploading}>{uploading ? 'Saving...' : 'Save Changes'}</button>
+                  <button className={`${styles.changeImageBtn} ${styles.alignRight}`} type="button" onClick={handleSaveChanges} disabled={uploading}>{uploading ? 'Saving...' : 'Save Changes'}</button>
                 </div>
 
                 {/* Security Section (restored) */}
                 <div className={styles.authenticationCard}>
                   <h2>Security</h2>
+
                   <div className={styles.formGroup}>
-                    <label>Current Password (hashed)</label>
-                    <input type="password" disabled value="••••••••••••••" />
+                    <label>
+                      <span>Current Password</span>
+                      <span className={styles.pwIndicatorWrapper} aria-hidden="true">
+                        <span className={`${styles.pwIndicator} ${verifyingPassword ? styles.loading : isPasswordVerified ? styles.success : passwordError ? styles.error : ''}`}></span>
+                      </span>
+                    </label>
+                    <input type="password" value={currentPassword} onChange={handleCurrentPasswordChange} placeholder="Enter current password" />
                   </div>
+
                   <div className={styles.formGroup}>
                     <label>New Password</label>
-                    <input type="password" />
+                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={!isPasswordVerified} placeholder={isPasswordVerified ? 'Enter new password' : ''} />
+                    {/* Validation message for new password */}
+                    {/* Show error only when user starts typing; no positive message */}
+                    {newPassword.length > 0 && (() => {
+                      const msg = getPasswordErrorMessage(newPassword);
+                      return msg ? <small style={{ color: 'red' }}>{msg}</small> : null;
+                    })()}
                   </div>
+
                   <div className={styles.formGroup}>
                     <label>Confirm Password</label>
-                    <input type="password" />
+                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={!isPasswordVerified} placeholder={isPasswordVerified ? 'Confirm new password' : ''} />
+                    {confirmPassword && confirmPassword !== newPassword && <small style={{ color: 'red' }}>Password did not match.</small>}
                   </div>
-                  <button className={styles.saveButton} type="button">Save New Password</button>
+
+                  <div className={styles.buttonRow}>
+                    <button type="button" className={styles.clearBtn} onClick={handleClearPasswords}>Clear</button>
+                    <button className={`${styles.changeImageBtn}`} type="button" disabled={!canSaveNewPassword()} onClick={handleSaveNewPassword}>Save New Password</button>
+                  </div>
                 </div>
               </form>
             </div>

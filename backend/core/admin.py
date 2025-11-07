@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.mail import send_mail
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
-from .models import Employee, Ticket, TicketAttachment
+from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle
 from django.utils import timezone
 from django.conf import settings
 
@@ -177,5 +177,22 @@ class TicketAdmin(admin.ModelAdmin):
         }),
         ('Timestamps', {
             'fields': ('submit_date', 'update_date'),
+        }),
+    )
+
+
+@admin.register(KnowledgeArticle)
+class KnowledgeArticleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'subject', 'category', 'visibility', 'is_archived', 'created_by', 'created_at')
+    list_filter = ('category', 'visibility', 'is_archived')
+    search_fields = ('subject', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ('created_by',)
+    fieldsets = (
+        (None, {
+            'fields': ('subject', 'category', 'visibility', 'description', 'is_archived', 'created_by')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
         }),
     )
