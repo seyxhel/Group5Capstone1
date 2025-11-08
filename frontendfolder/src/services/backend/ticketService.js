@@ -37,8 +37,10 @@ export const backendTicketService = {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        console.error('No access token found');
-        return [];
+        // Do not fail here — some authentication flows set the access token as a cookie
+        // (AuthContext uses cookie-based auth). Rely on getAuthHeaders() which reads
+        // cookies so admin users authenticated via cookies can still fetch tickets.
+        console.debug('No access token in localStorage — proceeding and relying on cookie-based auth if present');
       }
 
       // Fetch first page

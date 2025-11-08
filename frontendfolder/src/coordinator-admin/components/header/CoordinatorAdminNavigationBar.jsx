@@ -185,6 +185,17 @@ const CoordinatorAdminNavBar = () => {
   // Build nav sections based on current user role
   const role = currentUser?.role;
 
+  // Normalize displayed role labels across the admin navbar
+  const getDisplayRole = (user) => {
+    if (!user) return '';
+    const raw = (user.role || (user.system_roles && user.system_roles.find(r=>r.system_slug==='hdts')?.role_name) || '').toString();
+    if (!raw) return '';
+    const normalized = raw.trim();
+    // Map backend 'Admin' to UI-facing 'System Admin'
+    if (normalized.toLowerCase() === 'admin') return 'System Admin';
+    return normalized;
+  };
+
   const ticketsSection = {
     key: 'tickets',
     label: 'Ticket Management',
@@ -268,7 +279,7 @@ const CoordinatorAdminNavBar = () => {
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '')}</span>
+          <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
         </div>
       </section>
 
@@ -292,7 +303,7 @@ const CoordinatorAdminNavBar = () => {
                   return (
                     <>
                       <h3>{`${first} ${last}`.trim()}</h3>
-                      <span className={styles['admin-badge']}>{currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '')}</span>
+                      <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
                     </>
                   );
                 })()}
@@ -413,7 +424,7 @@ const CoordinatorAdminNavBar = () => {
                   {(() => {
                     const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
                     const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
-                    const roleDisplay = currentUser?.role || (currentUser?.system_roles ? (currentUser.system_roles.find(r=>r.system_slug==='hdts')?.role_name) : '');
+                    const roleDisplay = getDisplayRole(currentUser);
                     return (
                       <>
                         <h3>{`${first} ${last}`.trim()}</h3>

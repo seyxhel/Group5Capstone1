@@ -65,8 +65,10 @@ export const AuthProvider = ({ children }) => {
         } else {
           console.warn('AuthContext: system_roles is not an array:', response.data.system_roles);
         }
-        // Save user with hdtsRole
-        const userWithRole = { ...response.data, role: hdtsRole };
+  // Normalize role label for UI: map backend 'Admin' to 'System Admin'
+  const normalizedRole = (hdtsRole && typeof hdtsRole === 'string' && hdtsRole.trim().toLowerCase() === 'admin') ? 'System Admin' : hdtsRole;
+  // Save user with hdtsRole
+  const userWithRole = { ...response.data, role: normalizedRole };
         localStorage.setItem("user", JSON.stringify(userWithRole));
         setUser(userWithRole);
         console.log('AuthContext: User set with role:', hdtsRole);

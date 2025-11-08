@@ -233,9 +233,15 @@ def send_ticket_to_workflow(sender, instance, created, **kwargs):
         try:
             from .tasks import push_ticket_to_workflow  # Import here!
             from .serializers import TicketSerializer   # Import here!
-            data = TicketSerializer(instance).data
+            # Instead of serializing the entire ticket (which may include
+            # file-related objects that are not pickle-friendly), enqueue a
+            # minimal payload (ticket_number). The worker can re-fetch the
+            # full ticket from the DB when processing the job. This avoids
+            # errors like "cannot pickle 'BufferedRandom' instances".
+            minimal_payload = {'ticket_number': instance.ticket_number}
             try:
-                push_ticket_to_workflow.delay(data)
+                push_ticket_to_workflow.delay(minimal_payload)
+                print(f"[send_ticket_to_workflow] enqueued workflow job for ticket {instance.ticket_number}")
             except Exception as enqueue_err:
                 # Log the enqueue failure and continue — do not re-raise
                 import logging, traceback

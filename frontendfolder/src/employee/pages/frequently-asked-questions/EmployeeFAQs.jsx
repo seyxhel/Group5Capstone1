@@ -3,6 +3,7 @@ import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import styles from './EmployeeFAQs.module.css';
 import ViewCard from '../../../shared/components/ViewCard';
 import InputField from '../../../shared/components/InputField';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import kbService from '../../../services/kbService';
 
 const EmployeeFAQs = () => {
@@ -75,7 +76,14 @@ const EmployeeFAQs = () => {
         </div>
 
         <ul className={styles.faqList}>
-          {filteredFaqs.length > 0 ? (
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className={styles.faqItem}>
+                <Skeleton width="60%" height="18px" />
+                <Skeleton width="100%" height="12px" style={{ marginTop: '8px' }} />
+              </li>
+            ))
+          ) : filteredFaqs.length > 0 ? (
             filteredFaqs.map((faq, index) => (
               <li key={index} className={styles.faqItem}>
                 <div

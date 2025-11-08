@@ -30,91 +30,69 @@ const getStatusSteps = (status) =>
     id,
     completed: STATUS_COMPLETION[id]?.includes(status) || false,
   }));
+
+// Simple date formatter used throughout the ticket tracker.
 const formatDate = (date) => {
   if (!date) return 'None';
-  const d = new Date(date);
-  if (isNaN(d)) return 'None';
-  const monthName = d.toLocaleString('en-US', { month: 'long' });
-  const day = d.getDate();
-  const yearFull = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(day).padStart(2, '0');
-  const yy = String(yearFull).slice(-2);
-  return `${monthName} ${day}, ${yearFull}`;
-};
-// Provide a date-only formatter used in a few places (keeps same style as formatDate)
-const formatDateOnly = (date) => {
-  if (!date) return null;
   try {
-    const v = formatDate(date);
-    return v === 'None' ? null : v;
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return String(date);
+    return d.toLocaleString();
   } catch (e) {
     return String(date);
   }
 };
-const toTitleCase = (str) => {
-  if (!str && str !== 0) return '';
-  return String(str)
-    .replace(/_/g, ' ')
-    .split(' ')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+
+const formatDateOnly = (date) => {
+  if (!date) return null;
+  try {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return String(date);
+    return d.toLocaleDateString();
+  } catch (e) {
+    return String(date);
+  }
 };
-const formatMoney = (value) => {
-  if (value === null || value === undefined || value === '') return 'N/A';
-  const num = Number(value);
-  if (!isFinite(num)) return value;
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+
+const formatMoney = (amount) => {
+  if (amount === null || amount === undefined || amount === '') return 'N/A';
+  const n = Number(amount);
+  if (Number.isNaN(n)) return String(amount);
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'PHP', maximumFractionDigits: 2 }).format(n);
+  } catch (e) {
+    return n.toFixed(2);
+  }
 };
+
+// Build a simple activity log list from multiple possible payload shapes.
 const generateLogs = (ticket) => {
-  // Build logs with raw timestamps, then sort newest-first before formatting for display
   const logs = [];
-  const createdAt = ticket.dateCreated || ticket.createdAt || new Date().toISOString();
-  // Creation
-  logs.push({
-    id: logs.length + 1,
-    user: 'System',
-    action: `Ticket #${ticket.ticketNumber} created - ${ticket.category}`,
-    timestamp: formatDate(createdAt),
-    text: `Ticket #${ticket.ticketNumber} was created on ${formatDate(createdAt)}${ticket.category ? ` in the ${ticket.category} category` : ''}.`,
-    highlight: ticket.category || null,
-  });
+  if (!ticket) return logs;
 
-  const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
-  if (assignedToName || ticket.department) {
-    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
-    const deptPart = ticket.department ? ` to the ${ticket.department} department` : '';
-    const agentPart = assignedToName ? ` by ${assignedToName}` : '';
-    logs.push({
-      id: logs.length + 1,
-      user: assignedToName || 'Coordinator',
-      action: `Assigned${deptPart}${agentPart}`,
-      timestamp: formatDate(at),
-      text: `Assigned${deptPart}${agentPart} on ${formatDate(at)}.`,
-      highlight: ticket.department || assignedToName || null,
+  // Status history (common shapes)
+  const statusHistory = ticket.status_history || ticket.statusChanges || ticket.status_changes || ticket.history || [];
+  if (Array.isArray(statusHistory) && statusHistory.length > 0) {
+    statusHistory.forEach((s) => {
+      const at = s.at || s.timestamp || s.date || s.createdAt || s.created_at || null;
+      logs.push({
+        id: logs.length + 1,
+        user: s.by || s.user || s.performedBy || s.performed_by || 'System',
+        action: 'Status Change',
+        timestamp: at ? formatDate(at) : null,
+        text: `Status changed to ${s.status || s.to || s.newStatus || 'Unknown'}${at ? ` on ${formatDate(at)}` : ''}.`,
+      });
     });
   }
 
-  if (ticket.status && ticket.status !== 'New' && ticket.status !== 'Pending') {
-    const at = ticket.lastUpdated || createdAt;
-    logs.push({
-      id: logs.length + 1,
-      user: 'Coordinator',
-      action: `Status changed to ${ticket.status}`,
-      timestamp: formatDate(at),
-      text: `Status changed to ${ticket.status} on ${formatDate(at)}.`,
-      highlight: ticket.status,
-    });
-  }
-
-  // Include any activity entries if present
-  if (Array.isArray(ticket.activity) && ticket.activity.length > 0) {
-    ticket.activity.forEach((a) => {
-      // Normalize user to a display string (backend may provide object or string)
-      const whoRaw = a.user || a.performedBy || a.performed_by || a.requester || 'User';
+  // Activity entries / logs / comments
+  const activity = ticket.activity || ticket.logs || ticket.comments || [];
+  if (Array.isArray(activity) && activity.length > 0) {
+    activity.forEach((a) => {
+      const whoRaw = a.user || a.performedBy || a.performed_by || a.requester || a.by || 'User';
       let who = 'User';
       if (typeof whoRaw === 'string') who = whoRaw;
-      else if (typeof whoRaw === 'object' && whoRaw !== null) {
+      else if (whoRaw && typeof whoRaw === 'object') {
         const first = whoRaw.first_name || whoRaw.firstName || whoRaw.first || '';
         const last = whoRaw.last_name || whoRaw.lastName || whoRaw.last || '';
         const full = `${first} ${last}`.trim();
@@ -122,30 +100,35 @@ const generateLogs = (ticket) => {
         else if (whoRaw.name) who = whoRaw.name;
         else if (whoRaw.role) who = whoRaw.role;
         else if (whoRaw.id) who = `User ${whoRaw.id}`;
-        else who = 'User';
       }
 
-      const whenRaw = a.timestamp || a.date || a.createdAt || null;
-      const when = formatDate(whenRaw);
-      const details = a.details || a.note || a.action || '';
-      let sentence = '';
-      const whenSuffix = when && when !== 'None' ? ` on ${when}` : '';
+      const whenRaw = a.timestamp || a.date || a.createdAt || a.created_at || null;
+      const when = whenRaw ? formatDate(whenRaw) : null;
+      const details = a.details || a.note || a.action || a.comment || '';
+      let text = '';
       if (a.type && typeof a.type === 'string' && a.type.toLowerCase().includes('comment')) {
-        sentence = `${who} commented${whenSuffix}: "${details || 'No details provided.'}"`;
+        text = `${who} commented${when ? ` on ${when}` : ''}: "${details || 'No details provided.'}"`;
       } else if (details) {
-        sentence = `${who} performed an action${whenSuffix}: ${details}.`;
+        text = `${who} performed an action${when ? ` on ${when}` : ''}: ${details}.`;
       } else {
-        sentence = `${who} performed an activity${whenSuffix}.`;
+        text = `${who} performed an activity${when ? ` on ${when}` : ''}.`;
       }
-      logs.push({
-        id: logs.length + 1,
-        user: who,
-        action: a.action || a.type || 'Activity',
-        // only set timestamp when there is a valid date string
-        timestamp: when && when !== 'None' ? when : null,
-        text: sentence,
-      });
+      logs.push({ id: logs.length + 1, user: who, action: a.action || a.type || 'Activity', timestamp: when, text });
     });
+  }
+
+  // Fallback: add a created entry if we have a creation timestamp and no logs
+  if (logs.length === 0) {
+    const created = ticket.createdAt || ticket.dateCreated || ticket.created_at || ticket.submit_date || null;
+    if (created) {
+      logs.push({
+        id: 1,
+        user: ticket.employeeName || ticket.employee || 'System',
+        action: 'Created',
+        timestamp: formatDate(created),
+        text: `Ticket created on ${formatDate(created)}.`,
+      });
+    }
   }
 
   return logs;
@@ -313,6 +296,17 @@ export default function CoordinatorAdminTicketTracker() {
           ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
           subject: t.subject || t.title || '',
           category: t.category || t.category_name || '',
+          subCategory: t.sub_category || t.subCategory || t.subcategory || null,
+          // preserve dynamic_data and common asset/issue fields so admin view can render them
+          dynamic_data: t.dynamic_data || t.dynamicData || {},
+          asset_name: t.asset_name || t.assetName || t.dynamic_data?.assetName || t.dynamicData?.assetName || null,
+          serial_number: t.serial_number || t.serialNumber || t.dynamic_data?.serialNumber || t.dynamicData?.serialNumber || null,
+          location: t.location || t.dynamic_data?.location || t.dynamicData?.location || null,
+          issue_type: t.issue_type || t.issueType || t.dynamic_data?.issueType || t.dynamicData?.issueType || null,
+          // Expected return fields for Asset Check Out (align with employee view keys)
+          expectedReturnDate: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
+          expected_return_date: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
+          expectedReturn: t.expectedReturn || t.expectedReturnDate || t.expected_return_date || (t.dynamic_data && (t.dynamic_data.expectedReturn || t.dynamic_data.expected_return_date)) || null,
           status: t.status || '',
           createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
           dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
@@ -443,7 +437,11 @@ export default function CoordinatorAdminTicketTracker() {
     };
   }, [ticketNumber, ticket, activeTab]);
 
-  if (isLoading && !ticket) {
+  // If we don't yet have a ticket, always show the loading skeleton.
+  // The app should wait for the backend to return the real ticket for the
+  // ticket number in the URL. We intentionally do not render a "No Ticket"
+  // message here to avoid flashing empty states while the backend resolves.
+  if (!ticket) {
     return (
       <ViewCard>
         <div className={styles.contentGrid}>
@@ -462,58 +460,12 @@ export default function CoordinatorAdminTicketTracker() {
           </div>
         </div>
       </ViewCard>
-    );
-  }
-
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
     );
   }
   
 
 
-  if (isLoading) {
-    return (
-      <ViewCard>
-        <div className={styles.contentGrid}>
-          <div className={styles.leftColumn}>
-            <Skeleton width="100px" height="32px" />
-            <Skeleton width="100%" height="200px" style={{ marginTop: '16px' }} />
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} style={{ marginTop: '16px' }}>
-                <Skeleton width="150px" height="20px" />
-                <Skeleton width="100%" height="24px" style={{ marginTop: '8px' }} />
-              </div>
-            ))}
-          </div>
-          <div className={styles.rightColumn}>
-            <Skeleton width="100%" height="300px" />
-          </div>
-        </div>
-      </ViewCard>
-    );
-  }
-
-  if (!ticket) {
-    return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Ticket Management page or check your ticket number.
-        </p>
-      </div>
-    );
-  }
+  // At this point `ticket` is guaranteed to be non-null, so render details below.
   const {
     ticketNumber: ticketNumberFromTicket,
     subject,

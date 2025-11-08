@@ -5,6 +5,7 @@ import Breadcrumb from '../../../shared/components/Breadcrumb';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
 
 export default function CoordinatorAdminUserProfileView() {
@@ -23,12 +24,43 @@ export default function CoordinatorAdminUserProfileView() {
       const numeric = Number(companyId);
       let found = null;
       if (!Number.isNaN(numeric)) {
+        // Try local storage first
         found = getEmployeeUserById(numeric);
+        // If not found locally, try fetching from backend by id
+        if (!found) {
+          backendEmployeeService.getEmployeeById(numeric).then(emp => {
+            if (emp) setUser(emp);
+          }).catch(() => {});
+        }
       }
       if (!found) {
         const all = getEmployeeUsers();
         found = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
       }
+
+      // If still not found locally and companyId is non-numeric, try fetching all employees and match by company id
+      if (!found) {
+        (async () => {
+          try {
+            const emps = await backendEmployeeService.getAllEmployees();
+            if (Array.isArray(emps) && emps.length > 0) {
+              const match = emps.find(e => String(e.company_id || e.companyId || e.companyIdNumber || e.companyId) === String(companyId) || String(e.id) === String(companyId));
+              if (match) {
+                setUser(match);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore backend errors and fall through to not found
+          }
+          // final fallback to the previously found local value (may be null)
+          setUser(found || null);
+          setIsLoading(false);
+        })();
+        return;
+      }
+
       setUser(found || null);
       setIsLoading(false);
     }, 300);

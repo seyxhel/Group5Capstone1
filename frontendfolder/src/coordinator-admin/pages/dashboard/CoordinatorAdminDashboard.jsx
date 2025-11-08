@@ -322,7 +322,7 @@ const CoordinatorAdminDashboard = () => {
   // Fallback to old authService if AuthContext doesn't have user yet
   const currentUser = useMemo(() => {
     if (user) {
-      const derivedRole = user.role || (isAdmin ? 'Admin' : isTicketCoordinator ? 'Ticket Coordinator' : 'Employee');
+    const derivedRole = user.role || (isAdmin ? 'System Admin' : isTicketCoordinator ? 'Ticket Coordinator' : 'Employee');
       console.log('Dashboard - User from AuthContext:', user);
       console.log('Dashboard - isAdmin:', isAdmin);
       console.log('Dashboard - isTicketCoordinator:', isTicketCoordinator);

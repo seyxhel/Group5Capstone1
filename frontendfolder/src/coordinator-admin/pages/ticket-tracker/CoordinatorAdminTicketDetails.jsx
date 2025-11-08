@@ -139,58 +139,24 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
     } catch (e) {
       console.warn('CoordinatorAdminTicketDetails: debug logging failed', e);
     }
-    const loadEmployee = async () => {
+    const loadEmployee = () => {
       try {
         if (!ticket) return;
 
-        // If ticket already includes an embedded employee object, prefer that
+        // Prefer embedded employee data from the ticket payload. Do not attempt
+        // to enrich by fetching backend employee records — this can introduce
+        // mismatches across systems and cause the UI to show unrelated users.
         const embedded = ticket.employee || ticket.requester || ticket.requested_by || ticket.createdBy || ticket.created_by;
-        console.log('CoordinatorAdminTicketDetails: embedded employee found=', !!embedded, embedded);
         if (embedded && Object.keys(embedded).length > 0) {
-          // If the embedded object already contains an image field, use it.
-          const hasImage = !!(embedded.image || embedded.profile_image || embedded.photo || embedded.photo_url);
-          console.log('CoordinatorAdminTicketDetails: embedded hasImage=', hasImage);
-          if (hasImage) {
-            if (mounted) setRemoteEmployee(embedded);
-            return;
-          }
-
-          // Embedded present but missing image info — fetch authoritative employee by id to enrich record
-          const embId = embedded.id || embedded.employee_id || embedded.user_id || null;
-          if (embId) {
-            console.log('CoordinatorAdminTicketDetails: embedded missing image, fetching full employee by id=', embId);
-            const emp2 = await backendEmployeeService.getEmployeeById(embId).catch(() => null);
-            console.log('CoordinatorAdminTicketDetails: fetched employee to enrich embedded=', emp2);
-            if (!mounted) return;
-            if (emp2) {
-              setRemoteEmployee(emp2);
-              return;
-            }
-            // If enrichment failed, fall back to using the embedded object
-            if (mounted) setRemoteEmployee(embedded);
-            return;
-          }
-
-          // No embId found — use embedded as-is
           if (mounted) setRemoteEmployee(embedded);
           return;
         }
 
-        // Derive an employee id from multiple possible fields
-        const id = ticket.employeeId || ticket.employee_id || ticket.employeeId || ticket.requester_id || ticket.requested_by_id || ticket.createdBy?.id || ticket.created_by?.id || null;
-        console.log('CoordinatorAdminTicketDetails: derived employee id=', id);
-        if (!id) return;
-
-        // backendEmployeeService.getEmployeeById may throw if not available
-        const emp = await backendEmployeeService.getEmployeeById(id).catch(() => null);
-        console.log('CoordinatorAdminTicketDetails: fetched employee result=', emp);
-        if (!mounted) return;
-        if (emp) {
-          console.log('CoordinatorAdminTicketDetails: setting remoteEmployee');
-          setRemoteEmployee(emp);
-        }
+        // No embedded employee available — fall back to using ticket fields only.
+        // Avoid network calls here to keep rendering deterministic.
+        if (mounted) setRemoteEmployee(null);
       } catch (e) {
-        console.warn('Failed to fetch remote employee for ticket details:', e);
+        console.warn('CoordinatorAdminTicketDetails: loadEmployee error', e);
       }
     };
     loadEmployee();
@@ -213,6 +179,7 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
 
   // Determine ticket stage
   const ticketStage = getTicketStage(ticket?.status);
+  // Raw ticket viewer removed — prefer embedded UI and avoid exposing raw JSON here
 
   // Helper: detect whether ticket ever passed through one of the progressive stages
   const passedThroughProgressiveStages = (t) => {
@@ -314,6 +281,8 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
             )}
           </div>
         </div>
+        {/* Controls */}
+        {/* controls removed: raw JSON viewer button intentionally omitted */}
 
         {/* EMPLOYEE SECTION - Always visible */}
         <div className={styles.section}>
@@ -519,6 +488,7 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
           </div>
         )}
       </div>
+      {/* Raw JSON viewer removed */}
     </div>
   );
 }

@@ -286,131 +286,183 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Ticket.objects.filter(employee=user).order_by('-submit_date')
     
     def create(self, request, *args, **kwargs):
-        # Extract the initial priority based on the category and subcategory
-        # This logic would need to be updated based on your specific rules
-        
-        data = request.data.copy()
-        # If frontend sent dynamic_data as a JSON string, parse it
-        dynamic = data.get('dynamic_data')
-        parsed_dynamic = None
-        if dynamic:
-            if isinstance(dynamic, (str, bytes)):
-                try:
-                    parsed_dynamic = json.loads(dynamic)
-                except Exception:
-                    parsed_dynamic = None
-            elif isinstance(dynamic, dict):
-                parsed_dynamic = dynamic
+        # Top-level debug wrapper: log incoming files and catch unexpected
+        # exceptions to print full traceback for diagnosis.
+        try:
+            print("[TicketViewSet.create] Enter create()")
 
-        # If parsed_dynamic is a dict, sanitize any date-like fields inside it
-        # so values like "" or fancy quotes don't get sent later into model
-        # fields that expect YYYY-MM-DD.
-        if isinstance(parsed_dynamic, dict):
-            dd = parsed_dynamic
-            # map camelCase dynamic keys -> expected plain field names
-            dynamic_date_keys = ['expectedReturnDate', 'performanceStartDate', 'performanceEndDate', 'scheduledDate']
+            # Enumerate files for diagnostics (non-fatal)
+            try:
+                files_preview = request.FILES.getlist('files[]') if hasattr(request, 'FILES') else []
+                print(f"[TicketViewSet.create] incoming files count: {len(files_preview)}")
+                for i, f in enumerate(files_preview):
+                    try:
+                        print(f"  - file[{i}] class={f.__class__.__name__} name={getattr(f, 'name', None)} size={getattr(f, 'size', None)} content_type={getattr(f, 'content_type', None)}")
+                    except Exception:
+                        print(f"  - file[{i}] (metadata unavailable)")
+            except Exception:
+                print("[TicketViewSet.create] unable to enumerate request.FILES")
+
+            # Make a safe, shallow copy of incoming non-file form data.
+            # Avoid deepcopy of request.data because it may include UploadedFile
+            # objects (TemporaryUploadedFile) which are not picklable and will
+            # raise during a deep copy.
+            try:
+                content_type = getattr(request, 'content_type', '') or ''
+                if content_type.startswith('multipart') and hasattr(request, 'POST'):
+                    # Multipart form: use POST (excludes files) which is safe to copy
+                    data = request.POST.copy()
+                else:
+                    # JSON or other content: make a shallow dict copy
+                    try:
+                        data = dict(request.data)
+                    except Exception:
+                        # Fallback: try the QueryDict shallow copy
+                        data = request.data.copy() if hasattr(request.data, 'copy') else {}
+            except Exception:
+                # As a last resort, use an empty dict to avoid crashing
+                data = {}
+
+            # If frontend sent dynamic_data as a JSON string, parse it
+            dynamic = data.get('dynamic_data')
+            parsed_dynamic = None
+            if dynamic:
+                if isinstance(dynamic, (str, bytes)):
+                    try:
+                        parsed_dynamic = json.loads(dynamic)
+                    except Exception:
+                        parsed_dynamic = None
+                elif isinstance(dynamic, dict):
+                    parsed_dynamic = dynamic
+
+            # Sanitize date-like fields inside parsed_dynamic
+            if isinstance(parsed_dynamic, dict):
+                dd = parsed_dynamic
+                dynamic_date_keys = ['expectedReturnDate', 'performanceStartDate', 'performanceEndDate', 'scheduledDate']
+                from datetime import datetime
+                for dk in dynamic_date_keys:
+                    if dk in dd:
+                        v = dd.get(dk)
+                        if v is None:
+                            continue
+                        if not isinstance(v, str):
+                            continue
+                        s = v.strip()
+                        if s == '' or all(c in '“”\"\'' for c in s):
+                            dd[dk] = None
+                            continue
+                        if 'T' in s:
+                            s = s.split('T')[0]
+                        s = s.replace('/', '-')
+                        try:
+                            datetime.fromisoformat(s)
+                            dd[dk] = s
+                        except Exception:
+                            dd[dk] = None
+
+            # Convert request.data (QueryDict) to a plain dict so serializer sees proper types
+            plain_data = {k: data.get(k) for k in data.keys()}
+            if parsed_dynamic is not None:
+                plain_data['dynamic_data'] = parsed_dynamic
+
+            # Sanitize date fields coming from the frontend
+            date_keys = [
+                'expected_return_date', 'performance_start_date',
+                'performance_end_date', 'scheduled_date'
+            ]
             from datetime import datetime
-            for dk in dynamic_date_keys:
-                if dk in dd:
-                    v = dd.get(dk)
-                    if v is None:
+            for dk in date_keys:
+                if dk in plain_data:
+                    val = plain_data.get(dk)
+                    if val is None:
                         continue
-                    if not isinstance(v, str):
+                    if not isinstance(val, str):
                         continue
-                    s = v.strip()
+                    s = val.strip()
                     if s == '' or all(c in '“”\"\'' for c in s):
-                        dd[dk] = None
+                        plain_data[dk] = None
                         continue
                     if 'T' in s:
                         s = s.split('T')[0]
                     s = s.replace('/', '-')
                     try:
                         datetime.fromisoformat(s)
-                        dd[dk] = s
+                        plain_data[dk] = s
                     except Exception:
-                        dd[dk] = None
+                        plain_data[dk] = None
 
-        # Convert request.data (QueryDict) to a plain dict so serializer sees proper types
-        plain_data = {k: data.get(k) for k in data.keys()}
-        if parsed_dynamic is not None:
-            plain_data['dynamic_data'] = parsed_dynamic
+            # Handle file uploads separately
+            files = request.FILES.getlist('files[]') if hasattr(request, 'FILES') else []
 
-        # Sanitize date fields coming from the frontend. The frontend may send
-        # empty strings, fancy quote characters (e.g. “”), or ISO datetimes.
-        # DRF's DateField will raise a ValidationError for invalid formats,
-        # so convert anything that can't be parsed into None so the field
-        # becomes null instead of causing a 500.
-        date_keys = [
-            'expected_return_date', 'performance_start_date',
-            'performance_end_date', 'scheduled_date'
-        ]
-        from datetime import datetime
-        for dk in date_keys:
-            if dk in plain_data:
-                val = plain_data.get(dk)
-                if val is None:
-                    continue
-                # If it's already a date object, leave it
-                # If it's a list/querydict value, convert to string
-                if not isinstance(val, str):
-                    # let the serializer handle non-string date objects
-                    continue
-                s = val.strip()
-                # Treat empty or only-quote values as missing
-                if s == '' or all(c in '“”\"\'' for c in s):
-                    plain_data[dk] = None
-                    continue
-                # If it's an ISO datetime like 2023-01-01T12:00:00, take date part
-                if 'T' in s:
-                    s = s.split('T')[0]
-                # Normalize common separators
-                s = s.replace('/', '-')
-                # Validate YYYY-MM-DD by attempting fromisoformat
+            serializer = self.get_serializer(data=plain_data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            instance = self.perform_create(serializer)
+
+            # Process multiple file attachments. Wrap in try/except to avoid
+            # a single attachment error (or unexpected pickling/worker issue)
+            # from causing the entire ticket creation to fail.
+            created_attachments = []
+            attachment_errors = []
+            for idx, file in enumerate(files):
                 try:
-                    # datetime.fromisoformat accepts YYYY-MM-DD
-                    datetime.fromisoformat(s)
-                    plain_data[dk] = s
-                except Exception:
-                    # If parsing fails, set to None to avoid raising a ValidationError
-                    plain_data[dk] = None
+                    # Debug: log file class and attributes to help diagnose pickling errors
+                    try:
+                        print(f"[TicketViewSet.create] attachment[{idx}] class={file.__class__.__name__} name={getattr(file, 'name', None)} size={getattr(file, 'size', None)} content_type={getattr(file, 'content_type', None)}")
+                    except Exception:
+                        pass
 
-        # Handle file uploads separately
-        files = request.FILES.getlist('files[]')
+                    ta = TicketAttachment.objects.create(
+                        ticket=instance,
+                        file=file,
+                        file_name=getattr(file, 'name', '') or '',
+                        file_type=getattr(file, 'content_type', '') or '',
+                        file_size=getattr(file, 'size', 0) or 0,
+                        uploaded_by=request.user if not isinstance(request.user, ExternalUser) else None
+                    )
+                    created_attachments.append(ta)
+                except Exception as attach_err:
+                    # Don't raise — log and continue. Return attachment error info in debug mode.
+                    import traceback
+                    traceback.print_exc()
+                    err_msg = str(attach_err)
+                    print(f"[TicketViewSet.create] Failed to save attachment[{idx}]: {err_msg}")
+                    attachment_errors.append({
+                        'index': idx,
+                        'name': getattr(file, 'name', None),
+                        'error': err_msg,
+                        'class': file.__class__.__name__ if hasattr(file, '__class__') else None
+                    })
 
-        serializer = self.get_serializer(data=plain_data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        instance = self.perform_create(serializer)
+            # Debug logging to help verify file uploads in dev
+            try:
+                print(f"[TicketViewSet.create] received {len(files)} files, created {len(created_attachments)} attachments for ticket id={instance.id}")
+                for ta in created_attachments:
+                    print(f"  - attachment: {ta.file_name} -> {getattr(ta.file, 'url', None)}")
+            except Exception:
+                pass
 
-        # Process multiple file attachments
-        created_attachments = []
-        for file in files:
-            ta = TicketAttachment.objects.create(
-                ticket=instance,
-                file=file,
-                file_name=file.name,
-                file_type=getattr(file, 'content_type', '') or '',
-                file_size=getattr(file, 'size', 0) or 0,
-                uploaded_by=request.user if not isinstance(request.user, ExternalUser) else None
-            )
-            created_attachments.append(ta)
+            # Re-serialize the instance so the response includes the newly created attachments
+            try:
+                from .serializers import TicketSerializer
+                serialized = TicketSerializer(instance, context={'request': request}).data
+            except Exception:
+                serialized = serializer.data
 
-        # Debug logging to help verify file uploads in dev
-        try:
-            print(f"[TicketViewSet.create] received {len(files)} files, created {len(created_attachments)} attachments for ticket id={instance.id}")
-            for ta in created_attachments:
-                print(f"  - attachment: {ta.file_name} -> {getattr(ta.file, 'url', None)}")
-        except Exception:
-            pass
+            # If any attachment save errors occurred, expose them under a debug key
+            try:
+                if attachment_errors:
+                    serialized['_attachment_errors'] = attachment_errors
+            except Exception:
+                pass
 
-        # Re-serialize the instance so the response includes the newly created attachments
-        try:
-            from .serializers import TicketSerializer
-            serialized = TicketSerializer(instance, context={'request': request}).data
-        except Exception:
-            serialized = serializer.data
-
-        headers = self.get_success_headers(serialized)
-        return Response(serialized, status=status.HTTP_201_CREATED, headers=headers)
+            headers = self.get_success_headers(serialized)
+            return Response(serialized, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            # Print full traceback to server logs for diagnosis
+            import traceback
+            traceback.print_exc()
+            # Return a sanitized error to the client but include a short message
+            return Response({'error': 'Internal server error while creating ticket', 'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def perform_create(self, serializer):
         if isinstance(self.request.user, ExternalUser):

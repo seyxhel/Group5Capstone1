@@ -422,16 +422,45 @@ export default function EmployeeTicketTracker() {
   }, [ticketNumber, JSON.stringify(tickets)]);
 
   // selected ticket ready for render
+  // If we don't yet have a ticket, show the loading skeleton until the
+  // backend returns the real ticket. This avoids flashing the "No Ticket Found"
+  // message while a background fetch is in progress.
   if (!ticket) {
     return (
-      <div className={styles.employeeTicketTrackerPage}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>No Ticket Found</h1>
-        </div>
-        <p className={styles.notFound}>
-          No ticket data available. Please navigate from the Active Tickets page or check your ticket number.
-        </p>
-      </div>
+      <>
+        <main className={styles.employeeTicketTrackerPage}>
+          <ViewCard>
+            <div className={styles.contentGrid}>
+              <div className={styles.leftColumn}>
+                <section className={styles.ticketCard}>
+                  <div className={styles.ticketHeader}>
+                    <div className={styles.headerLeft}>
+                      <Skeleton width="100px" height="32px" />
+                      <Skeleton width="300px" height="28px" style={{ marginLeft: '12px' }} />
+                    </div>
+                    <Skeleton width="100px" height="32px" />
+                  </div>
+                  <div className={styles.ticketMeta}>
+                    <Skeleton width="200px" height="20px" />
+                    <Skeleton width="200px" height="20px" style={{ marginTop: '8px' }} />
+                  </div>
+                  <div className={styles.detailsGrid}>
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i}>
+                        <Skeleton width="100px" height="12px" />
+                        <Skeleton width="100%" height="20px" style={{ marginTop: '8px' }} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <div className={styles.rightColumn}>
+                <Skeleton width="100%" height="300px" />
+              </div>
+            </div>
+          </ViewCard>
+        </main>
+      </>
     );
   }
 

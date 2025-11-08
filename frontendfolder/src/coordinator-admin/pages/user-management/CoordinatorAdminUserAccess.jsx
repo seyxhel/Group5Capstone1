@@ -62,10 +62,12 @@ const CoordinatorAdminUserAccess = () => {
     let mounted = true;
     const timer = setTimeout(() => {
       (async () => {
-  try {
-  setIsLoading(true);
-  // prefer AuthContext user when available
-  setCurrentUser(authUser || (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch(e){return null;} })());
+    try {
+    setIsLoading(true);
+    // prefer AuthContext user when available; compute viewer locally so we can use it synchronously
+    const parsedLocal = (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch(e){return null;} })();
+    const viewer = authUser || parsedLocal;
+    setCurrentUser(viewer);
 
           // Fetch real users from the AUTH service (HDTS user store)
           // This pulls user records from the `auth` app/database instead of
@@ -121,10 +123,10 @@ const CoordinatorAdminUserAccess = () => {
           });
 
           let usersToShow = normalized;
-          if (user) {
-            if (user.role === "Ticket Coordinator") {
-              usersToShow = normalized.filter((u) => u.department === user.department);
-            } else if (user.role === "System Admin") {
+          if (viewer) {
+            if (viewer.role === "Ticket Coordinator") {
+              usersToShow = normalized.filter((u) => u.department === viewer.department);
+            } else if (viewer.role === "System Admin") {
               usersToShow = normalized;
             }
           }

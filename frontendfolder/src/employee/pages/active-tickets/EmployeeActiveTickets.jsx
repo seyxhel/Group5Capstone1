@@ -242,14 +242,6 @@ const EmployeeActiveTickets = () => {
 
   const [showFilter, setShowFilter] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className={styles.pageContainer}>
-        <div className={styles.loadingMessage}>Loading tickets...</div>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.pageContainer}>
       {/* Top bar with Show Filter button */}
