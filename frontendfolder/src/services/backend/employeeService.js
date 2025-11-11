@@ -178,6 +178,33 @@ export const backendEmployeeService = {
     }
   },
 
+  async getActivityLogs(userId) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/activity-logs/user/${userId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (response.status === 401) {
+        // session expired
+        window.location.href = '/';
+        throw new Error('Session expired');
+      }
+      if (!response.ok) {
+        // return empty array on not-found or errors
+        try {
+          const err = await response.json();
+          console.error('Failed to fetch activity logs:', err);
+        } catch (_) {}
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching activity logs:', error);
+      return [];
+    }
+  },
+
   async getEmployeesByDepartment(department) {
     try {
       const response = await fetch(`${BASE_URL}/api/employees/?department=${department}`, {

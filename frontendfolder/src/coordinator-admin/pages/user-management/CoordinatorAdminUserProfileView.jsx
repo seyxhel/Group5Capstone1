@@ -6,7 +6,6 @@ import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
-import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
 
 export default function CoordinatorAdminUserProfileView() {
   const { companyId } = useParams();
@@ -87,10 +86,31 @@ export default function CoordinatorAdminUserProfileView() {
     };
   };
 
-  // Get activity logs for this user
-  const activityLogs = useMemo(() => {
-    if (!user?.id) return [];
-    return getUserActivityLogs(user.id);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Fetch activity logs from backend when user changes
+  useEffect(() => {
+    let mounted = true;
+    if (!user?.id) {
+      setActivityLogs([]);
+      setLogsLoading(false);
+      return;
+    }
+    setLogsLoading(true);
+    (async () => {
+      try {
+        const logs = await backendEmployeeService.getActivityLogs(user.id);
+        if (!mounted) return;
+        setActivityLogs(Array.isArray(logs) ? logs : []);
+      } catch (e) {
+        console.error('Failed to fetch activity logs', e);
+        if (mounted) setActivityLogs([]);
+      } finally {
+        if (mounted) setLogsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, [user?.id]);
 
   const formatTimestamp = (timestamp) => {
@@ -193,7 +213,9 @@ export default function CoordinatorAdminUserProfileView() {
                 {/* Activity Logs Section */}
                 <div className={styles.activitySection}>
                   <h3 className={styles.activityTitle}>Activity Logs</h3>
-                  {activityLogs.length === 0 ? (
+                  {logsLoading ? (
+                    <div className={styles.emptyState}><p>Loading activity logs…</p></div>
+                  ) : activityLogs.length === 0 ? (
                     <div className={styles.emptyState}>
                       <p>No activity recorded for this user</p>
                     </div>
@@ -203,8 +225,8 @@ export default function CoordinatorAdminUserProfileView() {
                         <div key={log.id} className={styles.activityItem}>
                           <div className={styles.activityTime}>{formatTimestamp(log.timestamp)}</div>
                           <div className={styles.activityContent}>
-                            <div className={styles.activityAction}>{log.action?.replace(/_/g, ' ').toUpperCase()}</div>
-                            <div className={styles.activityDetails}>{log.details}</div>
+                            <div className={styles.activityAction}>{(log.action_type || '').replace(/_/g, ' ').toUpperCase()}</div>
+                            <div className={styles.activityDetails}>{log.message || log.details}</div>
                           </div>
                         </div>
                       ))}

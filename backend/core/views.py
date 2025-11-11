@@ -103,9 +103,9 @@ from rest_framework import status, permissions, viewsets
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from .models import Employee, Ticket, TicketAttachment, TicketComment
+from .models import Employee, Ticket, TicketAttachment, TicketComment, ActivityLog
 from .models import PRIORITY_LEVELS, DEPARTMENT_CHOICES
-from .serializers import EmployeeSerializer, TicketSerializer, TicketAttachmentSerializer, AdminTokenObtainPairSerializer, MyTokenObtainPairSerializer, CustomTokenObtainPairSerializer
+from .serializers import EmployeeSerializer, TicketSerializer, TicketAttachmentSerializer, AdminTokenObtainPairSerializer, MyTokenObtainPairSerializer, CustomTokenObtainPairSerializer, ActivityLogSerializer
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse, Http404
@@ -472,19 +472,48 @@ class TicketViewSet(viewsets.ModelViewSet):
             
             # No need for complex matching - just save with cookie_id
             # The ticket serialization will use the ExternalUser's profile data directly
-            return serializer.save(employee=None, employee_cookie_id=user.id)
+            ticket = serializer.save(employee=None, employee_cookie_id=user.id)
+            # We cannot reliably create ActivityLog for external users (no local Employee record)
+            return ticket
         else:
-            return serializer.save(employee=self.request.user)
+            ticket = serializer.save(employee=self.request.user)
+            # Create an activity log entry for ticket creation
+            try:
+                ActivityLog.objects.create(
+                    user=ticket.employee,
+                    action_type='ticket_created',
+                    message=f'Created new ticket: {ticket.subject}',
+                    ticket=ticket,
+                    actor=self.request.user if hasattr(self.request, 'user') else None,
+                    metadata={'category': ticket.category}
+                )
+            except Exception:
+                pass
+            return ticket
         
     def perform_update(self, serializer):
         instance = serializer.instance
-        if instance.status != serializer.validated_data.get('status'):
+        old_status = instance.status
+        new_status = serializer.validated_data.get('status', old_status)
+        if old_status != new_status:
             # Status change logic
-            new_status = serializer.validated_data.get('status')
-            if new_status == 'Closed' and instance.status != 'Closed':
+            if new_status == 'Closed' and old_status != 'Closed':
                 serializer.validated_data['time_closed'] = timezone.now()
                 if instance.submit_date:
                     serializer.validated_data['resolution_time'] = timezone.now() - instance.submit_date
+            # Create an activity log for the status change
+            try:
+                ActivityLog.objects.create(
+                    user=instance.employee,
+                    action_type='status_changed',
+                    message=f'Status changed from {old_status} to {new_status}',
+                    ticket=instance,
+                    actor=self.request.user if hasattr(self.request, 'user') else None,
+                    metadata={'previous_status': old_status, 'new_status': new_status}
+                )
+            except Exception:
+                pass
+
         serializer.save()
 
     def _fetch_external_user_profile(self, request, user_id):
@@ -798,7 +827,8 @@ def get_ticket_detail(request, ticket_id):
                     if c.user is not None:
                         if getattr(c.user, 'is_staff', False) or getattr(c.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']:
                             staff_comment = c
-                            break
+        
+                            
                     else:
                         # External staff vs ticket owner (cookie id mismatch)
                         if getattr(ticket, 'employee_cookie_id', None) is not None and c.user_cookie_id != getattr(ticket, 'employee_cookie_id', None):
@@ -833,6 +863,51 @@ def get_ticket_detail(request, ticket_id):
         
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_activity_logs(request, user_id):
+    """Return ActivityLog entries for a given local Employee id.
+    Allowed for System Admins, Ticket Coordinators, staff, or the user themself.
+    """
+    try:
+        user_obj = Employee.objects.filter(id=user_id).first()
+        if not user_obj:
+            return Response([], status=status.HTTP_200_OK)
+
+        # Permission: allow system admin, admin, ticket coordinator, staff, or the user
+        try:
+            requester_role = getattr(request.user, 'role', None)
+        except Exception:
+            requester_role = None
+
+        allowed_roles = ['System Admin', 'Ticket Coordinator', 'Admin']
+        is_requester_staff = getattr(request.user, 'is_staff', False)
+        is_requester_same = False
+        try:
+            # Allow when the requester is the same Employee instance
+            is_requester_same = (request.user == user_obj)
+        except Exception:
+            is_requester_same = False
+
+        if not (is_requester_staff or (requester_role in allowed_roles) or is_requester_same):
+            # Log minimal debug to server logs to help diagnosis
+            try:
+                import logging
+                logging.getLogger(__name__).warning(
+                    'get_user_activity_logs permission denied: requester=%s, role=%s, target_user=%s',
+                    getattr(request.user, 'id', None), requester_role, getattr(user_obj, 'id', None)
+                )
+            except Exception:
+                pass
+            return Response({'detail': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        logs = ActivityLog.objects.filter(user=user_obj).order_by('-timestamp')
+        serializer = ActivityLogSerializer(logs, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

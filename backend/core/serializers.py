@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle
+from .models import ActivityLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
@@ -260,6 +261,25 @@ class TicketSerializer(serializers.ModelSerializer):
             ticket.save(update_fields=['fiscal_year', 'department_input'])
         
         return ticket
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    actor = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActivityLog
+        fields = ['id', 'user', 'action_type', 'message', 'ticket', 'metadata', 'timestamp', 'actor']
+
+    def get_actor(self, obj):
+        if obj.actor:
+            return getattr(obj.actor, 'company_id', None) or getattr(obj.actor, 'id', None)
+        return None
+
+    def get_user(self, obj):
+        if obj.user:
+            return getattr(obj.user, 'company_id', None) or getattr(obj.user, 'id', None)
+        return None
     
 def ticket_to_dict(ticket):
     # Gather all attachments for this ticket

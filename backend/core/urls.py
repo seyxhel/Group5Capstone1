@@ -12,6 +12,7 @@ from .views import (
     get_ticket_detail,
     add_ticket_comment,
     get_ticket_by_number,
+    get_user_activity_logs,
     get_new_tickets,
     claim_ticket,
     update_ticket_status,
@@ -69,6 +70,8 @@ urlpatterns = [
     path('tickets/open/', get_open_tickets, name='get_open_tickets'),
     path('tickets/my-tickets/', get_my_tickets, name='get_my_tickets'),
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
+    # Activity logs for user profile
+    path('activity-logs/user/<int:user_id>/', get_user_activity_logs, name='get_user_activity_logs'),
 
     # Protected media files - require authentication
     path('media/<path:file_path>', serve_protected_media, name='serve_protected_media'),
