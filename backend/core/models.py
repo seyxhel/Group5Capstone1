@@ -106,6 +106,43 @@ class EmployeeLog(models.Model):
     def __str__(self):
         return f"{self.employee.company_id} - {self.action} @ {self.timestamp}"
 
+
+class ActivityLog(models.Model):
+    """
+    General-purpose activity log for recording user actions across the system.
+    Designed to be flexible and queryable for the admin user-profile activity view.
+    """
+    ACTION_TYPES = [
+        ('ticket_created', 'Ticket Created'),
+        ('ticket_assigned', 'Ticket Assigned'),
+        ('status_changed', 'Status Changed'),
+        ('csat_submitted', 'CSAT Submitted'),
+        ('account_approved', 'Account Approved'),
+        ('account_rejected', 'Account Rejected'),
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('other', 'Other'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activity_logs')
+    action_type = models.CharField(max_length=64, choices=ACTION_TYPES)
+    # optional actor (who performed the action) - could be same as user or an admin
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_activities')
+    # human-friendly message/details for display
+    message = models.TextField(blank=True, null=True)
+    # optional related ticket for quick filtering
+    ticket = models.ForeignKey('Ticket', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs')
+    # arbitrary metadata (e.g., previous_status, new_status, csat_rating, etc.)
+    metadata = models.JSONField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [models.Index(fields=['user', 'action_type', 'timestamp'])]
+
+    def __str__(self):
+        return f"{self.user} - {self.action_type} @ {self.timestamp}"
+
 PRIORITY_LEVELS = [
     ('Critical', 'Critical'),
     ('High', 'High'),

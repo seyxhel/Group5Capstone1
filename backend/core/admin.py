@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.mail import send_mail
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
-from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle
+from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle, ActivityLog
 from django.utils import timezone
 from django.conf import settings
 
@@ -196,3 +196,18 @@ class KnowledgeArticleAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
+
+
+class ActivityLogInline(admin.TabularInline):
+    model = ActivityLog
+    # ActivityLog references Employee twice (user, actor). For the inline on the
+    # Employee admin detail page we want to show logs about the employee (the
+    # `user` field), so set fk_name accordingly to avoid admin.E202.
+    fk_name = 'user'
+    extra = 0
+    readonly_fields = ('action_type', 'actor', 'message', 'ticket', 'metadata', 'timestamp')
+    can_delete = False
+
+# Attach inline to EmployeeAdmin so activity logs are visible on the user profile page
+# Ensure we concatenate tuples (Django expects a tuple for `inlines` on the class)
+EmployeeAdmin.inlines = getattr(EmployeeAdmin, 'inlines', ()) + (ActivityLogInline,)

@@ -29,7 +29,7 @@ export default function CoordinatorAdminUserProfileView() {
         // If not found locally, try fetching from backend by id
         if (!found) {
           backendEmployeeService.getEmployeeById(numeric).then(emp => {
-            if (emp) setUser(emp);
+            if (emp) setUser(normalizeEmployee(emp));
           }).catch(() => {});
         }
       }
@@ -46,7 +46,7 @@ export default function CoordinatorAdminUserProfileView() {
             if (Array.isArray(emps) && emps.length > 0) {
               const match = emps.find(e => String(e.company_id || e.companyId || e.companyIdNumber || e.companyId) === String(companyId) || String(e.id) === String(companyId));
               if (match) {
-                setUser(match);
+                setUser(normalizeEmployee(match));
                 setIsLoading(false);
                 return;
               }
@@ -55,17 +55,37 @@ export default function CoordinatorAdminUserProfileView() {
             // ignore backend errors and fall through to not found
           }
           // final fallback to the previously found local value (may be null)
-          setUser(found || null);
+          setUser(found ? normalizeEmployee(found) : null);
           setIsLoading(false);
         })();
         return;
       }
 
-      setUser(found || null);
+      setUser(found ? normalizeEmployee(found) : null);
       setIsLoading(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [companyId]);
+
+  // Normalize employee object shape from backend (snake_case) or local storage to the
+  // frontend shape expected by this component (camelCase keys like firstName, lastName, profileImage)
+  const normalizeEmployee = (e) => {
+    if (!e) return null;
+    // If already appears normalized (has firstName), return as-is
+    if (e.firstName) return e;
+    return {
+      id: e.id || e.pk || e.employee_id || null,
+      companyId: e.company_id || e.companyId || e.companyIdNumber || e.companyId || e.company_id_number || '',
+      firstName: e.first_name || e.firstName || e.first || '',
+      lastName: e.last_name || e.lastName || e.last || '',
+      email: e.email || e.email_address || '',
+      role: e.role || e.user_role || '',
+      department: e.department || e.dept || '',
+      profileImage: e.profile_image || e.profileImage || e.image || '',
+      status: e.status || e.account_status || '',
+      phone: e.phone || e.contact_number || '',
+    };
+  };
 
   // Get activity logs for this user
   const activityLogs = useMemo(() => {
