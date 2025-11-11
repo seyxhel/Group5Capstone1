@@ -5,7 +5,7 @@ djangorestframework==3.16.0
 sqlparse==0.5.3
 tzdata==2025.2
 python-decouple==3.8
-pillow==11.2.1
+pillow
 djangorestframework_simplejwt==5.5.0
 drf-spectacular==0.28.0
 djangorestframework-api-key
