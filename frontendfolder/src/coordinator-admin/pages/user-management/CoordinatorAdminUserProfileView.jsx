@@ -19,49 +19,54 @@ export default function CoordinatorAdminUserProfileView() {
         setIsLoading(false);
         return;
       }
-      // try to resolve by numeric id first then fallback to companyId search
+      // Prefer authoritative backend data first, then fall back to local fixtures.
       const numeric = Number(companyId);
-      let found = null;
-      if (!Number.isNaN(numeric)) {
-        // Try local storage first
-        found = getEmployeeUserById(numeric);
-        // If not found locally, try fetching from backend by id
-        if (!found) {
-          backendEmployeeService.getEmployeeById(numeric).then(emp => {
-            if (emp) setUser(normalizeEmployee(emp));
-          }).catch(() => {});
-        }
-      }
-      if (!found) {
-        const all = getEmployeeUsers();
-        found = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
-      }
 
-      // If still not found locally and companyId is non-numeric, try fetching all employees and match by company id
-      if (!found) {
-        (async () => {
-          try {
-            const emps = await backendEmployeeService.getAllEmployees();
-            if (Array.isArray(emps) && emps.length > 0) {
-              const match = emps.find(e => String(e.company_id || e.companyId || e.companyIdNumber || e.companyId) === String(companyId) || String(e.id) === String(companyId));
-              if (match) {
-                setUser(normalizeEmployee(match));
+      // Helper to fallback to local fixtures
+      const applyLocalFallback = () => {
+        const all = getEmployeeUsers();
+        const foundLocal = all.find(u => String(u.companyId) === String(companyId) || String(u.id) === String(companyId));
+        setUser(foundLocal ? normalizeEmployee(foundLocal) : null);
+        setIsLoading(false);
+      };
+
+      // If companyId looks numeric, ask backend for that numeric id first (authoritative),
+      // otherwise ask backend for the full list and match by company_id.
+      (async () => {
+        try {
+          if (!Number.isNaN(numeric)) {
+            try {
+              const emp = await backendEmployeeService.getEmployeeById(numeric);
+              if (emp) {
+                setUser(normalizeEmployee(emp));
                 setIsLoading(false);
                 return;
               }
+            } catch (e) {
+              // backend lookup failed; fall through to local fallback
             }
-          } catch (e) {
-            // ignore backend errors and fall through to not found
+          } else {
+            try {
+              const emps = await backendEmployeeService.getAllEmployees();
+              if (Array.isArray(emps) && emps.length > 0) {
+                const match = emps.find(e => String(e.company_id || e.companyId || e.companyIdNumber || e.companyId) === String(companyId) || String(e.id) === String(companyId));
+                if (match) {
+                  setUser(normalizeEmployee(match));
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch (e) {
+              // backend lookup failed; fall through to local fallback
+            }
           }
-          // final fallback to the previously found local value (may be null)
-          setUser(found ? normalizeEmployee(found) : null);
-          setIsLoading(false);
-        })();
-        return;
-      }
+        } catch (e) {
+          // unexpected error - fall back to fixtures
+        }
 
-      setUser(found ? normalizeEmployee(found) : null);
-      setIsLoading(false);
+        // If we reach here, backend did not return a match or failed — use local fixtures
+        applyLocalFallback();
+      })();
     }, 300);
     return () => clearTimeout(timer);
   }, [companyId]);

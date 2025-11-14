@@ -4,11 +4,37 @@ import { backendAuthService } from './authService.js';
 
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
-// Helper function to get headers for cookie-based auth
-const getAuthHeaders = () => ({
-  'Content-Type': 'application/json',
-  // No Authorization header; rely on httpOnly cookie
-});
+// Helper function to get headers for cookie-based auth.
+// Development convenience: if a token is available in localStorage or
+// readable cookies, attach it as an Authorization header. This helps
+// when cookies are not sent or the backend expects a Bearer token.
+// NOTE: This is a dev-time convenience; do not rely on it for production
+// unless you're intentionally using localStorage-based tokens.
+const getAuthHeaders = () => {
+  const headers = { 'Content-Type': 'application/json' };
+  let token = null;
+  try {
+    token = localStorage.getItem('access_token') || null;
+  } catch (e) {
+    // localStorage may be unavailable in some environments
+    token = null;
+  }
+
+  // If no token in localStorage, try to read a non-httpOnly cookie named access_token
+  if (!token && typeof document !== 'undefined' && document.cookie) {
+    try {
+      const match = document.cookie.match(/(?:^|; )access_token=([^;]+)/);
+      if (match && match[1]) token = decodeURIComponent(match[1]);
+    } catch (e) {
+      // ignore cookie parsing errors
+    }
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // Helper to handle 401 errors by logging out immediately
 const handleAuthError = (response) => {
