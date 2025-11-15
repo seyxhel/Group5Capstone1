@@ -19,77 +19,84 @@ const normalizeVisibility = (v) => {
 
 mockArticles = mockArticles.map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
 
-export const listCategories = async () => {
-  // simulate async
-  return new Promise((res) => setTimeout(() => res([...mockCategories]), 120));
+export const listCategories = () => {
+  // Return synchronously for mock data
+  return [...mockCategories];
 };
 
-export const listArticles = async (filters = {}) => {
+export const listArticles = (filters = {}) => {
   // filters: { category_id, query, visibility }
-  return new Promise((res) => {
-    setTimeout(() => {
-      let results = [...mockArticles];
-      if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id);
-      if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
-      if (filters.query) {
-        const q = filters.query.toLowerCase();
-        results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
-      }
-      res(results);
-    }, 150);
-  });
+  let results = [...mockArticles];
+  if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
+  if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
+  if (filters.query) {
+    const q = filters.query.toLowerCase();
+    results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
+  }
+  return results;
 };
 
-export const getArticle = async (id) => {
-  return new Promise((res) => setTimeout(() => res(mockArticles.find(a => a.id === Number(id)) || null), 100));
+export const getArticle = (id) => {
+  return mockArticles.find(a => a.id === Number(id)) || null;
 };
 
-export const submitArticle = async (article) => {
+export const submitArticle = (article) => {
   // naive push
   const id = mockArticles.length ? Math.max(...mockArticles.map(a => a.id)) + 1 : 1001;
-  const newArticle = { id, ...article };
+  const now = new Date().toISOString().slice(0,10);
+  const newArticle = { 
+    id, 
+    ...article, 
+    date_created: now,
+    dateCreated: now,
+    date_modified: now,
+    dateModified: now,
+    archived: false
+  };
   mockArticles.push(newArticle);
-  return new Promise((res) => setTimeout(() => res(newArticle), 150));
+  return newArticle;
 };
 
-export const updateArticle = async (id, patch = {}) => {
+export const updateArticle = (id, patch = {}) => {
   const idx = mockArticles.findIndex(a => a.id === Number(id));
   if (idx === -1) return null;
-  mockArticles[idx] = { ...mockArticles[idx], ...patch, date_modified: new Date().toISOString().slice(0,10) };
-  return new Promise((res) => setTimeout(() => res(mockArticles[idx]), 120));
+  const now = new Date().toISOString().slice(0,10);
+  mockArticles[idx] = { 
+    ...mockArticles[idx], 
+    ...patch, 
+    date_modified: now,
+    dateModified: now
+  };
+  return mockArticles[idx];
 };
 
-export const listPublishedArticles = async (filters = {}) => {
+export const listPublishedArticles = (filters = {}) => {
   // With status removed, 'published' articles are the ones visible according to visibility rules.
-  return new Promise((res) => {
-    setTimeout(() => {
-      let results = [...mockArticles];
-      if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id);
-      if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
-      if (filters.query) {
-        const q = filters.query.toLowerCase();
-        results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
-      }
-      res(results);
-    }, 120);
-  });
+  let results = [...mockArticles].filter(a => !a.archived);
+  if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
+  if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
+  if (filters.query) {
+    const q = filters.query.toLowerCase();
+    results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
+  }
+  return results;
 };
 
 export const resetSeeds = () => {
   mockCategories = JSON.parse(JSON.stringify(categoriesSeed));
-  mockArticles = JSON.parse(JSON.stringify(articlesSeed));
+  mockArticles = JSON.parse(JSON.stringify(articlesSeed)).map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
   mockFeedback = JSON.parse(JSON.stringify(feedbackSeed));
 };
 
-export const listFeedback = async (articleId) => {
-  return new Promise((res) => setTimeout(() => res(mockFeedback.filter(f => f.articleId === Number(articleId))), 120));
+export const listFeedback = (articleId) => {
+  return mockFeedback.filter(f => f.articleId === Number(articleId));
 };
 
-export const submitFeedback = async ({ articleId, helpful, comment }) => {
+export const submitFeedback = ({ articleId, helpful, comment }) => {
   const id = mockFeedback.length ? Math.max(...mockFeedback.map(f => f.id)) + 1 : 1;
   const entry = { id, articleId: Number(articleId), helpful: !!helpful, comment: comment || '', date: new Date().toISOString() };
   mockFeedback.push(entry);
-  return new Promise((res) => setTimeout(() => res(entry), 120));
+  return entry;
 };
 
 // default export includes main conveniences for imports that use default

@@ -133,11 +133,31 @@ const CoordinatorAdminNavBar = () => {
     ]
   };
 
+  const amsSection = {
+    key: 'ams',
+    label: 'AMS',
+    basePath: '/admin/ams',
+    links: [
+      { label: 'AMS Dashboard', path: '/admin/ams/dashboard' },
+      { label: 'AMS Tickets', path: '/admin/ams/tickets' }
+    ]
+  };
+
+  const bmsSection = {
+    key: 'bms',
+    label: 'BMS',
+    basePath: '/admin/bms',
+    links: [
+      { label: 'BMS Dashboard', path: '/admin/bms/dashboard' },
+      { label: 'BMS Tickets', path: '/admin/bms/tickets' }
+    ]
+  };
+
   // Role-based section composition
   let navSections = [];
   if (role === 'Ticket Coordinator') {
-    // Ticket coordinator: Dashboard (tickets only), Ticket Management, Reports
-    navSections = [ticketsSection, reportsSection];
+    // Ticket coordinator: Ticket Management, AMS, BMS, Reports
+    navSections = [ticketsSection, amsSection, bmsSection, reportsSection];
   } else if (role === 'System Admin') {
     // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
     navSections = [ticketsSection, usersSection, reportsSection, kbSection];

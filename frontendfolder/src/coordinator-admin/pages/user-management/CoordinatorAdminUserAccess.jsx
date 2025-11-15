@@ -12,8 +12,8 @@ import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 
-import CoordinatorAdminApproveUserModal from "../../components/modals/CoordinatorAdminApproveUserModal";
-import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
+import CoordinatorAdminApproveUserModal from "../../components/modals/SysAdminApproveUserModal";
+import CoordinatorAdminRejectUserModal from "../../components/modals/SysAdminRejectUserModal";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
 // 👇 Configuration for tab filtering

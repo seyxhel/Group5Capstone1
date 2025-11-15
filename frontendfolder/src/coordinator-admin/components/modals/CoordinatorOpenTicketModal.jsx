@@ -4,7 +4,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
 import departmentOptions from "../../../utilities/options/departmentOptions";
-import styles from "./CoordinatorAdminOpenTicketModal.module.css";
+import styles from "./CoordinatorOpenTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {

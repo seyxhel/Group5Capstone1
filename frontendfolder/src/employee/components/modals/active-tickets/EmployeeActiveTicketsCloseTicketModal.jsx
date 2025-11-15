@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
+import EmployeeCSATModal from "../csat/EmployeeCSATModal";
 import styles from "./EmployeeActiveTicketsCloseTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
 const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCSAT, setShowCSAT] = useState(false);
 
   const handleClose = async () => {
     setIsSubmitting(true);
@@ -19,7 +21,9 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
       });
 
       onSuccess?.(ticket.ticketNumber, "Closed");
-      onClose();
+      
+      // Show CSAT modal after successful close
+      setShowCSAT(true);
     } catch (err) {
       toast.error("Failed to close the ticket. Please try again.", {
         position: "top-right",
@@ -29,6 +33,16 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
       setIsSubmitting(false);
     }
   };
+
+  const handleCSATClose = () => {
+    setShowCSAT(false);
+    onClose();
+  };
+
+  // Show CSAT modal if ticket was closed
+  if (showCSAT) {
+    return <EmployeeCSATModal ticket={ticket} onClose={handleCSATClose} />;
+  }
 
   return (
     <ModalWrapper onClose={onClose}>

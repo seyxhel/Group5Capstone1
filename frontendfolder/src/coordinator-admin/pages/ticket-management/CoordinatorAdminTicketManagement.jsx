@@ -11,8 +11,8 @@ import authService from "../../../utilities/service/authService";
 import InputField from '../../../shared/components/InputField';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
-import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorAdminOpenTicketModal";
-import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorAdminRejectTicketModal";
+import CoordinatorAdminOpenTicketModal from "../../components/modals/CoordinatorOpenTicketModal";
+import CoordinatorAdminRejectTicketModal from "../../components/modals/CoordinatorRejectTicketModal";
 import "react-toastify/dist/ReactToastify.css";
 
 const headingMap = {
