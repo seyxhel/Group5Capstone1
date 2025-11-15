@@ -23,231 +23,84 @@ const normalizeVisibility = (v) => {
   return v.replace(/\b\w/g, c => c.toUpperCase());
 };
 
-export const listCategories = async () => {
-  // Try to fetch category choices from the backend if available. Some backends
-  // may expose an endpoint that returns available article categories. If that
-  // endpoint is not present or fails, fall back to the static TICKET_CATEGORIES
-  // defined in the frontend.
-  try {
-    const remote = await backendArticleService.getCategoryChoices();
-    // Remote may return an array of strings or objects; normalize to { id, name }
-    if (Array.isArray(remote) && remote.length > 0) {
-      // If it's an array of strings
-      if (typeof remote[0] === 'string') {
-        return remote.map((n, i) => ({ id: i + 1, name: n }));
-      }
-      // If it's array of objects with 'name' or 'label'
-      return remote.map((r, i) => ({ id: r.id || i + 1, name: r.name || r.label || String(r) }));
-    }
-  } catch (err) {
-    // ignore and fallback
+export const listCategories = () => {
+  // Return synchronously for mock data
+  return [...mockCategories];
+};
+
+export const listArticles = (filters = {}) => {
+  // filters: { category_id, query, visibility }
+  let results = [...mockArticles];
+  if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
+  if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
+  if (filters.query) {
+    const q = filters.query.toLowerCase();
+    results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
   }
-
-  // Fallback to the static categories used by tickets/articles
-  return TICKET_CATEGORIES.map((name, index) => ({ id: index + 1, name: name }));
+  return results;
 };
 
-export const listArticles = async (filters = {}) => {
-  try {
-  const articles = await backendArticleService.getAllArticles();
-    
-    // Map backend article format to UI format
-    return articles.map(article => ({
-      id: article.id,
-      title: article.subject,
-      content: article.description,
-      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
-      visibility: normalizeVisibility(article.visibility),
-      author: article.created_by_name || 'Unknown',
-      date_created: article.created_at,
-      date_modified: article.updated_at,
-      archived: article.is_archived
-    }));
-  } catch (error) {
-    console.error('Failed to list articles:', error);
-    return [];
+export const getArticle = (id) => {
+  return mockArticles.find(a => a.id === Number(id)) || null;
+};
+
+export const submitArticle = (article) => {
+  // naive push
+  const id = mockArticles.length ? Math.max(...mockArticles.map(a => a.id)) + 1 : 1001;
+  const now = new Date().toISOString().slice(0,10);
+  const newArticle = { 
+    id, 
+    ...article, 
+    date_created: now,
+    dateCreated: now,
+    date_modified: now,
+    dateModified: now,
+    archived: false
+  };
+  mockArticles.push(newArticle);
+  return newArticle;
+};
+
+export const updateArticle = (id, patch = {}) => {
+  const idx = mockArticles.findIndex(a => a.id === Number(id));
+  if (idx === -1) return null;
+  const now = new Date().toISOString().slice(0,10);
+  mockArticles[idx] = { 
+    ...mockArticles[idx], 
+    ...patch, 
+    date_modified: now,
+    dateModified: now
+  };
+  return mockArticles[idx];
+};
+
+export const listPublishedArticles = (filters = {}) => {
+  // With status removed, 'published' articles are the ones visible according to visibility rules.
+  let results = [...mockArticles].filter(a => !a.archived);
+  if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
+  if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
+  if (filters.query) {
+    const q = filters.query.toLowerCase();
+    results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
   }
-};
-
-export const getArticle = async (id) => {
-  try {
-    const article = await backendArticleService.getArticleById(id);
-    
-    return {
-      id: article.id,
-      title: article.subject,
-      content: article.description,
-      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
-      visibility: article.visibility.toLowerCase(),
-      author: article.created_by_name || 'Unknown',
-      date_created: article.created_at,
-      date_modified: article.updated_at,
-      archived: article.is_archived
-    };
-  } catch (error) {
-    console.error('Failed to get article:', error);
-    throw error;
-  }
-};
-
-// --- Local edit-history helpers (stored in localStorage)
-const historyKey = (articleId) => `kb:history:${articleId}`;
-
-export const getHistory = (articleId) => {
-  try {
-    const raw = localStorage.getItem(historyKey(articleId));
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to read article history from localStorage', e);
-    return [];
-  }
-};
-
-const addHistoryEntry = (articleId, entry) => {
-  try {
-    const key = historyKey(articleId);
-    const cur = getHistory(articleId) || [];
-    // push new entry to front (we'll sort when reading)
-    cur.push(entry);
-    localStorage.setItem(key, JSON.stringify(cur));
-  } catch (e) {
-    console.error('Failed to write article history to localStorage', e);
-  }
-};
-
-export const submitArticle = async (data) => {
-  try {
-    // Map UI format to backend format
-    const backendData = {
-      subject: data.title,
-      description: data.content,
-      category: TICKET_CATEGORIES[(data.category_id || 1) - 1] || 'Others',
-      visibility: capitalizeVisibility(data.visibility || 'employee')
-    };
-    
-    const article = await backendArticleService.createArticle(backendData);
-    
-    // Record initial creation to local history
-    try {
-      addHistoryEntry(article.id, {
-        subject: article.subject,
-        description: article.description,
-        when: article.updated_at || new Date().toISOString(),
-      });
-    } catch (e) {
-      // swallow
-    }
-
-    return {
-      id: article.id,
-      title: article.subject,
-      content: article.description,
-      category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
-      visibility: normalizeVisibility(article.visibility),
-      author: article.created_by_name || 'Unknown',
-      date_created: article.created_at,
-      date_modified: article.updated_at,
-      archived: article.is_archived
-    };
-  } catch (error) {
-    console.error('Failed to submit article:', error);
-    throw error;
-  }
-};
-
-export const updateArticle = async (id, data) => {
-  try {
-    // Handle both UI format updates and direct property updates (like { archived: true })
-    if (data.archived !== undefined || data.deleted !== undefined) {
-      // Special case for archive/delete operations
-      if (data.archived) {
-        await backendArticleService.archiveArticle(id);
-      } else if (data.archived === false) {
-        await backendArticleService.restoreArticle(id);
-      }
-      
-      // Fetch the updated article
-      const article = await backendArticleService.getArticleById(id);
-      // record archive/restore action into history as an entry
-      try { addHistoryEntry(article.id, { subject: article.subject, description: article.description, when: article.updated_at || new Date().toISOString() }); } catch (e) {}
-
-      return {
-        id: article.id,
-        title: article.subject,
-        content: article.description,
-        category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
-        visibility: normalizeVisibility(article.visibility),
-        author: article.created_by_name || 'Unknown',
-        date_created: article.created_at,
-        date_modified: article.updated_at,
-        archived: article.is_archived
-      };
-    } else {
-      // Regular update
-      const backendData = {};
-      if (data.title) backendData.subject = data.title;
-      if (data.content) backendData.description = data.content;
-      if (data.category_id) backendData.category = TICKET_CATEGORIES[data.category_id - 1] || 'Others';
-      if (data.visibility) backendData.visibility = capitalizeVisibility(data.visibility);
-      
-      const article = await backendArticleService.updateArticle(id, backendData);
-      // record update to local history
-      try {
-        addHistoryEntry(article.id, {
-          subject: article.subject,
-          description: article.description,
-          when: article.updated_at || new Date().toISOString(),
-        });
-      } catch (e) {}
-
-      return {
-        id: article.id,
-        title: article.subject,
-        content: article.description,
-        category_id: TICKET_CATEGORIES.indexOf(article.category) + 1,
-        visibility: normalizeVisibility(article.visibility),
-        author: article.created_by_name || 'Unknown',
-        date_created: article.created_at,
-        date_modified: article.updated_at,
-        archived: article.is_archived
-      };
-    }
-  } catch (error) {
-    console.error('Failed to update article:', error);
-    throw error;
-  }
-};
-
-export const listPublishedArticles = async (filters = {}) => {
-  // For now, same as listArticles
-  return listArticles(filters);
-};
-
-export const listFeedback = async (articleId) => {
-  // Stub for now - returns empty array (not implemented in backend yet)
-  return [];
-};
-
-export const submitFeedback = async ({ articleId, helpful, comment }) => {
-  // Stub for now - not implemented in backend yet
-  console.warn('submitFeedback not implemented in backend yet');
-  return { id: Date.now(), articleId, helpful, comment, date: new Date().toISOString() };
-};
-
-export const deleteArticle = async (id) => {
-  try {
-    await backendArticleService.deleteArticle(id);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to delete article:', error);
-    throw error;
-  }
+  return results;
 };
 
 export const resetSeeds = () => {
-  // No-op for backend service
-  console.warn('resetSeeds is not applicable for backend service');
+  mockCategories = JSON.parse(JSON.stringify(categoriesSeed));
+  mockArticles = JSON.parse(JSON.stringify(articlesSeed)).map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
+  mockFeedback = JSON.parse(JSON.stringify(feedbackSeed));
+};
+
+export const listFeedback = (articleId) => {
+  return mockFeedback.filter(f => f.articleId === Number(articleId));
+};
+
+export const submitFeedback = ({ articleId, helpful, comment }) => {
+  const id = mockFeedback.length ? Math.max(...mockFeedback.map(f => f.id)) + 1 : 1;
+  const entry = { id, articleId: Number(articleId), helpful: !!helpful, comment: comment || '', date: new Date().toISOString() };
+  mockFeedback.push(entry);
+  return entry;
 };
 
 // default export includes main conveniences for imports that use default

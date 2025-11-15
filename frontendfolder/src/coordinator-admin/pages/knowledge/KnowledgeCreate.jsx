@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import FormCard from '../../../shared/components/FormCard';
 import FormActions from '../../../shared/components/FormActions';
+import ArticleEditor from '../kb/ArticleEditor';
 import styles from './knowledge.module.css';
-import ArticleEditor from '../../../shared/kb/ArticleEditor';
 import kbService from '../../../services/kbService';
 import ArticleEditLog from './ArticleEditLog';
 

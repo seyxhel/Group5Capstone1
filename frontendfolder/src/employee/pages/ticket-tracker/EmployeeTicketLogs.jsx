@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiUser, FiUsers, FiTag, FiCheckCircle, FiInbox, FiClock } from 'react-icons/fi';
-import styles from './TicketActivity.module.css';
+import styles from './EmployeeTicketLogs.module.css';
 
 export default function TicketActivity({ ticketLogs = [], initialMessages = [] }) {
   const [activeTab, setActiveTab] = useState('logs');

@@ -7,7 +7,7 @@ import kbService from '../../../services/kbService';
 import authService from '../../../utilities/service/authService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
-const KnowledgeArchived = () => {
+const KnowledgeViewArticles = () => {
   const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -30,10 +30,15 @@ const KnowledgeArchived = () => {
     const fetch = async () => {
       setLoading(true);
       try {
-        const [cats, arts] = await Promise.all([kbService.listCategories(), kbService.listArticles({})]);
+        const cats = await Promise.resolve(kbService.listCategories());
+        const arts = await Promise.resolve(kbService.listArticles({}));
         setCategories(cats || []);
-        setArticles((arts || []).filter(a => a.archived));
-      } catch (e) {}
+        // Filter for non-archived articles only
+        const nonArchived = (arts || []).filter(a => !a.archived);
+        setArticles(nonArchived);
+      } catch (e) {
+        console.error('Error loading articles:', e);
+      }
       setLoading(false);
     };
     fetch();
@@ -63,19 +68,25 @@ const KnowledgeArchived = () => {
     const endTs = end ? new Date(end).setHours(23,59,59,999) : null;
 
     return (articles || []).filter(a => {
+      // Category filter
       if (catLabel) {
         const name = getCategoryName(a.category_id);
         if (name !== catLabel) return false;
       }
+
+      // Date range filter
       if (startTs || endTs) {
         const dateStr = a.date_modified || a.date_created || '';
         const artTs = dateStr ? new Date(dateStr).getTime() : null;
         if (startTs && artTs !== null && artTs < startTs) return false;
         if (endTs && artTs !== null && artTs > endTs) return false;
       }
+
+      // Visibility filter
       if (visLabel) {
         if (((a.visibility || '').toLowerCase()) !== (visLabel || '').toLowerCase()) return false;
       }
+
       return true;
     });
   }, [articles, appliedFilters, categories]);
@@ -88,21 +99,25 @@ const KnowledgeArchived = () => {
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
-  const handleRestore = async (article) => {
-    if (!window.confirm(`Restore "${article.title}"?`)) return;
-    await kbService.updateArticle(article.id, { archived: false });
-    window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
-    setArticles(prev => prev.filter(p => p.id !== article.id));
+  const handleArchive = async (article) => {
+    if (!window.confirm(`Archive "${article.title}"?`)) return;
+    try {
+      await kbService.updateArticle(article.id, { archived: true });
+      window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
+      setArticles(prev => prev.filter(p => p.id !== article.id));
+    } catch (e) {
+      console.error('Error archiving article:', e);
+    }
   };
 
   const handleDelete = async (article) => {
     if (!window.confirm(`Delete "${article.title}" permanently? This cannot be undone.`)) return;
     try {
-      await kbService.deleteArticle(article.id);
-      window.dispatchEvent(new CustomEvent('kb:articleDeleted', { detail: { id: article.id } }));
+      await kbService.updateArticle(article.id, { deleted: true });
+      window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
       setArticles(prev => prev.filter(p => p.id !== article.id));
-    } catch (error) {
-      alert('Failed to delete article. Please try again.');
+    } catch (e) {
+      console.error('Error deleting article:', e);
     }
   };
 
@@ -123,7 +138,7 @@ const KnowledgeArchived = () => {
 
       <div className={userStyles.tableSection}>
         <div className={userStyles.tableHeader}>
-          <h2>Archived Articles</h2>
+          <h2>Knowledge Base Articles</h2>
         </div>
 
         <div className={userStyles.tableWrapper}>
@@ -150,8 +165,8 @@ const KnowledgeArchived = () => {
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
-                    No archived articles found.
+                  <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
+                    No articles found.
                   </td>
                 </tr>
               ) : (
@@ -168,7 +183,7 @@ const KnowledgeArchived = () => {
                     <td style={{ textAlign: 'center' }}>{formatArticleDate(a)}</td>
                     <td>
                       <div className={userStyles.actionButtonCont}>
-                        <button title="Restore" className={userStyles.actionButton} onClick={() => handleRestore(a)}>Restore</button>
+                        <button title="Archive" className={userStyles.actionButton} onClick={() => handleArchive(a)}>Archive</button>
                         <button title="Delete" className={userStyles.actionButton} onClick={() => handleDelete(a)}>Delete</button>
                       </div>
                     </td>
@@ -194,4 +209,4 @@ const KnowledgeArchived = () => {
   );
 };
 
-export default KnowledgeArchived;
+export default KnowledgeViewArticles;

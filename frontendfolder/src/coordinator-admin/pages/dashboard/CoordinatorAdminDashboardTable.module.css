@@ -220,6 +220,32 @@
   color: #6b7280;
 }
 
+/* === CSAT Rating Badges === */
+.ratingExcellent {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.ratingGood {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.ratingNeutral {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.ratingPoor {
+  background-color: #fecaca;
+  color: #dc2626;
+}
+
+.ratingVeryPoor {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
 .emptyState {
   padding: 2rem;
   text-align: center;

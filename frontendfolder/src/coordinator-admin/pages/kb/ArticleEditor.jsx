@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './ArticleEditor.module.css';
-import InputField from '../components/InputField';
-import inputStyles from '../components/InputField.module.css';
+import InputField from '../../../shared/components/InputField';
+import inputStyles from '../../../shared/components/InputField.module.css';
 
 // Status is managed by sysadmin logic; editor does not expose it
 

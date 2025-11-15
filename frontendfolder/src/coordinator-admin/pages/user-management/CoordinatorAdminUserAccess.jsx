@@ -14,8 +14,8 @@ import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 import { authUserService } from '../../../services/auth/userService';
 
-import CoordinatorAdminApproveUserModal from "../../components/modals/CoordinatorAdminApproveUserModal";
-import CoordinatorAdminRejectUserModal from "../../components/modals/CoordinatorAdminRejectUserModal";
+import CoordinatorAdminApproveUserModal from "../../components/modals/SysAdminApproveUserModal";
+import CoordinatorAdminRejectUserModal from "../../components/modals/SysAdminRejectUserModal";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 
 // 👇 Configuration for tab filtering

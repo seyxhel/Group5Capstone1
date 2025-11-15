@@ -5,8 +5,9 @@ import { FaEye, FaEdit, FaArchive, FaTimes } from 'react-icons/fa';
 import userStyles from '../user-management/CoordinatorAdminUserAccess.module.css';
 import TablePagination from '../../../shared/table/TablePagination';
 import Button from '../../../shared/components/Button';
-import FilterPanel from '../../../shared/table/FilterPanel';
-import fpStyles from '../../../shared/table/FilterPanel.module.css';
+import SysAdminArticlesFilter from '../../components/filters/SysAdminArticlesFilter';
+import DeleteConfirmationModal from '../../components/modals/SysAdminDeleteConfirmationModal';
+import ArchiveConfirmationModal from '../../components/modals/SysAdminArchiveConfirmationModal';
 import kbService from '../../../services/kbService';
 import authService from '../../../utilities/service/authService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
@@ -18,6 +19,20 @@ const KnowledgeArticles = () => {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState({});
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, article: null, isDeleting: false });
+  const [archiveModal, setArchiveModal] = useState({ isOpen: false, article: null, isArchiving: false });
+  const [isAuthorized, setIsAuthorized] = useState(null);
+
+  // Role-based access control - Only System Admin can access
+  useEffect(() => {
+    const userRole = authService.getUserRole();
+    if (userRole !== 'System Admin') {
+      setIsAuthorized(false);
+      navigate('/admin/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [navigate]);
 
   // appliedFilters is the source of truth for FilterPanel initial state
 
@@ -80,20 +95,56 @@ const KnowledgeArticles = () => {
   };
 
   const handleArchive = async (article) => {
-    if (!window.confirm(`Archive "${article.title}"?`)) return;
-    await kbService.updateArticle(article.id, { archived: true });
-    window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
-    fetch();
+    openArchiveModal(article);
   };
 
-  const handleDelete = async (article) => {
-    if (!window.confirm(`Delete "${article.title}" permanently? This cannot be undone.`)) return;
+  const openArchiveModal = (article) => {
+    setArchiveModal({ isOpen: true, article, isArchiving: false });
+  };
+
+  const closeArchiveModal = () => {
+    setArchiveModal({ isOpen: false, article: null, isArchiving: false });
+  };
+
+  const confirmArchive = async () => {
+    const article = archiveModal.article;
+    if (!article) return;
+
+    setArchiveModal((prev) => ({ ...prev, isArchiving: true }));
     try {
-      await kbService.deleteArticle(article.id);
-      window.dispatchEvent(new CustomEvent('kb:articleDeleted', { detail: { id: article.id } }));
-      fetch();
-    } catch (error) {
-      alert('Failed to delete article. Please try again.');
+      await kbService.updateArticle(article.id, { archived: true });
+      window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
+      setArticles((prev) => prev.filter((a) => a.id !== article.id));
+      closeArchiveModal();
+    } catch (err) {
+      console.error('Failed to archive article:', err);
+      alert('Failed to archive article');
+      setArchiveModal((prev) => ({ ...prev, isArchiving: false }));
+    }
+  };
+
+  const openDeleteModal = (article) => {
+    setDeleteModal({ isOpen: true, article, isDeleting: false });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, article: null, isDeleting: false });
+  };
+
+  const confirmDelete = async () => {
+    const article = deleteModal.article;
+    if (!article) return;
+
+    setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
+    try {
+      await kbService.updateArticle(article.id, { deleted: true });
+      window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
+      setArticles((prev) => prev.filter((a) => a.id !== article.id));
+      closeDeleteModal();
+    } catch (err) {
+      console.error('Failed to delete article:', err);
+      alert('Failed to delete article');
+      setDeleteModal((prev) => ({ ...prev, isDeleting: false }));
     }
   };
 
@@ -101,7 +152,7 @@ const KnowledgeArticles = () => {
   const filtered = useMemo(() => {
     const q = (query || '').trim().toLowerCase();
     const catLabel = appliedFilters?.category?.label || '';
-    const statusLabel = appliedFilters?.status?.label || '';
+    const visLabel = appliedFilters?.visibility?.label || '';
     const start = appliedFilters?.startDate || '';
     const end = appliedFilters?.endDate || '';
 
@@ -127,9 +178,9 @@ const KnowledgeArticles = () => {
         const hay = ((a.title || '') + ' ' + (a.content || '')).toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      // visibility/status filter (case-insensitive)
-      if (statusLabel) {
-        if (((a.visibility || '').toLowerCase()) !== (statusLabel || '').toLowerCase()) return false;
+      // visibility filter (case-insensitive)
+      if (visLabel) {
+        if (((a.visibility || '').toLowerCase()) !== (visLabel || '').toLowerCase()) return false;
       }
       return true;
     });
@@ -168,22 +219,38 @@ const KnowledgeArticles = () => {
     return <span>{count}</span>;
   };
 
+  // Prevent rendering if not authorized
+  if (isAuthorized === false) {
+    return null;
+  }
+
   return (
     <div className={userStyles.pageContainer}>
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        title="Article"
+        message={`Are you sure you want to delete "${deleteModal.article?.title}"? This article will be permanently removed and cannot be recovered.`}
+        onConfirm={confirmDelete}
+        onCancel={closeDeleteModal}
+        isDeleting={deleteModal.isDeleting}
+      />
+
+      {/* Archive Confirmation Modal */}
+      <ArchiveConfirmationModal
+        isOpen={archiveModal.isOpen}
+        title="Article"
+        message={`Are you sure you want to archive "${archiveModal.article?.title}"? It will be moved to the archived section.`}
+        onConfirm={confirmArchive}
+        onCancel={closeArchiveModal}
+        isArchiving={archiveModal.isArchiving}
+      />
+
       {/* Filter panel (outside the table) — use shared FilterPanel for consistent spacing */}
-      <FilterPanel
+      <SysAdminArticlesFilter
         onApply={(filters) => { setAppliedFilters(filters); setCurrentPage(1); }}
         onReset={(filters) => { setAppliedFilters(filters); setCurrentPage(1); }}
         initialFilters={appliedFilters}
-        categoryFirst={true}
-        categoryLabel="Category"
-        showDateFilters={true}
-  // use the status dropdown to represent Visibility for KB
-  statusLabel="Visibility"
-  statusOptions={[{ label: 'Employee' }, { label: 'Ticket Coordinator' }, { label: 'System Admin' }]}
-        showStatus={true}
-        priorityOptions={[]}
-        subCategoryOptions={[]}
         categoryOptions={(categories || []).map(c => ({ label: c.name }))}
       />
 
@@ -259,7 +326,7 @@ const KnowledgeArticles = () => {
                     <td style={{ textAlign: 'center' }}><DislikesCount articleId={a.id} /></td>
                     <td>
                       <div className={userStyles.actionButtonCont}>
-                        <button title="View" className={userStyles.actionButton} onClick={() => window.alert(a.content)}>
+                        <button title="View" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/view/${a.id}`)}>
                           <FaEye />
                         </button>
                         <button title="Edit" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/create?edit=${a.id}`)}>
@@ -268,7 +335,7 @@ const KnowledgeArticles = () => {
                         <button title="Archive" className={userStyles.actionButton} onClick={() => handleArchive(a)}>
                           <FaArchive />
                         </button>
-                        <button title="Delete" className={userStyles.actionButton} onClick={() => handleDelete(a)}>
+                        <button title="Delete" className={userStyles.actionButton} onClick={() => openDeleteModal(a)}>
                           <FaTimes />
                         </button>
                       </div>

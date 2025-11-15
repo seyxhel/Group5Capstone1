@@ -1,18 +1,5 @@
 import FilterPanel from "../../../shared/table/FilterPanel";
 
-/**
- * CoordinatorTicketFilter - Wrapper component for Coordinator/Admin ticket filtering
- * Used in: Ticket Management page
- * 
- * Filters (in order):
- * 1. Status
- * 2. Priority
- * 3. Category
- * 4. Sub-Category
- * 5. SLA Status
- * 6. Start Date
- * 7. End Date
- */
 export default function CoordinatorTicketFilter({
   onApply,
   onReset,

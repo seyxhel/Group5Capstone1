@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiInbox, FiCheckCircle, FiClock, FiXCircle, FiAlertCircle } from 'react-icons/fi';
 import baseStyles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker.module.css';
+import Loading from '../../../shared/components/Loading/Loading';
 import styles from './CoordinatorAdminTicketDetails.module.css';
 import { getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
@@ -78,7 +79,7 @@ function getActiveStep(status) {
   return 0;
 }
 
-export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [], canSeeCoordinatorReview, formatDate }) {
+export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [], canSeeCoordinatorReview, formatDate, isLoading = false }) {
   // Get current user role
   const userRole = authService.getUserRole();
   const isTicketCoordinator = userRole === 'Ticket Coordinator';
@@ -229,6 +230,17 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   const withdrewWithoutProgress = isWithdrawn && !passedThroughProgressiveStages(ticket);
   const hideAssignedAgent = isRejected || withdrewWithoutProgress;
   console.debug('Assigned agent visibility:', { status: ticket?.status, isRejected, isWithdrawn, withdrewWithoutProgress, hideAssignedAgent });
+
+  // If parent is still loading the ticket data or ticket is undefined, show shared Loading
+  if (isLoading || typeof ticket === 'undefined') {
+    return (
+      <div className={baseStyles.detailsGrid + ' ' + styles.detailsPanel + ' ' + styles.panelRoot}>
+        <div className={styles.panelContent} style={{ padding: 48, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <Loading text="Loading details..." centered />
+        </div>
+      </div>
+    );
+  }
 
   // Calculate SLA status (simplified: based on priority and time elapsed)
   const calculateSLAStatus = () => {
