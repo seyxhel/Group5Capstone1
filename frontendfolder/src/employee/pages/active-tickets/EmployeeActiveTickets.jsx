@@ -237,7 +237,7 @@ const EmployeeActiveTickets = () => {
   };
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`, { state: { from: 'ActiveTickets' } });
   };
 
   const [showFilter, setShowFilter] = useState(false);

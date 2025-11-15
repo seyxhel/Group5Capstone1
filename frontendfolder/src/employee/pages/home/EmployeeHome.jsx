@@ -76,7 +76,7 @@ const EmployeeHome = () => {
 
 
   const handleViewDetails = (ticketNumber) => {
-    navigate(`/employee/ticket-tracker/${ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticketNumber}`, { state: { from: 'Home' } });
   };
 
   // Normalize ticket data to handle both backend field names (snake_case) and frontend (camelCase)

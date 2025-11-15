@@ -207,7 +207,7 @@ const EmployeeTicketRecords = () => {
   }, [filteredTickets, currentPage, pageSize]);
 
   const handleView = (ticket) => {
-    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
+    navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`, { state: { from: 'TicketRecords' } });
   };
 
   const [showFilter, setShowFilter] = useState(false);

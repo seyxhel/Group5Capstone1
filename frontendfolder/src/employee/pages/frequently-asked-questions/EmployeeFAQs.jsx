@@ -5,6 +5,7 @@ import ViewCard from '../../../shared/components/ViewCard';
 import InputField from '../../../shared/components/InputField';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import kbService from '../../../services/kbService';
+import { backendArticleService } from '../../../services/backend/articleService';
 
 const EmployeeFAQs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,10 +31,25 @@ const EmployeeFAQs = () => {
     const load = async () => {
       try {
         setLoading(true);
-        const all = await kbService.listArticles({});
+        // Try backend first (authoritative). If it fails, fall back to the mock kbService.
+        let all = [];
+        try {
+          all = await backendArticleService.getAllArticles();
+        } catch (backendErr) {
+          console.warn('backendArticleService failed, falling back to kbService.listArticles:', backendErr);
+          try {
+            all = await kbService.listArticles({});
+          } catch (kbErr) {
+            console.error('kbService fallback also failed:', kbErr);
+            all = [];
+          }
+        }
+
         if (!isMounted) return;
-        // kbService maps archived -> archived and visibility normalized to 'Employee', etc.
+
+        // kbService or backend maps archived -> archived and visibility normalized to 'Employee', etc.
         const visible = (all || []).filter(a => !a.archived && (a.visibility || '').toLowerCase() === 'employee');
+
         // normalize shape to provide `question` and `answer` fields that the UI expects.
         // NOTE: backend / adapter sometimes returns `subject`/`description` or `title`/`content`.
         const mapped = visible.map(a => ({
@@ -44,6 +60,7 @@ const EmployeeFAQs = () => {
           question: a.subject ?? a.title ?? a.name ?? '',
           answer: a.description ?? a.content ?? a.body ?? ''
         }));
+
         setArticles(mapped);
       } catch (err) {
         console.error('Error loading KB articles for FAQs:', err);

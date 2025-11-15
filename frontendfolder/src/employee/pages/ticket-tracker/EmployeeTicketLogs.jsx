@@ -16,7 +16,12 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
   }, [initialMessages]);
 
   const formatDateLocal = (date) => {
-    const d = date ? new Date(date) : new Date();
+    // If no date provided, return empty string. Previously this function
+    // defaulted to `new Date()` which caused UI to display "now" when
+    // the timestamp was missing (e.g. newly-created tickets without a
+    // backend-created timestamp). An empty string avoids misleading "now".
+    if (!date) return '';
+    const d = new Date(date);
     if (isNaN(d)) return 'Invalid Date';
     const monthName = d.toLocaleString('en-US', { month: 'long' });
     const day = d.getDate();
@@ -95,7 +100,9 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
                     <div className={styles.logAvatar}>{getLogIcon(log.action || log.text)}</div>
                     <div className={styles.logBody}>
                       <div className={styles.logText}>{renderLogText(log.text || log.action, log.highlight)}</div>
-                      <div className={styles.logTimestamp}>{log.timestamp}</div>
+                      {log.timestamp ? (
+                        <div className={styles.logTimestamp}>{log.timestamp}</div>
+                      ) : null}
                     </div>
                   </div>
                 );

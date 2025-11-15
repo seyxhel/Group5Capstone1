@@ -23,6 +23,56 @@ const normalizeVisibility = (v) => {
   return v.replace(/\b\w/g, c => c.toUpperCase());
 };
 
+// --- In-memory seeds & mocks (used by the mock kb service) ---
+// These provide a minimal dataset so the service functions can operate
+// without an external dependency during development.
+const categoriesSeed = [
+  { id: 1, name: 'IT Support' },
+  { id: 2, name: 'Asset Check In' },
+  { id: 3, name: 'Asset Check Out' },
+];
+
+const articlesSeed = [
+  {
+    id: 1001,
+    title: 'How to reset your password',
+    content: 'Step-by-step instructions to reset your password.',
+    category_id: 1,
+    visibility: 'Employee',
+    date_created: new Date().toISOString(),
+    date_modified: new Date().toISOString(),
+    archived: false,
+  },
+  {
+    id: 1002,
+    title: 'Asset checkout procedure',
+    content: 'How to properly check out company assets.',
+    category_id: 3,
+    visibility: 'Ticket Coordinator',
+    date_created: new Date().toISOString(),
+    date_modified: new Date().toISOString(),
+    archived: false,
+  }
+];
+
+const feedbackSeed = [
+  { id: 1, articleId: 1001, helpful: true, comment: 'Very useful', date: new Date().toISOString() }
+];
+
+// Live in-memory collections
+let mockCategories = JSON.parse(JSON.stringify(categoriesSeed));
+let mockArticles = JSON.parse(JSON.stringify(articlesSeed)).map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
+let mockFeedback = JSON.parse(JSON.stringify(feedbackSeed));
+
+// Simple history store keyed by article id
+const mockHistory = {}; // { [articleId]: [ { action, timestamp, by, changes } ] }
+
+const pushHistory = (articleId, action, changes = {}, by = 'system') => {
+  const entry = { action, timestamp: new Date().toISOString(), by, changes };
+  mockHistory[articleId] = mockHistory[articleId] || [];
+  mockHistory[articleId].push(entry);
+};
+
 export const listCategories = () => {
   // Return synchronously for mock data
   return [...mockCategories];
@@ -58,6 +108,8 @@ export const submitArticle = (article) => {
     archived: false
   };
   mockArticles.push(newArticle);
+  // record history
+  try { pushHistory(id, 'created', { article: newArticle }, 'local'); } catch (e) {}
   return newArticle;
 };
 
@@ -65,12 +117,16 @@ export const updateArticle = (id, patch = {}) => {
   const idx = mockArticles.findIndex(a => a.id === Number(id));
   if (idx === -1) return null;
   const now = new Date().toISOString().slice(0,10);
+  const before = { ...mockArticles[idx] };
   mockArticles[idx] = { 
     ...mockArticles[idx], 
     ...patch, 
     date_modified: now,
     dateModified: now
   };
+  const after = { ...mockArticles[idx] };
+  // record history of changes
+  try { pushHistory(Number(id), 'updated', { before, after }, 'local'); } catch (e) {}
   return mockArticles[idx];
 };
 
@@ -101,6 +157,18 @@ export const submitFeedback = ({ articleId, helpful, comment }) => {
   const entry = { id, articleId: Number(articleId), helpful: !!helpful, comment: comment || '', date: new Date().toISOString() };
   mockFeedback.push(entry);
   return entry;
+};
+
+export const getHistory = (articleId) => {
+  return mockHistory[Number(articleId)] ? [...mockHistory[Number(articleId)]] : [];
+};
+
+export const deleteArticle = (id) => {
+  const idx = mockArticles.findIndex(a => a.id === Number(id));
+  if (idx === -1) return false;
+  const removed = mockArticles.splice(idx, 1)[0];
+  try { pushHistory(Number(id), 'deleted', { article: removed }, 'local'); } catch (e) {}
+  return true;
 };
 
 // default export includes main conveniences for imports that use default

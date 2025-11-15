@@ -276,7 +276,25 @@ export default function EmployeeSettings({ editingUserId = null }) {
       // Show success toast
       toast.success('Password changed successfully.');
     } catch (err) {
-      const msg = err?.message || 'Failed to update password';
+      // Try to extract a readable message from backend validation responses
+      let msg = err?.message || 'Failed to update password';
+      try {
+        // Some backends return a JSON object like { field: ["message"] }
+        const parsed = JSON.parse(msg);
+        if (parsed && typeof parsed === 'object') {
+          const firstKey = Object.keys(parsed)[0];
+          const firstVal = parsed[firstKey];
+          if (Array.isArray(firstVal) && firstVal.length > 0) {
+            msg = firstVal[0];
+          } else if (typeof firstVal === 'string') {
+            msg = firstVal;
+          } else {
+            msg = JSON.stringify(parsed);
+          }
+        }
+      } catch (e) {
+        // not JSON — leave msg as-is
+      }
       setPasswordError(msg);
       toast.error(msg);
     }

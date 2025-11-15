@@ -76,12 +76,12 @@ const generateLogs = (ticket) => {
     statusHistory.forEach((s) => {
       const at = s.at || s.timestamp || s.date || s.createdAt || s.created_at || null;
       logs.push({
-        id: logs.length + 1,
-        user: s.by || s.user || s.performedBy || s.performed_by || 'System',
-        action: 'Status Change',
-        timestamp: at ? formatDate(at) : null,
-        text: `Status changed to ${s.status || s.to || s.newStatus || 'Unknown'}${at ? ` on ${formatDate(at)}` : ''}.`,
-      });
+          id: logs.length + 1,
+          user: s.by || s.user || s.performedBy || s.performed_by || 'System',
+          action: 'Status Change',
+          timestamp: at ? formatDate(at) : null,
+          text: at ? `Status changed to ${s.status || s.to || s.newStatus || 'Unknown'} on ${formatDate(at)}.` : `Status changed to ${s.status || s.to || s.newStatus || 'Unknown'}.`,
+        });
     });
   }
 
@@ -125,8 +125,8 @@ const generateLogs = (ticket) => {
         id: 1,
         user: ticket.employeeName || ticket.employee || 'System',
         action: 'Created',
-        timestamp: formatDate(created),
-        text: `Ticket created on ${formatDate(created)}.`,
+        timestamp: created ? formatDate(created) : null,
+        text: created ? `Ticket created on ${formatDate(created)}.` : `Ticket created.`,
       });
     }
   }

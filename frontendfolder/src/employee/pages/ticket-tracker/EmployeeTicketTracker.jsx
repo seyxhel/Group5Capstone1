@@ -98,24 +98,28 @@ const formatMoney = (value) => {
 const generateLogs = (ticket) => {
 
   const logs = [];
-  const createdAt = ticket.dateCreated || ticket.date_created || new Date().toISOString();
+  // Prefer explicit created timestamps from the ticket payload. Do NOT default
+  // to current time here — if the backend did not provide a creation date we
+  // should leave it null so the UI does not display "now" incorrectly.
+  const createdAt = ticket.dateCreated || ticket.date_created || ticket.submit_date || ticket.createdAt || ticket.created_at || null;
 
-  // 1. Ticket Created
+  // 1. Ticket Created — prefer actual creation timestamp and avoid
+  // defaulting to "now" when the field is missing.
   logs.push({
     id: logs.length + 1,
     user: ticket.requesterName || ticket.requestedBy || 'Employee',
     action: 'Ticket Created',
-    timestamp: formatDate(createdAt),
+    timestamp: createdAt ? formatDate(createdAt) : null,
     source: 'Web Form',
     details: `Category: ${ticket.category || 'None'}`,
-    text: `Ticket was created on ${formatDate(createdAt)} via Web Form. Category: ${ticket.category || 'None'}.`,
+    text: createdAt ? `Ticket was created on ${formatDate(createdAt)} via Web Form. Category: ${ticket.category || 'None'}.` : `Ticket was created via Web Form. Category: ${ticket.category || 'None'}.`,
     highlight: ticket.category || null,
   });
 
   // 2. Assigned to department / agent (if present)
   const assignedToName = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.name : ticket.assignedTo;
   if (ticket.department) {
-    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt || null;
     const agentText = assignedToName ? ` by ${assignedToName}` : '';
     const sentence = `Ticket was routed to the ${ticket.department} department${agentText} on ${formatDate(at)}.`;
     logs.push({
@@ -128,7 +132,7 @@ const generateLogs = (ticket) => {
       highlight: ticket.department,
     });
   } else if (assignedToName) {
-    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt;
+    const at = ticket.dateAssigned || ticket.lastUpdated || createdAt || null;
     logs.push({
       id: logs.length + 1,
       user: 'Coordinator',
@@ -146,13 +150,14 @@ const generateLogs = (ticket) => {
       // Normalize status display for logs: treat 'New' as 'Open' so timeline reads clearly
       const raw = entry.status || '';
       const displayStatus = raw === 'New' ? 'Open' : raw;
+      const statusTs = entry.timestamp || entry.date || entry.updatedAt || entry.createdAt || null;
       logs.push({
         id: logs.length + 1,
         user: entry.user || 'System',
         action: `Status Updated: ${displayStatus}`,
-        timestamp: formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt),
+        timestamp: formatDate(statusTs),
         source: entry.source || 'System',
-        text: `Status was updated to ${displayStatus} on ${formatDate(entry.timestamp || entry.date || entry.updatedAt || entry.createdAt)}.`,
+        text: statusTs ? `Status was updated to ${displayStatus} on ${formatDate(statusTs)}.` : `Status was updated to ${displayStatus}.`,
         highlight: displayStatus,
       });
     });
@@ -198,22 +203,22 @@ const generateLogs = (ticket) => {
       id: logs.length + 1,
       user: ticket.resolvedBy || 'Agent',
       action: 'Ticket Resolved',
-      timestamp: formatDate(resolvedAt),
+      timestamp: formatDate(resolvedAt || null),
       source: 'Portal',
-      text: `Ticket was marked as resolved on ${formatDate(resolvedAt)}.`,
+      text: resolvedAt ? `Ticket was marked as resolved on ${formatDate(resolvedAt)}.` : `Ticket was marked as resolved.`,
       highlight: 'resolved',
     });
   }
 
   if (status === 'Closed' || ticket.closedAt) {
-    const closedAt = ticket.closedAt || ticket.lastUpdated || new Date().toISOString();
+    const closedAt = ticket.closedAt || ticket.lastUpdated || createdAt || null;
     logs.push({
       id: logs.length + 1,
       user: ticket.closedBy || 'System',
       action: 'Ticket Closed',
-      timestamp: formatDate(closedAt),
+      timestamp: formatDate(closedAt || null),
       source: 'System',
-      text: `Ticket was closed on ${formatDate(closedAt)}.`,
+      text: closedAt ? `Ticket was closed on ${formatDate(closedAt)}.` : `Ticket was closed.`,
       highlight: 'closed',
     });
   }
@@ -576,11 +581,12 @@ export default function EmployeeTicketTracker() {
     const msgs = [];
 
     // System message about receipt
+    const sysTsRaw = tkt.submit_date || tkt.dateCreated || tkt.created_at || tkt.createdAt || null;
     msgs.push({
       id: 'system-received',
       sender: 'Support Team',
       message: `Your ticket regarding "${tkt.subject}" has been received and is being reviewed.`,
-      timestamp: formatDate(tkt.submit_date || tkt.dateCreated || tkt.created_at || tkt.createdAt),
+      timestamp: sysTsRaw ? formatDate(sysTsRaw) : '',
     });
 
     // Comments may be at ticket.comments or ticket.comments_list; normalize
@@ -617,7 +623,7 @@ export default function EmployeeTicketTracker() {
       } catch (e) {}
 
       const text = c.comment || c.message || c.body || '';
-      msgs.push({ id: c.id || `c-${idx}`, sender, message: text, timestamp: formatDate(createdAt) });
+      msgs.push({ id: c.id || `c-${idx}`, sender, message: text, timestamp: createdAt ? formatDate(createdAt) : '' });
     });
 
     return msgs;
@@ -726,7 +732,12 @@ export default function EmployeeTicketTracker() {
     const curStatusLower = curStatus.toLowerCase();
     const hasCur = mergedDeduped.some(it => ((it.status || it.action || '').toString().toLowerCase()) === curStatusLower);
     if (curStatus && !hasCur && !['new', 'submitted', 'pending'].includes(curStatusLower)) {
-      mergedDeduped.push({ status: curStatus, timestamp: lastUpdatedRaw || dateCreatedRaw || new Date().toISOString(), user: 'System', source: 'System' });
+      // Only append a synthetic current-status entry if we have a reliable
+      // timestamp from the backend (lastUpdatedRaw or dateCreatedRaw). Avoid
+      // defaulting to the current time which results in logs showing "now"
+      // for newly created tickets that haven't been backfilled by the API.
+      const syntheticTs = lastUpdatedRaw || dateCreatedRaw || null;
+      mergedDeduped.push({ status: curStatus, timestamp: syntheticTs, user: 'System', source: 'System' });
       // regenerate logs to include this appended status
       // Note: call generateLogs again to recompute ticketLogs with the appended status
       // (we shadow ticketLogs variable by reassigning)

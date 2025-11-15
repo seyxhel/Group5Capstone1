@@ -441,7 +441,7 @@ export default function EmployeeTicketSubmissionForm() {
       
       // Navigate to ticket tracker using the ticket number from response
       const ticketNumber = newTicket.ticket_number || newTicket.ticketNumber || newTicket.id;
-      setTimeout(() => navigate(`/employee/ticket-tracker/${ticketNumber}`), 1500);
+      setTimeout(() => navigate(`/employee/ticket-tracker/${ticketNumber}`, { state: { from: 'Home' } }), 1500);
     } catch (error) {
       console.error('Error submitting ticket:', error);
       toast.error(error.message || 'Failed to submit ticket. Please try again.');

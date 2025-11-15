@@ -331,8 +331,15 @@ export const backendEmployeeService = {
       });
       handleAuthError(response);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to change password');
+        // Try JSON first, fall back to text for better error visibility
+        try {
+          const errorData = await response.json();
+          const msg = errorData.message || errorData.detail || JSON.stringify(errorData);
+          throw new Error(msg || 'Failed to change password');
+        } catch (e) {
+          const text = await response.text().catch(() => 'Failed to change password');
+          throw new Error(text || 'Failed to change password');
+        }
       }
       return await response.json();
     } catch (error) {

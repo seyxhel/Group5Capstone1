@@ -1639,16 +1639,73 @@ def change_password(request):
 
     if not current_password or not new_password:
         return Response({'detail': 'Current and new password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    # External users (from external auth service) cannot change password locally.
+    # Forward the change request to the external auth service so it can validate
+    # the current password and update credentials there.
+    if isinstance(user, ExternalUser):
+        try:
+            url = 'http://localhost:8003/api/v1/users/password/change/'
+            payload = {
+                'current_password': current_password,
+                'new_password': new_password,
+                'new_password_confirm': request.data.get('new_password_confirm', new_password)
+            }
 
-    if not user.check_password(current_password):
-        return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Forward cookies and Authorization header if present so the auth service
+            # can authenticate the request (it may require the cookie-based session
+            # or an Authorization: Bearer header). Prefer forwarding the incoming
+            # Authorization header when available.
+            cookies = {}
+            headers = {'Content-Type': 'application/json'}
+            try:
+                # Copy cookies (access_token, refresh_token, csrftoken) if present
+                for name in ['access_token', 'refresh_token', 'csrftoken']:
+                    val = request.COOKIES.get(name)
+                    if val:
+                        cookies[name] = val
 
-    if len(new_password) < 8:
-        return Response({'detail': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+                # If the original request had an Authorization header, forward it
+                auth_header = request.META.get('HTTP_AUTHORIZATION')
+                if auth_header:
+                    headers['Authorization'] = auth_header
+                else:
+                    # Fallback: if cookie-based access_token exists, set Authorization
+                    if cookies.get('access_token'):
+                        headers['Authorization'] = f"Bearer {cookies['access_token']}"
+            except Exception:
+                pass
 
-    user.set_password(new_password)
-    user.save()
-    return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+            resp = requests.post(url, json=payload, cookies=cookies, headers=headers, timeout=5)
+            if resp.status_code in (200, 201):
+                return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+            # Log non-200 response body for easier debugging and return the JSON if possible
+            if resp.status_code not in (200, 201):
+                try:
+                    err_json = resp.json()
+                    print(f"[change_password] Auth service responded {resp.status_code}: {err_json}")
+                    return Response(err_json, status=resp.status_code)
+                except Exception:
+                    text = resp.text
+                    print(f"[change_password] Auth service responded {resp.status_code}: {text}")
+                    return Response({'detail': 'Failed to change password via auth service.', 'error': text}, status=resp.status_code)
+        except Exception as e:
+            print(f"[change_password] Error forwarding to auth service: {e}")
+            return Response({'detail': 'Failed to change password via auth service.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Local/Django user path
+    try:
+        if not user.check_password(current_password):
+            return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(new_password) < 8:
+            return Response({'detail': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(f"[change_password] Error changing local password: {e}")
+        return Response({'detail': 'Failed to change password.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1716,9 +1773,34 @@ def verify_password(request):
     if not current_password:
         return Response({'detail': 'Current password required.'}, status=status.HTTP_400_BAD_REQUEST)
     user = request.user
-    if user.check_password(current_password):
-        return Response({'detail': 'Password verified.'})
-    return Response({'detail': 'Incorrect password.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Handle ExternalUser (token-authenticated users from external auth service)
+    if isinstance(user, ExternalUser):
+        try:
+            # Attempt to verify credentials by calling the external auth service login endpoint.
+            # The auth service exposes a login endpoint at /api/v1/users/login/ which issues tokens on success.
+            url = 'http://localhost:8003/api/v1/users/login/'
+            payload = {
+                'email': getattr(user, 'email', None),
+                'password': current_password
+            }
+            # Use a short timeout to avoid blocking the request pipeline
+            resp = requests.post(url, json=payload, timeout=5)
+            if resp.status_code == 200:
+                return Response({'detail': 'Password verified.'})
+            # Treat any non-200 as failed verification
+            return Response({'detail': 'Incorrect password.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"[verify_password] Error verifying against external auth service: {e}")
+            return Response({'detail': 'Failed to verify password with external auth service.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Local/Django user path
+    try:
+        if user.check_password(current_password):
+            return Response({'detail': 'Password verified.'})
+        return Response({'detail': 'Incorrect password.'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        print(f"[verify_password] Error checking password on local user: {e}")
+        return Response({'detail': 'Failed to verify password.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
