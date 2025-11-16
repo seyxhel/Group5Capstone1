@@ -53,6 +53,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise lets Django serve its own static files efficiently.
+    # It should be just after SecurityMiddleware.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     # corsheaders middleware should be placed as high as possible so it can
     # add the CORS headers before other middleware (especially CommonMiddleware)
     'corsheaders.middleware.CorsMiddleware',
@@ -137,6 +140,10 @@ STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+
+# Use WhiteNoise storage to add compression and proper cache headers for
+# static assets collected with `collectstatic`.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
