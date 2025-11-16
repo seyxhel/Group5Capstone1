@@ -3,6 +3,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeActiveTicketsWithdrawTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { backendTicketService } from "../../../../services/backend/ticketService";
 
 const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
@@ -16,42 +17,34 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
       });
       return;
     }
-    // Restrict to not just punctuation
-    if (!/[a-zA-Z0-9]/.test(comment)) {
-      toast.error("Reason must contain at least one letter or number.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(
-        `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/withdraw/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ comment }),
-        }
-      );
+      // Call backend API to withdraw ticket
+      await backendTicketService.withdrawTicket(ticket.id, comment.trim());
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to withdraw ticket.");
-      }
-
-      toast.success(`Ticket #${ticket.ticketNumber} withdrawn successfully.`, {
+      toast.success(`Ticket #${ticket.ticket_number || ticket.ticketNumber} withdrawn successfully.`, {
         position: "top-right",
         autoClose: 3000,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Withdrawn");
-      onClose();
+      // Notify parent. If parent provided onSuccess, assume it will update UI
+      // and skip the hard reload. Otherwise, close and reload as a fallback.
+      const hadHandler = typeof onSuccess === 'function';
+      if (hadHandler) {
+        try { onSuccess(ticket.ticket_number || ticket.ticketNumber, "Withdrawn"); } catch (_) {}
+        onClose();
+      } else {
+        onClose();
+        setTimeout(() => {
+          try {
+            window.location.reload();
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to reload after withdraw:', e);
+          }
+        }, 250);
+      }
     } catch (err) {
       toast.error(err.message || "Failed to withdraw ticket. Please try again.", {
         position: "top-right",
@@ -66,7 +59,7 @@ const EmployeeActiveTicketsWithdrawTicketModal = ({ ticket, onClose, onSuccess }
     <ModalWrapper onClose={onClose}>
       <ToastContainer />
       <h2 className={styles.heading}>
-        Withdraw Ticket {ticket.ticketNumber}
+        Withdraw Ticket {ticket.ticket_number || ticket.ticketNumber}
       </h2>
 
       <div className={styles.field}>

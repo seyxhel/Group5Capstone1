@@ -28,7 +28,7 @@ ROLE_CHOICES = [
 STATUS_CHOICES = [
     ('Pending', 'Pending'),
     ('Approved', 'Approved'),
-    ('Rejected', 'Rejected'),
+    ('Denied', 'Denied'),
 ]
 
 class EmployeeManager(BaseUserManager):
@@ -84,6 +84,65 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+
+class EmployeeLog(models.Model):
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('role_updated', 'Role Updated'),
+        ('other', 'Other'),
+    ]
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='logs')
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    details = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.employee.company_id} - {self.action} @ {self.timestamp}"
+
+
+class ActivityLog(models.Model):
+    """
+    General-purpose activity log for recording user actions across the system.
+    Designed to be flexible and queryable for the admin user-profile activity view.
+    """
+    ACTION_TYPES = [
+        ('ticket_created', 'Ticket Created'),
+        ('ticket_assigned', 'Ticket Assigned'),
+        ('status_changed', 'Status Changed'),
+        ('csat_submitted', 'CSAT Submitted'),
+        ('account_approved', 'Account Approved'),
+        ('account_rejected', 'Account Rejected'),
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('other', 'Other'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activity_logs')
+    action_type = models.CharField(max_length=64, choices=ACTION_TYPES)
+    # optional actor (who performed the action) - could be same as user or an admin
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_activities')
+    # human-friendly message/details for display
+    message = models.TextField(blank=True, null=True)
+    # optional related ticket for quick filtering
+    ticket = models.ForeignKey('Ticket', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs')
+    # arbitrary metadata (e.g., previous_status, new_status, csat_rating, etc.)
+    metadata = models.JSONField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [models.Index(fields=['user', 'action_type', 'timestamp'])]
+
+    def __str__(self):
+        return f"{self.user} - {self.action_type} @ {self.timestamp}"
+
 PRIORITY_LEVELS = [
     ('Critical', 'Critical'),
     ('High', 'High'),
@@ -99,45 +158,95 @@ STATUS_CHOICES = [
     ('Pending', 'Pending'),
     ('Resolved', 'Resolved'),
     ('Rejected', 'Rejected'),
+    ('Withdrawn', 'Withdrawn'),
     ('Closed', 'Closed'),
-    ('Withdrawn','Withdrawn'),
 ]
 
 CATEGORY_CHOICES = [
-    ('Software', 'Software'),
-    ('Hardware', 'Hardware'),
-    ('Network', 'Network'),
-    # Add more as needed
+    ('IT Support', 'IT Support'),
+    ('Asset Check In', 'Asset Check In'),
+    ('Asset Check Out', 'Asset Check Out'),
+    ('New Budget Proposal', 'New Budget Proposal'),
+    ('Others', 'Others'),
 ]
 
+# IT support sub-categories
 SUBCATEGORY_CHOICES = [
-    ('Unauthorized App', 'Unauthorized App'),
-    ('Application Error', 'Application Error'),
-    # Add more as needed
+    ('Technical Assistance', 'Technical Assistance'),
+    ('Software Installation/Update', 'Software Installation/Update'),
+    ('Hardware Troubleshooting', 'Hardware Troubleshooting'),
+    ('Email/Account Access Issue', 'Email/Account Access Issue'),
+    ('Internet/Network Connectivity Issue', 'Internet/Network Connectivity Issue'),
+    ('Printer/Scanner Setup or Issue', 'Printer/Scanner Setup or Issue'),
+    ('System Performance Issue', 'System Performance Issue'),
+    ('Virus/Malware Check', 'Virus/Malware Check'),
+    ('IT Consultation Request', 'IT Consultation Request'),
+    ('Data Backup/Restore', 'Data Backup/Restore'),
 ]
 def generate_unique_ticket_number():
-        from .models import Ticket  # or avoid this if it's in the same file
-        while True:
-            random_number = f"TX{random.randint(1, 9999):04d}"
-            if not Ticket.objects.filter(ticket_number=random_number).exists():
-                return random_number
+    from .models import Ticket  # safe import for migrations
+    from datetime import datetime
+    date_part = datetime.utcnow().strftime('%Y%m%d')
+    # Attempt up to a few times to avoid collisions
+    for _ in range(10):
+        rand = f"{random.randint(0, 999999):06d}"
+        candidate = f"TX{date_part}{rand}"
+        if not Ticket.objects.filter(ticket_number=candidate).exists():
+            return candidate
+    # Fallback to uuid-like random
+    while True:
+        candidate = f"TX{date_part}{random.randint(0, 9999999):07d}"
+        if not Ticket.objects.filter(ticket_number=candidate).exists():
+            return candidate
             
 class Ticket(models.Model):
-    ticket_number = models.CharField(max_length=6, unique=True, blank=True, null=True)
-            
+    ticket_number = models.CharField(max_length=32, unique=True, blank=True, null=True)
+
     def save(self, *args, **kwargs):
         if not self.ticket_number:
             self.ticket_number = generate_unique_ticket_number()
         super().save(*args, **kwargs)
 
-    employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tickets")
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="tickets",
+        null=True,          # allows NULL values in the database
+        blank=True          # allows empty in forms/admin
+        
+        )
+    employee_cookie_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="User ID from external cookie-auth system"
+    )
     subject = models.CharField(max_length=255)
     category = models.CharField(max_length=100)
-    sub_category = models.CharField(max_length=100)
+    sub_category = models.CharField(max_length=100, blank=True, null=True)
     description = models.TextField()
     scheduled_date = models.DateField(null=True, blank=True)
     priority = models.CharField(max_length=20, choices=PRIORITY_LEVELS, blank=True, null=True)
     department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
+    # Explicit fields for commonly used dynamic data (easier querying)
+    asset_name = models.CharField(max_length=255, blank=True, null=True)
+    serial_number = models.CharField(max_length=255, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    expected_return_date = models.DateField(blank=True, null=True)
+    issue_type = models.CharField(max_length=100, blank=True, null=True)
+    other_issue = models.TextField(blank=True, null=True)
+    performance_start_date = models.DateField(blank=True, null=True)
+    performance_end_date = models.DateField(blank=True, null=True)
+    approved_by = models.CharField(max_length=255, blank=True, null=True)
+    rejected_by = models.CharField(max_length=255, blank=True, null=True)
+    cost_items = models.JSONField(blank=True, null=True)
+    # Total requested budget (calculated or provided by frontend)
+    requested_budget = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    # Budget-specific fields (set when category is "New Budget Proposal")
+    fiscal_year = models.IntegerField(blank=True, null=True)
+    department_input = models.IntegerField(blank=True, null=True)
+    # Arbitrary dynamic form data (fallback storage for unknown fields)
+    dynamic_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='New')
     submit_date = models.DateTimeField(auto_now_add=True)
     update_date = models.DateTimeField(auto_now=True)
@@ -156,10 +265,29 @@ from .tasks import push_ticket_to_workflow
 def send_ticket_to_workflow(sender, instance, created, **kwargs):
     # Only trigger when status is set to "Open" (and not just created)
     if not created and instance.status == "Open":
-        from .tasks import push_ticket_to_workflow  # Import here!
-        from .serializers import ticket_to_dict_for_external_systems   # Import here!
-        data = ticket_to_dict_for_external_systems(instance)
-        push_ticket_to_workflow.delay(data)
+        # Delay pushing to external workflow; do not allow broker/worker errors
+        # to crash the request/DB transaction (e.g., when RabbitMQ is down).
+        try:
+            from .tasks import push_ticket_to_workflow  # Import here!
+            from .serializers import TicketSerializer   # Import here!
+            # Instead of serializing the entire ticket (which may include
+            # file-related objects that are not pickle-friendly), enqueue a
+            # minimal payload (ticket_number). The worker can re-fetch the
+            # full ticket from the DB when processing the job. This avoids
+            # errors like "cannot pickle 'BufferedRandom' instances".
+            minimal_payload = {'ticket_number': instance.ticket_number}
+            try:
+                push_ticket_to_workflow.delay(minimal_payload)
+                print(f"[send_ticket_to_workflow] enqueued workflow job for ticket {instance.ticket_number}")
+            except Exception as enqueue_err:
+                # Log the enqueue failure and continue — do not re-raise
+                import logging, traceback
+                logger = logging.getLogger(__name__)
+                logger.exception("Failed to enqueue push_ticket_to_workflow: %s", enqueue_err)
+        except Exception:
+            # If importing or serializing fails, log and continue
+            import logging
+            logging.getLogger(__name__).exception("Error preparing push_ticket_to_workflow task")
         
 class TicketAttachment(models.Model):
     ticket = models.ForeignKey('Ticket', on_delete=models.CASCADE, related_name='attachments')
@@ -175,7 +303,13 @@ class TicketAttachment(models.Model):
 
 class TicketComment(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='comments')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    user_cookie_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="User ID from external cookie-auth system"
+    )
     comment = models.TextField()
     is_internal = models.BooleanField(default=False)  # For admin-only comments
     created_at = models.DateTimeField(auto_now_add=True)
@@ -186,11 +320,39 @@ class TicketComment(models.Model):
     def __str__(self):
         return f"Comment on {self.ticket.ticket_number} by {self.user}"
 
-class RejectedEmployeeAudit(models.Model):
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField()
-    company_id = models.CharField(max_length=100)
-    department = models.CharField(max_length=100)
-    rejected_at = models.DateTimeField(auto_now_add=True)
-    reason = models.TextField(blank=True, null=True)
+
+VISIBILITY_CHOICES = [
+    ('Employee', 'Employee'),
+    ('Ticket Coordinator', 'Ticket Coordinator'),
+    ('System Admin', 'System Admin'),
+]
+
+ARTICLE_CATEGORY_CHOICES = [
+    ('IT Support', 'IT Support'),
+    ('Asset Check In', 'Asset Check In'),
+    ('Asset Check Out', 'Asset Check Out'),
+    ('New Budget Proposal', 'New Budget Proposal'),
+    ('Others', 'Others'),
+]
+
+
+class KnowledgeArticle(models.Model):
+    subject = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, choices=ARTICLE_CATEGORY_CHOICES)
+    visibility = models.CharField(max_length=50, choices=VISIBILITY_CHOICES)
+    description = models.TextField()
+    is_archived = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_articles'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.subject} ({self.category})"

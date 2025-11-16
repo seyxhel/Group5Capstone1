@@ -1,10 +1,11 @@
 /* === Table Wrapper === */
+/* PageLayout already provides all necessary padding: 36px 38px 38px 38px */
 .table-wrapper {
   min-height: 100vh;
   background-color: var(--bg-color);
   display: flex;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 0;
 }
 
 /* === Card Container === */
@@ -12,13 +13,13 @@
   width: 100%;
   max-width: 1200px;
   height: 700px; /* Fixed card height */
-  background: var(--white);
-  border-radius: 40px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #cccccc;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Prevent overflow outside the card */
+  overflow: hidden;
   transition: box-shadow 0.2s ease;
 }
 
@@ -29,7 +30,7 @@
 
 /* === Header === */
 .table-header {
-  padding: 1rem 2rem 0.5rem;
+  padding: 15px 30px;
   flex-shrink: 0;
 }
 
@@ -66,11 +67,11 @@
 
 .search-input {
   width: 100%;
-  padding: 0.5rem 1rem;
+  padding: 8px 12px;
   font-size: 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 999px !important;
-  background-color: var(--white);
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  background-color: #f9f9f9;
   color: var(--text-color);
   font-family: inherit;
   transition: box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out;
@@ -78,8 +79,8 @@
 
 .search-input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--primary-color);
-  border-color: transparent;
+  border-color: #007acc;
+  background-color: #ffffff;
 }
 
 /* === Filter Dropdown === */
@@ -185,6 +186,10 @@
   padding: 0;
 }
 
+/* === Pagination Wrapper === */
+.table-card > div:last-child {
+  padding: 0 20px;
+}
 
 /* === Responsive Adjustments === */
 @media (max-width: 768px) {

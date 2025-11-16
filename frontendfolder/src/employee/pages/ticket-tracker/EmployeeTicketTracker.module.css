@@ -1,289 +1,912 @@
+/* Dynamic Details Grid for consistent spacing in dynamic sections */
+.dynamicDetailsGrid {
+  display: grid;
+  gap: 12px;
+}
+
+/* Main Container */
 .employeeTicketTrackerPage {
-  display: flex;
-  gap: 20px;
   background-color: var(--bg-color);
   font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
 }
 
-/* === Left Column === */
-.mainContent {
-  flex: 1 1 65%;
+/* Two-column layout: fixed - REMOVED height: 100% and align-items: stretch */
+.contentGrid {
+  display: grid;
+  /* Use a flexible main column and a constrained sidebar to avoid percent-sum overflow
+     This prevents the left column from being wider than available space when paddings/gutters are present. */
+  grid-template-columns: minmax(0, 60%) minmax(300px, 40%);
+  gap: 12px;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* keep overflow-x hidden as a safety clamp; the sizing above prevents horizontal overflow in normal cases */
+  overflow-x: hidden;
+  align-items: stretch;
 }
 
+/* Left Column - REMOVED height: 100% */
+.leftColumn {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 28px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Ticket Card */
 .ticketCard {
-  padding: 24px;
-  background-color: #fff;
-  border: 1px solid #d3d3d3;
-  border-radius: 40px;
-  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
-.ticketCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-/* === Ticket Header === */
-.header {
+/* Ticket Header */
+.ticketHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.title {
-  font-size: 1.3rem;
+/* Compact meta row beneath header (dates, small info) */
+.ticketMeta {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  align-items: center;
+  padding: 6px 0;
+  background: transparent;
+  flex-wrap: wrap;
+}
+
+.ticketMetaItem {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.ticketMetaLabel {
+  font-size: 0.7rem;
+  color: #6b7280;
   font-weight: 600;
-  color: var(--text-color);
+  text-transform: uppercase;
+  margin: 0;
 }
 
+.ticketMetaValue {
+  font-size: 0.7rem;
+  color: #374151;
+  font-weight: 500;
+  margin: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ticketNumber {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+/* Subject shown in header (replaces ticket number + priority) */
+.ticketSubject {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Priority Badge */
+.priorityBadge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.priorityLow {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.priorityMedium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.priorityHigh {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.priorityCritical {
+  background-color: #fecaca;
+  color: #991b1b;
+}
+
+.priorityNotSet {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Status Badge */
 .statusBadge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.statusPending {
+  color: #b38f00;
+  background-color: #fff9cc;
+}
+
+.statusNew {
+  color: #1E90FF;
+  background-color: #DBEAFE;
+}
+
+.statusInProgress {
+  color: #7c3aed;
+  background-color: #e9d5ff;
+}
+
+.statusOnHold {
+  color: #b35000;
+  background-color: #ffe5b4;
+}
+
+.statusResolved {
+  color: #059669;
+  background-color: #bbf7d0;
+}
+
+.statusClosed {
+  color: #16a34a;
+  background-color: #dcfce7;
+}
+
+.statusRejected {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+.statusWithdrawn {
+  color: #6b7280;
+  background-color: #f3f4f6;
+}
+
+.statusOpen {
+  color: #0284c7;
+  background-color: #bae6fd;
+}
+
+/* Small badge variant for compact items like 'None' subcategory */
+.statusSmall {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Subject Section (container) */
+.subjectSection {
+  padding-bottom: 8px;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Subject meta grid (top summary row) */
+.subjectMeta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metaLabel {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f3f4f6;
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
-.statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #6c757d;
-}
-
-.statusText {
+  color: #6b7280;
+  font-weight: 700;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: #6c757d;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
-.timestamp {
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin-bottom: 1.5rem;
+.metaValue {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
-/* === Ticket Details === */
-.ticketDetails fieldset {
+.descriptionLabel {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+/* Details Grid */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Single-column group used for Description, Attachments, Schedule Request */
+.singleColumnGroup {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-bottom: 1rem;
-  border: none;
-  padding: 0;
+  gap: 10px;
+  grid-column: 1 / -1;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.ticketDetails fieldset label {
+.detailItem {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: start;
+  gap: 6px 16px;
+  width: 100%;
+}
+
+.detailLabel {
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--secondary-text-color);
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ticketDetails fieldset p {
-  padding: 13px 16px;
-  border: 1px solid #d3d3d3;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  color: var(--secondary-text-color);
+.detailValue {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #111827;
+  display: block;
+  width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
-/* === Description === */
-.description {
-  margin-bottom: 1.25rem;
+/* For single-column group values (Description/Attachments/Schedule) make the value stack as a column */
+.singleColumnGroup .detailItem {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 6px;
+}
+.singleColumnGroup .detailLabel {
+  margin: 0;
+  white-space: nowrap;
+}
+.singleColumnGroup .detailValue {
+  width: 100%;
+  word-break: break-word;
+  white-space: normal;
+  padding-left: 0;
 }
 
-.descriptionTitle {
-  font-size: 1.2rem;
+/* Utility to truncate a single-line value with ellipsis */
+.truncateSingleLine {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
+}
+
+/* Attachments row: place the value below the label and span full width */
+.singleColumnGroup .attachmentsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 6px;
+}
+.singleColumnGroup .attachmentsRow .detailValue {
+  padding-left: 0;
+}
+
+/* Section Label */
+.sectionLabel {
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 1rem;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+/* Description Section */
+.descriptionSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.descriptionBox {
+  background-color: #f9fafb;
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .descriptionText {
-  color: #343a40;
-  font-size: 0.9rem;
-  line-height: 1.7;
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
-/* === Attachment === */
-.attachment {
-  margin-bottom: 1.25rem;
+/* Section divider to match reference horizontal separators */
+.sectionDivider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(59,130,246,0.02));
+  margin: 8px 0;
+  width: 100%;
 }
 
-.attachmentTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 1rem;
+/* Small adjustments to spacing to mimic the reference */
+.metaValue {
+  margin-top: 4px;
 }
 
-.attachmentContent {
+/* keep small spacing adjustments below subject */
+.subjectSection + .sectionDivider {
+  margin-top: 18px;
+}
+
+/* Unified IT Support Section styling */
+.itSupportSection {
+  margin-top: 6px;
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Attachment Section */
+.attachmentSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.attachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.attachmentItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.attachmentItem:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+/* IT Support grouping - unified card look and vertical stacking */
+.itGroups {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 0;
+  width: 100%;
+}
+
+.itGroup {
+  background: transparent;
+  border-radius: 8px;
+  padding: 0;
+  width: 100%;
+}
+
+.itGroupTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.itGroupGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Make fieldsets inside IT groups match the inline detailItem layout */
+.itGroupGrid fieldset {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 8px 0;
+  border: none;
+  width: 100%;
+}
+
+.itGroupGrid fieldset label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.itGroupGrid fieldset p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+/* DetailField styling */
+fieldset {
+  margin: 0;
+  padding: 0 0 12px 0;
+  border: none;
+  border-left: 2px solid transparent;
+  width: 100%;
+}
+
+fieldset label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+fieldset p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f172a;
 }
 
 .attachmentIcon {
-  font-size: 16px;
-}
-
-.attachmentText {
-  font-size: 0.85rem;
-  color: #6c757d;
-}
-
-/* === Right Column / Sidebar === */
-.sidebar {
-  flex: 0 0 35%;
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  align-items: center;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
-/* === Status Section === */
-.statusSection {
-  background-color: #fff;
-  padding: 24px;
-  border: 1px solid #d3d3d3;
-  border-radius: 40px;
-  box-shadow: 0 0 20px rgba(211, 211, 211, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.attachmentIcon svg {
+  color: #666;
+}
+
+.attachmentIcon svg[data-icon="file-image"] {
+  color: #e74c3c;
+}
+
+.attachmentIcon svg[data-icon="file-pdf"] {
+  color: #e74c3c;
+}
+
+.attachmentIcon svg[data-icon="file-word"] {
+  color: #2b579a;
+}
+
+.attachmentIcon svg[data-icon="file-excel"] {
+  color: #217346;
+}
+
+.attachmentIcon svg[data-icon="file-csv"] {
+  color: #217346;
+}
+
+.attachmentDownload {
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  align-items: center;
+  color: #0066cc;
+  text-decoration: none;
+  flex-shrink: 0;
 }
 
-.statusSection:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.attachmentDownload:hover {
+  color: #004499;
 }
 
-.withdrawButton {
-  align-self: flex-start;
-  background-color: var(--priority-high-text);
-  color: #fff;
-  border: none;
-  border-radius: 40px;
-  padding: 10px 18px;
-  font-size: 15px;
-  font-weight: 500;
+.attachmentDetails {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.attachmentName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  text-decoration: underline;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
-.withdrawButton:hover {
-  background-color: #ea580c;
+.categoryDivider {
+  border-top: 1px solid rgba(16,24,40,0.06);
+  padding-top: 12px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.downloadButton:hover {
+  background-color: #2563eb;
   transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
-.statusTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
+.categoryDetails {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
+  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 12px 0;
 }
 
-.statusTimeline {
+/* Right Column - REMOVED height: 100% */
+.rightColumn {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
+  min-width: 0;
+  /* keep the column participating in the grid flow so rows can stretch */
+  position: static;
+  box-sizing: border-box;
 }
 
-.statusStep {
+/* innerSticky: make only an inner element sticky so the grid cell can stretch to equal height */
+.innerSticky {
+  position: sticky;
+  top: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  flex: 1 1 auto;
 }
 
-.statusCircle {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #f3f4f6;
-  border: 2px solid #d1d5db;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
+/* Ticket Action Button Base Styles */
+.ticketActionButton {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  border-radius: 8px !important;
+  text-transform: capitalize !important;
+  transition: all 0.2s ease !important;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
 }
 
-.statusCircle.completed {
-  background-color: var(--resolved-text);
-  border-color: var(--resolved-text);
+.ticketActionButtonRow {
+  width: auto !important;
+  flex: 1 1 0;
+  margin-bottom: 0 !important;
 }
 
-.checkmark {
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
+/* Withdraw Button - Using withdrawn gray colors */
+.withdrawButton {
+  background-color: var(--withdrawn-text) !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-.statusLine {
-  width: 2px;
-  height: 40px;
-  background: #d1d5db;
+.withdrawButton:hover:not(:disabled) {
+  background-color: #6B7280 !important;
 }
 
-.statusLine.completedLine {
-  background-color: var(--resolved-text);
+/* Close Button - Green */
+.closeButton {
+  background-color: var(--success-color) !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-.currentStatus {
-  border-top: 1px solid #e9ecef;
-  padding-top: 1rem;
+.closeButton:hover:not(:disabled) {
+  background-color: var(--success-hover) !important;
 }
 
-.currentStatusTitle {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-color);
+/* Reject Button - Red */
+.rejectButton {
+  background-color: var(--error-color) !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-.currentStatusText {
-  font-size: 0.9rem;
-  color: #6c757d;
-  margin-top: 0.5rem;
+.rejectButton:hover:not(:disabled) {
+  background-color: var(--error-hover) !important;
 }
 
-/* === Not Found Message === */
+/* Not Found Message */
 .notFound {
   text-align: center;
-  color: #6c757d;
+  color: #6b7280;
   font-size: 1.1rem;
   margin: 2rem 0;
+  padding: 40px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* === Responsive Design === */
-@media (max-width: 992px) {
-  .employeeTicketTrackerPage {
-    flex-direction: column;
+/* Page Header */
+.pageHeader {
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.pageTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+/* Single container wrapper used across ticket activity: tabs above, content below */
+.tabsContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,0.04);
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.tabs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px 0 12px;
+  border-bottom: 1px solid rgba(15,23,42,0.04);
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+.activeTab {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.tabContent {
+  padding: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 650px;
+  max-height: 720px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* utility: force an element to span entire detailsGrid */
+.fullWidth {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+/* when the dynamic section is placed inside detailsGrid, avoid nested cards */
+.detailsGrid .fullWidth .itSupportSection {
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  margin-top: 0;
+  width: 100%;
+}
+
+/* Enhanced Responsive Design */
+@media (max-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
-  .mainContent,
-  .sidebar {
-    flex-basis: auto;
+  .rightColumn {
+    position: static;
   }
 
-  .header {
+  .attachmentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .leftColumn,
+  .rightColumn {
+    padding: 20px;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .ticketNumber {
+    font-size: 1.5rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.25rem;
+  }
+
+  .headerLeft {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .ticketHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .detailItem {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .itGroupGrid fieldset {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
 
 @media (max-width: 576px) {
-  .ticketCard,
-  .statusSection {
+  .leftColumn {
     padding: 16px;
   }
 
-  .ticketDetails fieldset p {
-    font-size: 0.8rem;
+  .rightColumn {
+    padding: 16px;
+  }
+
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+
+  .attachmentDetails {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .downloadButton {
+    align-self: stretch;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .attachmentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ticketMeta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .attachmentItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }

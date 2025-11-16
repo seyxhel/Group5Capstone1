@@ -1,467 +1,477 @@
-import { useEffect, useState } from "react";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { toast } from "react-toastify";
-import styles from './EmployeeSettings.module.css';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
+import styles from './manage-profile.module.css';
+import { useAuth } from '../../../context/AuthContext';
+import authService from '../../../utilities/service/authService';
+import { useNavigate } from 'react-router-dom';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
+import { API_CONFIG } from '../../../config/environment';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-const MEDIA_URL = "https://smartsupport-hdts-backend.up.railway.app";
+export default function EmployeeSettings({ editingUserId = null }) {
+  const navigate = useNavigate();
+  const { user: authUser, setUser: setAuthUser } = useAuth();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileUrlRef = useRef(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const verifyTimerRef = useRef(null);
 
-const ALLOWED_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-];
-const MAX_IMAGE_SIZE_MB = 2;
-
-const getPasswordErrorMessage = (password) => {
-  const requirements = [];
-  if (!password || password.trim() === "") {
-    return "Please fill in the required field.";
-  }
-  if (password.length < 8) {
-    requirements.push("at least 8 characters");
-  }
-  if (!/[A-Z]/.test(password)) {
-    requirements.push("an uppercase letter");
-  }
-  if (!/[0-9]/.test(password)) {
-    requirements.push("a number");
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'-]/.test(password)) {
-    requirements.push("a special character");
-  }
-  if (requirements.length > 0) {
-    if (requirements.length === 1) {
-      return `Password must contain ${requirements[0]}.`;
+  // Password validation helper copied from create-account logic
+  const getPasswordErrorMessage = (password) => {
+    if (!password || password.trim() === "") {
+      return "Password must be at least 8 characters long and include uppercase, number, and special character.";
     }
-    const last = requirements.pop();
-    return `Password must contain ${requirements.join(", ")}, and ${last}.`;
-  }
-  return "";
-};
+    const hasMinLength = password.length >= 8;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>`~\-_=\\/;\'\[\]]/.test(password);
 
-const EmployeeSettings = () => {
-  const [profile, setProfile] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-  const [message, setMessage] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+    const missing = {
+      upper: !hasUpper,
+      lower: !hasLower,
+      digit: !hasDigit,
+      special: !hasSpecial,
+    };
 
-  // Error states for each field
-  const [currentPasswordError, setCurrentPasswordError] = useState("");
-  const [newPasswordError, setNewPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
-  const [imageError, setImageError] = useState("");
+    const missingKeys = Object.entries(missing)
+      .filter(([_, isMissing]) => isMissing)
+      .map(([key]) => key);
 
-  // Track if user has touched (focused and blurred) each field
-  const [touched, setTouched] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
-  const [passwordChanged, setPasswordChanged] = useState(false);
-  const [currentPasswordValid, setCurrentPasswordValid] = useState(false);
+    const descriptors = {
+      upper: "uppercase",
+      lower: "lowercase",
+      digit: "number",
+      special: "special character",
+    };
+
+    const buildList = (items) => {
+      if (items.length === 1) return descriptors[items[0]];
+      if (items.length === 2)
+        return `${descriptors[items[0]]} and ${descriptors[items[1]]}`;
+      return (
+        items
+          .slice(0, -1)
+          .map((key) => descriptors[key])
+          .join(", ") +
+        ", and " +
+        descriptors[items[items.length - 1]]
+      );
+    };
+
+    if (!hasMinLength && missingKeys.length) {
+      return `Password must be at least 8 characters long and include ${buildList(missingKeys)}.`;
+    } else if (!hasMinLength) {
+      return "Password must be at least 8 characters long.";
+    } else if (missingKeys.length) {
+      return `Password must include ${buildList(missingKeys)}.`;
+    }
+
+    return null;
+  };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem("employee_access_token");
-      if (!token) return;
-      const res = await fetch(`${API_URL}employee/profile/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data);
-        setImagePreview(data.image); // Use secure URL directly from backend
+    // Simulate loading delay; prefer freshest data from backend when authenticated
+    const timer = setTimeout(() => {
+  const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
+      const token = localStorage.getItem('access_token');
+
+      if (token) {
+        // Try to fetch latest employee profile from backend; fall back to cached user
+        backendEmployeeService.getCurrentEmployee()
+          .then((data) => {
+            // Server may return snake_case or camelCase keys; merge with cached for any missing values
+            const merged = { ...(cached || {}), ...(data || {}) };
+
+            // Resolve image URL similarly to the navbar logic so relative media paths work
+            const imgCandidate = merged.profile_image || merged.image || merged.profileImage || merged.image_url || merged.imageUrl;
+            const resolved = resolveMediaUrl(imgCandidate);
+            if (resolved) merged.profileImage = resolved;
+
+      setUser(merged);
+      // keep AuthContext in sync if we have an auth context setter
+      try { if (setAuthUser) setAuthUser(merged); } catch (e) {}
+            setLoading(false);
+          })
+          .catch((_) => {
+            setUser(cached);
+            setLoading(false);
+          });
+      } else {
+        setUser(cached);
+        setLoading(false);
       }
-    };
-    fetchProfile();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  // Handle image file selection
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  // Cleanup any blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (fileUrlRef.current) {
+        try { URL.revokeObjectURL(fileUrlRef.current); } catch (e) {}
+        fileUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleFileSelect = (file) => {
+    setSelectedFile(file || null);
     if (file) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        setImageError("Only PNG, JPG, and JPEG images are allowed.");
-        setImageFile(null);
-        setImagePreview(null);
-        return;
-      }
-      if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-        setImageError(`Image must be less than ${MAX_IMAGE_SIZE_MB}MB.`);
-        setImageFile(null);
-        setImagePreview(null);
-        return;
-      }
-      setImageError("");
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      const url = URL.createObjectURL(file);
+      fileUrlRef.current = url;
+      setPreviewUrl(url);
     } else {
-      setImageError("");
-      setImageFile(null);
-      setImagePreview(null);
+      try {
+        if (fileUrlRef.current) URL.revokeObjectURL(fileUrlRef.current);
+      } catch (e) {}
+      fileUrlRef.current = null;
+      setPreviewUrl(null);
     }
   };
 
-  // Upload profile image, woah it works
-  const handleImageUpload = async (e) => {
-    e.preventDefault();
-    if (!imageFile) return;
-    const token = localStorage.getItem("employee_access_token");
-    const formData = new FormData();
-    formData.append("image", imageFile);
-    const res = await fetch(`${API_URL}employee/upload-image/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (res.ok) {
-      const uploadData = await res.json();
-      toast.success("Profile image updated!");
-      
-      // Use the updated user data from the upload response
-      if (uploadData.user) {
-        setProfile(uploadData.user);
-        setImagePreview(uploadData.user.image); // Use secure URL directly
-        setImageFile(null);
-        // Store the secure URL in localStorage
-        if (uploadData.user.image) {
-          localStorage.setItem("employee_image", uploadData.user.image);
-        }
-      } else {
-        // Fallback: fetch the updated profile
-        const profileRes = await fetch(`${API_URL}employee/profile/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfile(data);
-          setImagePreview(data.image); // Use secure URL directly
-          setImageFile(null);
-          // Store the secure URL in localStorage
-          if (data.image) {
-            localStorage.setItem("employee_image", data.image);
-          }
-        }
-      }
-    } else {
-      setMessage("Failed to upload image.");
-    }
-  };
-
-  // Validate fields on change
-  useEffect(() => {
-    // Reset passwordChanged if user types in any field
-    setPasswordChanged(false);
-
-    // Current password
-    setCurrentPasswordError(
-      !passwords.current ? "Please fill in the required field." : ""
-    );
-    // New password
-    setNewPasswordError(getPasswordErrorMessage(passwords.new));
-    // Confirm password
-    setConfirmPasswordError(
-      !passwords.confirm
-        ? "Please fill in the required field."
-        : passwords.new && passwords.confirm !== passwords.new
-        ? "Password did not match."
-        : ""
-    );
-  // eslint-disable-next-line
-  }, [passwords]);
-
-  // Debounced current password check
-  useEffect(() => {
-    if (!passwords.current) {
-      setCurrentPasswordValid(false);
-      setMessage("");
+  const handleSaveChanges = async () => {
+    // Only change currently supported: profile image upload
+    if (!selectedFile) {
+      // No file selected; nothing to save
       return;
     }
-    const timeout = setTimeout(async () => {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(`${API_URL}employee/check-password/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ current_password: passwords.current }),
-      });
-      if (res.ok) {
-        setCurrentPasswordValid(true);
-        setMessage("");
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        const res = await backendEmployeeService.uploadEmployeeImage(null, selectedFile);
+        const newImageUrl = res?.image_url || res?.image || res?.imageUrl || previewUrl;
+        // Resolve to an absolute URL so listeners (navbars) can update immediately
+        const resolvedImageUrl = resolveMediaUrl(newImageUrl) || newImageUrl || previewUrl;
+        // Append a cache-busting query param so browsers load the updated file
+        const addCacheBuster = (u) => {
+          try {
+            if (!u || typeof u !== 'string') return u;
+            if (u.startsWith('data:') || u.startsWith('blob:')) return u;
+            const sep = u.includes('?') ? '&' : '?';
+            return `${u}${sep}v=${Date.now()}`;
+          } catch (e) { return u; }
+        };
+        const resolvedWithCache = addCacheBuster(resolvedImageUrl);
+
+        // Update local user cache for immediate UI feedback
+        setUser((prev) => ({ ...(prev || {}), profileImage: resolvedWithCache, image: resolvedWithCache }));
+        try {
+          const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
+          // Only overwrite the global `loggedInUser` if we're updating the authenticated user's own profile
+          const cachedId = cached?.id || cached?.companyId || cached?.company_id;
+            // Determine which profile id we're editing. Allow parent to override
+            // via `editingUserId` when this settings component is used by admin.
+            const profileId = editingUserId || (user && (user.id || user.companyId || user.company_id)) || null;
+            if (cached && profileId && String(cachedId) === String(profileId)) {
+              const updated = { ...cached, profileImage: resolvedWithCache, image: resolvedWithCache };
+              try { localStorage.setItem('user', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('loggedInUser', JSON.stringify(updated)); } catch (e) {}
+              try { if (setAuthUser) setAuthUser(updated); } catch (e) {}
+            }
+        } catch (e) {
+          // ignore storage errors
+        }
+
+        // Notify user and other UI pieces (navbar, modals) that profile image changed
+        try { toast.success('Profile image updated successfully.'); } catch (e) {}
+        try {
+          const profileId = editingUserId || (user && (user.id || user.companyId || user.company_id)) || null;
+          window.dispatchEvent(new CustomEvent('profile:updated', { detail: { profileImage: resolvedWithCache, userId: profileId } }));
+        } catch (e) {}
       } else {
-        setCurrentPasswordValid(false);
-        setMessage("Current password is incorrect.");
+        // Fallback: no backend token; store preview in local profile
+        setUser((prev) => ({ ...(prev || {}), profileImage: previewUrl }));
+        try {
+          const cached = authUser || (() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { return null; } })();
+          if (cached) {
+            const updated = { ...cached, profileImage: previewUrl };
+            try { localStorage.setItem('user', JSON.stringify(updated)); } catch (e) {}
+            try { localStorage.setItem('loggedInUser', JSON.stringify(updated)); } catch (e) {}
+            try { if (setAuthUser) setAuthUser(updated); } catch (e) {}
+          }
+        } catch (e) {}
+        try { toast.success('Profile image updated successfully.'); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('profile:updated', { detail: { profileImage: previewUrl } })); } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Save profile changes failed:', err);
+      try { toast.error(err?.message || 'Failed to upload profile image'); } catch (e) {}
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Verify current password with backend (debounced on input)
+  const verifyCurrentPassword = (pwd) => {
+    if (verifyTimerRef.current) clearTimeout(verifyTimerRef.current);
+    // reset state
+    setIsPasswordVerified(false);
+    setPasswordError('');
+    if (!pwd || pwd.length === 0) return;
+    setVerifyingPassword(true);
+    verifyTimerRef.current = setTimeout(async () => {
+      try {
+        await backendEmployeeService.verifyCurrentPassword(pwd);
+        setIsPasswordVerified(true);
+        setPasswordError('');
+      } catch (err) {
+        setIsPasswordVerified(false);
+        setPasswordError('Incorrect current password');
+      } finally {
+        setVerifyingPassword(false);
       }
     }, 500); // 500ms debounce
+  };
 
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line
-  }, [passwords.current]);
+  const handleCurrentPasswordChange = (e) => {
+    const v = e.target.value;
+    setCurrentPassword(v);
+    // reset new/confirm on change
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsPasswordVerified(false);
+    setPasswordError('');
+    verifyCurrentPassword(v);
+  };
 
-  // Handle password change
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    if (
-      currentPasswordError ||
-      newPasswordError ||
-      confirmPasswordError ||
-      !passwords.current ||
-      !passwords.new ||
-      !passwords.confirm
-    ) {
-      return;
-    }
-    setMessage("");
-    const token = localStorage.getItem("employee_access_token");
-    const res = await fetch(`${API_URL}employee/change-password/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        current_password: passwords.current,
-        new_password: passwords.new,
-      }),
-    });
-    if (res.ok) {
-      toast.success("Password changed successfully.");
-      setPasswords({ current: "", new: "", confirm: "" });
-      setPasswordChanged(true);
-      setCurrentPasswordValid(false);
-      setTouched({ current: false, new: false, confirm: false }); // <-- Add this line
-    } else {
-      const data = await res.json();
-      setMessage(data.detail || "Failed to change password.");
+  const canSaveNewPassword = () => {
+    return isPasswordVerified && newPassword.length >= 8 && newPassword === confirmPassword;
+  };
+
+  const handleClearPasswords = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsPasswordVerified(false);
+    setPasswordError('');
+  };
+
+  const handleSaveNewPassword = async () => {
+    if (!canSaveNewPassword()) return;
+    try {
+      // Use explicit change-password endpoint which expects current + new password
+      await backendEmployeeService.changePassword(currentPassword, newPassword);
+      // Reset fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setIsPasswordVerified(false);
+      setPasswordError('');
+      // Show success toast
+      toast.success('Password changed successfully.');
+    } catch (err) {
+      // Try to extract a readable message from backend validation responses
+      let msg = err?.message || 'Failed to update password';
+      try {
+        // Some backends return a JSON object like { field: ["message"] }
+        const parsed = JSON.parse(msg);
+        if (parsed && typeof parsed === 'object') {
+          const firstKey = Object.keys(parsed)[0];
+          const firstVal = parsed[firstKey];
+          if (Array.isArray(firstVal) && firstVal.length > 0) {
+            msg = firstVal[0];
+          } else if (typeof firstVal === 'string') {
+            msg = firstVal;
+          } else {
+            msg = JSON.stringify(parsed);
+          }
+        }
+      } catch (e) {
+        // not JSON — leave msg as-is
+      }
+      setPasswordError(msg);
+      toast.error(msg);
     }
   };
 
-  const isChangePasswordDisabled =
-    !passwords.current ||
-    !passwords.new ||
-    !passwords.confirm ||
-    !!currentPasswordError ||
-    !!newPasswordError ||
-    !!confirmPasswordError;
-
-  if (!profile) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <main className={styles.manageProfilePage}>
+        <div className={styles.manageProfileContainer}>
+          <h1>Manage Profile</h1>
+          <div className={styles.profileContent}>
+            <div className={styles.profileLeft}>
+              <div className={styles.profileCard}>
+                <Skeleton width="120px" height="120px" borderRadius="50%" />
+                <Skeleton width="200px" height="20px" style={{ marginTop: '12px' }} />
+              </div>
+            </div>
+            <div className={styles.profileRight}>
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ marginBottom: '24px' }}>
+                  <Skeleton width="150px" height="18px" />
+                  {[1, 2].map(j => (
+                    <Skeleton key={j} width="100%" height="36px" style={{ marginTop: '8px' }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div className={styles.container}>
-      <h2 className={styles.heading}>Settings</h2>
-      {message && message !== "Current password is incorrect." && (
-  <div className={styles.message}>{message}</div>
-)}
+    <>
+      <main className={styles.manageProfilePage}>
+        <div className={styles.manageProfileContainer}>
+          <h1>Manage Profile</h1>
 
-      {/* Personal Information Section */}
-      <div className={styles.section}>
-        <h3>Personal Information</h3>
-        <div className={styles.fieldGroup}>
-          <label>Last Name</label>
-          <input type="text" value={profile.last_name || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>First Name</label>
-          <input type="text" value={profile.first_name || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Middle Name</label>
-          <input type="text" value={profile.middle_name || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Suffix</label>
-          <input type="text" value={profile.suffix || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Company ID</label>
-          <input type="text" value={profile.company_id || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Department</label>
-          <input type="text" value={profile.department || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Role</label>
-          <input type="text" value={profile.role || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label>Email</label>
-          <input type="email" value={profile.email || ""} readOnly />
-        </div>
-        <div className={styles.fieldGroup}>
-          <label htmlFor="profile-image">Upload Profile Picture</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input
-              id="profile-image"
-              type="file"
-              accept={ALLOWED_IMAGE_TYPES.join(",")}
-              onChange={handleImageChange}
-              style={{ flex: "none" }}
-            />
-            <span className={styles.currentFileName}>
-              {imageFile
-                ? imageFile.name
-                : profile?.image
-                  ? profile.image.split("/").pop()
-                  : "No file chosen"}
-            </span>
-          </div>
-          {imageError && <span className={styles.errorMessage}>{imageError}</span>}
-        </div>
-        <button className={styles.saveButton} onClick={handleImageUpload}>Save Changes</button>
-      </div>
+          <div className={styles.profileContent}>
+            <div className={styles.profileLeft}>
+              <div className={styles.profileCard}>
+                <div className={styles.profileImageSection}>
+                  <div className={styles.profileImageContainer}>
+                    <img
+                      src={previewUrl || user?.profileImage || user?.profile_picture || "https://i.pinimg.com/736x/19/de/17/19de17c09737a59c5684e14cbaccdfc1.jpg"}
+                      alt="Profile"
+                      className={styles.profileImage}
+                    />
+                  </div>
+                  <input
+                    type="file"
+                    id="profile-image-input"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files && e.target.files[0];
+                      handleFileSelect(f);
+                    }}
+                  />
+                  <label htmlFor="profile-image-input" className={styles.changeImageBtn}>
+                    {selectedFile ? 'Change Photo (selected)' : 'Change Photo'}
+                  </label>
+                </div>
 
-      {/* Security Section */}
-      <div className={styles.section}>
-        <h3>Security</h3>
-        {/* Current Password */}
-        <div className={styles.fieldGroup}>
-          <label>
-            Current Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showCurrent ? "text" : "password"}
-              value={passwords.current}
-              onChange={(e) => {
-                setPasswords({ ...passwords, current: e.target.value });
-                setPasswordChanged(false);
-                setCurrentPasswordValid(false);
-                setTouched((prev) => ({ ...prev, current: true }));
-              }}
-              onPaste={e => {
-                e.preventDefault();
-                const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                // Only allow English letters, numbers, and common password symbols
-                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
-                document.execCommand('insertText', false, filtered);
-              }}
-              style={{ width: "100%", paddingRight: "40px" }}
-            />
-            {passwords.current && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowCurrent((prev) => !prev)}
-              >
-                {showCurrent ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
+                <div className={styles.profileInfo}>
+                  <h3>
+                    {user?.firstName || user?.first_name} {user?.lastName || user?.last_name}
+                  </h3>
+                  <div className={styles.profileDetails}>
+                    <p>
+                      <strong>Position:</strong>
+                    </p>
+                    <p>{user?.position || user?.role || 'Not specified'}</p>
+                    <p>
+                      <strong>Department:</strong>
+                    </p>
+                    <p>{user?.department || 'Not specified'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.profileRight}>
+              <form>
+                {/* Personal Information (restored fields) */}
+                <div className={styles.profileSettingsCard}>
+                  <h2>Personal Information</h2>
+
+                  <div className={styles.formGrid}>
+                    <div className={styles.formGroup}>
+                      <label>Last Name</label>
+                      <input type="text" value={user?.lastName || user?.last_name || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>First Name</label>
+                      <input type="text" value={user?.firstName || user?.first_name || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Middle Name</label>
+                      <input type="text" value={user?.middleName || user?.middle_name || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Suffix</label>
+                      <input type="text" value={user?.suffix || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Company ID</label>
+                      <input type="text" value={user?.companyId || user?.company_id || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Department</label>
+                      <input type="text" value={user?.department || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Role</label>
+                      <input type="text" value={user?.role || ''} readOnly />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label>Email</label>
+                      <input type="email" value={user?.email || ''} readOnly />
+                    </div>
+
+                    {/* Upload Profile Picture input removed from Personal Information per request */}
+                  </div>
+
+                  <button className={`${styles.changeImageBtn} ${styles.alignRight}`} type="button" onClick={handleSaveChanges} disabled={uploading}>{uploading ? 'Saving...' : 'Save Changes'}</button>
+                </div>
+
+                {/* Security Section (restored) */}
+                <div className={styles.authenticationCard}>
+                  <h2>Security</h2>
+
+                  <div className={styles.formGroup}>
+                    <label>
+                      <span>Current Password</span>
+                      <span className={styles.pwIndicatorWrapper} aria-hidden="true">
+                        <span className={`${styles.pwIndicator} ${verifyingPassword ? styles.loading : isPasswordVerified ? styles.success : passwordError ? styles.error : ''}`}></span>
+                      </span>
+                    </label>
+                    <input type="password" value={currentPassword} onChange={handleCurrentPasswordChange} placeholder="Enter current password" />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>New Password</label>
+                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={!isPasswordVerified} placeholder={isPasswordVerified ? 'Enter new password' : ''} />
+                    {/* Validation message for new password */}
+                    {/* Show error only when user starts typing; no positive message */}
+                    {newPassword.length > 0 && (() => {
+                      const msg = getPasswordErrorMessage(newPassword);
+                      return msg ? <small style={{ color: 'red' }}>{msg}</small> : null;
+                    })()}
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Confirm Password</label>
+                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={!isPasswordVerified} placeholder={isPasswordVerified ? 'Confirm new password' : ''} />
+                    {confirmPassword && confirmPassword !== newPassword && <small style={{ color: 'red' }}>Password did not match.</small>}
+                  </div>
+
+                  <div className={styles.buttonRow}>
+                    <button type="button" className={styles.clearBtn} onClick={handleClearPasswords}>Clear</button>
+                    <button className={`${styles.changeImageBtn}`} type="button" disabled={!canSaveNewPassword()} onClick={handleSaveNewPassword}>Save New Password</button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
-          {touched.current && currentPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{currentPasswordError}</span>
-          )}
-          {message === "Current password is incorrect." && !passwordChanged && (
-            <span className={styles.errorMessage}>{message}</span>
-          )}
         </div>
-        {/* New Password */}
-        <div className={styles.fieldGroup}>
-          <label>
-            New Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showNew ? "text" : "password"}
-              value={passwords.new}
-              onChange={(e) => {
-                const value = e.target.value;
-                setPasswords({ ...passwords, new: value });
-                setPasswordChanged(false);
-              }}
-              onBlur={() => setTouched((prev) => ({ ...prev, new: true }))}
-              onPaste={e => {
-                e.preventDefault();
-                const pasted = (e.clipboardData || window.clipboardData).getData('text');
-                // Only allow English letters, numbers, and common password symbols
-                const filtered = pasted.replace(/[^a-zA-Z0-9!@#$%^&*(),.?":{}|<>_\[\]\\/~`+=;'\-]/g, '');
-                document.execCommand('insertText', false, filtered);
-              }}
-              style={{ width: "100%", paddingRight: "40px" }}
-              disabled={!currentPasswordValid}
-            />
-            {passwords.new && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowNew((prev) => !prev)}
-              >
-                {showNew ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
-          </div>
-          {touched.new && newPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{newPasswordError}</span>
-          )}
-        </div>
-        {/* Confirm Password */}
-        <div className={styles.fieldGroup}>
-          <label>
-            Confirm Password <span className={styles.required}>*</span>
-          </label>
-          <div style={{ position: "relative", width: "100%" }}>
-            <input
-              type={showConfirm ? "text" : "password"}
-              value={passwords.confirm}
-              onChange={(e) => {
-                setPasswords({ ...passwords, confirm: e.target.value });
-                setPasswordChanged(false);
-              }}
-              onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
-              onPaste={e => e.preventDefault()}
-              style={{ width: "100%", paddingRight: "40px" }}
-              disabled={!!newPasswordError || !passwords.new}
-            />
-            {passwords.confirm && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "18px",
-                  top: "50%",
-                  transform: "translateY(-40%)",
-                  cursor: "pointer"
-                }}
-                onClick={() => setShowConfirm((prev) => !prev)}
-              >
-                {showConfirm ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            )}
-          </div>
-          {touched.confirm && confirmPasswordError && !passwordChanged && (
-            <span className={styles.errorMessage}>{confirmPasswordError}</span>
-          )}
-        </div>
-        <button
-          className={styles.saveButton}
-          onClick={handlePasswordChange}
-          disabled={
-            !passwords.current ||
-            !passwords.new ||
-            !passwords.confirm
-          }
-        >
-          Change Password
-        </button>
-      </div>
-    </div>
+      </main>
+    </>
   );
-};
-
-export default EmployeeSettings;
+}

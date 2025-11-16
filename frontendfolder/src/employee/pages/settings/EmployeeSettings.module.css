@@ -73,6 +73,14 @@ input[disabled] {
   cursor: not-allowed;
 }
 
+/* Read-only fields styling */
+.readOnlyField {
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
+  border-color: #e5e7eb !important;
+}
+
 /* Submit Buttons */
 .saveButton {
   height: 48px;
@@ -91,43 +99,4 @@ input[disabled] {
 
 .saveButton:hover {
   background-color: var(--primary-color-hover);
-}
-
-/* Disabled state for saveButton */
-.saveButton:disabled {
-  background-color: #d3d3d3 !important;
-  color: #fff !important;           /* <-- Make text white */
-  cursor: not-allowed !important;
-  opacity: 1;
-}
-
-.imagePreview {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.currentFileName {
-  font-size: 0.95em;
-  color: #555;
-  margin-left: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.errorMessage {
-  color: #e53935;
-  font-size: 0.95em;
-  margin-top: 2px;
-  margin-left: 2px;
-}
-
-.required {
-  color: #e53935;
-  margin-left: 2px;
-  font-size: 1em;
 }

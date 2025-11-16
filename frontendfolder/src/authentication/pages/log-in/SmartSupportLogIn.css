@@ -227,3 +227,19 @@ input[type="password"]::-ms-reveal {
 .create-account-link:hover {
   color: var(--primary-color-hover);
 }
+
+/* --- Version Info at the Bottom --- */
+.version-info {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  padding: 10px 0;
+  background: transparent;
+  letter-spacing: 0.5px;
+}
+
+/* --- Responsive Styles --- */

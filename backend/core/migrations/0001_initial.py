@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
                 ('scheduled_date', models.DateField(blank=True, null=True)),
                 ('priority', models.CharField(blank=True, choices=[('Critical', 'Critical'), ('High', 'High'), ('Medium', 'Medium'), ('Low', 'Low')], max_length=20, null=True)),
                 ('department', models.CharField(blank=True, choices=[('IT Department', 'IT Department'), ('Asset Management', 'Asset Management'), ('Document Control', 'Document Control'), ('Finance & Budgeting', 'Finance & Budgeting'), ('Operations', 'Operations'), ('Facilities & Maintenance', 'Facilities & Maintenance'), ('Human Resources', 'Human Resources'), ('Administration', 'Administration')], max_length=50, null=True)),
-                ('status', models.CharField(choices=[('New', 'New'), ('Open', 'Open'), ('In Progress', 'In Progress'), ('On Hold', 'On Hold'), ('Pending', 'Pending'), ('Resolved', 'Resolved'), ('Rejected', 'Rejected'), ('Closed', 'Closed')], default='New', max_length=20)),
+                ('status', models.CharField(choices=[('New', 'New'), ('Open', 'Open'), ('On Process', 'On Process'), ('On Hold', 'On Hold'), ('Pending', 'Pending'), ('Resolved', 'Resolved'), ('Rejected', 'Rejected'), ('Closed', 'Closed')], default='New', max_length=20)),
                 ('submit_date', models.DateTimeField(auto_now_add=True)),
                 ('update_date', models.DateTimeField(auto_now=True)),
                 ('response_time', models.DurationField(blank=True, null=True)),

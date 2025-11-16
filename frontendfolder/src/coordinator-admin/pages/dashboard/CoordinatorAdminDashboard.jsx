@@ -1,533 +1,156 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  PieChart, Pie, Cell,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
-import { FaSpinner } from "react-icons/fa";
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 import styles from './CoordinatorAdminDashboard.module.css';
-import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
-import tableStyles from './CoordinatorAdminDashboardTable.module.css';
-import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
+import { useAuth } from '../../../context/AuthContext';
+import Tabs from '../../../shared/components/Tabs';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
+import authService from '../../../utilities/service/authService';
 
-const ticketPaths = [
-  { label: "New Tickets", path: "/admin/ticket-management/new-tickets" },
-  { label: "Open Tickets", path: "/admin/ticket-management/open-tickets" },
-  { label: "In Progress Tickets", path: "/admin/ticket-management/in-progress-tickets" },
-  { label: "On hold Tickets", path: "/admin/ticket-management/on-hold-tickets" },
-  { label: "Pending Tickets", path: "/admin/ticket-management/pending-tickets" },
-  { label: "Resolved Tickets", path: "/admin/ticket-management/resolved-tickets" },
-  { label: "Closed Tickets", path: "/admin/ticket-management/closed-tickets" },
-  { label: "Rejected Tickets", path: "/admin/ticket-management/rejected-tickets" },
-  { label: "Withdrawn Tickets", path: "/admin/ticket-management/withdrawn-tickets" },
-  { label: "Total Tickets", path: "/admin/ticket-management/all-tickets" }
-];
-
-const userPaths = [
-  { label: "All Users", path: "/admin/user-access/all-users" },
-  { label: "Employees", path: "/admin/user-access/employees" },
-  { label: "Ticket Coordinators", path: "/admin/user-access/ticket-coordinators" },
-  { label: "System Administrators", path: "/admin/user-access/system-admins" },
-  { label: "Pending Accounts", path: "/admin/user-access/pending-users" },
-  { label: "Rejected Accounts", path: "/admin/user-access/rejected-users" },
-];
-
-// === Reusable Components ===
-const StatCard = ({ label, count, isHighlight, position, onClick }) => (
-  <div
-    className={`${styles.statusCard} ${statCardStyles.statusCard} ${statCardStyles[`card-position-${position}`]}`}
-    onClick={onClick}
-  >
-    <div className={`${styles.statCardContent} ${statCardStyles.statCardContent}`}>
-      <div className={`${styles.statBadge} ${statCardStyles.statBadge} ${isHighlight ? statCardStyles.statBadgeRed : statCardStyles.statBadgeBlue}`}>
-        {count}
-      </div>
-      <span className={`${styles.statLabel} ${statCardStyles.statLabel}`}>{label}</span>
-    </div>
-  </div>
-);
-
-const DataTable = ({ title, headers, data, buttonText, onButtonClick, maxRows = 5 }) => (
-  <div className={tableStyles.tableContainer}>
-    <div className={tableStyles.tableHeader}>
-      <h3 className={tableStyles.tableTitle}>{title}</h3>
-      {/* Removed Manage Accounts and Manage Tickets button */}
-    </div>
-    <div className={tableStyles.tableOverflowLimited}>
-      <table className={tableStyles.table}>
-        <thead className={tableStyles.tableHead}>
-          <tr>
-            {headers.map((header, idx) => (
-              <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i} className={tableStyles.tableRow}>
-              {Object.entries(row).map(([key, cell], j) => (
-                <td
-                  key={j}
-                  className={
-                    key === 'status'
-                      ? `${tableStyles.tableCell} ${tableStyles.statusCellLeft}`
-                      : tableStyles.tableCell
-                  }
-                >
-                  {typeof cell === 'object' ? (
-                    <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
-                      {cell.text}
-                    </span>
-                  ) : cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const StatusPieChart = ({ data, title }) => (
-  <div className={chartStyles.chartContainer}>
-    <h3 className={chartStyles.chartTitle}>{title}</h3>
-    <div className={chartStyles.chartContent}>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={data} dataKey="value" cx="50%" cy="50%" outerRadius={80}>
-            {data.map((entry, i) => (
-              <Cell key={`cell-${i}`} fill={entry.fill} />
-            ))}
-          </Pie>
-          <Tooltip />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-    <button className={chartStyles.browseButton}>Browse All</button>
-  </div>
-);
-
-const TrendLineChart = ({ data, title }) => (
-  <div className={chartStyles.chartContainer}>
-    <h3 className={chartStyles.chartTitle}>{title}</h3>
-    <div className={chartStyles.chartContent}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Line type="monotone" dataKey="dataset1" stroke="#3B82F6" strokeWidth={2} />
-          <Line type="monotone" dataKey="dataset2" stroke="#EF4444" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  </div>
-);
+// Tab components
+import TicketsTab from './TicketsTab';
+import UsersTab from './UsersTab';
+import KnowledgeBaseTab from './KnowledgeBaseTab';
+import CSATTab from './CSATTab';
 
 // === Main Component ===
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-
 const CoordinatorAdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('tickets');
-  const [tickets, setTickets] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [rejectedCount, setRejectedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [chartRange, setChartRange] = useState('month');
+  const [pieRange, setPieRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
+  const currentUser = authService.getCurrentUser();
 
-  // Get user role from localStorage (or context)
-  const userRole = localStorage.getItem("user_role"); // "System Admin" or "Ticket Coordinator"
+  // Ticket Coordinators should see Tickets and CSAT; other roles see full set
+  const isTicketCoordinator = currentUser?.role === 'Ticket Coordinator';
+  const dashboardTabs = isTicketCoordinator
+    ? [
+      { label: 'Tickets', value: 'tickets' },
+      { label: 'CSAT', value: 'csat' },
+    ]
+    : [
+      { label: 'Tickets', value: 'tickets' },
+      { label: 'Users', value: 'users' },
+      { label: 'KB', value: 'kb' },
+      { label: 'CSAT', value: 'csat' },
+    ];
 
-  // Fetch tickets and users from backend
+  // Simulate loading completion
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('admin_access_token');
-        if (!token) {
-          setTickets([]);
-          setUsers([]);
-          setRejectedCount(0);
-          setLoading(false);
-          return;
-        }
-        const [ticketsRes, usersRes, rejectedRes] = await Promise.all([
-          fetch(`${API_URL}tickets/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          fetch(`${API_URL}employees/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          fetch(`${API_URL}admin/rejected-users-count/`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ]);
-        const ticketsData = await ticketsRes.json();
-        const usersData = await usersRes.json();
-        const rejectedData = await rejectedRes.json();
-        setTickets(Array.isArray(ticketsData) ? ticketsData : []);
-        setUsers(Array.isArray(usersData) ? usersData : []);
-        setRejectedCount(rejectedData.rejected_users_count || 0);
-      } catch (e) {
-        setTickets([]);
-        setUsers([]);
-        setRejectedCount(0);
-      }
-      setLoading(false);
-    };
-    fetchData();
+    let mounted = true;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
-
-  // Helper: check if ticket is "New" and overdue (change 1 to 24 for 24 hours)
-  function isOverdueNew(ticket) {
-    if (ticket.status !== "New" || !ticket.submit_date) return false;
-    const submitDate = new Date(ticket.submit_date);
-    const now = new Date();
-    const diffMs = now - submitDate;
-    return diffMs > 24 * 60 * 60 * 1000;
-  }
-
-  // Map tickets for dashboard: show as "Pending" if overdue
-  const mappedTickets = tickets.map(ticket =>
-    isOverdueNew(ticket)
-      ? { ...ticket, status: "Pending", _wasNewOverdue: true }
-      : ticket
-  );
-
-  // Filter tickets for "Tickets to Review" (only New and Pending, including mapped)
-  const ticketsToReview = mappedTickets
-    .filter(t => t.status === "New" || t.status === "Pending")
-    .map(ticket => ({
-      ticketNumber: ticket.ticket_number,
-      subject: ticket.subject,
-      category: ticket.category,
-      subCategory: ticket.sub_category,
-      status: {
-        text: ticket.status,
-        statusClass: ticket.status === "New"
-          ? "statusNew"
-          : ticket._wasNewOverdue
-            ? "statusPending" // visually show as pending if mapped
-            : `status${ticket.status.replace(/\s/g, '')}`
-      },
-      dateCreated: ticket.submit_date
-        ? new Date(ticket.submit_date).toLocaleString().replace(',', '')
-        : ''
-    }));
-
-  // Filter users for "Account Approval" (only Pending)
-  const usersToApprove = users
-    .filter(user => user.status === "Pending")
-    .map(user => ({
-      companyId: user.company_id,
-      lastName: user.last_name,
-      firstName: user.first_name,
-      department: user.department,
-      role: user.role,
-      status: { text: user.status, statusClass: "statusPending" }
-    }));
-
-  // --- Ticket Card Counts (use mappedTickets for overdue logic) ---
-  const ticketCounts = {};
-  mappedTickets.forEach(ticket => {
-    const status = ticket.status || "Unknown";
-    ticketCounts[status] = (ticketCounts[status] || 0) + 1;
-  });
-  ticketCounts["ALL"] = mappedTickets.length;
-
-  // --- User Card Counts ---
-  const userCounts = {};
-  users.forEach(user => {
-    const role = user.role || "Unknown";
-    const status = user.status || "Unknown";
-    userCounts[role] = (userCounts[role] || 0) + 1;
-    userCounts[status] = (userCounts[status] || 0) + 1;
-  });
-  userCounts["ALL"] = users.length;
-
-  // --- Cards Data ---
-  const ticketStats = ticketPaths.map((item, i) => {
-    let count = 0;
-    if (item.label === "Total Tickets") {
-      count = ticketCounts["ALL"];
-    } else if (item.label === "New Tickets") {
-      count = ticketCounts["New"] || 0;
-    } else if (item.label === "In Progress Tickets") {
-      count = ticketCounts["In Progress"] || 0;
-    } else if (item.label === "On hold Tickets") {
-      count = ticketCounts["On Hold"] || 0;
-    } else if (item.label === "Withdrawn Tickets") {
-      count = ticketCounts["Withdrawn"] || 0;
-    } else {
-      // For other statuses, remove " Tickets" and match the status
-      const status = item.label.replace(" Tickets", "").replace("Open", "Open").replace("Pending", "Pending").replace("Resolved", "Resolved").replace("Closed", "Closed").replace("Rejected", "Rejected");
-      count = ticketCounts[status] || 0;
-    }
-    return {
-      label: item.label,
-      count,
-      isHighlight: i >= 7,
-      position: i,
-      path: item.path
-    };
-  });
-
-  const userStats = userPaths.map((item, i) => {
-    let count = 0;
-    if (item.label === "All Users") {
-      count = userCounts["ALL"];
-    } else if (item.label === "Employees") {
-      count = userCounts["Employee"] || 0;
-    } else if (item.label === "Ticket Coordinators") {
-      count = userCounts["Ticket Coordinator"] || 0;
-    } else if (item.label === "System Administrators") {
-      count = userCounts["System Admin"] || 0;
-    } else if (item.label === "Pending Accounts") {
-      count = userCounts["Pending"] || 0;
-    } else if (item.label === "Rejected Accounts") {
-      count = rejectedCount;
-    }
-    return {
-      label: item.label,
-      count,
-      isHighlight: i >= 4,
-      position: i,
-      path: item.path
-    };
-  });
-
-  // --- Keep your existing mock data for table and charts ---
-  const ticketData = {
-    stats: ticketStats,
-    tableData: [
-      {
-        ticketNumber: 'TX0001',
-        subject: 'Asset Replacement',
-        category: 'IT Support',
-        subCategory: 'Hardware',
-        status: { text: 'Open', statusClass: 'statusOpen' },
-        dateCreated: '06/12/2025 11:00AM'
-      },
-      {
-        ticketNumber: 'TX0002',
-        subject: 'Network Problem',
-        category: 'IT Support',
-        subCategory: 'Network Issue',
-        status: { text: 'Submitted', statusClass: 'statusSubmitted' },
-        dateCreated: '06/11/2025 1:05PM'
-      }
-    ],
-    pieData: [
-      { name: 'Submitted', value: 15, fill: '#6B7280' },
-      { name: 'Open', value: 25, fill: '#3B82F6' },
-      { name: 'Pending', value: 20, fill: '#F59E0B' },
-      { name: 'Resolved', value: 18, fill: '#10B981' },
-      { name: 'Closed', value: 12, fill: '#8B5CF6' }
-    ],
-    lineData: [
-      { month: 'Jan', dataset1: 800, dataset2: 600 },
-      { month: 'Feb', dataset1: 600, dataset2: 400 },
-      { month: 'Mar', dataset1: 700, dataset2: 500 },
-      { month: 'Apr', dataset1: 500, dataset2: 800 },
-      { month: 'May', dataset1: 900, dataset2: 700 },
-      { month: 'Jun', dataset1: 400, dataset2: 300 }
-    ]
-  };
-
-  const userData = {
-    stats: userStats,
-    tableData: [
-      {
-        companyId: 'MAP0001',
-        lastName: 'Park',
-        firstName: 'Sunghoon',
-        department: 'Finance Department',
-        role: 'Accountant',
-        status: { text: 'Pending', statusClass: 'statusPending' }
-      }
-    ],
-    pieData: [
-      { name: 'Employees', value: 30, fill: '#3B82F6' },
-      { name: 'Coordinator', value: 25, fill: '#F59E0B' },
-      { name: 'Admin', value: 20, fill: '#10B981' },
-      { name: 'Pending', value: 15, fill: '#EF4444' },
-      { name: 'Rejected', value: 10, fill: '#8B5CF6' }
-    ]
-  };
-
-  // Define the statuses and colors you want to show in the pie
-  const pieStatuses = [
-    { name: 'New', key: 'New', fill: '#6B7280' },
-    { name: 'Open', key: 'Open', fill: '#3B82F6' },
-    { name: 'Pending', key: 'Pending', fill: '#F59E0B' },
-    { name: 'Resolved', key: 'Resolved', fill: '#10B981' },
-    { name: 'Closed', key: 'Closed', fill: '#8B5CF6' },
-    { name: 'Rejected', key: 'Rejected', fill: '#EF4444' },
-    { name: 'Withdrawn', key: 'Withdrawn', fill: '#6366F1' }
-  ];
-
-  // Count tickets by status (use mappedTickets for overdue logic)
-  const ticketStatusCounts = {};
-  mappedTickets.forEach(ticket => {
-    const status = ticket.status || 'Unknown';
-    ticketStatusCounts[status] = (ticketStatusCounts[status] || 0) + 1;
-  });
-
-  // Build pie data from actual counts
-  const dynamicPieData = pieStatuses
-    .map(({ name, key, fill }) => ({
-      name,
-      value: ticketStatusCounts[key] || 0,
-      fill
-    }))
-    .filter(item => item.value > 0); // Only show statuses that exist
-
-  // Define the statuses and colors for the user pie chart
-  const userPieStatuses = [
-    { name: 'Employees', key: 'Employee', fill: '#3B82F6' },
-    { name: 'Ticket Coordinators', key: 'Ticket Coordinator', fill: '#F59E0B' },
-    { name: 'System Admins', key: 'System Admin', fill: '#10B981' },
-    { name: 'Pending', key: 'Pending', fill: '#EF4444' },
-    { name: 'Rejected', key: 'Rejected', fill: '#8B5CF6' }
-  ];
-
-  // Count users by role and status for pie chart
-  const userStatusCounts = {};
-  users.forEach(user => {
-    const role = user.role || 'Unknown';
-    const status = user.status || 'Unknown';
-    userStatusCounts[role] = (userStatusCounts[role] || 0) + 1;
-    userStatusCounts[status] = (userStatusCounts[status] || 0) + 1;
-  });
-
-  // Build user pie data from actual counts, but use rejectedCount for Rejected
-  const dynamicUserPieData = userPieStatuses
-    .map(({ name, key, fill }) => ({
-      name,
-      value: key === 'Rejected' ? rejectedCount : userStatusCounts[key] || 0,
-      fill
-    }))
-    .filter(item => item.value > 0);
-
-  if (loading) {
-    return (
-      <div className={styles.dashboardContainer}>
-        <div className={styles.dashboardContent}>
-          <h1>Dashboard</h1>
-          <div
-            style={{
-              minHeight: "60vh",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#2563eb22",
-              borderRadius: "1rem",
-              marginTop: "2rem"
-            }}
-          >
-            <FaSpinner
-              style={{
-                color: "#2563eb",
-                fontSize: "3rem",
-                marginRight: "1rem",
-                animation: "spin 1s linear infinite"
-              }}
-            />
-            <span style={{ color: "#2563eb", fontSize: "1.5rem", fontWeight: 600 }}>
-              Loading...
-            </span>
-            <style>
-              {`
-                @keyframes spin {
-                  0% { transform: rotate(0deg);}
-                  100% { transform: rotate(360deg);}
-                }
-              `}
-            </style>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.dashboardContainer}>
       <div className={styles.dashboardContent}>
-        <h1>Dashboard</h1>
+        <h1 className={styles.title}>Dashboard</h1>
 
-        <div className={styles.tabContainer}>
-          <button
-            key="tickets"
-            onClick={() => setActiveTab('tickets')}
-            className={`${styles.tab} ${activeTab === 'tickets' ? styles.tabActive : styles.tabInactive}`}
-          >
-            Tickets
-          </button>
-          {userRole === "System Admin" && (
-            <button
-              key="users"
-              onClick={() => setActiveTab('users')}
-              className={`${styles.tab} ${activeTab === 'users' ? styles.tabActive : styles.tabInactive}`}
-            >
-              Users
-            </button>
-          )}
-        </div>
+        {isLoading ? (
+          <div style={{ padding: '24px' }}>
+            {/* Skeleton tabs */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} width="120px" height="36px" borderRadius="6px" />
+              ))}
+            </div>
 
-        <div className={styles.tabContent}>
-          <div className={styles.statusCardsGrid}>
-            {(activeTab === 'tickets' ? ticketData.stats : userData.stats).map((stat, i) => (
-              <StatCard
-                key={i}
-                {...stat}
-                onClick={() => stat.path && navigate(stat.path)}
-              />
-            ))}
+            {/* Skeleton stat cards */}
+            <div className={styles.statusCardsGrid} style={{ marginTop: 12, marginBottom: 24 }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ padding: '12px', borderRadius: '8px', background: '#f9fafb' }}>
+                  <Skeleton width="80px" height="32px" borderRadius="4px" />
+                  <Skeleton width="100%" height="20px" style={{ marginTop: '12px' }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton table */}
+            <div style={{ marginBottom: 24 }}>
+              <Skeleton width="200px" height="24px" style={{ marginBottom: '12px' }} />
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <Skeleton key={j} width={`${100/6}%`} height="40px" borderRadius="4px" />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton charts */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {[1, 2].map(i => (
+                <Skeleton key={i} width="100%" height="300px" borderRadius="8px" />
+              ))}
+            </div>
           </div>
-
-          <DataTable
-            title={
-              activeTab === 'tickets'
-                ? 'Tickets to Review'
-                : userRole === "System Admin"
-                  ? 'Account Approval'
-                  : ''
-            }
-            headers={
-              activeTab === 'tickets'
-                ? ['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']
-                : userRole === "System Admin"
-                  ? ['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']
-                  : []
-            }
-            data={
-              activeTab === 'tickets'
-                ? ticketsToReview
-                : userRole === "System Admin"
-                  ? usersToApprove
-                  : []
-            }
-            maxRows={5}
-          />
-
-          <div className={chartStyles.chartsGrid}>
-            <StatusPieChart
-              data={activeTab === 'tickets' ? dynamicPieData : dynamicUserPieData}
-              title={activeTab === 'tickets' ? 'Ticket Status' : userRole === "System Admin" ? 'Accounts' : ''}
+        ) : (
+          <>
+            <Tabs
+              tabs={dashboardTabs}
+              active={activeTab}
+              onChange={setActiveTab}
             />
-            <TrendLineChart
-              data={ticketData.lineData}
-              title={activeTab === 'tickets' ? 'Status per month' : userRole === "System Admin" ? 'Accounts per month' : ''}
-            />
-          </div>
-        </div>
+            <div className={styles.tabContent}>
+              {activeTab === 'tickets' && (
+                <TicketsTab
+                  chartRange={chartRange}
+                  setChartRange={setChartRange}
+                  pieRange={pieRange}
+                  setPieRange={setPieRange}
+                />
+              )}
+              {activeTab === 'users' && (
+                <UsersTab
+                  chartRange={chartRange}
+                  setChartRange={setChartRange}
+                  pieRange={pieRange}
+                  setPieRange={setPieRange}
+                />
+              )}
+              {activeTab === 'kb' && (
+                <KnowledgeBaseTab />
+              )}
+              {activeTab === 'csat' && (
+                <CSATTab
+                  chartRange={chartRange}
+                  setChartRange={setChartRange}
+                  pieRange={pieRange}
+                  setPieRange={setPieRange}
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
-export default CoordinatorAdminDashboard;
+  export default CoordinatorAdminDashboard;
+

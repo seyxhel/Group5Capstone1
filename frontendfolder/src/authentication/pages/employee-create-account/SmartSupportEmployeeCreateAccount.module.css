@@ -189,8 +189,8 @@
   align-items: center;
   gap: 10px;
   font-size: 0.875rem;
-  flex-wrap: nowrap;      /* Prevent wrapping */
-  white-space: nowrap;    /* Prevent text wrapping */
+  flex-wrap: nowrap;
+  white-space: nowrap;
   margin-top: -0.5rem;
   margin-bottom: -0.5rem;
 }
@@ -201,20 +201,18 @@
   cursor: not-allowed;
 }
 
-/* Fallback for browsers that don't support accent-color */
 .checkboxWrapper input[type="checkbox"]:checked {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
 }
 
 .checkboxWrapper input[type="checkbox"]:hover {
-  cursor: not-allowed;       /* Show disabled cursor on hover */
+  cursor: not-allowed;
 }
 
 .link {
   color: var(--primary-color);
   font-weight: 500;
-  /* No text-decoration here, it's inherited from .underlineLinks */
 }
 
 .link:hover {
@@ -274,7 +272,7 @@
   transform: translateY(-50%);
   cursor: pointer;
   color: #888;
-  font-size: 0.95rem;   /* Make the icon smaller, matching login */
+  font-size: 0.95rem;
   z-index: 2;
 }
 
@@ -283,11 +281,11 @@
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: var(--primary-color); /* <-- Make underline blue */
+  text-decoration-color: var(--primary-color);
   cursor: pointer;
 }
 
 .andText {
-  color: inherit;      /* Inherit color from parent */
-  font-weight: 600;    /* Normal font weight */
+  color: inherit;
+  font-weight: 600;
 }

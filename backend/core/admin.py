@@ -3,8 +3,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.mail import send_mail
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
-from .models import Employee, Ticket, TicketAttachment
+from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle, ActivityLog
 from django.utils import timezone
+from django.conf import settings
 
 # Custom form for creating users
 class EmployeeCreationForm(forms.ModelForm):
@@ -89,20 +90,24 @@ class EmployeeAdmin(UserAdmin):
                 obj.status == 'Approved' and
                 not obj.notified
             ):
-                send_mail(
-                    subject='Account Approved',
-                    message=(
-                        "Dear Employee,\n\n"
-                        "We are pleased to inform you that your SmartSupport account has been successfully created.\n\n"
-                        "http://localhost:3000/login/employee\n\n"
-                        "If you have any questions or need further assistance, feel free to contact our support team.\n\n"
-                        "Respectfully,\n"
-                        "SmartSupport Help Desk Team"
-                    ),
-                    from_email='sethpelagio20@gmail.com',
-                    recipient_list=[obj.email],
-                    fail_silently=False,
-                )
+                # send notification email using unified sender (Gmail API when
+                # enabled). Use the same HTML template used by the view for
+                # consistency.
+                try:
+                    from .gmail_utils import send_email
+                    # Attempt to build HTML using the same template helper in views
+                    from .views import send_account_approved_email
+                    html = send_account_approved_email(obj)
+                    send_email(
+                        to=obj.email,
+                        subject='Employee account approved',
+                        body=html,
+                        is_html=True,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                    )
+                except Exception as e:
+                    # don't block admin save on email errors
+                    print(f"[EmployeeAdmin.save_model] email send failed: {e}")
                 obj.notified = True
         super().save_model(request, obj, form, change)
 
@@ -126,8 +131,8 @@ class TicketAdminForm(forms.ModelForm):
             self.fields[field_name].disabled = True
 
     def clean_scheduled_date(self):
-        scheduled_date = self.cleaned_data['scheduled_date']
-        if scheduled_date < timezone.now().date():
+        scheduled_date = self.cleaned_data.get('scheduled_date')
+        if scheduled_date and scheduled_date < timezone.now().date():
             raise forms.ValidationError("Scheduled date cannot be in the past.")
         return scheduled_date
 
@@ -174,3 +179,35 @@ class TicketAdmin(admin.ModelAdmin):
             'fields': ('submit_date', 'update_date'),
         }),
     )
+
+
+@admin.register(KnowledgeArticle)
+class KnowledgeArticleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'subject', 'category', 'visibility', 'is_archived', 'created_by', 'created_at')
+    list_filter = ('category', 'visibility', 'is_archived')
+    search_fields = ('subject', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ('created_by',)
+    fieldsets = (
+        (None, {
+            'fields': ('subject', 'category', 'visibility', 'description', 'is_archived', 'created_by')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+
+class ActivityLogInline(admin.TabularInline):
+    model = ActivityLog
+    # ActivityLog references Employee twice (user, actor). For the inline on the
+    # Employee admin detail page we want to show logs about the employee (the
+    # `user` field), so set fk_name accordingly to avoid admin.E202.
+    fk_name = 'user'
+    extra = 0
+    readonly_fields = ('action_type', 'actor', 'message', 'ticket', 'metadata', 'timestamp')
+    can_delete = False
+
+# Attach inline to EmployeeAdmin so activity logs are visible on the user profile page
+# Ensure we concatenate tuples (Django expects a tuple for `inlines` on the class)
+EmployeeAdmin.inlines = getattr(EmployeeAdmin, 'inlines', ()) + (ActivityLogInline,)

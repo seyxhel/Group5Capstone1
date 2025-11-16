@@ -1,0 +1,680 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+    /* font-family: "Roboto", sans-serif; */
+}
+
+:root {
+    --primary-color: #007bff;
+    --primary-color-hover: #0056b3;
+    --text-color: #0C0C0C;
+    --secondary-text-color: #6B7280;
+    --bg-color: #ffffff;
+    --border-color: #d3d3d3;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: var(--text-color);
+}
+
+.manageProfilePage {
+    min-height: 100vh;
+    margin-top: 40px;
+}
+
+.manageProfileContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.manageProfileContainer h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 30px;
+    margin-left: 20px;
+}
+
+.messages {
+    background-color: #D1FAE5;
+    border: 1px solid #10B981;
+    color: #065F46;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    list-style: none;
+}
+
+.messages.error {
+    background-color: #FEE2E2;
+    border-color: #EF4444;
+    color: #991B1B;
+}
+
+/* Profile stuff */
+
+.profileContent {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 60px;
+    align-items: stretch;
+}
+
+.profileLeft {
+    position: sticky;
+    /* top: 100px; */
+    top: 50px;
+    height: fit-content;
+
+}
+
+.profileCard {
+    background: white;
+    /* background-color: red; */
+    border-radius: 8px;
+    padding: 25px 30px 30px 30px;
+    box-shadow: 0 0 20px rgba(211, 211, 211, 0.8);
+    border: 1px solid var(--border-color);
+    text-align: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    justify-content: space-between;
+    min-height: calc(100vh - 200px);
+}
+
+/* --- Profile Image Overlay --- */
+.profileImageContainer {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #e0e0e0;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.profileImageContainer:hover {
+    transform: scale(1.02);
+}
+
+/* Ensure image fills container and preserves aspect */
+.profileImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Camera icon overlay */
+.profileImageOverlay {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.profileImageContainer:hover .profileImageOverlay {
+    opacity: 1;
+}
+
+/* --- Profile Image Menu --- */
+.profileImageMenu {
+    position: absolute;
+    /* bottom: -10px; */
+    /* left: 50%; */
+    left: 70%;
+    background-color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px 0;
+    padding: 10px 5px;
+    width: 120px;
+    z-index: 10;
+    animation: fadeIn 0.2s ease;
+}
+
+.profileMenuBtn {
+    background: none;
+    border: none;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-color);
+    transition: background 0.2s ease;
+}
+
+.profileMenuBtn:hover {
+    background: #f5f5f5;
+    color: var(--primary-color);
+}
+
+/* Remove option */
+.removePhotoOption {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 6px 12px;
+    color: var(--secondary-text-color);
+}
+
+.removePhotoOption input {
+    width: 14px;
+    height: 14px;
+}
+
+/* Hidden class for toggling */
+.hidden {
+    display: none !important;
+}
+
+.profileInfo {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.profileInfo h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 15px;
+}
+
+.profileDetails {
+    text-align: left;
+}
+
+.profileDetails p {
+    margin: 5px 0;
+    font-size: 13px;
+    color: var(--secondary-text-color);
+}
+
+.profileDetails p strong {
+    color: var(--text-color);
+}
+
+/* NEW PROFILE INFO */
+.profileInfoContainer {
+    display: flex;
+    justify-content: space-between;
+}
+
+.profileInfoContainer p {
+    margin: 5px 0;
+    font-size: 13px;
+    color: var(--text-color);
+}
+
+.profileInfoContainer span {
+    margin: 5px 0;
+    font-size: 13px;
+    color: var(--text-color);
+}
+
+.quickLinksCard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(211, 211, 211, 0.8);
+    border: 1px solid var(--border-color);
+    margin-top: 20px;
+}
+
+.quickLinksCard h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 15px;
+}
+
+.linkItem1 {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    border: 2px solid var(--primary-color);
+    border-radius: 4px;
+    color: var(--primary-color);
+    font-size: 14px;
+    text-decoration: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.linkItem1:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.linkItem2 {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    background-color: #a00000;
+    border: var(--border-very-light-gray);
+    border-radius: 4px;
+    color: var(--bg-color);
+    font-size: 14px;
+    text-decoration: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.linkItem2:hover {
+    background-color: #800000;
+    transition: background-color 0.3s;
+}
+
+.linkItem {
+    /* display: block;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-size: 13px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent; */
+
+    padding: 8px;
+    background: var(--primary-color);
+    border: var(--border-very-light-gray);
+    /* border-radius: 20px; */
+    border-radius: 4px;
+    color: var(--bg-color);
+    font-size: 14px;
+    cursor: pointer;
+    max-width: 150px;
+    width: 100%;
+}
+
+.linkItem:hover {
+    background-color: #f5f5f5;
+    border-color: var(--primary-color);
+    transform: translateX(4px);
+}
+
+/* .linkItem::before {
+    content: "→";
+    margin-right: 8px;
+    font-weight: bold;
+    color: var(--primary-color);
+} */
+
+.profileRight {
+    display: flex;
+    flex-direction: column;
+    gap: 80px;
+}
+
+.profileSettingsCard,
+.authenticationCard {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 0 20px rgba(211, 211, 211, 0.8);
+    border: 1px solid var(--border-color);
+}
+
+.profileSettingsCard h2,
+.authenticationCard h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 25px;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.formGroup label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 8px;
+}
+
+.formGroup input[type="text"],
+.formGroup input[type="email"],
+.formGroup input[type="tel"],
+.formGroup select {
+    /* height: 46px;
+    line-height: 1.2;
+    font-size: 13px;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-color);
+    background-color: white;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none; */
+
+    /* New */
+    padding: 12px 16px;
+    border: 1px solid #d3d3d3;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-color);
+    background-color: white;
+    /* background-color: blue; */
+    /* transition: border-color 0.2s ease, box-shadow 0.2s ease; */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* Add custom arrow for select */
+.formGroup select {
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27292.4%27%20height%3D%27292.4%27%3E%3Cpath%20fill%3D%27%236B7280%27%20d%3D%27M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20128c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4l128-128c3.6-3.6%205.4-7.8%205.4-13%200-4.8-1.8-9.2-5.4-13z%27%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 10px 10px;
+    padding-right: 40px;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.15);
+}
+
+.formGroup input::placeholder {
+    color: #999;
+}
+
+/* --- UPDATED: Styles for readonly and disabled states --- */
+.formGroup input[readonly],
+.formGroup select:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    color: var(--secondary-text-color);
+    border-color: #e0e0e0;
+}
+
+.formGroup select:disabled {
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27292.4%27%20height%3D%27292.4%27%3E%3Cpath%20fill%3D%27%23AAAAAA%27%20d%3D%27M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20128c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4l128-128c3.6-3.6%205.4-7.8%205.4-13%200-4.8-1.8-9.2-5.4-13z%27%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.7;
+}
+
+.formGroup input[type="checkbox"]:disabled+label {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* --- END UPDATED STATES --- */
+
+
+.formGroup small {
+    display: block;
+    margin-top: 6px;
+    color: var(--secondary-text-color);
+    font-size: 11px;
+}
+
+.errorlist {
+    color: #DC2626;
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0 0;
+    font-size: 12px;
+}
+
+/* --- REMOVED original .saveChangesBtn and .saveChangesBtn:hover styles --- */
+
+.authenticationCard {
+    margin-top: 20px;
+}
+
+.authenticationCard .formGroup {
+    margin-bottom: 20px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .profileContent {
+        grid-template-columns: 280px 1fr;
+        gap: 40px;
+    }
+
+    .profileCard {
+        min-height: calc(100vh - 220px);
+    }
+}
+
+@media (max-width: 992px) {
+    .profileContent {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        align-items: start;
+    }
+
+    .profileLeft {
+        position: static;
+        height: auto;
+    }
+
+    .profileCard {
+        height: auto;
+        min-height: auto;
+    }
+
+    .profileRight {
+        gap: 40px;
+        height: auto;
+    }
+
+    .formGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .manageProfileContainer {
+        padding: 15px;
+    }
+
+    .profileRight {
+        gap: 40px;
+    }
+
+    .profileCard,
+    .profileSettingsCard,
+    .authenticationCard,
+    .quickLinksCard {
+        padding: 20px;
+        border-radius: 8px;
+    }
+
+    .manageProfileContainer h1 {
+        margin-left: 0;
+        font-size: 20px;
+    }
+
+    .messages {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    /* --- NEW: Stack buttons on mobile --- */
+    .formActions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .formActions button {
+        width: 100%;
+    }
+}
+
+/* --- Toast Notifications --- */
+.toastContainer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background-color: #d1fae5;
+    color: #065f46;
+    padding: 12px 18px;
+    border-left: 5px solid #10b981;
+    border-radius: 6px;
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.toast.error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
+
+.toast.hide {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+/* --- Unsaved Warning --- */
+.unsavedWarning {
+    color: #eab308;
+    font-size: 12px;
+    margin-top: 8px;
+    animation: fadeIn 0.3s ease;
+}
+
+.unsavedWarning.hidden {
+    display: none;
+}
+
+/* --- Button subtle feedback --- */
+.saveChangesBtn:active,
+.editChangesBtn:active,
+.cancelChangesBtn:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+}
+
+/* --- Minor polish for smoother transitions --- */
+input,
+button,
+label {
+    transition: all 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* --- NEW STYLES for Edit/Save/Cancel buttons --- */
+
+.hidden {
+    display: none;
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+    /* Aligns buttons to the right */
+    gap: 15px;
+    /* Space between buttons */
+    margin-top: 20px;
+    /* Space above the buttons */
+}
+
+/* Base style for all buttons in the action bar */
+.formActions button {
+    width: auto;
+    min-width: 150px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    line-height: 1.2;
+}
+
+/* Primary buttons: Edit and Save */
+.editChangesBtn,
+.saveChangesBtn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.editChangesBtn:hover,
+.saveChangesBtn:hover {
+    background-color: var(--primary-color-hover);
+}
+
+/* Secondary button: Cancel */
+.cancelChangesBtn {
+    background-color: #f0f0f0;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.cancelChangesBtn:hover {
+    background-color: #e0e0e0;
+}

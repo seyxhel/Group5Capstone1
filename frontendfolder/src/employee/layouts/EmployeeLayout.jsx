@@ -1,19 +1,49 @@
 import { Outlet, useLocation, matchPath } from 'react-router-dom';
 import EmployeeNavBar from '../components/header/EmployeeNavigationBar';
-import TopPageSectionHeader from '../../shared/section-header/TopPageSectionHeader';
-import { getEmployeeTickets } from '../../utilities/storages/employeeTicketStorageBonjing';
-import './EmployeeLayout.css';
+import Breadcrumb from '../../shared/components/Breadcrumb';
+import { getEmployeeTickets } from '../../utilities/storages/ticketStorage';
+import { isActiveStatus } from '../../utilities/helpers/statusMapper';
+import { useAuth } from '../../context/AuthContext';
+import PageLayout from '../../shared/layouts/PageLayout';
 
-const activeStatuses = ['Submitted', 'Pending', 'Open', 'In Progress', 'On Hold', 'Resolved'];
-
-const getHeaderConfig = (path) => {
+const getHeaderConfig = (path, currentUser, location) => {
   const ticketMatch = matchPath({ path: '/employee/ticket-tracker/:ticketNumber', end: true }, path);
 
   if (ticketMatch) {
     const ticketNumber = ticketMatch.params.ticketNumber;
-    const tickets = getEmployeeTickets();
+    // Prefer explicit navigation state when available (deterministic)
+    const fromState = String(location?.state?.from || '').toLowerCase();
+    if (fromState) {
+      if (fromState === 'home') {
+        return {
+          root: 'Home',
+          currentPage: 'Ticket Tracker',
+          rootNavigatePage: '/employee/home',
+          title: `${ticketNumber}`,
+        };
+      }
+      if (fromState === 'activetickets' || fromState === 'active-tickets' || fromState === 'active_tickets') {
+        return {
+          root: 'Active Tickets',
+          currentPage: 'Ticket Tracker',
+          rootNavigatePage: '/employee/active-tickets/all-active-tickets',
+          title: `${ticketNumber}`,
+        };
+      }
+      if (fromState === 'ticketrecords' || fromState === 'ticket-records' || fromState === 'ticket_records') {
+        return {
+          root: 'Ticket Records',
+          currentPage: 'Ticket Tracker',
+          rootNavigatePage: '/employee/ticket-records/all-ticket-records',
+          title: `${ticketNumber}`,
+        };
+      }
+    }
+
+    // Fallback: try to infer from locally cached tickets
+    const tickets = getEmployeeTickets(currentUser?.id);
     const ticket = tickets.find((t) => String(t.ticketNumber) === String(ticketNumber));
-    const isActive = ticket && activeStatuses.includes(ticket.status);
+    const isActive = ticket && isActiveStatus(ticket.status);
 
     return {
       root: isActive ? 'Active Tickets' : 'Ticket Records',
@@ -44,29 +74,23 @@ const getHeaderConfig = (path) => {
 };
 
 const EmployeeLayout = () => {
-  const { pathname } = useLocation();
-  const headerConfig = getHeaderConfig(pathname);
+  const location = useLocation();
+  const pathname = location.pathname;
+  const { user: currentUser } = useAuth();
+  const headerConfig = getHeaderConfig(pathname, currentUser, location);
 
   return (
-    <>
-      <div className="navbarWrapper">
-        <EmployeeNavBar />
-      </div>
-
-      <div className="scrollContainer">
-        <main className="employee-layout-main">
-          {headerConfig && (
-            <TopPageSectionHeader
-              root={headerConfig.root}
-              currentPage={headerConfig.currentPage}
-              rootNavigatePage={headerConfig.rootNavigatePage}
-              title={headerConfig.title}
-            />
-          )}
-          <Outlet />
-        </main>
-      </div>
-    </>
+    <PageLayout Navbar={EmployeeNavBar}>
+      {headerConfig && (
+        <Breadcrumb
+          root={headerConfig.root}
+          currentPage={headerConfig.currentPage}
+          rootNavigatePage={headerConfig.rootNavigatePage}
+          title={headerConfig.title}
+        />
+      )}
+      <Outlet />
+    </PageLayout>
   );
 };
 

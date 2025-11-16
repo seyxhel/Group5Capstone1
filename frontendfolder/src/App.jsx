@@ -1,20 +1,21 @@
-import { BrowserRouter, Routes } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import './App.css';
 import AuthRoutes from './routes/AuthRoutes';
 import EmployeeRoutes from './routes/EmployeeRoutes';
 import CoordinatorAdminRoutes from './routes/CoordinatorAdminRoutes';
-import ScrollToTop from './shared/ScrollToTop';
 import GlobalToast from './shared/toast-notification/GlobalToast';
+
+function RoutesSwitcher() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin')) return <CoordinatorAdminRoutes />;
+  if (pathname.startsWith('/employee')) return <EmployeeRoutes />;
+  return <AuthRoutes />;
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <ScrollToTop />
-      <Routes>
-        {AuthRoutes()}
-        {EmployeeRoutes()}
-        {CoordinatorAdminRoutes()}
-      </Routes>
+      <RoutesSwitcher />
       <GlobalToast />
     </BrowserRouter>
   );

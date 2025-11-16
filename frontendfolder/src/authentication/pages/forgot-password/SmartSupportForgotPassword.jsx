@@ -28,26 +28,17 @@ const SmartSupportForgotPassword = () => {
     setSuccessMessage("");
 
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_REACT_APP_API_URL}employee/forgot-password/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        }
-      );
-      const data = await res.json();
+      const mockUserExists = email.endsWith("@gmail.com");
 
-      if (res.ok) {
+      if (!mockUserExists) {
+        setErrorMessage("Email not found. Please try again.");
+      } else {
         setSuccessMessage("Password reset link has been sent to your email.");
         setTimeout(() => navigate("/"), 3000); // Navigate to login after 3 seconds
-      } else {
-        // Always show "Invalid Email." for any error, including rejected accounts
-        setErrorMessage("Invalid Email.");
       }
     } catch (err) {
       console.error("Reset error:", err);
-      setErrorMessage("Invalid Email.");
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -87,16 +78,16 @@ const SmartSupportForgotPassword = () => {
 
           <form onSubmit={handleSubmit(handleForgotPassword)} className={styles.form}>
             <fieldset className={styles.fieldset}>
-              <label htmlFor="email">Email:</label>
+              <label htmlFor="email">Enter:</label>
               <input
                 id="email"
                 type="text"
                 placeholder="Enter email"
                 {...register("email", {
-                  required: "Please fill in the required field.",
+                  required: "Please fill in the required field",
                   pattern: {
                     value: /^[a-zA-Z0-9._%+-]+@gmail\.com$/,
-                    message: "Invalid email format.",
+                    message: "Invalid email format",
                   },
                 })}
               />

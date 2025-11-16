@@ -2,17 +2,16 @@
 
 export const EMPLOYEE_TICKET_STORAGE_KEY = 'employeeTickets';
 
-// Status options used in Employee side
+// Status options visible to Employees
+// Note: "New" and "Open" (admin side) are shown as "Pending" to employees
 export const employeeTicketStatuses = [
-  'Submitted',
   'Pending',
-  'Open',
   'In Progress',
-  'Resolved',
   'On Hold',
+  'Withdrawn',
+  'Resolved',
   'Closed',
   'Rejected',
-  'Withdrawn',
 ];
 
 // Mock data - All created by the same employee user
@@ -20,7 +19,7 @@ const sampleEmployeeTickets = [
   {
     ticketNumber: 'TCK-001',
     subject: 'VPN setup request',
-    status: 'Submitted',
+    status: 'New', // Changed from 'Submitted' to 'New' (admin view)
     priorityLevel: '',
     department: 'IT Department',
     category: 'IT Category',
@@ -37,7 +36,7 @@ const sampleEmployeeTickets = [
   {
     ticketNumber: 'TCK-002',
     subject: 'Outlook configuration issue',
-    status: 'Pending',
+    status: 'New', // Changed from 'Pending' to 'New' (admin view)
     priorityLevel: 'Medium',
     department: 'IT Department',
     category: 'IT Category',
@@ -54,7 +53,7 @@ const sampleEmployeeTickets = [
   {
     ticketNumber: 'TCK-003',
     subject: 'Access to system maintenance logs',
-    status: 'Open',
+    status: 'Open', // Stays 'Open'
     priorityLevel: 'Low',
     department: 'IT Department',
     category: 'IT Category',
@@ -71,7 +70,7 @@ const sampleEmployeeTickets = [
   {
     ticketNumber: 'TCK-004',
     subject: 'Internet disconnection in office',
-    status: 'In Progress',
+    status: 'In Progress', // Stays 'In Progress'
     priorityLevel: 'High',
     department: 'IT Department',
     category: 'IT Category',
@@ -193,7 +192,7 @@ export const addNewEmployeeTicket = ({
   const newTicket = {
     ticketNumber: generateTicketNumber(),
     subject,
-    status: 'Submitted',
+    status: 'New', // Changed from 'Submitted' to 'New'
     priorityLevel: '',
     department: createdBy.department || '',
     category,
@@ -235,6 +234,3 @@ if (!localStorage.getItem(EMPLOYEE_TICKET_STORAGE_KEY)) {
   saveEmployeeTickets(sampleEmployeeTickets);
 }
 
-// FORCE RESET — Remove this after verifying initial mock data
-localStorage.removeItem(EMPLOYEE_TICKET_STORAGE_KEY);
-saveEmployeeTickets(sampleEmployeeTickets);

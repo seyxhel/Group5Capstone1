@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 
 """
 Django settings for backend project.
@@ -14,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,12 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'unsafe-default')
+SECRET_KEY = 'your-auth-service-secret-key-here'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -49,14 +47,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # <-- Move here
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -83,9 +80,10 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 
@@ -124,8 +122,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -133,48 +129,17 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = False
+
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'https://smartsupport-hdts-backend.up.railway.app',
-    'https://smartsupport-hdts-frontend.up.railway.app',  # <-- add this
+    'http://localhost:3000',
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
 ]
 
-# Add CORS headers to handle errors properly
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-
-# Additional CORS settings to handle 500 errors properly
-CORS_ALLOWED_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
-
-# Ensure CORS headers are added even for error responses
-CORS_PREFLIGHT_MAX_AGE = 86400
 
 MEDIA_URL = '/media/'
-
-# Media files storage configuration
-if DEBUG:
-    # Development: store in project folder
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-else:
-    # Production: use Railway volume or persistent path
-    MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/app/media')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
@@ -182,44 +147,75 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+            'core.authentication.CookieJWTAuthentication',
+            'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") #new one
+JWT_AUTH_COOKIE = "access_token" 
 
-# External System API Key for secure media access
-EXTERNAL_SYSTEM_API_KEY = os.environ.get("EXTERNAL_SYSTEM_API_KEY")
+
+# JWT Settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    # Set refresh token lifetime to 8 hours (long-lived to support extended sessions)
+    'REFRESH_TOKEN_LIFETIME': timedelta(hours=8),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=30),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=15),
+}
+
+# Email configuration
+# By default use SMTP backend credentials (kept for production), but when
+# running locally with DEBUG=True prefer the console backend so Django
+# won't attempt to authenticate with an external SMTP server and raise
+# SMTPAuthenticationError while testing.
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') in ('True', 'true', '1')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'sethpelagio20@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'wibleoywhclqjsmm')
+
+# Use console backend during local development to avoid SMTP auth failures
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'
 
 # Celery
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "rpc://")
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://admin:admin@localhost:5672/')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'rpc://')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_TASK_DEFAULT_QUEUE = 'TICKET_TASKS_PRODUCTION'  # Only if you plan to run worker here, please
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": False,
-}
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://smartsupport-hdts-backend.up.railway.app",
-    "http://localhost:5173",
-    "https://smartsupport-hdts-frontend.up.railway.app",  # <-- add this
-]
-
-SECURE_SSL_REDIRECT = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# it worked!! Thank you, Lord!
+CELERY_TASK_DEFAULT_QUEUE = 'ticket_tasks2'  # Only if you plan to run worker here

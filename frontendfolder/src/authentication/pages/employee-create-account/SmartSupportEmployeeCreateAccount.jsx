@@ -551,8 +551,6 @@ export default function SmartSupportEmployeeCreateAccount() {
           showModal={showPolicyTermsModal}
         />
       )}
-      {showPrivacyModal && <UserPrivacyPolicy onAgree={handleAgreePrivacy} />}
-      {showTermsModal && <UserTermsAndConditions onAgree={handleAgreeTerms} />}
     </main>
   );
 }

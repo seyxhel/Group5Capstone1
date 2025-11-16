@@ -13,7 +13,7 @@ export function generateSecureMediaUrl(filePath, token) {
     return null;
   }
 
-  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'http://localhost:8000/media/';
   
   // Remove leading slash if present
   const cleanFilePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
@@ -56,7 +56,7 @@ export function getSecureMediaUrl(filePath) {
 export function extractFilePathFromUrl(fullUrl) {
   if (!fullUrl) return null;
   
-  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://smartsupport-hdts-backend.up.railway.app/media/';
+  const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'http://localhost:8000/media/';
   
   if (fullUrl.startsWith(MEDIA_URL)) {
     const filePath = fullUrl.replace(MEDIA_URL, '');
@@ -78,8 +78,27 @@ export function extractFilePathFromUrl(fullUrl) {
  * @returns {string|null} - The secure media URL or null
  */
 export function convertToSecureUrl(existingUrl) {
+  if (!existingUrl) return null;
+  
+  // If the URL already starts with http://localhost:8000/api/media/, use it as-is
+  if (existingUrl.startsWith('http://localhost:8000/api/media/') || 
+      existingUrl.startsWith('http://localhost:8003/api/media/') ||
+      existingUrl.startsWith('https://') && existingUrl.includes('/api/media/')) {
+    return existingUrl;
+  }
+  
+  // If it starts with /api/media/, prepend the base URL
+  if (existingUrl.startsWith('/api/media/')) {
+    const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8000';
+    return `${BASE_URL}${existingUrl}`;
+  }
+  
+  // Otherwise, use the old logic for backward compatibility
   const filePath = extractFilePathFromUrl(existingUrl);
-  return getSecureMediaUrl(filePath);
+  if (!filePath) return null;
+  // If filePath includes a leading 'media/' segment (or '/media/'), strip it
+  const normalized = filePath.replace(/^\/?media\//, '');
+  return getSecureMediaUrl(normalized);
 }
 
 /**
@@ -121,6 +140,36 @@ export async function downloadSecureFile(url, filename) {
     return blob;
   } catch (error) {
     console.error('Download error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch a secure file as a Blob without triggering an automatic download.
+ * Returns an object { blob, contentType }
+ */
+export async function fetchSecureBlob(url) {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Fetch failed: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const contentType = response.headers.get('Content-Type') || blob.type || '';
+    return { blob, contentType };
+  } catch (error) {
+    console.error('Fetch error:', error);
     throw error;
   }
 }

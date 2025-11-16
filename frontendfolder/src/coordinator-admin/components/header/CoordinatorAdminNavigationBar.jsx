@@ -1,9 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import useScrollShrink from '../../../shared/hooks/useScrollShrink.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import CoordinatorAdminNotifications, { notificationCount } from '../pop-ups/CoordinatorAdminNotifications';
+import { FiMenu, FiX } from 'react-icons/fi';
+import CoordinatorAdminNotifications from '../pop-ups/CoordinatorAdminNotifications';
 import styles from './CoordinatorAdminNavigationBar.module.css';
 import MapLogo from '../../../shared/assets/MapLogo.png';
 import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { API_CONFIG } from '../../../config/environment';
+import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -33,179 +39,371 @@ const CoordinatorAdminNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [adminInfo, setAdminInfo] = useState({
-    first_name: '',
-    last_name: '',
-    role: '',
-    image: ''
-  });
+  const { user: currentUser } = useAuth();
+  console.debug('[CoordinatorAdminNav] currentUser:', currentUser);
+  const DEFAULT_PROFILE_IMAGE = '/media/employee_images/default-profile.png'; // relative path on backend (matches backend filename)
+  const BACKEND_BASE_URL = 'http://localhost:8000';
+  // Inline SVG fallback used if the PNG looks wrong or fails to load
+  const FALLBACK_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23007bff"/%3E%3Ctext x="50" y="55" text-anchor="middle" font-size="36" fill="%23fff"%3E%3C/tspan%3E%3C/text%3E%3C/svg%3E';
 
+  // Helper to get correct image URL (always return absolute URL pointing to backend)
+  const getProfileImageUrl = (user) => {
+    let image = user?.profileImage;
+    if (!image || image === '' || image === null) {
+      // Return backend absolute URL for default image
+      return `${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE.startsWith('/') ? DEFAULT_PROFILE_IMAGE : `/${DEFAULT_PROFILE_IMAGE}`}`;
+    }
+    // If image is a relative path, prepend backend base URL
+    if (!image.startsWith('http')) {
+      image = image.startsWith('/') ? image : `/${image}`;
+      return `${BACKEND_BASE_URL}${image}`;
+    }
+    return image;
+  };
+
+  // State to hold the actual profile image URL fetched from backend
+  const [profileImageUrl, setProfileImageUrl] = useState(`${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE}`);
+
+  // Fetch current employee profile from backend to get freshest image path
   useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem('admin_access_token');
+    const fetchProfileImage = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL}employee/profile/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAdminInfo({
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            role: data.role || '',
-            image: data.image || ''
-          });
+        const profile = await backendEmployeeService.getCurrentEmployee();
+        // profile.image may be a relative path like 'employee_images/xyz.jpg'
+        if (profile?.image) {
+          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
+          if (resolved) setProfileImageUrl(resolved);
         }
-      } catch (e) {
-        // Optionally handle error
+      } catch (err) {
+        // keep default on error
+        console.error('Failed to fetch admin profile image:', err);
       }
     };
-    fetchProfile();
+
+    if (currentUser) fetchProfileImage();
+  }, [currentUser]);
+
+  // Listen for profile updates dispatched by settings or other UI
+  useEffect(() => {
+    const onProfileUpdated = (e) => {
+      console.debug('[CoordinatorAdminNav] profile:updated event', e && e.detail);
+      try {
+  const detail = e?.detail || {};
+  const eventUserId = detail.userId || detail.user_id || detail.companyId || detail.company_id || null;
+  const current = currentUser;
+  const currentId = current?.id || current?.companyId || current?.company_id || null;
+
+        // If the event is for a different user, ignore it
+        if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
+
+        // If the event includes a resolved (and cache-busted) image URL, use it directly
+        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        if (newImg) {
+          setProfileImageUrl(newImg);
+          return;
+        }
+      } catch (err) {
+        // fall through to re-fetch below
+      }
+
+      // Fallback: re-fetch profile once if event didn't provide an image
+      backendEmployeeService.getCurrentEmployee()
+        .then((profile) => {
+          if (!profile) return;
+          const imgCandidate = profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profileImage;
+          const resolved = resolveMediaUrl(imgCandidate);
+          if (resolved) setProfileImageUrl(resolved);
+        })
+        .catch((err) => {
+          console.warn('[CoordinatorAdminNav] failed to re-fetch profile after profile:updated', err);
+        });
+    };
+
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
   }, []);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [notifCount, setNotifCount] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // temporarily set threshold to 0 and enable debug to observe scroll events during testing
+  const scrolled = useScrollShrink(0, { debug: true });
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
   };
 
-  const mediaUrl = import.meta.env.VITE_MEDIA_URL;
-  const getProfileImageUrl = (img) => {
-    if (!img) return "";
-    if (img.startsWith("http")) return img;
-    return `${mediaUrl}${img.startsWith("/") ? img.slice(1) : img}`;
+  const handleNavigate = (path) => {
+    navigate(path);
+    setOpenDropdown(null);
+    setIsMobileMenuOpen(false);
   };
 
-  const navSections = [
-    {
-      key: 'tickets',
-      label: 'Ticket Management',
-      basePath: '/admin/ticket-management',
-      links: [
-        { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
-        { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
-        { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
-        { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
-        { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
-        { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
-        { label: 'Resolved Tickets', path: '/admin/ticket-management/resolved-tickets' },
-        { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
-        { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' },
-        { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' }
-      ]
-    },
-    {
-      key: 'users',
-      label: 'User Access',
-      basePath: '/admin/user-access',
-      links: [
-        { label: 'All Users', path: '/admin/user-access/all-users' },
-        { label: 'Employees', path: '/admin/user-access/employees' },
-        { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
-        { label: 'System Admins', path: '/admin/user-access/system-admins' },
-        { label: 'Pending Users', path: '/admin/user-access/pending-users' },
-        { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
-      ]
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      basePath: '/admin/reports',
-      links: [
-        { label: 'Department Reports', path: '/admin/reports/departments' },
-        { label: 'Coordinator Reports', path: '/admin/reports/coordinators' },
-        { label: 'Ticket Statistics', path: '/admin/reports/statistics' }
-      ]
+  const handleLogout = () => {
+    // Clear all auth-related localStorage items
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('user');
+    localStorage.removeItem('chatbotMessages');
+    
+    // Dispatch auth:logout event to stop the inactivity watcher
+    try {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      console.log('[CoordinatorAdminNavigationBar] Dispatched auth:logout event');
+    } catch (e) {
+      console.warn('[CoordinatorAdminNavigationBar] Failed to dispatch auth:logout', e);
     }
-  ];
-
-  // Helper for initials
-  const getInitials = (first, last) => {
-    if (!first && !last) return "U";
-    return `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
+    
+    setIsMobileMenuOpen(false);
+    // Navigate to login and pass a flag so the login page can show a brief
+    // loading state after logout. Avoid forcing a full page reload.
+    navigate('/', { state: { fromLogout: true } });
   };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (navRef.current && !navRef.current.contains(e.target)) {
         setOpenDropdown(null);
+        setIsMobileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Get user role from profile info (already fetched)
-  const isSystemAdmin = adminInfo.role === "System Admin";
+  // Close mobile menu on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Build nav sections based on current user role
+  const role = currentUser?.role;
+
+  // Normalize displayed role labels across the admin navbar
+  const getDisplayRole = (user) => {
+    if (!user) return '';
+    const raw = (user.role || (user.system_roles && user.system_roles.find(r=>r.system_slug==='hdts')?.role_name) || '').toString();
+    if (!raw) return '';
+    const normalized = raw.trim();
+    // Map backend 'Admin' to UI-facing 'System Admin'
+    if (normalized.toLowerCase() === 'admin') return 'System Admin';
+    return normalized;
+  };
+
+  const ticketsSection = {
+    key: 'tickets',
+    label: 'Ticket Management',
+    basePath: '/admin/ticket-management',
+    links: [
+      { label: 'All Tickets', path: '/admin/ticket-management/all-tickets' },
+      { label: 'New Tickets', path: '/admin/ticket-management/new-tickets' },
+      { label: 'Pending Tickets', path: '/admin/ticket-management/pending-tickets' },
+      { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
+      { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
+      { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
+      { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
+      { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
+      { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
+    ]
+  };
+
+  const usersSection = {
+    key: 'users',
+    label: 'User Access',
+    basePath: '/admin/user-access',
+    links: [
+      { label: 'All Users', path: '/admin/user-access/all-users' },
+      { label: 'Employees', path: '/admin/user-access/employees' },
+      { label: 'Ticket Coordinators', path: '/admin/user-access/ticket-coordinators' },
+      { label: 'System Admins', path: '/admin/user-access/system-admins' },
+      { label: 'Pending Users', path: '/admin/user-access/pending-users' },
+      { label: 'Rejected Users', path: '/admin/user-access/rejected-users' }
+    ]
+  };
+
+  const reportsSection = {
+    key: 'reports',
+    label: 'Reports',
+    basePath: '/admin/reports',
+    links: [
+      { label: 'Ticket Reports', path: '/admin/reports/tickets' },
+      { label: 'SLA Compliance', path: '/admin/reports/sla' }
+    ]
+  };
+
+  const kbSection = {
+    key: 'kb',
+    label: 'Knowledge Base',
+    basePath: '/admin/knowledge',
+    links: [
+      { label: 'Articles', path: '/admin/knowledge/articles' },
+      { label: 'Archived Articles', path: '/admin/knowledge/archived' }
+    ]
+  };
+
+  const amsSection = {
+    key: 'ams',
+    label: 'AMS',
+    basePath: '/admin/ams',
+    links: [
+      { label: 'AMS Dashboard', path: '/admin/ams/dashboard' },
+      { label: 'AMS Tickets', path: '/admin/ams/tickets' }
+    ]
+  };
+
+  const bmsSection = {
+    key: 'bms',
+    label: 'BMS',
+    basePath: '/admin/bms',
+    links: [
+      { label: 'BMS Dashboard', path: '/admin/bms/dashboard' },
+      { label: 'BMS Tickets', path: '/admin/bms/tickets' }
+    ]
+  };
+
+  // Role-based section composition
+  let navSections = [];
+  if (role === 'Ticket Coordinator') {
+    // Ticket coordinator: Ticket Management, AMS, BMS, Reports
+    navSections = [ticketsSection, amsSection, bmsSection, reportsSection];
+  } else if (role === 'System Admin') {
+    // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  } else {
+    // Default: show everything
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+  }
+
+  // If current user is a Ticket Coordinator, they should not see User Access
+  const visibleNavSections = navSections.filter(s => {
+    if (s.key === 'users' && currentUser?.role === 'Ticket Coordinator') return false;
+    return true;
+  });
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen((prev) => !prev);
+    // Close any open dropdowns when toggling mobile menu
+    setOpenDropdown(null);
+  };
 
   return (
-    <nav className={styles['main-nav-bar']} ref={navRef}>
-      {/* Logo & Brand */}
+    <nav className={`${styles['main-nav-bar']} ${scrolled ? styles.scrolled : ''}`} ref={navRef}>
+      {/* Logo & Brand (Desktop: Left, Mobile: Right) */}
       <section className={styles['logo-placeholder']}>
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
+          <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
         </div>
       </section>
 
-      {/* Navigation Links */}
+      {/* Navigation Links (Desktop: Middle, Mobile: Sidebar) */}
       <section>
-        <ul className={styles['nav-list']}>
+        <ul className={`${styles['nav-list']} ${isMobileMenuOpen ? styles.open : ''}`}>
+          {/* Mobile Profile Section - Shows at top of mobile menu */}
+          <li className={styles['mobile-profile-section']}>
+            <div className={styles['profile-avatar-large']}>
+              <img 
+                src={profileImageUrl} 
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }}
+                alt="Profile" 
+                className={styles['avatar-image']} 
+              />
+            </div>
+              <div className={styles['mobile-profile-info']}>
+                {(() => {
+                  const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
+                  const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
+                  return (
+                    <>
+                      <h3>{`${first} ${last}`.trim()}</h3>
+                      <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
+                    </>
+                  );
+                })()}
+              <div className={styles['mobile-profile-actions']}>
+                <button 
+                  className={styles['mobile-settings-btn']}
+                  onClick={() => handleNavigate('/admin/settings')}
+                >
+                  Settings
+                </button>
+                <button
+                  className={styles['mobile-logout-btn']}
+                  onClick={handleLogout}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </li>
+
+          {/* Dashboard Link */}
           <li className={styles['nav-item']}>
             <button
               className={`${styles['nav-link']} ${location.pathname === '/admin/dashboard' ? styles.clicked : ''}`}
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => handleNavigate('/admin/dashboard')}
             >
               Dashboard
             </button>
           </li>
 
-          {/* Ticket Management always visible */}
-          {navSections
-            .filter(
-              (section) =>
-                section.key !== 'users' || isSystemAdmin // Only show User Access if System Admin
-            )
-            .map(({ key, label, links, basePath }) => {
-              const isActiveSection = location.pathname.startsWith(basePath);
-              return (
-                <li
-                  key={key}
-                  className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
+          {/* Navigation Sections with Dropdowns */}
+          {visibleNavSections.map(({ key, label, links, basePath }) => {
+            const isActiveSection = location.pathname.startsWith(basePath);
+            return (
+              <li
+                key={key}
+                className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
+              >
+                <div
+                  className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
+                  onClick={() => toggleDropdown(key)}
                 >
-                  <div
-                    className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
-                    onClick={() => toggleDropdown(key)}
-                  >
-                    <span className={styles['dropdown-text']}>{label}</span>
-                    <ArrowDownIcon flipped={openDropdown === key} />
-                  </div>
-                  {openDropdown === key && (
-                    <div className={styles['custom-dropdown']}>
-                      <div className={styles['dropdown-menu']}>
-                        {links.map(({ label, path }) => (
-                          <button
-                            key={path}
-                            onClick={() => {
-                              navigate(path);
-                              setOpenDropdown(null);
-                            }}
-                            className={location.pathname === path ? styles.clicked : ''}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+                  <span className={styles['dropdown-text']}>{label}</span>
+                  <ArrowDownIcon flipped={openDropdown === key} />
+                </div>
+                {openDropdown === key && (
+                  <div className={styles['custom-dropdown']}>
+                    <div className={styles['dropdown-menu']}>
+                      {links.map(({ label, path }) => (
+                        <button
+                          key={path}
+                          onClick={() => handleNavigate(path)}
+                          className={location.pathname === path ? styles.clicked : ''}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </li>
-              );
-            })}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+
+
         </ul>
       </section>
 
-      {/* Right Side: Notifications & Profile */}
+      {/* Right Section: Notifications & Profile (Desktop Only) */}
       <section className={styles['nav-right-section']}>
+        {/* Hamburger on the right for mobile */}
+        <button
+          className={`${styles.hamburgerBtn} ${isMobileMenuOpen ? styles.open : ''}`}
+          onClick={toggleMobileMenu}
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          {isMobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+        </button>
+
         <div
           className={`${styles['notification-icon-container']} ${
             openDropdown === 'notifications' ? styles['open'] : ''
@@ -219,50 +417,46 @@ const CoordinatorAdminNavBar = () => {
             onKeyDown={(e) => ['Enter', ' '].includes(e.key) && toggleDropdown('notifications')}
           >
             <NotificationIcon />
-            {notificationCount > 0 && (
-              <span className={styles['notification-badge']}>{notificationCount}</span>
+            {notifCount > 0 && (
+              <span className={styles['notification-badge']}>{notifCount}</span>
             )}
           </div>
           {openDropdown === 'notifications' && (
-            <div className={styles['notification-dropdown']}>
-              <CoordinatorAdminNotifications />
-            </div>
+            <CoordinatorAdminNotifications
+              show={openDropdown === 'notifications'}
+              onClose={() => setOpenDropdown(null)}
+              onCountChange={setNotifCount}
+            />
           )}
         </div>
 
         <div className={styles['profile-container']}>
           <div className={styles['profile-avatar']} onClick={() => toggleDropdown('profile')}>
-            {adminInfo.image ? (
-              <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
-            ) : (
-              <div className={styles['avatar-placeholder']}>
-                {getInitials(adminInfo.first_name, adminInfo.last_name)}
-              </div>
-            )}
+            <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
           </div>
           {openDropdown === 'profile' && (
             <div className={styles['profile-dropdown']}>
               <div className={styles['profile-header']}>
                 <div className={styles['profile-avatar-large']}>
-                  {adminInfo.image ? (
-                    <img src={getProfileImageUrl(adminInfo.image)} alt="Profile" className={styles['avatar-image']} />
-                  ) : (
-                    <div className={styles['avatar-placeholder']}>
-                      {getInitials(adminInfo.first_name, adminInfo.last_name)}
-                    </div>
-                  )}
+                  <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${adminInfo.first_name} ${adminInfo.last_name}`}</h3>
-                  <span className={styles['admin-badge']}>{adminInfo.role ? adminInfo.role : "Admin"}</span>
+                  {(() => {
+                    const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
+                    const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
+                    const roleDisplay = getDisplayRole(currentUser);
+                    return (
+                      <>
+                        <h3>{`${first} ${last}`.trim()}</h3>
+                        <span className={styles['admin-badge']}>{roleDisplay}</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div className={styles['profile-menu']}>
-                <button onClick={() => navigate('/admin/settings')}>Settings</button>
-                <button className={styles['logout-btn']} onClick={() => {
-                  authService.logoutAdmin();
-                  navigate('/');
-                }}>Log Out</button>
+                <button onClick={() => handleNavigate('/admin/settings')}>Settings</button>
+                <button className={styles['logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>
           )}

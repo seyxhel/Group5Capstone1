@@ -1,33 +1,30 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../../shared/modals/ModalWrapper";
+import EmployeeCSATModal from "../csat/EmployeeCSATModal";
 import styles from "./EmployeeActiveTicketsCloseTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
+import { backendTicketService } from '../../../../services/backend/ticketService';
 
 const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCSAT, setShowCSAT] = useState(false);
 
   const handleClose = async () => {
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("employee_access_token");
-      const res = await fetch(
-        `${import.meta.env.VITE_REACT_APP_API_URL}tickets/${ticket.id}/close/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ comment }),
-        }
-      );
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to close the ticket.");
+      // Update ticket status on backend
+      let id = ticket.id || ticket.ticketId;
+      // If numeric id not available, try to resolve by ticket number
+      if (!id) {
+        const ticketNumber = ticket.ticket_number || ticket.ticketNumber;
+        if (!ticketNumber) throw new Error('Ticket identifier not found');
+        const ticketData = await backendTicketService.getTicketByNumber(ticketNumber);
+        id = ticketData.id;
       }
+
+      await backendTicketService.updateTicketStatus(id, 'Closed', comment || '');
 
       toast.success(`Ticket #${ticket.ticketNumber} closed successfully.`, {
         position: "top-right",
@@ -35,9 +32,11 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
       });
 
       onSuccess?.(ticket.ticketNumber, "Closed");
-      onClose();
+      
+      // Show CSAT modal after successful close
+      setShowCSAT(true);
     } catch (err) {
-      toast.error(err.message || "Failed to close the ticket. Please try again.", {
+      toast.error("Failed to close the ticket. Please try again.", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -45,6 +44,16 @@ const EmployeeActiveTicketsCloseTicketModal = ({ ticket, onClose, onSuccess }) =
       setIsSubmitting(false);
     }
   };
+
+  const handleCSATClose = () => {
+    setShowCSAT(false);
+    onClose();
+  };
+
+  // Show CSAT modal if ticket was closed
+  if (showCSAT) {
+    return <EmployeeCSATModal ticket={ticket} onClose={handleCSATClose} />;
+  }
 
   return (
     <ModalWrapper onClose={onClose}>

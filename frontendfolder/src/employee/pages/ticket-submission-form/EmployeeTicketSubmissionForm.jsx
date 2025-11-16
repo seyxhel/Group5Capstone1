@@ -1,10 +1,21 @@
-import { useForm } from 'react-hook-form';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { IoClose } from 'react-icons/io5';
 import LoadingButton from '../../../shared/buttons/LoadingButton';
+import Button from '../../../shared/components/Button';
 import styles from './EmployeeTicketSubmissionForm.module.css';
-import { categories, subCategories } from '../../../utilities/ticket-data/ticketStaticData';
+import coordinatorStyles from '../../../coordinator-admin/pages/account-register/CoordinatorAdminAccountRegister.module.css';
+import formActions from '../../../shared/styles/formActions.module.css';
+import FormActions from '../../../shared/components/FormActions';
+import FormCard from '../../../shared/components/FormCard';
+import { backendTicketService } from '../../../services/backend/ticketService';
+import authService from '../../../utilities/service/authService';
+import { useAuth } from '../../../context/AuthContext';
+import ITSupportForm from './ITSupportForm';
+import AssetCheckInForm, { mockAssets } from './AssetCheckInForm';
+import AssetCheckOutForm from './AssetCheckOutForm';
+import BudgetProposalForm from './BudgetProposalForm';
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -17,164 +28,474 @@ const ALLOWED_FILE_TYPES = [
   'text/csv',
 ];
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-
-const namePattern = /^[a-zA-Z.\-'\s]+$/;
-const letterPresencePattern = /[a-zA-Z]/;
+import { TICKET_CATEGORIES } from '../../../shared/constants/ticketCategories';
 
 export default function EmployeeTicketSubmissionForm() {
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm({
-    mode: 'all', // Validate onChange, onBlur, and onSubmit
-    reValidateMode: 'onChange',
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user: currentUser } = useAuth();
+  
+  const [formData, setFormData] = useState({
+    subject: '',
+    category: '',
+    subCategory: '',
+    description: '',
+    assetName: '',
+    serialNumber: '',
+    location: '',
+    expectedReturnDate: '',
+    issueType: '',
+    otherIssue: '',
+    schedule: '',
+    deviceType: '',
+    customDeviceType: '',
+    softwareAffected: '',
+    performanceStartDate: '',
+    performanceEndDate: '',
+    preparedBy: ''
   });
 
-  const navigate = useNavigate();
-  const selectedCategory = watch('category');
+  // If navigated with prefill state, populate initial fields
+  useEffect(() => {
+    if (location && location.state && location.state.prefill) {
+      const pre = location.state.prefill;
+      setFormData((prev) => ({
+        ...prev,
+        subject: pre.subject || prev.subject,
+        description: pre.description || prev.description,
+        category: pre.category || prev.category,
+      }));
+    }
+  }, [location]);
+
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [subjectLengthError, setSubjectLengthError] = useState("");
+  const [budgetItems, setBudgetItems] = useState([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
+  const [showCustomDeviceType, setShowCustomDeviceType] = useState(false);
+
+  // Determine actual category (if "Others", it's General Request)
+  const getActualCategory = () => {
+    if (formData.category === 'Others') {
+      return 'General Request';
+    }
+    return formData.category;
+  };
+
+  // Category checks
+  const actualCategory = getActualCategory();
+  const isGeneralRequest = actualCategory === 'General Request';
+  const isITSupport = formData.category === 'IT Support';
+  const isAssetCheckIn = formData.category === 'Asset Check In';
+  const isAssetCheckOut = formData.category === 'Asset Check Out';
+  const isBudgetProposal = formData.category === 'New Budget Proposal';
+  const isAnyAssetCategory = isAssetCheckIn || isAssetCheckOut;
+
+  const validateField = (field, value) => {
+    let error = '';
+    
+    switch (field) {
+      case 'subject':
+        if (!value.trim()) {
+          error = 'Subject is required';
+        } else if (value.trim().length < 5) {
+          error = 'Subject must be at least 5 characters long';
+        }
+        break;
+      
+      case 'category':
+        if (!value) {
+          error = 'Category is required';
+        }
+        break;
+      
+      case 'subCategory':
+        if ((isITSupport || isAnyAssetCategory || isBudgetProposal) && !value) {
+          error = 'Sub-Category is required';
+        }
+        break;
+      
+      case 'description':
+        if (!value.trim()) {
+          error = 'Description is required';
+        } else if (value.trim().length < 10) {
+          error = 'Description must be at least 10 characters long';
+        }
+        break;
+      
+      case 'assetName':
+        if (isAnyAssetCategory && !value) {
+          error = 'Asset Name is required';
+        }
+        break;
+      
+      case 'location':
+        if (isAnyAssetCategory && !value) {
+          error = 'Location is required';
+        }
+        break;
+      
+      case 'issueType':
+        if (isAssetCheckIn && !value) {
+          error = 'Issue Type is required';
+        }
+        break;
+
+      case 'expectedReturnDate':
+        if (isAssetCheckOut && !value) {
+          error = 'Expected Return Date is required';
+        }
+        break;
+      
+      case 'deviceType':
+        if (isITSupport && !value && !formData.customDeviceType) {
+          error = 'Device Type is required';
+        }
+        break;
+      
+      case 'customDeviceType':
+        if (isITSupport && showCustomDeviceType && !value.trim()) {
+          error = 'Custom Device Type is required';
+        }
+        break;
+      
+      case 'softwareAffected':
+        // Software affected is optional, no validation required
+        break;
+      
+      case 'performanceStartDate':
+        if (isBudgetProposal && !value) {
+          error = 'Performance Start Date is required';
+        }
+        break;
+      
+      case 'performanceEndDate':
+        if (isBudgetProposal && !value) {
+          error = 'Performance End Date is required';
+        } else if (isBudgetProposal && formData.performanceStartDate && value < formData.performanceStartDate) {
+          error = 'End Date must be after or equal to Start Date';
+        }
+        break;
+      
+      case 'preparedBy':
+        if (isBudgetProposal && !value.trim()) {
+          error = 'Prepared By is required';
+        }
+        break;
+      
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
+  const handleInputChange = (field) => (e) => {
+    const value = e.target.value;
+    
+    setFormData({
+      ...formData,
+      [field]: value
+    });
+
+    // Reset dependent fields when category changes
+    if (field === 'category') {
+      setFormData(prev => ({
+        ...prev,
+        category: value,
+        subCategory: '',
+        assetName: '',
+        serialNumber: '',
+        location: '',
+        expectedReturnDate: '',
+        issueType: '',
+        otherIssue: '',
+        deviceType: '',
+        customDeviceType: '',
+        softwareAffected: '',
+        performanceStartDate: '',
+        performanceEndDate: '',
+        preparedBy: ''
+      }));
+      setBudgetItems([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
+    }
+
+    // Reset asset name and serial number when sub-category changes
+    if (field === 'subCategory') {
+      setFormData(prev => ({
+        ...prev,
+        subCategory: value,
+        assetName: '',
+        serialNumber: ''
+      }));
+    }
+
+    // Auto-populate serial number when asset name is selected
+    if (field === 'assetName' && formData.subCategory) {
+      const selectedAsset = mockAssets[formData.subCategory]?.find(
+        asset => asset.name === value
+      );
+      if (selectedAsset) {
+        setFormData(prev => ({
+          ...prev,
+          assetName: value,
+          serialNumber: selectedAsset.serialNumber
+        }));
+      }
+    }
+
+    if (touched[field]) {
+      const fieldError = validateField(field, value);
+      setErrors({ ...errors, [field]: fieldError });
+    }
+  };
+
+  const handleBlur = (field) => () => {
+    setTouched({ ...touched, [field]: true });
+    const fieldError = validateField(field, formData[field]);
+    setErrors({ ...errors, [field]: fieldError });
+  };
 
   const handleFileChange = (e) => {
-    const newFiles = Array.from(e.target.files);
-    const validFiles = newFiles.filter(file => ALLOWED_FILE_TYPES.includes(file.type));
-    setFileError(validFiles.length !== newFiles.length
-      ? 'Only PNG, JPG, PDF, Word, Excel, and CSV files are allowed.'
-      : ''
-    );
+    const files = Array.from(e.target.files);
+    const invalidFiles = files.filter(file => !ALLOWED_FILE_TYPES.includes(file.type));
 
-    const updated = [...selectedFiles, ...validFiles];
-    setSelectedFiles(updated);
-    setValue('fileUpload', updated);
-    e.target.value = '';
+    if (invalidFiles.length > 0) {
+      setFileError('Some files have invalid types. Please upload only PNG, JPG, PDF, Word, Excel, or CSV files.');
+      return;
+    }
+
+    setFileError('');
+    setSelectedFiles([...selectedFiles, ...files]);
   };
 
   const removeFile = (index) => {
-    const updated = selectedFiles.filter((_, i) => i !== index);
-    setSelectedFiles(updated);
-    setValue('fileUpload', updated.length > 0 ? updated : null);
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
-  const refreshAccessToken = async () => {
-    const refresh = localStorage.getItem("employee_refresh_token");
-    if (!refresh) throw new Error("Session expired. Please log in again.");
-    const res = await fetch(`${API_URL}token/refresh/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
+  // Calculate total budget for Budget Proposal
+  const calculateTotalBudget = () => {
+    return budgetItems.reduce((total, item) => {
+      if (!item.estimated_cost) return total;
+      
+      const range = item.estimated_cost;
+      let maxValue = 0;
+
+      if (range === '₱1,000,001 and above') {
+        maxValue = 1000001;
+      } else {
+        const numbers = range.match(/\d+/g);
+        if (numbers && numbers.length > 1) {
+          maxValue = parseInt(numbers[1].replace(/,/g, ''));
+        }
+      }
+
+      return total + maxValue;
+    }, 0);
+  };
+
+  const validateAllFields = () => {
+    const newErrors = {};
+    const newTouched = {};
+    
+    const fieldsToValidate = ['subject', 'category', 'description'];
+    
+    // Add category-specific required fields
+    if (isITSupport || isAnyAssetCategory || isBudgetProposal) {
+      fieldsToValidate.push('subCategory');
+    }
+
+    if (isITSupport) {
+      // Device type and software affected are required for IT Support
+      fieldsToValidate.push('deviceType');
+      if (showCustomDeviceType) {
+        fieldsToValidate.push('customDeviceType');
+      }
+    }
+    
+    if (isAnyAssetCategory) {
+      fieldsToValidate.push('assetName', 'location');
+    }
+
+    if (isAssetCheckIn) {
+      fieldsToValidate.push('issueType');
+    }
+
+    if (isAssetCheckOut) {
+      fieldsToValidate.push('expectedReturnDate');
+    }
+
+    if (isBudgetProposal) {
+      fieldsToValidate.push('performanceStartDate', 'performanceEndDate', 'preparedBy');
+    }
+
+    fieldsToValidate.forEach(field => {
+      newTouched[field] = true;
+      newErrors[field] = validateField(field, formData[field]);
     });
-    if (!res.ok) throw new Error("Session expired. Please log in again.");
-    const data = await res.json();
-    localStorage.setItem("employee_access_token", data.access);
-    return data.access;
+    
+    setTouched(newTouched);
+    setErrors(newErrors);
+    
+    // Return true if no errors
+    return !Object.values(newErrors).some(error => error !== '');
   };
 
-  const onSubmit = async (data) => {
-    setSubjectLengthError("");
-    if (data.subject && data.subject.length > 70) {
-      setSubjectLengthError("Subject should be 70 characters or less.");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateAllFields()) {
+      toast.error('Please fill in all required fields correctly.');
       return;
     }
+
     setIsSubmitting(true);
 
-    const requiredFields = ['subject', 'category', 'subCategory', 'description'];
-    const isEmpty = requiredFields.some(field => !data[field]);
-
-    if (isEmpty) {
-      toast.error('Please fill out all required fields.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    const submitTicket = async (accessToken) => {
-      const formData = new FormData();
-      formData.append("subject", data.subject);
-      formData.append("category", data.category);
-      formData.append("sub_category", data.subCategory);
-      formData.append("description", data.description);
-      if (data.schedule) formData.append("scheduled_date", data.schedule);
-      (selectedFiles || []).forEach(file => {
-        formData.append("files[]", file);
-      });
-
-      const res = await fetch(`${API_URL}tickets/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      });
-      return res;
-    };
-
     try {
-      let token = localStorage.getItem("employee_access_token");
-      let res = await submitTicket(token);
+      const finalCategory = formData.category === 'Others' ? 'General Request' : formData.category;
 
-      // If token expired, try to refresh and retry once
-      if (res.status === 401) {
-        token = await refreshAccessToken();
-        res = await submitTicket(token);
+      // Create FormData to handle file uploads
+      const formDataToSend = new FormData();
+      
+      // Add basic fields
+      formDataToSend.append('subject', formData.subject);
+      formDataToSend.append('category', finalCategory);
+      formDataToSend.append('sub_category', formData.subCategory || '');
+      formDataToSend.append('description', formData.description || '');
+      // Don't set priority initially - it will be assigned by coordinator/admin
+      
+      // Add file attachments using the key expected by backend (files[])
+      selectedFiles.forEach((file) => {
+        formDataToSend.append('files[]', file);
+      });
+
+      // Add dynamic data as JSON string for category-specific fields
+      const dynamicData = {};
+
+      // Add IT Support specific data
+      if (isITSupport) {
+        dynamicData.deviceType = showCustomDeviceType ? formData.customDeviceType : formData.deviceType;
+        dynamicData.softwareAffected = formData.softwareAffected;
+        if (formData.schedule) {
+          dynamicData.scheduleRequest = {
+            date: formData.schedule,
+            time: '',
+            notes: ''
+          };
+        }
       }
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to submit ticket.");
+      // If a user provided a schedule field in the form for any category, include it so backend can persist it
+      if (formData.schedule && !dynamicData.scheduleRequest) {
+        dynamicData.scheduleRequest = { date: formData.schedule, time: '', notes: '' };
       }
 
-      const ticket = await res.json();
-      toast.success('Ticket successfully submitted.');
-      setTimeout(() => navigate(`/employee/ticket-tracker/${ticket.ticket_number || ticket.id}`), 1500);
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit a ticket. Please try again.');
+      // Add Asset category-specific data
+      if (isAnyAssetCategory) {
+        dynamicData.assetName = formData.assetName;
+        dynamicData.serialNumber = formData.serialNumber;
+        dynamicData.location = formData.location;
+      }
+
+      if (isAssetCheckOut) {
+        dynamicData.expectedReturnDate = formData.expectedReturnDate;
+      }
+
+      if (isAssetCheckIn) {
+        dynamicData.issueType = formData.issueType;
+        if (formData.issueType === 'Other') {
+          dynamicData.otherIssue = formData.otherIssue;
+        }
+      }
+
+      // Add Budget Proposal specific data
+      if (isBudgetProposal) {
+        dynamicData.items = budgetItems;
+        dynamicData.totalBudget = calculateTotalBudget();
+        dynamicData.performanceStartDate = formData.performanceStartDate;
+        dynamicData.performanceEndDate = formData.performanceEndDate;
+        dynamicData.preparedBy = formData.preparedBy;
+      }
+
+      // Add dynamic data as JSON string
+      if (Object.keys(dynamicData).length > 0) {
+        formDataToSend.append('dynamic_data', JSON.stringify(dynamicData));
+      }
+
+      console.log('Submitting ticket with FormData:', {
+        subject: formData.subject,
+        category: finalCategory,
+        subCategory: formData.subCategory,
+        files: selectedFiles.length,
+        dynamicData
+      });
+
+      // Submit to backend
+      const newTicket = await backendTicketService.createTicket(formDataToSend);
+
+      console.log('Ticket created successfully:', newTicket);
+      toast.success('Ticket submitted successfully!');
+      resetForm();
+      
+      // Navigate to ticket tracker using the ticket number from response
+      const ticketNumber = newTicket.ticket_number || newTicket.ticketNumber || newTicket.id;
+      setTimeout(() => navigate(`/employee/ticket-tracker/${ticketNumber}`, { state: { from: 'Home' } }), 1500);
+    } catch (error) {
+      console.error('Error submitting ticket:', error);
+      toast.error(error.message || 'Failed to submit ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      subject: '',
+      category: '',
+      subCategory: '',
+      description: '',
+      assetName: '',
+      serialNumber: '',
+      location: '',
+      expectedReturnDate: '',
+      issueType: '',
+      otherIssue: '',
+      schedule: '',
+      deviceType: '',
+      customDeviceType: '',
+      softwareAffected: '',
+      performanceStartDate: '',
+      performanceEndDate: '',
+      preparedBy: ''
+    });
+    setErrors({});
+    setTouched({});
+    setSelectedFiles([]);
+    setFileError('');
+    setBudgetItems([{ cost_element: '', estimated_cost: '', description: '', account: 2 }]);
+    setShowCustomDeviceType(false);
+  };
+
   return (
     <main className={styles.registration}>
-      <section className={styles.registrationForm}>
-        <form onSubmit={handleSubmit(onSubmit)} autoComplete='off'>
+      <section>
+  <FormCard>
+          <form onSubmit={handleSubmit}>
+          {/* Main Form Fields */}
           <FormField
             id="subject"
             label="Subject"
             required
-            autoComplete="off"
-            error={errors.subject || (subjectLengthError ? { message: subjectLengthError } : undefined)}
+            error={errors.subject}
             render={() => (
               <input
                 type="text"
                 placeholder="Enter ticket subject"
-                maxLength={70}
-                {...register('subject', {
-                  required: 'Subject is required.',
-                  validate: value => {
-                    if (!value.trim()) return 'Subject is required.';
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
-                      return 'Only English letters, numbers, and common punctuation are allowed.';
-                    if (!/[a-zA-Z]/.test(value))
-                      return 'Subject must contain letter.';
-                    return true;
-                  },
-                })}
-                onInput={e => {
-                  // Remove disallowed characters and trim to 70 chars
-                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  if (filtered.length > 70) filtered = filtered.slice(0, 70);
-                  e.target.value = filtered;
-                }}
-                onPaste={e => {
-                  e.preventDefault();
-                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  filtered = filtered.slice(0, 70 - e.target.value.length);
-                  document.execCommand('insertText', false, filtered);
-                }}
+                value={formData.subject}
+                onChange={handleInputChange('subject')}
+                onBlur={handleBlur('subject')}
               />
             )}
           />
@@ -185,34 +506,66 @@ export default function EmployeeTicketSubmissionForm() {
             required
             error={errors.category}
             render={() => (
-              <select {...register('category', { required: 'Category is required.' })}>
+              <select
+                value={formData.category}
+                onChange={handleInputChange('category')}
+                onBlur={handleBlur('category')}
+              >
                 <option value="">Select Category</option>
-                {categories.map(cat => (
+                {TICKET_CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             )}
           />
 
-          <FormField
-            id="subCategory"
-            label="Sub-Category"
-            required
-            error={errors.subCategory}
-            render={() => (
-              <select
-                disabled={!selectedCategory}
-                {...register('subCategory', { required: 'Sub-Category is required.' })}
-              >
-                <option value="">Select Sub-Category</option>
-                {selectedCategory &&
-                  subCategories[selectedCategory]?.map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-              </select>
-            )}
-          />
+          {/* Sub-Category for IT Support */}
+          {isITSupport && (
+            <ITSupportForm
+              formData={formData}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              errors={errors}
+              FormField={FormField}
+            />
+          )}
 
+          {/* Asset Check In Form */}
+          {isAssetCheckIn && (
+            <AssetCheckInForm
+              formData={formData}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              errors={errors}
+              FormField={FormField}
+            />
+          )}
+
+          {/* Asset Check Out Form */}
+          {isAssetCheckOut && (
+            <AssetCheckOutForm
+              formData={formData}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              errors={errors}
+              FormField={FormField}
+            />
+          )}
+
+          {/* Budget Proposal Form */}
+          {isBudgetProposal && (
+            <BudgetProposalForm
+              formData={formData}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              errors={errors}
+              FormField={FormField}
+              budgetItems={budgetItems}
+              setBudgetItems={setBudgetItems}
+            />
+          )}
+
+          {/* Description */}
           <FormField
             id="description"
             label="Description"
@@ -222,36 +575,14 @@ export default function EmployeeTicketSubmissionForm() {
               <textarea
                 rows={5}
                 placeholder="Provide a detailed description..."
-                maxLength={500}
-                {...register('description', {
-                  required: 'Description is required.',
-                  validate: value => {
-                    if (!value.trim()) return 'Description is required.';
-                    if (!/^[a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]*$/.test(value))
-                      return 'Only English letters, numbers, and common punctuation are allowed.';
-                    if (!/[a-zA-Z]/.test(value))
-                      return 'Description must contain letter.';
-                    return true;
-                  },
-                })}
-                onInput={e => {
-                  // Remove disallowed characters and trim to 500 chars
-                  let filtered = e.target.value.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  if (filtered.length > 500) filtered = filtered.slice(0, 500);
-                  e.target.value = filtered;
-                }}
-                onPaste={e => {
-                  e.preventDefault();
-                  let pasted = (e.clipboardData || window.clipboardData).getData('text');
-                  let filtered = pasted.replace(/[^a-zA-Z0-9\s.,?!'"()\-\_:;@#$/\\&%*+=<>[\]{}|`~^]/g, '');
-                  filtered = filtered.slice(0, 500 - e.target.value.length);
-                  document.execCommand('insertText', false, filtered);
-                }}
+                value={formData.description}
+                onChange={handleInputChange('description')}
+                onBlur={handleBlur('description')}
               />
             )}
           />
 
-          {/* File Upload */}
+          {/* File Upload - Available for All Categories */}
           <fieldset>
             <label htmlFor="fileUpload">File Upload (PNG, JPG, PDF, Word, Excel, & CSV)</label>
             <div className={styles.fileUploadWrapper}>
@@ -260,13 +591,22 @@ export default function EmployeeTicketSubmissionForm() {
                 id="fileUpload"
                 multiple
                 accept={ALLOWED_FILE_TYPES.join(',')}
-                {...register('fileUpload')}
                 onChange={handleFileChange}
                 hidden
+                ref={(input) => {
+                  if (input) {
+                    input.clickHandler = () => input.click();
+                  }
+                }}
               />
-              <label htmlFor="fileUpload" className={styles.uploadFileBtn}>
+              <Button
+                variant="secondary"
+                size="small"
+                className={styles.uploadFileBtn}
+                onClick={() => document.getElementById('fileUpload').click()}
+              >
                 {selectedFiles.length > 0 ? 'Add More Files' : 'Choose Files'}
-              </label>
+              </Button>
               {fileError && <span className={styles.errorMessage}>{fileError}</span>}
 
               {selectedFiles.length > 0 && (
@@ -278,8 +618,9 @@ export default function EmployeeTicketSubmissionForm() {
                         type="button"
                         className={styles.removeFileBtn}
                         onClick={() => removeFile(index)}
+                        aria-label="Remove file"
                       >
-                        ✕
+                        <IoClose />
                       </button>
                     </div>
                   ))}
@@ -288,29 +629,29 @@ export default function EmployeeTicketSubmissionForm() {
             </div>
           </fieldset>
 
+          {/* Schedule Request - Available for All Categories */}
           <FormField
             id="schedule"
-            label="Schedule Request"
-            render={() => {
-              const today = new Date();
-              const localDate = today.getFullYear() + '-' +
-                String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                String(today.getDate()).padStart(2, '0');
-              return (
-                <input
-                  type="date"
-                  min={localDate}
-                  {...register('schedule')}
-                />
-              );
-            }}
+            label="Scheduled Request"
+            render={() => (
+              <input
+                type="date"
+                value={formData.schedule || ''}
+                onChange={handleInputChange('schedule')}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            )}
           />
 
-          <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-            {isSubmitting && <LoadingButton />}
-            {isSubmitting ? 'Submitting...' : 'Submit Ticket'}
-          </button>
-        </form>
+          <FormActions
+            onCancel={() => navigate(-1)}
+            cancelLabel="Cancel"
+            submitLabel={isSubmitting ? 'Submitting...' : 'Submit Ticket'}
+            submitDisabled={isSubmitting}
+            submitVariant="primary"
+          />
+          </form>
+        </FormCard>
       </section>
     </main>
   );
@@ -324,7 +665,7 @@ function FormField({ id, label, required = false, error, render }) {
         {required && <span className={styles.required}>*</span>}
       </label>
       {render()}
-      {error && <span className={styles.errorMessage}>{error.message}</span>}
+      {error && <span className={styles.errorMessage}>{error}</span>}
     </fieldset>
   );
 }

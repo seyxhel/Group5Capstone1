@@ -1,12 +1,10 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import authService from "../../../utilities/service/authService";
+import { useAuth } from '../../../context/AuthContext';
 import Alert from "../../../shared/alert/Alert";
 import LoadingButton from "../../../shared/buttons/LoadingButton";
-
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Logo from "../../../shared/assets/MapLogo.png";
@@ -16,6 +14,7 @@ import "./SmartSupportLogIn.css";
 
 const SmartSupportLogIn = () => {
   const navigate = useNavigate();
+  const { login, user, isAdmin, hasSystemAccess } = useAuth();
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [isShowPassword, setShowPassword] = useState(false);
@@ -29,76 +28,47 @@ const SmartSupportLogIn = () => {
 
   const password = watch("password", "");
 
+  const location = useLocation();
+
+  // Redirect based on role after successful login
+  useEffect(() => {
+    if (user && hasSystemAccess) {
+      if (isAdmin) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/employee/home');
+      }
+    }
+  }, [user, hasSystemAccess, isAdmin, navigate]);
+
   const handleLogin = async ({ email, password }) => {
     setSubmitting(true);
     setErrorMessage("");
 
-    let tokenData = null;
-    let loginType = null;
-
     try {
-      // Pass API_URL to loginEmployee
-      tokenData = await authService.loginEmployee(email, password, API_URL);
-      loginType = "employee";
-    } catch (err) {
-      try {
-        // Pass API_URL to loginAdmin
-        tokenData = await authService.loginAdmin(email, password, API_URL);
-        loginType = "admin";
-      } catch (err2) {
-        setErrorMessage("Invalid credentials.");
-        setSubmitting(false);
+      // Use AuthContext login (cookie-based auth via port 8003)
+      const result = await login(email, password);
+
+      if (!result.success) {
+        setErrorMessage(result.error || "Invalid credentials.");
         return;
       }
-    }
 
-    // Use tokenData fields directly
-    const status = tokenData.status || "Approved"; // Default to Approved if not present
-
-    if (["pending", "denied"].includes(status.toLowerCase())) {
-      setErrorMessage("Your account is not approved yet. Please contact your administrator.");
-      setSubmitting(false);
-      return;
-    }
-
-    // Store tokens with different keys
-    if (loginType === "admin") {
-      localStorage.setItem("admin_access_token", tokenData.access);
-      localStorage.setItem("admin_refresh_token", tokenData.refresh);
-      localStorage.setItem("user_role", tokenData.role);
-      navigate("admin/dashboard");
-    } else {
-      localStorage.setItem("employee_access_token", tokenData.access);
-      localStorage.setItem("employee_refresh_token", tokenData.refresh);
-      localStorage.setItem("user_role", tokenData.role);
-      // Store first name and last name
-      localStorage.setItem("employee_first_name", tokenData.first_name || "");
-      localStorage.setItem("employee_last_name", tokenData.last_name || "");
-      
-      // Fetch profile to get secure image URL
+      // After a successful login, AuthContext will fetch the user profile
+      // (cookie-based). We simply notify the app and allow the `useEffect`
+      // above to redirect based on the fetched profile.
       try {
-        const profileRes = await fetch(`${API_URL}employee/profile/`, {
-          headers: { Authorization: `Bearer ${tokenData.access}` },
-        });
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          localStorage.setItem("employee_image", profileData.image || "");
-          
-          // Clean up any pending employee image data from registration
-          localStorage.removeItem("pending_employee_image");
-          localStorage.removeItem("pending_employee_email");
-        } else {
-          localStorage.setItem("employee_image", tokenData.image || "");
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-        localStorage.setItem("employee_image", tokenData.image || "");
+        window.dispatchEvent(new CustomEvent('auth:login'));
+        console.log('[SmartSupportLogIn] Dispatched auth:login event');
+      } catch (e) {
+        console.warn('[SmartSupportLogIn] Failed to dispatch auth:login', e);
       }
-      
-      navigate("/employee/home");
+    } catch (err) {
+      console.error("Login error:", err);
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
   };
 
   useEffect(() => {
@@ -107,6 +77,17 @@ const SmartSupportLogIn = () => {
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
+
+  // If user was redirected here immediately after clicking logout, show a
+  // brief loading state so the UI reflects that logout happened and the app
+  // is returning to the login screen.
+  useEffect(() => {
+    if (location?.state?.fromLogout) {
+      setSubmitting(true);
+      const t = setTimeout(() => setSubmitting(false), 900);
+      return () => clearTimeout(t);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (!password) setShowPassword(false);
@@ -156,7 +137,7 @@ const SmartSupportLogIn = () => {
                 <input
                   type={isShowPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  autoComplete="new-password" // Prevent browser autofill
+                  autoComplete="off"
                   {...register("password", { required: true })}
                 />
                 {password && (
@@ -164,7 +145,7 @@ const SmartSupportLogIn = () => {
                     className="show-password"
                     onClick={() => setShowPassword((prev) => !prev)}
                   >
-                    {isShowPassword ? <FaEye /> : <FaEyeSlash />}
+                    {isShowPassword ? <FaEyeSlash /> : <FaEye />}
                   </span>
                 )}
               </div>
@@ -179,12 +160,14 @@ const SmartSupportLogIn = () => {
           <a onClick={() => navigate("/forgot-password")}>Forgot Password?</a>
 
           <p>
-            Don’t have an account as an Employee?{" "}
+            Don't have an account as an Employee?{" "}
             <span className="create-account-link" onClick={() => navigate("/create-account")}>
               Create account
             </span>
           </p>
         </section>
+
+        <div className="version-info">Version 1.0.0 &copy; 2025 SmartSupport</div>
       </main>
     </>
   );

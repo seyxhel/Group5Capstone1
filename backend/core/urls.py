@@ -4,38 +4,33 @@ from .views import (
     EmployeeTokenObtainPairView,
     AdminTokenObtainPairView,
     TicketViewSet,
+    KnowledgeArticleViewSet,
     CreateAdminEmployeeView,
     employee_profile_view,
     approve_ticket,
     reject_ticket,
     get_ticket_detail,
+    add_ticket_comment,
+    get_ticket_by_number,
+    get_user_activity_logs,
     get_new_tickets,
     claim_ticket,
     update_ticket_status,
+    withdraw_ticket,
     get_open_tickets,
     get_my_tickets,
     create_employee_admin_view,
     custom_api_root,  # <-- add this import
     change_password,
     upload_profile_image,
+    verify_password,
     list_employees,
+    get_employee,
     approve_employee,
+    deny_employee,
     finalize_ticket,  # <-- add this import
-    reject_employee,  # <-- add this import
-    withdraw_ticket,  # <-- add this import
-    close_ticket,  # <-- add this import
-    reset_password,
-    forgot_password,  # <-- add this import
-    check_password,  # <-- add this
-    rejected_employee_audit_list,  # <-- add this import
-    test_endpoint,  # Add test endpoint
-    debug_create_employee,  # Add debug endpoint
-    test_email,  # Add email test endpoint
-    test_simple_email,  # Add simple email test endpoint
-    rejected_users_count,  # <-- add this import
-    download_attachment,  # <-- add secure download endpoint
+    serve_protected_media,
 )
-from .secure_media import secure_attachment_download
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from .serializers import TicketSerializer
@@ -43,14 +38,10 @@ from .tasks import push_ticket_to_workflow
 
 router = DefaultRouter()
 router.register(r'tickets', TicketViewSet, basename='ticket')
+router.register(r'articles', KnowledgeArticleViewSet, basename='article')
 
 urlpatterns = [
     path('', custom_api_root, name='api-root'),  # <-- put this FIRST
-    path('test/', test_endpoint, name='test_endpoint'),  # Add test endpoint
-    path('debug-create/', debug_create_employee, name='debug_create_employee'),  # Add debug endpoint
-    path('test-email/', test_email, name='test_email'),  # Add email config test endpoint
-    path('test-simple-email/', test_simple_email, name='test_simple_email'),  # Add simple email test endpoint
-    path('admin/rejected-users-count/', rejected_users_count, name='rejected_users_count'),  # Dashboard rejected users count
     # Custom endpoints (must come before router)
     path('create_employee/', CreateEmployeeView.as_view(), name='create_employee'),
     path("admin/create-employee/", CreateAdminEmployeeView.as_view(), name="admin-create-employee"),
@@ -60,30 +51,30 @@ urlpatterns = [
     path('employee/profile/', employee_profile_view, name='employee_profile'),
     path('employee/change-password/', change_password, name='change_password'),
     path('employee/upload-image/', upload_profile_image, name='upload_profile_image'),
+    path('employee/verify-password/', verify_password, name='verify_password'),
     path('employees/', list_employees, name='list_employees'),
     path('employees/<int:pk>/approve/', approve_employee, name='approve_employee'),
-    path('employees/<int:pk>/reject/', reject_employee, name='reject_employee'),  # <-- add this line
-    path('employee/reset-password/', reset_password, name='reset_password'),
-    path('employee/forgot-password/', forgot_password, name='forgot_password'),  # <-- add this line
-    path('employee/check-password/', check_password, name='check_password'),  # <-- add this
+    path('employees/<int:pk>/deny/', deny_employee, name='deny_employee'),
+    # Single employee retrieve (GET)
+    path('employees/<int:pk>/', get_employee, name='get_employee'),
 
     path('tickets/<int:ticket_id>/', get_ticket_detail, name='get_ticket_detail'),
+    path('tickets/number/<str:ticket_number>/', get_ticket_by_number, name='get_ticket_by_number'),
+    path('tickets/<int:ticket_id>/comments/', add_ticket_comment, name='add_ticket_comment'),
     path('tickets/<int:ticket_id>/approve/', approve_ticket, name='approve_ticket'),
     path('tickets/<int:ticket_id>/reject/', reject_ticket, name='reject_ticket'),
     path('tickets/<int:ticket_id>/claim/', claim_ticket, name='claim_ticket'),
     path('tickets/<int:ticket_id>/update-status/', update_ticket_status, name='update_ticket_status'),
+    path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
     path('tickets/new/', get_new_tickets, name='get_new_tickets'),
     path('tickets/open/', get_open_tickets, name='get_open_tickets'),
     path('tickets/my-tickets/', get_my_tickets, name='get_my_tickets'),
     path('tickets/<int:ticket_id>/finalize/', finalize_ticket, name='finalize_ticket'),  # <-- add this line
-    path('tickets/<int:ticket_id>/withdraw/', withdraw_ticket, name='withdraw_ticket'),
-    path('tickets/<int:ticket_id>/close/', close_ticket, name='close_ticket'),  # <-- add this line
-    
-    # Secure media download
-    path('attachments/<int:attachment_id>/download/', download_attachment, name='download_attachment'),
+    # Activity logs for user profile
+    path('activity-logs/user/<int:user_id>/', get_user_activity_logs, name='get_user_activity_logs'),
 
-    # New endpoint for rejected employee audit list
-    path('rejected-employees/', rejected_employee_audit_list, name='rejected-employee-audit-list'),
+    # Protected media files - require authentication
+    path('media/<path:file_path>', serve_protected_media, name='serve_protected_media'),
 
     # DRF router (should be last, and at the root for browsable API)
     path('', include(router.urls)),  # keep this LAST
