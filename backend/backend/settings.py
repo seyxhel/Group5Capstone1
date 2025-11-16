@@ -28,8 +28,12 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-auth-service-secret-key-h
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-# Allow configuring allowed hosts via environment variable (comma-separated)
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+# Allow configuring allowed hosts via environment variable (comma-separated).
+# Default to '*' in production so requests to the deployed domain don't raise
+# DisallowedHost/Bad Request when no env var is provided. For security, set
+# the `ALLOWED_HOSTS` env var in production to a comma-separated list of
+# trusted hostnames instead of relying on the wildcard.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
 
 # Application definition
