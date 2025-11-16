@@ -234,9 +234,25 @@ AUTH_USER_MODEL = 'core.Employee'
 USERNAME_FIELD = 'email'
 
 # Celery
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-]
+# Configure CSRF trusted origins. In production you must include your
+# frontend and backend (scheme+host) here so Django accepts secure POSTs.
+# Provide a comma-separated list via env var `CSRF_TRUSTED_ORIGINS`.
+default_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,https://smartsupport-hdts-backend.up.railway.app')
+CSRF_TRUSTED_ORIGINS = [u.strip() for u in default_csrf.split(',') if u.strip()]
+
+# Cookie security settings: enable secure cookies in non-debug (production)
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+
+# Adjust SameSite for CSRF cookie depending on whether credentials are allowed
+# and whether we're in production. If you allow cross-site credentials,
+# browsers require SameSite=None and Secure on cookies.
+if CORS_ALLOW_CREDENTIALS and not DEBUG:
+    CSRF_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SAMESITE = 'None'
+else:
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SAMESITE = 'Lax'
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://admin:admin@localhost:5672/')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'rpc://')
 CELERY_ACCEPT_CONTENT = ['json']
