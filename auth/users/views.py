@@ -1263,6 +1263,29 @@ def agent_management_view(request):
 
 
 
+@api_view(['GET'])
+@permission_classes([IsSystemAdminOrSuperUser])
+def get_user_by_company_id(request, company_id: str):
+    """
+    Lookup a user by their company_id for administrative UIs.
+    Only system admins (for the relevant system) or superusers may retrieve this.
+    """
+    try:
+        user = User.objects.get(company_id=company_id)
+    except User.DoesNotExist:
+        return Response({'detail': 'User not found'}, status=404)
+
+    # If requester is not superuser, ensure they have system access to the target user
+    if not request.user.is_superuser:
+        qs = filter_users_by_system_access(User.objects.filter(pk=user.pk), request.user)
+        if not qs.exists():
+            return Response({'detail': 'User not found or access denied'}, status=404)
+
+    serializer = UserProfileSerializer(user, context={'request': request})
+    return Response(serializer.data)
+
+
+
 
 
 @method_decorator([csrf_protect, never_cache], name='dispatch')

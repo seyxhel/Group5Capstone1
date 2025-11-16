@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pie, Line } from 'react-chartjs-2';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
@@ -6,6 +6,7 @@ import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import styles from './CoordinatorAdminDashboard.module.css';
 import authService from '../../../utilities/service/authService';
+import { backendUserService } from '../../../services/backend/userService.js';
 
 const userPaths = [
   { label: "All Users", path: "/admin/user-access/all-users" },
@@ -39,14 +40,38 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
   );
 };
 
-const DataTable = ({ title, headers, data }) => (
+const DataTable = ({ title, headers, data, maxVisibleRows, loading }) => (
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
     </div>
 
-    <div className={tableStyles.tableOverflow}>
-      {data.length > 0 ? (
+    <div
+      className={`${tableStyles.tableOverflow} ${maxVisibleRows ? tableStyles.scrollableRows : ''}`}
+      style={ maxVisibleRows ? { ['--visible-rows']: maxVisibleRows } : {} }
+    >
+      {loading ? (
+        <table className={tableStyles.table}>
+          <thead className={tableStyles.tableHead}>
+            <tr>
+              {headers.map((header, idx) => (
+                <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: maxVisibleRows || 5 }).map((_, i) => (
+              <tr key={i} className={tableStyles.tableRow}>
+                {headers.map((h, j) => (
+                  <td key={j} className={tableStyles.tableCell}>
+                    <div style={{ background: '#f3f4f6', height: 16, borderRadius: 4, width: j === 0 ? '60%' : '90%' }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : data.length > 0 ? (
         <table className={tableStyles.table}>
           <thead className={tableStyles.tableHead}>
             <tr>
@@ -267,48 +292,170 @@ const UsersTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
 
+  const [users, setUsers] = useState([]); // currently displayed users (pending hdts employees)
+  const [rawUsers, setRawUsers] = useState([]); // all users from auth service
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState(null);
+
+  // Helpers to read common fields across API shapes
+  const getUserCompanyId = (u) => u.companyId || u.company_id || u.companyID || u.company || '';
+  const getUserFirstName = (u) => u.firstName || u.first_name || u.first_name || u.first || '';
+  const getUserLastName = (u) => u.lastName || u.last_name || u.last_name || u.last || '';
+  const getUserDepartment = (u) => u.department || u.dept || u.department_name || '';
+  const getUserRole = (u) => u.role || (u.system_roles && u.system_roles[0] && u.system_roles[0].role_name) || u.user_role || '';
+  const getUserStatus = (u) => (u.status || u.account_status || u.state || '').toString();
+  const getUserJoinedDate = (u) => (u.date_joined || u.dateJoined || u.created_at || u.created || null);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingUsers(true);
+
+    // Try fetching pending HDTS users and all HDTS users (for pie) in parallel
+    Promise.allSettled([
+      backendUserService.getPendingHdtsUsers(),
+      backendUserService.getAllHdtsUsers()
+    ]).then((results) => {
+      if (!mounted) return;
+      const [pendingRes, allHdtsRes] = results;
+
+      // normalize pending users
+      let pendingRaw = [];
+      if (pendingRes.status === 'fulfilled') {
+        const pr = pendingRes.value;
+        pendingRaw = Array.isArray(pr) ? pr : (pr.users || pr.results || []);
+      }
+
+      // normalize hdts users (for pie)
+      let hdtsRaw = [];
+      if (allHdtsRes.status === 'fulfilled') {
+        const ar = allHdtsRes.value;
+        hdtsRaw = Array.isArray(ar) ? ar : (ar.users || ar.results || []);
+      }
+
+      const mapUser = (o) => ({
+        ...o,
+        companyId: getUserCompanyId(o),
+        firstName: getUserFirstName(o),
+        lastName: getUserLastName(o),
+        department: getUserDepartment(o),
+        role: getUserRole(o),
+        status: getUserStatus(o),
+        date_joined: getUserJoinedDate(o),
+      });
+
+      const mappedPending = pendingRaw.map(mapUser);
+      const mappedHdts = hdtsRaw.map(mapUser);
+
+      // apply visibility filter for Ticket Coordinators
+      let visible = mappedPending;
+      if (currentUser) {
+        if (currentUser.role === 'Ticket Coordinator') {
+          visible = mappedPending.filter((m) => m.department === currentUser.department);
+        }
+      }
+
+      setUsers(visible);
+      setRawUsers(mappedHdts);
+      setLoadingUsers(false);
+    }).catch((e) => {
+      console.error('Failed to load users (fallback):', e);
+      if (mounted) {
+        setUsers([]);
+        setUsersError(e);
+        setLoadingUsers(false);
+      }
+    });
+
+    return () => { mounted = false; };
+  }, [currentUser]);
+
+  // Derived UI data
+  // Compute counts from HDTS users fetched (rawUsers contains HDTS users mapped)
+  const hdtsUsers = rawUsers || [];
+
+  const isEmployeeInHdts = (u) => {
+    const roles = Array.isArray(u.system_roles) ? u.system_roles : (u.system_roles ? [u.system_roles] : []);
+    return roles.some(r => ((r.system_slug || r.system_name || '').toString().toLowerCase() === 'hdts') && ((r.role_name || r.role || '').toString().toLowerCase() === 'employee'));
+  };
+
+  const getStatusLower = (u) => (getUserStatus(u) || '').toString().toLowerCase();
+
+  const inactiveCount = hdtsUsers.filter(u => (u.is_active === false || u.is_active === 0 || u.is_active === '0')).length;
+
+  const pendingCount = hdtsUsers.filter(u => isEmployeeInHdts(u) && getStatusLower(u) === 'pending').length;
+  const rejectedCount = hdtsUsers.filter(u => isEmployeeInHdts(u) && /reject|rejected/i.test(getStatusLower(u))).length;
+
+  // Active Users = all HDTS users (admins, coordinators, etc.) except employees who are pending or rejected, and exclude inactive accounts.
+  const activeCount = hdtsUsers.filter(u => {
+    if (u.is_active === false || u.is_active === 0 || u.is_active === '0') return false; // inactive excluded
+    const isEmployee = isEmployeeInHdts(u);
+    const st = getStatusLower(u);
+    if (isEmployee && (st === 'pending' || /reject|rejected/.test(st))) return false; // exclude employee pending/rejected
+    return true; // include admins, coordinators regardless of status, and employees who are not pending/rejected
+  }).length;
+
   const userData = {
     stats: [
-      "Pending Users"
+      'Pending Users'
     ].map((label, i) => ({
       label,
-      count: 5,
+      count: pendingCount,
       isHighlight: false,
       position: i,
       path: userPaths.find(p => p.label === label)?.path
     })),
-    tableData: [
-      {
-        companyId: 'MAP0001',
-        lastName: 'Park',
-        firstName: 'Sunghoon',
-        department: 'Finance Department',
-        role: 'Accountant',
-        status: { text: 'Pending', statusClass: 'statusPending' }
-      }
-    ],
+    tableData: users.map(u => ({
+      companyId: u.companyId || '',
+      lastName: u.lastName || '',
+      firstName: u.firstName || '',
+      department: u.department || '',
+      role: u.role || '',
+      status: { text: (u.status || '').toString(), statusClass: (
+        (/pending/i.test(u.status) ? 'statusPending' : (/approved|active/i.test(u.status) ? 'statusApproved' : (/reject|rejected/i.test(u.status) ? 'statusRejected' : (/inactive/i.test(u.status) ? 'statusInactive' : 'statusApproved'))))
+      ) }
+    })),
     pieData: [
-      { name: 'Active Users', value: 120, fill: '#22C55E' },
-      { name: 'Pending', value: 15, fill: '#FBBF24' },
-      { name: 'Rejected', value: 8, fill: '#EF4444' },
-      { name: 'Inactive', value: 5, fill: '#9CA3AF' }
+      { name: 'Active Users', value: activeCount, fill: '#22C55E' },
+      { name: 'Pending', value: pendingCount, fill: '#FBBF24' },
+      { name: 'Rejected', value: rejectedCount, fill: '#EF4444' },
+      { name: 'Inactive', value: inactiveCount, fill: '#9CA3AF' }
     ],
-    lineData: [
-      { month: 'Jan', dataset1: 12, dataset2: 8 },
-      { month: 'Feb', dataset1: 18, dataset2: 15 },
-      { month: 'Mar', dataset1: 22, dataset2: 18 },
-      { month: 'Apr', dataset1: 28, dataset2: 25 },
-      { month: 'May', dataset1: 35, dataset2: 30 },
-      { month: 'Jun', dataset1: 40, dataset2: 38 }
-    ]
+    lineData: (function buildLineData() {
+      // Simple monthly buckets for the last 6 months as fallback
+      const now = new Date();
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleString('default', { month: 'short' });
+        months.push({ label, start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 1) });
+      }
+
+      return months.map(m => {
+        const inBucket = users.filter(u => {
+          const dj = getUserJoinedDate(u);
+          if (!dj) return false;
+          const d = new Date(dj);
+          return d >= m.start && d < m.end;
+        });
+        const activeInBucket = inBucket.filter(u => /approved|active/i.test(getUserStatus(u))).length;
+        return { month: m.label, dataset1: inBucket.length, dataset2: activeInBucket };
+      });
+    })()
   };
 
-  const userActivityTimeline = [
-    { time: "09:15 AM", action: "User MAP0002 account created", type: "user" },
-    { time: "10:45 AM", action: "User MAP0003 account rejected", type: "user" },
-    { time: "01:20 PM", action: "User MAP0004 approved by Admin", type: "user" },
-    { time: "03:05 PM", action: "User MAP0005 role updated", type: "user" },
-  ];
+  const userActivityTimeline = users
+    .slice() // copy
+    .sort((a, b) => new Date(getUserJoinedDate(b) || 0) - new Date(getUserJoinedDate(a) || 0))
+    .slice(0, 4)
+    .map(u => {
+      const time = (() => {
+        const dj = getUserJoinedDate(u);
+        if (!dj) return '';
+        const d = new Date(dj);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      })();
+      return { time, action: `User ${u.companyId || ''} account created`, type: 'user' };
+    });
 
   return (
     <>
@@ -326,6 +473,8 @@ const UsersTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
         title="User Approval"
         headers={['Company ID', 'Last Name', 'First Name', 'Department', 'Role', 'Status']}
         data={userData.tableData}
+        maxVisibleRows={5}
+        loading={loadingUsers}
       />
 
       <div style={{ position: 'relative', marginTop: 12 }}>

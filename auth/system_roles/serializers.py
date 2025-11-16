@@ -4,6 +4,8 @@ from users.models import User
 from roles.models import Role
 from systems.models import System
 from django.utils.crypto import get_random_string
+from django.utils import timezone
+from users.models import SUFFIX_CHOICES as USER_SUFFIX_CHOICES
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -179,16 +181,9 @@ class AdminInviteUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True)
     middle_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
+    # Use centralized suffix choices from the User model, allow an explicit 'None' option
     suffix = serializers.ChoiceField(
-        choices=[
-            ('', 'None'),
-            ('Jr.', 'Jr.'),
-            ('Sr.', 'Sr.'),
-            ('II', 'II'),
-            ('III', 'III'),
-            ('IV', 'IV'),
-            ('V', 'V'),
-        ],
+        choices=[('', 'None')] + USER_SUFFIX_CHOICES,
         required=False,
         allow_null=True,
         allow_blank=True
@@ -227,6 +222,13 @@ class AdminInviteUserSerializer(serializers.Serializer):
         ]
 
     def validate_role_id(self, value):
+        # Allow special token to request HDTS Admin role when frontend cannot fetch role ids
+        if isinstance(value, str) and value == 'admin_hdts':
+            try:
+                return Role.objects.select_related('system').get(name='Admin', system__slug='hdts')
+            except Role.DoesNotExist:
+                raise serializers.ValidationError("Requested HDTS Admin role not available on server.")
+
         try:
             role = Role.objects.select_related('system').get(id=value)
         except Role.DoesNotExist:
@@ -244,7 +246,19 @@ class AdminInviteUserSerializer(serializers.Serializer):
             temp_password = None
         except User.DoesNotExist:
             # Create new user using the custom manager to ensure company_id is auto-generated
-            temp_password = get_random_string(length=10)
+            # Use requested default password
+            temp_password = 'password123'
+
+            # Map a frontend "System Admin" semantic role to the HDTS Admin role if requested
+            effective_role = role
+            try:
+                if role.name and str(role.name).strip().lower() in ['system admin', 'system_admin', 'system-admin']:
+                    # Find the HDTS Admin role
+                    effective_role = Role.objects.select_related('system').get(name='Admin', system__slug='hdts')
+            except Role.DoesNotExist:
+                # If mapping fails, fallback to the originally selected role
+                effective_role = role
+
             user = User.objects.create_user(
                 email=email,
                 password=temp_password,
@@ -256,28 +270,53 @@ class AdminInviteUserSerializer(serializers.Serializer):
                 phone_number=validated_data.get('phone_number', None),
                 department=validated_data.get('department', None),
                 is_active=True,
+                status='Approved',
             )
             created = True
-            
+
+            # Mark approval metadata
+            try:
+                user.approved_at = timezone.now()
+                req = self.context.get('request')
+                user.approved_by = req.user if getattr(req, 'user', None) else None
+                user.save(update_fields=['approved_at', 'approved_by', 'status'])
+            except Exception:
+                pass
+
             # Send invitation email with temporary password
             send_invitation_email(
                 user=user,
                 temp_password=temp_password,
-                system_name=role.system.name,
-                role_name=role.name
+                system_name=(effective_role.system.name if effective_role and effective_role.system else (role.system.name if role and role.system else '')), 
+                role_name=(effective_role.name if effective_role else role.name)
             )
 
         # Assign role and system
-        usr_role, _ = UserSystemRole.objects.get_or_create(
-            user=user,
-            system=role.system,
-            role=role
-        )
+        # Use effective_role if we remapped earlier, otherwise the validated role
+        assigned_role = None
+        try:
+            assigned_system = getattr(role, 'system', None)
+            # If we remapped, effective_role may be set in the scope above; prefer it
+            effective = locals().get('effective_role', role)
+            assigned_role, _ = UserSystemRole.objects.get_or_create(
+                user=user,
+                system=effective.system,
+                role=effective
+            )
+        except Exception:
+            # Fallback to original role assignment
+            assigned_role, _ = UserSystemRole.objects.get_or_create(
+                user=user,
+                system=role.system,
+                role=role
+            )
 
         return {
             "user": user,
             "temporary_password": temp_password,
-            "assigned_role": usr_role,
+            "assigned_role": assigned_role,
+            "company_id": user.company_id,
+            "status": user.status,
         }
 
 

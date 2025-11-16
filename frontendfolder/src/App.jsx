@@ -7,6 +7,8 @@ import GlobalToast from './shared/toast-notification/GlobalToast';
 
 function RoutesSwitcher() {
   const { pathname } = useLocation();
+  // eslint-disable-next-line no-console
+  console.debug('[RoutesSwitcher] pathname:', pathname);
   if (pathname.startsWith('/admin')) return <CoordinatorAdminRoutes />;
   if (pathname.startsWith('/employee')) return <EmployeeRoutes />;
   return <AuthRoutes />;

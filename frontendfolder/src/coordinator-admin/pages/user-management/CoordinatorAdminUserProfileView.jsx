@@ -8,6 +8,8 @@ import Button from '../../../shared/components/Button';
 import styles from './CoordinatorAdminUserProfileView.module.css';
 import detailStyles from '../ticket-tracker/CoordinatorAdminTicketDetails.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
+import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { backendUserService } from '../../../services/backend/userService.js';
 import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
 import { FiUser, FiCheckCircle, FiClock } from 'react-icons/fi';
 
@@ -36,10 +38,71 @@ export default function CoordinatorAdminUserProfileView() {
         setIsLoading(false);
       };
 
-      // If companyId looks numeric, ask backend for that numeric id first (authoritative),
-      // otherwise ask backend for the full list and match by company_id.
+      // Prefer the AUTH service (users) as authoritative source for user profiles.
+      // If companyId looks numeric, we still try employee lookup by id, but
+      // non-numeric company IDs (like MA0520) will be matched against the
+      // auth users list returned by backendUserService.getAllUsers().
       (async () => {
         try {
+          // Try auth users endpoint first
+          try {
+            // First try a server-side company_id lookup (admin-only endpoint)
+            try {
+              const byCompany = await backendUserService.getUserByCompanyId(companyId);
+              if (byCompany && (byCompany.id || byCompany.company_id)) {
+                setUser(normalizeEmployee(byCompany));
+                setIsLoading(false);
+                return;
+              }
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.debug('[UserProfile] getUserByCompanyId failed, falling back to list lookup', err && err.message ? err.message : err);
+            }
+
+            // Fallback: fetch all users and try client-side matching
+            const allUsersResp = await backendUserService.getAllUsers();
+            let users = [];
+            if (!allUsersResp) users = [];
+            else if (Array.isArray(allUsersResp)) users = allUsersResp;
+            else if (Array.isArray(allUsersResp.users)) users = allUsersResp.users;
+            else if (Array.isArray(allUsersResp.data)) users = allUsersResp.data;
+
+            if (users.length > 0) {
+              // Prefer exact company_id match when companyId looks non-numeric
+              const isNumericLike = !isNaN(Number(companyId));
+
+              let match = null;
+              if (!isNumericLike) {
+                match = users.find(u => String(u.company_id || u.companyId || u.company || '').toLowerCase() === String(companyId).toLowerCase());
+              }
+              // If no company_id match or companyId is numeric-like, try id match
+              if (!match) {
+                match = users.find(u => String(u.id) === String(companyId));
+              }
+              // As a last resort only if still not found, try username exact match
+              if (!match) {
+                match = users.find(u => String(u.username || '').toLowerCase() === String(companyId).toLowerCase());
+              }
+
+              if (match) {
+                setUser(normalizeEmployee(match));
+                setIsLoading(false);
+                return;
+              }
+            } else {
+              // eslint-disable-next-line no-console
+              console.debug('[UserProfile] auth users returned 0 users for lookup');
+            }
+            // If we reach here, auth users returned but no match found
+            // eslint-disable-next-line no-console
+            console.debug('[UserProfile] auth users fetched:', users.length, 'no match for', companyId);
+          } catch (e) {
+            // auth users lookup failed; fall back to employee service below
+            // eslint-disable-next-line no-console
+            console.debug('[UserProfile] auth users lookup failed, will try employee service', e && e.message ? e.message : e);
+          }
+
+          // If companyId looks numeric, ask backend employee service by numeric id
           if (!Number.isNaN(numeric)) {
             try {
               const emp = await backendEmployeeService.getEmployeeById(numeric);
@@ -52,6 +115,7 @@ export default function CoordinatorAdminUserProfileView() {
               // backend lookup failed; fall through to local fallback
             }
           } else {
+            // Try employee service full list as a last backend attempt
             try {
               const emps = await backendEmployeeService.getAllEmployees();
               if (Array.isArray(emps) && emps.length > 0) {
@@ -83,15 +147,38 @@ export default function CoordinatorAdminUserProfileView() {
     if (!e) return null;
     // If already appears normalized (has firstName), return as-is
     if (e.firstName) return e;
+    // Derive role from system_roles if present (auth API provides system_roles array)
+    let derivedRole = '';
+    try {
+      if (Array.isArray(e.system_roles) && e.system_roles.length > 0) {
+        // Prefer HDTS role when present
+        const hdts = e.system_roles.find(r => String(r.system_slug || r.system || '').toLowerCase() === 'hdts');
+        const pick = hdts || e.system_roles[0];
+        derivedRole = pick.role_name || pick.role || '';
+      }
+    } catch (err) {
+      // ignore and fall back
+      derivedRole = '';
+    }
+
+    // Normalize profile picture variations: API returns `profile_picture` (string URL),
+    // serializer sometimes returns absolute URL; some backends use `profile_image`.
+    let picture = '';
+    if (e.profile_picture) {
+      if (typeof e.profile_picture === 'string') picture = e.profile_picture;
+      else if (e.profile_picture.url) picture = e.profile_picture.url;
+    }
+    if (!picture) picture = e.profile_image || e.profileImage || e.image || e.profile_picture_url || '';
+
     return {
       id: e.id || e.pk || e.employee_id || null,
       companyId: e.company_id || e.companyId || e.companyIdNumber || e.companyId || e.company_id_number || '',
       firstName: e.first_name || e.firstName || e.first || '',
       lastName: e.last_name || e.lastName || e.last || '',
       email: e.email || e.email_address || '',
-      role: e.role || e.user_role || '',
+      role: derivedRole || e.role || e.user_role || '',
       department: e.department || e.dept || '',
-      profileImage: e.profile_image || e.profileImage || e.image || '',
+      profileImage: picture,
       status: e.status || e.account_status || '',
       phone: e.phone || e.contact_number || '',
     };

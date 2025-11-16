@@ -45,6 +45,14 @@
   overflow-x: auto;
 }
 
+/* When applied, make the table body vertically scrollable and limit visible rows.
+   Uses CSS variable `--visible-rows` to determine how many rows to show (default 5). */
+.scrollableRows {
+  /* Each row approximates 50px height; add extra space for header/padding */
+  max-height: calc((var(--visible-rows, 5) * 50px) + 80px);
+  overflow-y: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

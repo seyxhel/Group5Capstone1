@@ -6,6 +6,10 @@ export default function ProtectedRoute({ requireAdmin = false, requireAgent = fa
   const { user, loading, initialized, isAdmin, hasSystemAccess, isTicketCoordinator } = useAuth();
   const location = useLocation();
 
+  // Debug: log auth state when ProtectedRoute evaluates
+  // eslint-disable-next-line no-console
+  console.debug('[ProtectedRoute] auth state:', { user, loading, initialized, isAdmin, hasSystemAccess, isTicketCoordinator, pathname: location.pathname });
+
   // Show loading while authentication status is being checked
   if (loading || !initialized) {
     return (

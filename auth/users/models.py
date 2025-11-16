@@ -9,10 +9,14 @@ from django.utils import timezone
 SUFFIX_CHOICES = [
     ('Jr.', 'Jr.'),
     ('Sr.', 'Sr.'),
-    ('II', 'II'),
     ('III', 'III'),
     ('IV', 'IV'),
     ('V', 'V'),
+    ('VI', 'VI'),
+    ('VII', 'VII'),
+    ('VIII', 'VIII'),
+    ('IX', 'IX'),
+    ('X', 'X'),
 ]
 
 DEPARTMENT_CHOICES = [

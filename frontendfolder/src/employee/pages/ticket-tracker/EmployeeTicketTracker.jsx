@@ -146,11 +146,28 @@ const generateLogs = (ticket) => {
 
   // 3. Status history: add all status changes if present
   if (Array.isArray(ticket.statusHistory) && ticket.statusHistory.length > 0) {
+    const currentStatus = (ticket.status || ticket.currentStatus || '').toString();
     ticket.statusHistory.forEach((entry, idx) => {
       // Normalize status display for logs: treat 'New' as 'Open' so timeline reads clearly
       const raw = entry.status || '';
       const displayStatus = raw === 'New' ? 'Open' : raw;
       const statusTs = entry.timestamp || entry.date || entry.updatedAt || entry.createdAt || null;
+
+      // Suppress misleading 'Withdrawn' entries when the ticket's current
+      // status shows it was later reopened or approved. This avoids showing
+      // an incorrect transient 'Withdrawn' event in the timeline when the
+      // ticket is actually Open or Approved now.
+      try {
+        const cur = (currentStatus || '').toLowerCase();
+        // If the ticket is not currently Withdrawn, suppress past Withdrawn
+        // entries to avoid showing misleading transient withdrawn events.
+        if (String(displayStatus).toLowerCase() === 'withdrawn' && cur !== 'withdrawn') {
+          return; // skip this withdrawn log entry
+        }
+      } catch (e) {
+        // ignore and continue if any normalization fails
+      }
+
       logs.push({
         id: logs.length + 1,
         user: entry.user || 'System',
@@ -163,10 +180,19 @@ const generateLogs = (ticket) => {
     });
   } else if (Array.isArray(ticket.logs) && ticket.logs.length > 0) {
     // Fallback: support for 'logs' array with status changes
+    const currentStatusFallback = (ticket.status || ticket.currentStatus || '').toString();
     ticket.logs.forEach((entry, idx) => {
       if (entry.status) {
         const raw = entry.status || '';
         const displayStatus = raw === 'New' ? 'Open' : raw;
+
+        try {
+          const cur = (currentStatusFallback || '').toLowerCase();
+          if (String(displayStatus).toLowerCase() === 'withdrawn' && cur !== 'withdrawn') {
+            return; // skip misleading withdrawn log
+          }
+        } catch (e) {}
+
         logs.push({
           id: logs.length + 1,
           user: entry.user || 'System',

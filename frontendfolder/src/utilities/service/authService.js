@@ -33,6 +33,14 @@ const authService = {
   },
 
   getCurrentUser: () => {
+    // Prefer the AuthContext storage key ('user') if present (AuthProvider stores there),
+    // otherwise fall back to the legacy 'loggedInUser' key used elsewhere for local mocks.
+    try {
+      const primary = localStorage.getItem('user');
+      if (primary) return JSON.parse(primary);
+    } catch (e) {
+      // ignore parse errors
+    }
     const storedUser = localStorage.getItem(USER_KEY);
     return storedUser ? JSON.parse(storedUser) : null;
   },
