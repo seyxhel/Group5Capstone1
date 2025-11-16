@@ -11,6 +11,7 @@ import formActions from '../../../shared/styles/formActions.module.css';
 import FormActions from '../../../shared/components/FormActions';
 import { getEmployeeUsers, addEmployeeUser } from '../../../utilities/storages/employeeUserStorage';
 import { API_CONFIG } from '../../../config/environment';
+import { useEffect } from 'react';
 
 const departments = [
   'IT Department',
@@ -18,10 +19,12 @@ const departments = [
   'Budget Department'
 ];
 
-const roles = [
-  'Ticket Coordinator',
-  'System Admin'
+const SUFFIX_OPTIONS = [
+  '', 'Jr.', 'Sr.', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'
 ];
+
+// roles will be fetched from the auth service (role id + name)
+const initialRoleOptions = [];
 
 const CoordinatorAdminAccountRegister = () => {
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ const CoordinatorAdminAccountRegister = () => {
     role: '',
     email: ''
   });
+  const [roleOptions, setRoleOptions] = useState(initialRoleOptions);
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -173,45 +177,123 @@ const CoordinatorAdminAccountRegister = () => {
       toast.error('Please fix the errors in the form before submitting.');
       return;
     }
-    try {
+      setIsSubmitting(true);
+      try {
   // Some login flows store tokens under 'access_token' (generic) while
   // dev utilities or older code may use 'admin_access_token'. Prefer
   // admin-specific key but fall back to generic 'access_token'.
   const token = localStorage.getItem('admin_access_token') || localStorage.getItem('access_token'); 
-      const payload = {
-        last_name: formData.lastName.trim(),
-        first_name: formData.firstName.trim(),
-        middle_name: formData.middleName.trim(),
-        suffix: formData.suffix.trim(),
-        department: formData.department,
-        role: formData.role,
-        email: formData.email.trim()
-      };
+      // Build payload expected by the auth system invite endpoint
+      const payload = new FormData();
+      payload.append('last_name', formData.lastName.trim());
+      payload.append('first_name', formData.firstName.trim());
+      payload.append('middle_name', formData.middleName.trim());
+      payload.append('suffix', formData.suffix || '');
+      payload.append('department', formData.department);
+      // role_id must be an existing role id (integer/string)
+      payload.append('role_id', formData.role);
+      payload.append('email', formData.email.trim());
       // Only add image if a file is uploaded (not used in admin form, but future-proof)
       // if (formData.profileImage) {
       //   payload.image = formData.profileImage;
       // }
-  const res = await fetch(`${API_CONFIG.BACKEND.BASE_URL}/api/admin/create-employee/`, {
+  const res = await fetch(`${API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '')}/api/v1/system-roles/invite/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        credentials: 'include',
+        body: payload
       });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || err.message || 'Failed to create user account.');
+        toast.error(data.error || data.detail || 'Failed to create user account.');
         setIsSubmitting(false);
         return;
       }
-      toast.success('User account created and approved successfully!');
+
+      toast.success(`User ${data.user} created. Company ID: ${data.company_id || ''}`);
       setTimeout(() => navigate('/admin/user-access/all-users'), 1500);
-    } catch (error) {
-      toast.error('Failed to create user account. Please try again.');
-      setIsSubmitting(false);
-    }
+      } catch (error) {
+        toast.error('Failed to create user account. Please try again.');
+        setIsSubmitting(false);
+      }
   };
+
+    // Fetch available roles for the HDTS system so we can present role ids
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const token = localStorage.getItem('admin_access_token') || localStorage.getItem('access_token');
+          const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+          // Try global roles endpoint first
+          const url = `${API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '')}/api/v1/roles/`;
+          const resp = await fetch(url, { credentials: 'include', headers });
+          if (!mounted) return;
+          if (resp && resp.ok) {
+            const json = await resp.json();
+            if (Array.isArray(json)) {
+              // api/v1/roles/ may return an array of role objects
+              const tc = json.find(r => String(r.name).toLowerCase() === 'ticket coordinator');
+              // Find Admin role in HDTS system
+              const adminHdts = json.find(r => String(r.name).toLowerCase() === 'admin' && (r.system && String(r.system.slug || r.system).toLowerCase() === 'hdts'));
+              const options = [];
+              if (tc) options.push({ id: tc.id, name: 'Ticket Coordinator' });
+              if (adminHdts) options.push({ id: adminHdts.id, name: 'System Admin' });
+              // Ensure both options exist: prefer discovered ids, otherwise add fallbacks
+              const ensureOptions = [];
+              // Ticket Coordinator: prefer discovered, else include placeholder with null id
+              const foundTC = options.find(o => o.name === 'Ticket Coordinator');
+              if (foundTC) ensureOptions.push(foundTC); else ensureOptions.push({ id: null, name: 'Ticket Coordinator' });
+              // System Admin: prefer discovered, else include special token 'admin_hdts'
+              const foundAdmin = options.find(o => o.name === 'System Admin');
+              if (foundAdmin) ensureOptions.push(foundAdmin); else ensureOptions.push({ id: 'admin_hdts', name: 'System Admin' });
+
+              setRoleOptions(ensureOptions);
+              return;
+            }
+          }
+
+          // Fallback: try system-roles HDTS endpoint and look for Ticket Coordinator/Admin there
+          try {
+            const url2 = `${API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '')}/api/v1/system-roles/system/hdts/roles/`;
+            const resp2 = await fetch(url2, { credentials: 'include', headers });
+            if (!mounted) return;
+            if (resp2 && resp2.ok) {
+              const json2 = await resp2.json();
+              if (json2 && Array.isArray(json2.roles)) {
+                const tc = json2.roles.find(r => String(r.name).toLowerCase() === 'ticket coordinator');
+                const admin = json2.roles.find(r => String(r.name).toLowerCase() === 'admin');
+                const opts = [];
+                if (tc) opts.push({ id: tc.id, name: 'Ticket Coordinator' });
+                if (admin) opts.push({ id: admin.id, name: 'System Admin' });
+                // Ensure both options present
+                const ensured = [];
+                const fTC = opts.find(o => o.name === 'Ticket Coordinator');
+                if (fTC) ensured.push(fTC); else ensured.push({ id: null, name: 'Ticket Coordinator' });
+                const fAdmin = opts.find(o => o.name === 'System Admin');
+                if (fAdmin) ensured.push(fAdmin); else ensured.push({ id: 'admin_hdts', name: 'System Admin' });
+                if (ensured.length > 0) {
+                  setRoleOptions(ensured);
+                  return;
+                }
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          // Final fallback: provide fixed options where System Admin uses the special token
+          setRoleOptions([{ id: null, name: 'Ticket Coordinator' }, { id: 'admin_hdts', name: 'System Admin' }]);
+        } catch (e) {
+          // ignore - leave roleOptions empty and rely on manual entry
+          setRoleOptions([{ id: null, name: 'Ticket Coordinator' }, { id: 'admin_hdts', name: 'System Admin' }]);
+        }
+      })();
+      return () => { mounted = false; };
+    }, []);
 
   const resetForm = () => {
     setFormData({
@@ -269,14 +351,20 @@ const CoordinatorAdminAccountRegister = () => {
                 onBlur={handleBlur('middleName')}
                 error={errors.middleName}
               />
-              <InputField
-                label="Suffix"
-                placeholder="e.g., Jr., Sr., III"
-                value={formData.suffix}
-                onChange={handleInputChange('suffix')}
-                onBlur={handleBlur('suffix')}
-                error={errors.suffix}
-              />
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Suffix</label>
+                <select
+                  value={formData.suffix}
+                  onChange={handleInputChange('suffix')}
+                  onBlur={handleBlur('suffix')}
+                >
+                  <option value="">None</option>
+                  {SUFFIX_OPTIONS.filter(x => x).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                {errors.suffix && <div className={styles.errorMessage}>{errors.suffix}</div>}
+              </div>
             </fieldset>
             {/* Department */}
             <fieldset>
@@ -321,9 +409,16 @@ const CoordinatorAdminAccountRegister = () => {
                   className={errors.role ? styles.inputError : ''}
                 >
                   <option value="">Select Role</option>
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
+                  {roleOptions.length > 0 ? (
+                    roleOptions.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="">No roles available</option>
+                      <option value="admin_hdts">System Admin (HDTS)</option>
+                    </>
+                  )}
                 </select>
                 {errors.role && (
                   <div className={styles.errorMessage}>
@@ -334,7 +429,7 @@ const CoordinatorAdminAccountRegister = () => {
               <InputField
                 type="email"
                 label="Email Address"
-                placeholder="e.g., user@example.com"
+                placeholder="@gmail.com"
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 onBlur={handleBlur('email')}

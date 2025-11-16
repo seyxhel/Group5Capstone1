@@ -112,4 +112,34 @@ export const backendUserService = {
     }
     throw new Error('Failed to fetch hdts users');
   }
+,
+  async getUserByCompanyId(companyId) {
+    const encoded = encodeURIComponent(String(companyId));
+    const candidates = [
+      `${AUTH_BASE.replace(/\/$/, '')}/api/v1/users/profile/by-company/${encoded}/`,
+      `${AUTH_BASE.replace(/\/$/, '')}/api/v1/users/profile/by-company/${encoded}`,
+    ];
+
+    for (const url of candidates) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+          credentials: 'include',
+        });
+        handleAuthError(response);
+        if (!response.ok) {
+          const txt = await response.text().catch(() => '');
+          console.warn('UserService.getUserByCompanyId: request failed', url, response.status, txt);
+          continue;
+        }
+        return await response.json();
+      } catch (err) {
+        console.warn('UserService.getUserByCompanyId: error fetching', url, err);
+      }
+    }
+
+    // If none succeeded, return null to let caller fallback
+    return null;
+  }
 };

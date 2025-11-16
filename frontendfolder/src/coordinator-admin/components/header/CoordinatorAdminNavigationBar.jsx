@@ -133,6 +133,9 @@ const CoordinatorAdminNavBar = () => {
   };
 
   const handleNavigate = (path) => {
+    // Debug log navigation attempts to help diagnose routing issues
+    // eslint-disable-next-line no-console
+    console.debug('[CoordinatorAdminNavigationBar] navigate ->', path, 'current pathname:', location.pathname);
     navigate(path);
     setOpenDropdown(null);
     setIsMobileMenuOpen(false);

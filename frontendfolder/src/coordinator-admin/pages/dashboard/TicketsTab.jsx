@@ -604,13 +604,15 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
         ))}
       </div>
 
-      <DataTable
-        title="Tickets to Review"
-        headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
-        data={ticketData.tableData}
-        maxVisibleRows={5}
-        loading={isLoading}
-      />
+      {currentUser?.role === 'Ticket Coordinator' && (
+        <DataTable
+          title="Tickets to Review"
+          headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
+          data={ticketData.tableData}
+          maxVisibleRows={5}
+          loading={isLoading}
+        />
+      )}
 
       <div style={{ position: 'relative', marginTop: 12 }}>
         <div style={{ position: 'absolute', top: 8, right: 8 }}>

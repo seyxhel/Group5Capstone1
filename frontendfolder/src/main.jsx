@@ -16,17 +16,26 @@ const Root = () => {
   }, []);
 
   useEffect(() => {
+    // Protect against double initialization in React StrictMode (dev)
+    if (window.__APP_SESSION_INITIALIZED__) {
+      // eslint-disable-next-line no-console
+      console.debug('[main.jsx] session already initialized - skipping duplicate init');
+      return;
+    }
+
     // Create an INACTIVITY timeout watcher (separate from access/refresh token logic)
     // This only fires if user is inactive for 30 minutes - does NOT interfere with token refresh
     const session = createSessionTimeout({ 
       timeoutMinutes: 30, // 30 minutes inactivity timeout
       onTimeout: () => {
+        // eslint-disable-next-line no-console
         console.log('[main.jsx] Inactivity timeout fired - user will be logged out');
       }
     });
     
-    // Expose globally for debugging
+    // Expose globally for debugging and mark initialized so StrictMode won't re-init
     window.__APP_SESSION__ = session;
+    window.__APP_SESSION_INITIALIZED__ = true;
 
     // Start the inactivity watcher if user is logged in (has any access token)
     const hasToken = !!(
@@ -36,18 +45,22 @@ const Root = () => {
     );
     
     if (hasToken) {
+      // eslint-disable-next-line no-console
       console.log('[main.jsx] Token found - starting inactivity watcher');
       session.start();
     } else {
+      // eslint-disable-next-line no-console
       console.log('[main.jsx] No token found - inactivity watcher not started');
     }
 
     // Listen for login/logout events to start/stop the inactivity watcher
     const onLogin = () => {
+      // eslint-disable-next-line no-console
       console.log('[main.jsx] auth:login event - starting inactivity watcher');
       session.start();
     };
     const onLogout = () => {
+      // eslint-disable-next-line no-console
       console.log('[main.jsx] auth:logout event - stopping inactivity watcher');
       session.stop();
     };
@@ -64,9 +77,11 @@ const Root = () => {
           localStorage.getItem('access_token')
         );
         if (present) {
+          // eslint-disable-next-line no-console
           console.log('[main.jsx] Storage event - token added, starting watcher');
           session.start();
         } else {
+          // eslint-disable-next-line no-console
           console.log('[main.jsx] Storage event - token removed, stopping watcher');
           session.stop();
         }
@@ -79,6 +94,7 @@ const Root = () => {
       window.removeEventListener('auth:login', onLogin);
       window.removeEventListener('auth:logout', onLogout);
       window.removeEventListener('storage', onStorage);
+      // Do not unset __APP_SESSION_INITIALIZED__ so that strict-mode mounts don't re-init
     };
   }, []);
 

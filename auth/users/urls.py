@@ -22,6 +22,7 @@ from .views import (
     profile_settings_view,
     agent_management_view,
     LoginView,
+    get_user_by_company_id,
     request_otp_for_login,
     SystemWelcomeView,
     UILogoutView,
@@ -90,6 +91,7 @@ urlpatterns = [
     
     # User profile endpoints
     path('profile/', ProfileView.as_view(), name='user-profile-api'),
+    path('profile/by-company/<str:company_id>/', get_user_by_company_id, name='user-profile-by-company'),
     path('profile/reset-password/', ProfilePasswordResetView.as_view(), name='profile-password-reset'),
     
     # Template-based Profile Settings URL
