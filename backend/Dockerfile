@@ -14,6 +14,8 @@ COPY . .
 
 # Create media directory for file uploads
 RUN mkdir -p /app/media/employee_images /app/media/ticket_attachments
+# Create static directory so `collectstatic` warnings don't appear when static/ is missing
+RUN mkdir -p /app/static
 
 # Copy and enable entrypoint that waits for DB, runs migrations, creates superuser,
 # collects static files, then execs the container command (e.g. gunicorn).
