@@ -13,3 +13,34 @@ dist-ssr
 .env*
 backend/core/token.json
 backend/core/client_secret_*.json
+
+# Python caches and virtualenvs
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+env/
+venv/
+.venv/
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Secrets and tokens
+backend/.secrets/
+backend/token.json
+backend/token*.json
+client_secret*.json
+token.json
+
+# Media/uploads (do not commit uploaded files)
+backend/media/
+backend/media/ticket_attachments/
+
+# Logs and temporary
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
