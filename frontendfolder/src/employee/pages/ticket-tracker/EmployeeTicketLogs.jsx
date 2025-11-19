@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiUser, FiUsers, FiTag, FiCheckCircle, FiInbox, FiClock } from 'react-icons/fi';
 import styles from './EmployeeTicketLogs.module.css';
+import logsStyles from '../../../shared/components/LogsPanel.module.css';
 
 export default function TicketActivity({ ticketLogs = [], initialMessages = [] }) {
   const [activeTab, setActiveTab] = useState('logs');
@@ -91,11 +92,11 @@ export default function TicketActivity({ ticketLogs = [], initialMessages = [] }
                 };
 
                 return (
-                  <div key={log.id} className={styles.logEntry}>
-                    <div className={styles.logAvatar}>{getLogIcon(log.action || log.text)}</div>
-                    <div className={styles.logBody}>
-                      <div className={styles.logText}>{renderLogText(log.text || log.action, log.highlight)}</div>
-                      <div className={styles.logTimestamp}>{log.timestamp}</div>
+                  <div key={log.id} className={logsStyles.logEntry}>
+                    <div className={logsStyles.logAvatar}>{getLogIcon(log.action || log.text)}</div>
+                    <div className={logsStyles.logBody}>
+                      <div className={logsStyles.logText}>{renderLogText(log.text || log.action, log.highlight)}</div>
+                      <div className={logsStyles.logTimestamp}>{log.timestamp}</div>
                     </div>
                   </div>
                 );

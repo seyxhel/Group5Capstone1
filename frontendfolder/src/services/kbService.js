@@ -20,8 +20,8 @@ const normalizeVisibility = (v) => {
 mockArticles = mockArticles.map(a => ({ ...a, visibility: normalizeVisibility(a.visibility) }));
 
 export const listCategories = () => {
-  // Return synchronously for mock data
-  return [...mockCategories];
+  // Return a Promise to match async usage in UI (e.g. .then)
+  return Promise.resolve([...mockCategories]);
 };
 
 export const listArticles = (filters = {}) => {
@@ -33,11 +33,12 @@ export const listArticles = (filters = {}) => {
     const q = filters.query.toLowerCase();
     results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
   }
-  return results;
+  return Promise.resolve(results);
 };
 
 export const getArticle = (id) => {
-  return mockArticles.find(a => a.id === Number(id)) || null;
+  // Return a Promise so callers using .then or await behave consistently
+  return Promise.resolve(mockArticles.find(a => a.id === Number(id)) || null);
 };
 
 export const submitArticle = (article) => {
@@ -54,7 +55,7 @@ export const submitArticle = (article) => {
     archived: false
   };
   mockArticles.push(newArticle);
-  return newArticle;
+  return Promise.resolve(newArticle);
 };
 
 export const updateArticle = (id, patch = {}) => {
@@ -67,7 +68,7 @@ export const updateArticle = (id, patch = {}) => {
     date_modified: now,
     dateModified: now
   };
-  return mockArticles[idx];
+  return Promise.resolve(mockArticles[idx]);
 };
 
 export const listPublishedArticles = (filters = {}) => {
@@ -79,7 +80,7 @@ export const listPublishedArticles = (filters = {}) => {
     const q = filters.query.toLowerCase();
     results = results.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
   }
-  return results;
+  return Promise.resolve(results);
 };
 
 export const resetSeeds = () => {
@@ -89,14 +90,15 @@ export const resetSeeds = () => {
 };
 
 export const listFeedback = (articleId) => {
-  return mockFeedback.filter(f => f.articleId === Number(articleId));
+  // Return a Promise to match async usage in UI (e.g. .then)
+  return Promise.resolve(mockFeedback.filter(f => f.articleId === Number(articleId)));
 };
 
 export const submitFeedback = ({ articleId, helpful, comment }) => {
   const id = mockFeedback.length ? Math.max(...mockFeedback.map(f => f.id)) + 1 : 1;
   const entry = { id, articleId: Number(articleId), helpful: !!helpful, comment: comment || '', date: new Date().toISOString() };
   mockFeedback.push(entry);
-  return entry;
+  return Promise.resolve(entry);
 };
 
 // default export includes main conveniences for imports that use default
