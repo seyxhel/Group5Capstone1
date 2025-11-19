@@ -193,8 +193,16 @@ export default function EmployeeTicketSubmissionForm() {
   };
 
   const handleInputChange = (field) => (e) => {
-    const value = e.target.value;
-    
+    let value = e.target.value;
+
+    // Enforce max lengths for subject and description per request.
+    if (field === 'subject') {
+      value = value.slice(0, 70);
+    }
+    if (field === 'description') {
+      value = value.slice(0, 150);
+    }
+
     setFormData({
       ...formData,
       [field]: value
@@ -490,13 +498,17 @@ export default function EmployeeTicketSubmissionForm() {
             required
             error={errors.subject}
             render={() => (
-              <input
-                type="text"
-                placeholder="Enter ticket subject"
-                value={formData.subject}
-                onChange={handleInputChange('subject')}
-                onBlur={handleBlur('subject')}
-              />
+              <div className={styles.inputWithCounter}>
+                <input
+                  type="text"
+                  placeholder="Enter ticket subject"
+                  value={formData.subject}
+                  maxLength={70}
+                  onChange={handleInputChange('subject')}
+                  onBlur={handleBlur('subject')}
+                />
+                <span className={styles.charCounter}>{String(formData.subject?.length || 0)}/70</span>
+              </div>
             )}
           />
 
@@ -572,13 +584,17 @@ export default function EmployeeTicketSubmissionForm() {
             required
             error={errors.description}
             render={() => (
-              <textarea
-                rows={5}
-                placeholder="Provide a detailed description..."
-                value={formData.description}
-                onChange={handleInputChange('description')}
-                onBlur={handleBlur('description')}
-              />
+              <div className={styles.inputWithCounter}>
+                <textarea
+                  rows={5}
+                  placeholder="Provide a detailed description..."
+                  value={formData.description}
+                  maxLength={150}
+                  onChange={handleInputChange('description')}
+                  onBlur={handleBlur('description')}
+                />
+                <span className={styles.charCounter}>{String(formData.description?.length || 0)}/150</span>
+              </div>
             )}
           />
 
