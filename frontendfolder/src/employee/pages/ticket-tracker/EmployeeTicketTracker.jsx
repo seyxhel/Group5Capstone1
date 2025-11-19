@@ -75,6 +75,17 @@ const formatDate = (date) => {
   return `${monthName} ${day}, ${yearFull}`;
 };
 
+const formatTime = (date) => {
+  if (!date) return '';
+  try {
+    const d = new Date(date);
+    if (isNaN(d)) return String(date);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return String(date);
+  }
+};
+
 // Format a date value to a user-friendly date-only string (reuses formatDate)
 const formatDateOnly = (date) => {
   if (!date) return null;
@@ -616,8 +627,25 @@ export default function EmployeeTicketTracker() {
       timestamp: sysTsRaw ? formatDate(sysTsRaw) : '',
     });
 
-    // Comments may be at ticket.comments or ticket.comments_list; normalize
+    // Comments may be at ticket.comments or ticket.comment; normalize
     const comments = Array.isArray(tkt.comments) ? [...tkt.comments] : (Array.isArray(tkt.comment) ? [...tkt.comment] : []);
+
+    // Also merge any locally persisted comments stored in localStorage via ticketStorage
+    try {
+      const lookupKey = tkt.ticketNumber || tkt.ticket_number || tkt.id || tkt.ticketId || null;
+      if (lookupKey) {
+        const local = getTicketByNumber(lookupKey);
+        if (local && Array.isArray(local.comments)) {
+          // Append any local comments that aren't already present (by id or identical text+created_at)
+          for (const lc of local.comments) {
+            const exists = comments.some(c => (c.id && lc.id && String(c.id) === String(lc.id)) || ((c.comment || c.message) === (lc.comment || lc.message) && (c.created_at || c.createdAt) === (lc.created_at || lc.createdAt)));
+            if (!exists) comments.push(lc);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore local merge errors
+    }
 
     // Filter out internal comments (employees shouldn't see internal notes)
     const visibleComments = comments.filter((c) => !c.is_internal && !c.isInternal);
@@ -650,7 +678,8 @@ export default function EmployeeTicketTracker() {
       } catch (e) {}
 
       const text = c.comment || c.message || c.body || '';
-      msgs.push({ id: c.id || `c-${idx}`, sender, message: text, timestamp: createdAt ? formatDate(createdAt) : '' });
+      // Use a time-only format for user-facing comments (HH:MM) so replies look like chat timestamps
+      msgs.push({ id: c.id || `c-${idx}`, sender, message: text, timestamp: createdAt ? formatTime(createdAt) : '' });
     });
 
     return msgs;

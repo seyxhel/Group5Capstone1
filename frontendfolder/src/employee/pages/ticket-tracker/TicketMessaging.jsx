@@ -1,12 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { backendTicketService } from '../../../services/backend/ticketService';
-import { addComment } from '../../../utilities/storages/ticketStorage';
+import { addComment, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import { FiPaperclip, FiSend, FiChevronDown } from 'react-icons/fi';
 import styles from './TicketMessaging.module.css';
 
 const formatTimestamp = () => {
   const now = new Date();
   return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatTimestampFromISO = (iso) => {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return String(iso);
+  }
 };
 
 // Get initials from sender name
@@ -23,7 +33,8 @@ export default function TicketMessaging({ initialMessages = [], ticketId = null,
   const [messages, setMessages] = useState(
     initialMessages.map(msg => ({
       ...msg,
-      timestamp: msg.timestamp || formatTimestamp()
+      // Prefer explicit timestamp, then created_at/createdAt formatted as time, else fallback to now
+      timestamp: msg.timestamp || (msg.created_at ? formatTimestampFromISO(msg.created_at) : (msg.createdAt ? formatTimestampFromISO(msg.createdAt) : formatTimestamp()))
     }))
   );
   const [newMessage, setNewMessage] = useState('');
@@ -99,18 +110,46 @@ export default function TicketMessaging({ initialMessages = [], ticketId = null,
     }
     setNewMessage('');
 
-    // Simulate typing response
-    setIsTyping(true);
-    setTimeout(() => {
-      const response = {
-        id: Date.now() + 1,
-        sender: 'Support Team',
-        message: 'Thank you for your message. Our team is reviewing your ticket and will respond shortly.',
-        timestamp: formatTimestamp(),
-      };
-      setMessages(prev => [...prev, response]);
-      setIsTyping(false);
-    }, 1500);
+    // Simulate typing response — only add the automated Support Team reply once per ticket
+    const autoResponseText = 'Thank you for your message. Our team is reviewing your ticket and will respond shortly.';
+
+    const alreadyInState = messages.some(m => m.sender === 'Support Team' && (m.message || '').includes('Thank you for your message'));
+
+    let alreadyPersisted = false;
+    try {
+      if (ticketNumber) {
+        const stored = getTicketByNumber(ticketNumber);
+        const comments = stored?.comments || [];
+        alreadyPersisted = comments.some(c => ((c.user && (c.user.name === 'Support Team' || c.user === 'Support Team')) || c.user === 'support') && (c.comment || c.message || '').includes('Thank you for your message'));
+      }
+    } catch (e) {
+      // ignore storage lookup errors
+    }
+
+    const shouldAddAuto = !alreadyInState && !alreadyPersisted;
+        if (shouldAddAuto) {
+      setIsTyping(true);
+      setTimeout(() => {
+        const response = {
+          id: Date.now() + 1,
+          sender: 'Support Team',
+          message: autoResponseText,
+              timestamp: formatTimestamp(),
+        };
+        setMessages(prev => [...prev, response]);
+        setIsTyping(false);
+
+        // Persist the auto-response so it remains visible later (one-time only)
+        try {
+          const tgt = ticketNumber || ticketId || null;
+          if (tgt) {
+            addComment(tgt, { id: response.id, message: response.message, created_at: new Date().toISOString(), timestamp: response.timestamp, user: { id: 'support', name: 'Support Team' }, is_internal: false });
+          }
+        } catch (e) {
+          console.warn('Failed to persist auto-response locally:', e);
+        }
+      }, 1500);
+    }
   };
 
   const handleKeyDown = (e) => {
