@@ -1418,12 +1418,47 @@ def update_ticket_status(request, ticket_id):
             if comment_text:
                 status_comment += f". Comment: {comment_text}"
 
-        TicketComment.objects.create(
-            ticket=ticket,
-            user=request.user,
-            comment=status_comment,
-            is_internal=False  # Status updates can be visible to employees
-        )
+        # Create a TicketComment for the status change. If the requester is an ExternalUser
+        # (cookie-authenticated), populate user_cookie_id instead of assigning the FK to user.
+        try:
+            if isinstance(request.user, ExternalUser):
+                TicketComment.objects.create(
+                    ticket=ticket,
+                    user=None,
+                    user_cookie_id=request.user.id,
+                    comment=status_comment,
+                    is_internal=False
+                )
+            else:
+                TicketComment.objects.create(
+                    ticket=ticket,
+                    user=request.user,
+                    user_cookie_id=None,
+                    comment=status_comment,
+                    is_internal=False
+                )
+        except Exception:
+            # Fall back to a safe create with minimal fields
+            try:
+                TicketComment.objects.create(ticket=ticket, comment=status_comment, is_internal=False)
+            except Exception:
+                pass
+
+        # Also create an ActivityLog entry for the status change when possible
+        try:
+            # Only create ActivityLog when we can link to a local Employee user
+            if ticket.employee is not None:
+                actor = None if isinstance(request.user, ExternalUser) else request.user
+                ActivityLog.objects.create(
+                    user=ticket.employee,
+                    action_type='status_changed',
+                    message=status_comment,
+                    ticket=ticket,
+                    actor=actor,
+                    metadata={'previous_status': old_status, 'new_status': new_status}
+                )
+        except Exception:
+            pass
         
         return Response({
             'message': 'Ticket status updated successfully',
@@ -2042,6 +2077,7 @@ from rest_framework.permissions import SAFE_METHODS, AllowAny
 from .serializers import KnowledgeArticleSerializer
 from .authentication import ExternalUser
 from .models import KnowledgeArticle
+from .models import KnowledgeArticleVersion
 
 
 class KnowledgeArticleViewSet(viewsets.ModelViewSet):
@@ -2075,9 +2111,22 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if isinstance(user, ExternalUser):
             # external users aren't Employee instances stored locally
-            serializer.save(created_by=None)
+            article = serializer.save(created_by=None)
         else:
-            serializer.save(created_by=user)
+            article = serializer.save(created_by=user)
+        # Create initial version entry
+        try:
+            from .models import KnowledgeArticleVersion
+            KnowledgeArticleVersion.objects.create(
+                article=article,
+                version_number='1',
+                editor=None if isinstance(user, ExternalUser) else user,
+                changes='Created article',
+                metadata={'subject': article.subject}
+            )
+        except Exception:
+            pass
+
     
     @action(detail=True, methods=['post'], url_path='archive')
     def archive(self, request, pk=None):
@@ -2086,6 +2135,31 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         article.is_archived = True
         article.save()
         return Response({'detail': 'Article archived successfully.'}, status=status.HTTP_200_OK)
+
+    def perform_update(self, serializer):
+        """Override update to record a simple version entry for each edit."""
+        request = getattr(self, 'request', None)
+        user = request.user if request is not None else None
+        # Capture previous state for metadata if needed
+        try:
+            article_before = self.get_object()
+        except Exception:
+            article_before = None
+
+        article = serializer.save()
+        try:
+            # Determine next version number (simple increment based on count)
+            count = article.versions.count() if hasattr(article, 'versions') else 0
+            version_number = str(count + 1)
+            KnowledgeArticleVersion.objects.create(
+                article=article,
+                version_number=version_number,
+                editor=None if isinstance(user, ExternalUser) else user,
+                changes=request.data.get('summary') or 'Updated article',
+                metadata={'before': None, 'after': None}
+            )
+        except Exception:
+            pass
     
     @action(detail=True, methods=['post'], url_path='restore')
     def restore(self, request, pk=None):

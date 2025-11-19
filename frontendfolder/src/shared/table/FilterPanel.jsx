@@ -260,6 +260,8 @@ export default function FilterPanel({
   showDateFilters,
   showSLAStatus,
   categoryFirst = false,
+  // Control rendering of the status dropdown (useful for pages pre-filtered by URL)
+  showStatus = true,
 }) {
   // Apply preset configuration if provided
   const presetConfig = preset ? FILTER_PRESETS[preset] : {};
@@ -279,6 +281,7 @@ export default function FilterPanel({
   const finalSubCategoryLabel = subCategoryLabel || presetConfig.subCategoryLabel || "Sub-Category";
   const finalShowDateFilters = showDateFilters !== undefined ? showDateFilters : (presetConfig.showDateFilters !== undefined ? presetConfig.showDateFilters : true);
   const finalShowSLAStatus = showSLAStatus !== undefined ? showSLAStatus : (presetConfig.showSLAStatus !== undefined ? presetConfig.showSLAStatus : false);
+  const finalShowStatus = showStatus !== undefined ? showStatus : true;
 
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState({
@@ -363,50 +366,54 @@ export default function FilterPanel({
                   ))}
                 </select>
               </div>
-
-              {/* Status Dropdown - SECOND */}
-              <div className={styles.filterGroup}>
-                <label htmlFor="status">{finalStatusLabel}</label>
-                <select
-                  name="status"
-                  className={styles.dropdown}
-                  value={filters.status?.label || ""}
-                  onChange={(e) => {
-                    const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
-                    handleDropdownChange("status", selected);
-                  }}
-                >
-                  <option value="">Select {finalStatusLabel.toLowerCase()}</option>
-                  {finalStatusOptions.map((option) => (
-                    <option key={option.label} value={option.label}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {finalShowStatus && (
+                <>
+                  {/* Status Dropdown - SECOND */}
+                  <div className={styles.filterGroup}>
+                    <label htmlFor="status">{finalStatusLabel}</label>
+                    <select
+                      name="status"
+                      className={styles.dropdown}
+                      value={filters.status?.label || ""}
+                      onChange={(e) => {
+                        const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
+                        handleDropdownChange("status", selected);
+                      }}
+                    >
+                      <option value="">Select {finalStatusLabel.toLowerCase()}</option>
+                      {finalStatusOptions.map((option) => (
+                        <option key={option.label} value={option.label}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <>
-              {/* Status Dropdown - FIRST */}
-              <div className={styles.filterGroup}>
-                <label htmlFor="status">{finalStatusLabel}</label>
-                <select
-                  name="status"
-                  className={styles.dropdown}
-                  value={filters.status?.label || ""}
-                  onChange={(e) => {
-                    const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
-                    handleDropdownChange("status", selected);
-                  }}
-                >
-                  <option value="">Select {finalStatusLabel.toLowerCase()}</option>
-                  {finalStatusOptions.map((option) => (
-                    <option key={option.label} value={option.label}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {finalShowStatus && (
+                <div className={styles.filterGroup}>
+                  <label htmlFor="status">{finalStatusLabel}</label>
+                  <select
+                    name="status"
+                    className={styles.dropdown}
+                    value={filters.status?.label || ""}
+                    onChange={(e) => {
+                      const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
+                      handleDropdownChange("status", selected);
+                    }}
+                  >
+                    <option value="">Select {finalStatusLabel.toLowerCase()}</option>
+                    {finalStatusOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Category Dropdown - SECOND */}
               <div className={styles.filterGroup}>

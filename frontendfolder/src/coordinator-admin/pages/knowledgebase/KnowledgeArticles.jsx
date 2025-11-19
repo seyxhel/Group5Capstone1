@@ -112,7 +112,14 @@ const KnowledgeArticles = () => {
 
     setArchiveModal((prev) => ({ ...prev, isArchiving: true }));
     try {
-      await kbService.updateArticle(article.id, { archived: true });
+      // Use dedicated archive API instead of PATCHing an unsupported field
+      // The backend exposes POST /api/articles/:id/archive/ which the
+      // kbService.archiveArticle helper calls.
+      if (kbService.archiveArticle) {
+        await kbService.archiveArticle(article.id);
+      } else {
+        await kbService.updateArticle(article.id, { is_archived: true });
+      }
       window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
       closeArchiveModal();
@@ -137,7 +144,13 @@ const KnowledgeArticles = () => {
 
     setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
     try {
-      await kbService.updateArticle(article.id, { deleted: true });
+      // Use the dedicated delete API (DELETE /api/articles/:id/)
+      if (kbService.deleteArticle) {
+        await kbService.deleteArticle(article.id);
+      } else {
+        // Fallback: try PATCHing the actual DB field if helper missing
+        await kbService.updateArticle(article.id, { is_archived: false });
+      }
       window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
       setArticles((prev) => prev.filter((a) => a.id !== article.id));
       closeDeleteModal();
@@ -151,8 +164,9 @@ const KnowledgeArticles = () => {
   // filtered list according to category/visibility/search
   const filtered = useMemo(() => {
     const q = (query || '').trim().toLowerCase();
-    const catLabel = appliedFilters?.category?.label || '';
-    const visLabel = appliedFilters?.visibility?.label || '';
+  const catLabel = appliedFilters?.category?.label || '';
+  // FilterPanel produces `status` for the dropdown; here we use it as visibility
+  const visLabel = appliedFilters?.status?.label || '';
     const start = appliedFilters?.startDate || '';
     const end = appliedFilters?.endDate || '';
 

@@ -212,8 +212,12 @@ const KnowledgeArticleView = () => {
   const confirmDelete = async () => {
     setDeleteModal((prev) => ({ ...prev, isDeleting: true }));
     try {
-      if (kbService.updateArticle) {
-        await kbService.updateArticle(article.id, { deleted: true });
+      // Use the dedicated deleteArticle backend call which performs a
+      // DELETE /api/articles/:id/ request. The previous implementation
+      // attempted to PATCH { deleted: true } which is not a valid field
+      // on the backend and caused the delete to fail.
+      if (kbService.deleteArticle) {
+        await kbService.deleteArticle(article.id);
         navigate('/admin/knowledge/articles');
       }
     } catch (err) {
@@ -233,8 +237,12 @@ const KnowledgeArticleView = () => {
   const confirmArchive = async () => {
     setArchiveModal((prev) => ({ ...prev, isArchiving: true }));
     try {
-      if (kbService.updateArticle) {
-        await kbService.updateArticle(article.id, { archived: true });
+      // Use the archiveArticle helper which calls the custom archive
+      // endpoint (POST /api/articles/:id/archive/). Sending { archived: true }
+      // via PATCH is not compatible with the serializer which expects
+      // the field name `is_archived`, so prefer the explicit endpoint.
+      if (kbService.archiveArticle) {
+        await kbService.archiveArticle(article.id);
         navigate('/admin/knowledge/articles');
       }
     } catch (err) {

@@ -340,6 +340,8 @@ const CoordinatorAdminTicketManagement = () => {
             // Provide dynamic options derived from ticket submissions
             categoryOptions={categoryOptions}
             subCategoryOptions={subCategoryOptions}
+            // Hide status dropdown when the page is pre-filtered via URL (only show on All Tickets)
+            showStatus={normalizedStatus === 'all'}
           />
         )}
 

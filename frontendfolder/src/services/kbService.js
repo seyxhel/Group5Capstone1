@@ -77,14 +77,23 @@ export const listCategories = () => {
   // Try backend first, fallback to in-memory mockCategories
   return backendArticleService.getCategoryChoices()
     .then((choices) => {
+      // Some backends return an object { categories: [...] }
+      if (choices && typeof choices === 'object' && !Array.isArray(choices) && Array.isArray(choices.categories)) {
+        choices = choices.categories;
+      }
       // If backend returns an array of choices, normalize to {id, name}
       // NOTE: some backends expose categories as strings (e.g. 'IT Support').
       // Use the category value itself as `id` so it matches article.category strings.
       if (Array.isArray(choices)) {
         if (choices.length) {
           return choices.map((c, idx) => {
+            // Handle common shapes: string, { value, label }, { id, name }, or other objects
             if (typeof c === 'string') return { id: c, name: c };
-            if (c && (c.id || c.name)) return { id: c.id || c.name || idx + 1, name: c.name || c.label || String(c) };
+            if (c && (c.value || c.id || c.name)) {
+              const id = c.value ?? c.id ?? c.name ?? String(idx + 1);
+              const name = c.label ?? c.name ?? c.value ?? c.id ?? String(c);
+              return { id, name };
+            }
             return { id: String(idx + 1), name: String(c) };
           });
         }
@@ -145,24 +154,39 @@ export const getArticle = (id) => {
         visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
         date_created: a.date_created || a.created_at,
         date_modified: a.date_modified || a.updated_at,
-        archived: !!a.archived,
+        archived: !!a.archived || !!a.is_archived,
+        versions: Array.isArray(a.versions) ? a.versions : (a.versions || []),
       };
     })
     .catch(() => Promise.resolve(mockArticles.find(a => a.id === Number(id)) || null));
 };
 
 export const submitArticle = (article) => {
+  // Map frontend article shape -> backend serializer expected fields
+  const payload = {
+    subject: article.title || article.subject,
+    description: article.content || article.description,
+    // backend expects category to match ARTICLE_CATEGORY_CHOICES values
+    category: article.category_id ?? article.category ?? null,
+    visibility: normalizeVisibility(article.visibility || article.access || 'Employee'),
+    is_archived: !!article.archived,
+  };
+
+  // include tags or author in metadata if provided
+  if (article.tags) payload.tags = article.tags;
+  if (article.author) payload.author = article.author;
+
   // Prefer backend create, fallback to mock
-  return backendArticleService.createArticle(article)
+  return backendArticleService.createArticle(payload)
     .then(a => ({
       id: a.id,
-      title: a.title || a.name,
-      content: a.content || a.body || a.description,
-      category_id: a.category_id || (a.category && a.category.id) || a.category,
+      title: a.subject || a.title || a.name,
+      content: a.description || a.content || a.body,
+      category_id: a.category || a.category_id || null,
       visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
-      date_created: a.date_created || a.created_at || new Date().toISOString(),
-      date_modified: a.date_modified || a.updated_at || new Date().toISOString(),
-      archived: !!a.archived,
+      date_created: a.created_at || a.date_created || new Date().toISOString(),
+      date_modified: a.updated_at || a.date_modified || new Date().toISOString(),
+      archived: !!a.is_archived || !!a.archived,
     }))
     .catch(() => {
       // fallback to in-memory behavior
@@ -170,12 +194,15 @@ export const submitArticle = (article) => {
       const now = new Date().toISOString().slice(0,10);
       const newArticle = { 
         id, 
-        ...article, 
+        title: article.title,
+        content: article.content,
+        category_id: article.category_id,
+        visibility: normalizeVisibility(article.visibility || 'Employee'),
         date_created: now,
         dateCreated: now,
         date_modified: now,
         dateModified: now,
-        archived: false
+        archived: !!article.archived
       };
       mockArticles.push(newArticle);
       return Promise.resolve(newArticle);
@@ -183,17 +210,29 @@ export const submitArticle = (article) => {
 };
 
 export const updateArticle = (id, patch = {}) => {
+  // Translate frontend patch keys to backend serializer expected keys
+  const backendPatch = {};
+  if ('title' in patch) backendPatch.subject = patch.title;
+  if ('content' in patch) backendPatch.description = patch.content;
+  if ('category_id' in patch) backendPatch.category = patch.category_id;
+  if ('category' in patch) backendPatch.category = patch.category;
+  if ('archived' in patch) backendPatch.is_archived = !!patch.archived;
+  if ('is_archived' in patch) backendPatch.is_archived = !!patch.is_archived;
+  if ('visibility' in patch) backendPatch.visibility = normalizeVisibility(patch.visibility);
+  // pass-through other fields (tags, author) if present
+  if ('tags' in patch) backendPatch.tags = patch.tags;
+
   // Prefer backend update, fallback to mock
-  return backendArticleService.updateArticle(id, patch)
+  return backendArticleService.updateArticle(id, backendPatch)
     .then(a => ({
       id: a.id,
-      title: a.title || a.name,
-      content: a.content || a.body || a.description,
-      category_id: a.category_id || (a.category && a.category.id) || a.category,
+      title: a.subject || a.title || a.name,
+      content: a.description || a.content || a.body,
+      category_id: a.category || a.category_id || null,
       visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
-      date_created: a.date_created || a.created_at || new Date().toISOString(),
-      date_modified: a.date_modified || a.updated_at || new Date().toISOString(),
-      archived: !!a.archived,
+      date_created: a.created_at || a.date_created || new Date().toISOString(),
+      date_modified: a.updated_at || a.date_modified || new Date().toISOString(),
+      archived: !!a.is_archived || !!a.archived,
     }))
     .catch(() => {
       const idx = mockArticles.findIndex(a => a.id === Number(id));
@@ -209,13 +248,58 @@ export const updateArticle = (id, patch = {}) => {
     });
 };
 
+export const archiveArticle = (articleId) => {
+  // Prefer backend custom archive endpoint, fallback to updateArticle
+  return backendArticleService.archiveArticle(articleId)
+    .then(a => ({
+      id: a.id,
+      title: a.title || a.name,
+      content: a.content || a.body || a.description,
+      category_id: a.category_id || (a.category && a.category.id) || a.category,
+      visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
+      date_created: a.date_created || a.created_at || new Date().toISOString(),
+      date_modified: a.date_modified || a.updated_at || new Date().toISOString(),
+      archived: !!a.archived || !!a.is_archived || false,
+    }))
+    .catch(() => {
+      // fallback to mock behavior
+      const idx = mockArticles.findIndex(a => a.id === Number(articleId));
+      if (idx === -1) return Promise.resolve(null);
+      mockArticles[idx].archived = true;
+      return Promise.resolve(mockArticles[idx]);
+    });
+};
+
+export const restoreArticle = (articleId) => {
+  // Prefer backend custom restore endpoint, fallback to updateArticle
+  return backendArticleService.restoreArticle(articleId)
+    .then(a => ({
+      id: a.id,
+      title: a.title || a.name,
+      content: a.content || a.body || a.description,
+      category_id: a.category_id || (a.category && a.category.id) || a.category,
+      visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
+      date_created: a.date_created || a.created_at || new Date().toISOString(),
+      date_modified: a.date_modified || a.updated_at || new Date().toISOString(),
+      archived: !!a.archived || !!a.is_archived || false,
+    }))
+    .catch(() => {
+      // fallback to mock behavior
+      const idx = mockArticles.findIndex(a => a.id === Number(articleId));
+      if (idx === -1) return Promise.resolve(null);
+      mockArticles[idx].archived = false;
+      return Promise.resolve(mockArticles[idx]);
+    });
+};
+
 export const listPublishedArticles = (filters = {}) => {
   // Use backend when available, fallback to mock. Published = not archived.
   return backendArticleService.getAllArticles()
     .then((articles) => {
       let results = Array.isArray(articles) ? articles.map(a => ({
         id: a.id,
-        title: a.title || a.name,
+        // include subject fallback because some backends use `subject` instead of `title`
+        title: a.title || a.name || a.subject,
         content: a.content || a.body || a.description,
         category_id: a.category_id || (a.category && a.category.id) || a.category || null,
         visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
@@ -287,6 +371,8 @@ export default {
   getArticle,
   submitArticle,
   updateArticle,
+  archiveArticle,
+  restoreArticle,
   getHistory,
   listFeedback,
   submitFeedback,

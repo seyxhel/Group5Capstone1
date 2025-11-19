@@ -11,6 +11,8 @@ export default function CoordinatorTicketFilter({
   categoryOptions,
   subCategoryOptions,
   slaStatusOptions,
+  // control whether FilterPanel shows the status dropdown
+  showStatus = true,
 }) {
   // Default status options (all statuses for coordinator/admin)
   const defaultStatusOptions = [
@@ -65,6 +67,7 @@ export default function CoordinatorTicketFilter({
     <FilterPanel
       // Use base FilterPanel with custom configuration
       hideToggleButton={hideToggleButton}
+      showStatus={showStatus}
       onApply={onApply}
       onReset={onReset}
       initialFilters={initialFilters}

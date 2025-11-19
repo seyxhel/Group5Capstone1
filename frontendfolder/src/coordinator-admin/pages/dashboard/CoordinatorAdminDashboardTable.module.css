@@ -46,10 +46,12 @@
 }
 
 /* When applied, make the table body vertically scrollable and limit visible rows.
-   Uses CSS variable `--visible-rows` to determine how many rows to show (default 5). */
+   Uses CSS variable `--visible-rows` to determine how many rows to show (default 5).
+   Slightly reduced per-row/header heights so the UI shows 5 visible rows (not 6).
+*/
 .scrollableRows {
-  /* Each row approximates 50px height; add extra space for header/padding */
-  max-height: calc((var(--visible-rows, 5) * 50px) + 80px);
+  /* Use a slightly smaller row estimate and smaller header padding to tighten the table height */
+  max-height: calc((var(--visible-rows, 5) * 48px) + 64px);
   overflow-y: auto;
 }
 
@@ -140,7 +142,7 @@
 }
 
 .tableHeaderCell {
-  padding: 0.75rem;
+  padding: 0.625rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: #0c0c0c;
@@ -148,13 +150,13 @@
   text-align: left;
   border-top: 1px solid #cccccc;
   border-bottom: 1px solid #cccccc;
-  height: 50px;
+  height: 48px;
 }
 
 .tableRow {
   border-bottom: 1px solid #cccccc;
   transition: background-color 0.2s ease;
-  min-height: 50px;
+  min-height: 48px;
   vertical-align: middle;
 }
 
@@ -168,10 +170,10 @@
 }
 
 .tableCell {
-  padding: 0.75rem;
+  padding: 0.625rem 0.75rem;
   font-size: 0.8125rem;
   color: var(--text-color);
-  height: 50px;
+  height: 48px;
 }
 
 /* === Status Badges === */

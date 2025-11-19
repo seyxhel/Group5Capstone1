@@ -58,7 +58,8 @@ const KnowledgeArchived = () => {
     const start = appliedFilters?.startDate || '';
     const end = appliedFilters?.endDate || '';
     const catLabel = appliedFilters?.category?.label || '';
-    const visLabel = appliedFilters?.visibility?.label || '';
+    // FilterPanel exposes the visibility dropdown as `status`.
+    const visLabel = appliedFilters?.status?.label || '';
     const startTs = start ? new Date(start).setHours(0,0,0,0) : null;
     const endTs = end ? new Date(end).setHours(23,59,59,999) : null;
 
@@ -90,9 +91,18 @@ const KnowledgeArchived = () => {
 
   const handleRestore = async (article) => {
     if (!window.confirm(`Restore "${article.title}"?`)) return;
-    await kbService.updateArticle(article.id, { archived: false });
-    window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
-    setArticles(prev => prev.filter(p => p.id !== article.id));
+    try {
+      if (kbService.restoreArticle) {
+        await kbService.restoreArticle(article.id);
+      } else {
+        await kbService.updateArticle(article.id, { is_archived: false });
+      }
+      window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: { id: article.id } }));
+      setArticles(prev => prev.filter(p => p.id !== article.id));
+    } catch (err) {
+      console.error('Failed to restore article:', err);
+      alert('Failed to restore article. Please try again.');
+    }
   };
 
   const handleDelete = async (article) => {

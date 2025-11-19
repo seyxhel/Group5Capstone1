@@ -1,14 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import styles from './CoordinatorAdminDashboard.module.css';
 import tableStyles from './CoordinatorAdminDashboardTable.module.css';
+import kbService from '../../../services/kbService';
+import { useEffect, useState } from 'react';
 
-const DataTable = ({ title, headers, data }) => (
+const DataTable = ({ title, headers, data, maxVisibleRows }) => (
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
     </div>
 
-    <div className={tableStyles.tableOverflow}>
+    <div className={`${tableStyles.tableOverflow} ${maxVisibleRows ? tableStyles.scrollableRows : ''}`} style={ maxVisibleRows ? { ['--visible-rows']: maxVisibleRows } : {} }>
       {data.length > 0 ? (
         <table className={tableStyles.table}>
           <thead className={tableStyles.tableHead}>
@@ -38,12 +40,61 @@ const DataTable = ({ title, headers, data }) => (
 const KnowledgeBaseTab = () => {
   const navigate = useNavigate();
 
-  const stats = [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }];
+  const [stats, setStats] = useState([{ label: 'Articles', count: 0 }, { label: 'Categories', count: 0 }]);
+  const [tableData, setTableData] = useState([]);
 
-  const tableData = [
-    { id: 'A-001', title: 'How to reset password', category: 'Account', updated: '06/10/2025' },
-    { id: 'A-002', title: 'VPN setup guide', category: 'Networking', updated: '05/22/2025' }
-  ];
+  useEffect(() => {
+    let mounted = true;
+
+    // Fetch published articles and categories concurrently
+    Promise.allSettled([kbService.listPublishedArticles(), kbService.listCategories()])
+      .then(([articlesRes, categoriesRes]) => {
+        if (!mounted) return;
+
+        const articles = (articlesRes.status === 'fulfilled' && Array.isArray(articlesRes.value)) ? articlesRes.value : (Array.isArray(articlesRes.value) ? articlesRes.value : []);
+        const categories = (categoriesRes.status === 'fulfilled' && Array.isArray(categoriesRes.value)) ? categoriesRes.value : (Array.isArray(categoriesRes.value) ? categoriesRes.value : []);
+
+        const formatDate = (d) => {
+          if (!d) return '';
+          try {
+            const dt = new Date(d);
+            if (Number.isNaN(dt.getTime())) return String(d);
+            // enforce MM/DD/YYYY
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            const dd = String(dt.getDate()).padStart(2, '0');
+            const yyyy = dt.getFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          } catch (e) {
+            return String(d);
+          }
+        };
+
+        // Sort articles by latest update (date_modified > date_created) and map all results
+        const sorted = (articles || []).slice().sort((x, y) => {
+          const dx = new Date(x.date_modified || x.updated_at || x.dateModified || x.date_created || x.created_at || 0).getTime() || 0;
+          const dy = new Date(y.date_modified || y.updated_at || y.dateModified || y.date_created || y.created_at || 0).getTime() || 0;
+          return dy - dx;
+        });
+
+        const mapped = sorted.map(a => ({
+          id: `A-${String(a.id || a.articleId || '').padStart(3, '0')}`,
+          title: a.title || a.subject || a.name || '',
+          category: (a.category && (a.category.name || a.category.title)) || a.category || a.category_id || a.categoryId || '',
+          updated: formatDate(a.date_modified || a.updated_at || a.dateModified || a.date_created || a.created_at || '')
+        }));
+
+        setTableData(mapped);
+        setStats([
+          { label: 'Articles', count: (articles || []).length },
+          { label: 'Categories', count: (categories || []).length }
+        ]);
+      })
+      .catch((e) => {
+        console.warn('[KB] Failed to fetch articles/categories for dashboard', e);
+      });
+
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <>
@@ -62,6 +113,7 @@ const KnowledgeBaseTab = () => {
         title="Recent Articles"
         headers={['ID', 'Title', 'Category', 'Last Updated']}
         data={tableData}
+        maxVisibleRows={5}
       />
 
       <div style={{ position: 'relative', marginTop: 12 }}>

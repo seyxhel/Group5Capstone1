@@ -39,7 +39,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
         sortedVersions.map((v, idx) => {
           const versionNumber = v.number ?? v.version ?? idx + 1;
           const modifiedDate = v.date || v.updated_at || v.dateModified || v.modified || article.date_modified || article.dateModified;
-          const author = v.author || v.editor || v.updatedBy || article.author || article.editor || 'Unknown';
+          const author = v.author || v.editor || v.updatedBy || article.author || article.editor || 'System Admin';
           const changes = v.changes || v.summary || v.description || v.notes || '';
 
           // Determine role label. Prefer explicit visibility/role fields; otherwise infer from version number components.

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle
+from .models import Employee, Ticket, TicketAttachment, KnowledgeArticle, KnowledgeArticleVersion
 from .models import ActivityLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -341,12 +341,13 @@ def ticket_to_dict(ticket):
 
 class KnowledgeArticleSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
+    versions = serializers.SerializerMethodField()
 
     class Meta:
         model = KnowledgeArticle
         fields = [
             'id', 'subject', 'category', 'visibility', 'description',
-            'is_archived', 'created_by', 'created_by_name', 'created_at', 'updated_at'
+            'is_archived', 'created_by', 'created_by_name', 'created_at', 'updated_at', 'versions'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
 
@@ -377,3 +378,21 @@ class KnowledgeArticleSerializer(serializers.ModelSerializer):
 
         # Default: no creator information available
         return None
+
+    def get_versions(self, obj):
+        # Return a simple serialized list of versions for the frontend.
+        vers = getattr(obj, 'versions', None)
+        if vers is None:
+            return []
+        # Provide a compact representation
+        return [
+            {
+                'id': v.id,
+                'number': v.version_number,
+                'author': getattr(v.editor, 'company_id', None) or getattr(v.editor, 'id', None),
+                'date': v.modified_at.isoformat() if v.modified_at else None,
+                'changes': v.changes,
+                'metadata': v.metadata,
+            }
+            for v in vers.all()
+        ]

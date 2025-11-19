@@ -123,8 +123,16 @@ export const backendArticleService = {
       handleAuthError(response);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create article');
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          console.error('Failed to parse error response from createArticle', e);
+        }
+        console.error('Article creation failed, response body:', errorData);
+        // Prefer returning validation errors if present
+        const msg = (errorData && (errorData.detail || JSON.stringify(errorData))) || 'Failed to create article';
+        throw new Error(msg);
       }
 
       return await response.json();

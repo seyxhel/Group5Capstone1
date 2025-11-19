@@ -307,8 +307,14 @@ const UsersTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
   const getUserJoinedDate = (u) => (u.date_joined || u.dateJoined || u.created_at || u.created || null);
 
   useEffect(() => {
+    // Fetch once on mount. Avoid depending on a freshly-parsed currentUser object
+    // (authService.getCurrentUser() returns a new object each call), which caused
+    // this effect to re-run every render and produce flickering skeletons.
     let mounted = true;
     setLoadingUsers(true);
+
+    // Read a stable snapshot of current user for local filtering
+    const current = authService.getCurrentUser();
 
     // Try fetching pending HDTS users and all HDTS users (for pie) in parallel
     Promise.allSettled([
@@ -348,9 +354,9 @@ const UsersTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
 
       // apply visibility filter for Ticket Coordinators
       let visible = mappedPending;
-      if (currentUser) {
-        if (currentUser.role === 'Ticket Coordinator') {
-          visible = mappedPending.filter((m) => m.department === currentUser.department);
+      if (current) {
+        if (current.role === 'Ticket Coordinator') {
+          visible = mappedPending.filter((m) => m.department === current.department);
         }
       }
 
@@ -367,7 +373,7 @@ const UsersTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     });
 
     return () => { mounted = false; };
-  }, [currentUser]);
+  }, []);
 
   // Derived UI data
   // Compute counts from HDTS users fetched (rawUsers contains HDTS users mapped)

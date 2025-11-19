@@ -356,3 +356,24 @@ class KnowledgeArticle(models.Model):
 
     def __str__(self):
         return f"{self.subject} ({self.category})"
+
+
+class KnowledgeArticleVersion(models.Model):
+    """Stores a simple edit/version history for KnowledgeArticle.
+
+    This is intentionally lightweight: each time an article is created or
+    updated we create a new KnowledgeArticleVersion entry. The frontend
+    renders the `versions` related_name to present a version history.
+    """
+    article = models.ForeignKey(KnowledgeArticle, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.CharField(max_length=64, blank=True, null=True)
+    editor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.TextField(blank=True, null=True)
+    metadata = models.JSONField(blank=True, null=True)
+    modified_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-modified_at']
+
+    def __str__(self):
+        return f"Article {self.article_id} - v{self.version_number} @ {self.modified_at}"
