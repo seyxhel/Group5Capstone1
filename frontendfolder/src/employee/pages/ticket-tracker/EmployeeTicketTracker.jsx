@@ -281,7 +281,8 @@ const generateLogs = (ticket) => {
     });
   }
 
-  return logs;
+  // Reverse logs to show latest first (newest to oldest)
+  return logs.reverse();
 };
 
 // Generate messages based on ticket data

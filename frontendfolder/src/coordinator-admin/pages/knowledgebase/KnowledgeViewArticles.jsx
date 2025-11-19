@@ -32,7 +32,15 @@ const KnowledgeViewArticles = () => {
       try {
         const cats = await Promise.resolve(kbService.listCategories());
         const arts = await Promise.resolve(kbService.listArticles({}));
-        setCategories(cats || []);
+        // If backend/categories endpoint didn't return useful choices, derive categories from articles
+        let finalCategories = [];
+        if (Array.isArray(cats) && cats.length) {
+          finalCategories = cats;
+        } else if (Array.isArray(arts) && arts.length) {
+          const uniq = Array.from(new Set(arts.map(a => a.category_id || a.category || 'Uncategorized')));
+          finalCategories = uniq.map((v) => ({ id: v, name: String(v) }));
+        }
+        setCategories(finalCategories || []);
         // Filter for non-archived articles only
         const nonArchived = (arts || []).filter(a => !a.archived);
         setArticles(nonArchived);
