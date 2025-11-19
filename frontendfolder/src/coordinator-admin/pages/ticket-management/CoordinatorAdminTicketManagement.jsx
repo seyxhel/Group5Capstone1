@@ -99,11 +99,11 @@ const CoordinatorAdminTicketManagement = () => {
 
   const normalizedStatus = status.replace("-tickets", "").toLowerCase();
   // Map URL status to actual ticket status
-  // "new" in URL matches "New", "Submitted", or "Pending" statuses (all treated as New)
-  // "open" matches "Open" status
+  // Note: 'new' URL should map to New/Submitted only; Pending is a separate status
+  // 'open' maps to Open, etc. Keep null for 'all'.
   const statusFilter =
     normalizedStatus === "new"
-      ? ["new", "submitted", "pending"]
+      ? ["new", "submitted"]
       : normalizedStatus === "all"
       ? null
       : normalizedStatus.replace(/-/g, " ");
@@ -195,12 +195,19 @@ const CoordinatorAdminTicketManagement = () => {
   const filteredTickets = useMemo(() => {
     let result = allTickets;
 
-    // Status filter from URL
+    // Status filter from URL — use computed effective status when available so
+    // aged 'New' -> 'Pending' tickets are routed to the Pending page instead of New.
     if (statusFilter) {
       if (Array.isArray(statusFilter)) {
-        result = result.filter(ticket => statusFilter.includes(ticket.status?.toLowerCase()));
+        result = result.filter(ticket => {
+          const ticketStatusForFilter = (ticket.__effectiveStatus || ticket.status || '').toString().toLowerCase();
+          return statusFilter.includes(ticketStatusForFilter);
+        });
       } else {
-        result = result.filter(ticket => ticket.status?.toLowerCase() === statusFilter);
+        result = result.filter(ticket => {
+          const ticketStatusForFilter = (ticket.__effectiveStatus || ticket.status || '').toString().toLowerCase();
+          return ticketStatusForFilter === statusFilter;
+        });
       }
     }
 

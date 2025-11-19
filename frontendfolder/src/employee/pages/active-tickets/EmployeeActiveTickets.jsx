@@ -271,6 +271,7 @@ const EmployeeActiveTickets = () => {
             setCurrentPage(1);
           }}
           initialFilters={activeFilters}
+          showStatus={filter === 'all-active-tickets'}
         />
       )}
 

@@ -26,6 +26,8 @@ export default function EmployeeTicketFilter({
   priorityOptions,
   categoryOptions,
   subCategoryOptions,
+  // Control whether the Status dropdown is shown. Defaults to true.
+  showStatus = true,
 }) {
   // Default status options for Active Tickets
   const defaultActiveStatusOptions = [
@@ -88,6 +90,7 @@ export default function EmployeeTicketFilter({
       onApply={onApply}
       onReset={onReset}
       initialFilters={initialFilters}
+      showStatus={showStatus}
       
       // Filter order: Status, Priority, Category, Sub-Category, Start Date, End Date
       statusLabel="Status"
