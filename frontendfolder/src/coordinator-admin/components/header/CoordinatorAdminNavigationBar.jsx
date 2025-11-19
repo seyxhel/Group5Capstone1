@@ -136,31 +136,82 @@ const CoordinatorAdminNavBar = () => {
     // Debug log navigation attempts to help diagnose routing issues
     // eslint-disable-next-line no-console
     console.debug('[CoordinatorAdminNavigationBar] navigate ->', path, 'current pathname:', location.pathname);
-    navigate(path);
+    // If user is already on the same pathname, force a full reload so the
+    // admin page re-initializes its data (avoids needing a manual refresh).
+    if (location.pathname === path) {
+      try {
+        window.location.href = path;
+      } catch (e) {
+        // fallback to SPA navigate if full reload is blocked
+        navigate(path);
+      }
+    } else {
+      navigate(path);
+    }
     setOpenDropdown(null);
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Try to call the auth service logout endpoint (server should clear HttpOnly cookies)
+    try {
+      const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+      const LOGOUT_URL = `${AUTH_BASE}/api/v1/token/logout/`;
+      try {
+        await fetch(LOGOUT_URL, { method: 'POST', credentials: 'include' });
+        if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Called auth logout endpoint');
+      } catch (err) {
+        if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Auth logout endpoint call failed:', err);
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Logout: failed to compute auth logout URL', e);
+    }
+
     // Clear all auth-related localStorage items
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('user');
-    localStorage.removeItem('chatbotMessages');
-    
+    try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('loggedInUser');
+      localStorage.removeItem('user');
+      localStorage.removeItem('chatbotMessages');
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Clearing localStorage failed', e);
+    }
+
+    // Attempt to clear non-HttpOnly cookies by expiring them.
+    try {
+      if (typeof document !== 'undefined') {
+        const cookies = document.cookie ? document.cookie.split(';').map(c => c.split('=')[0].trim()) : [];
+        cookies.forEach((name) => {
+          try {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Clearing cookies failed', e);
+    }
+
     // Dispatch auth:logout event to stop the inactivity watcher
     try {
       window.dispatchEvent(new CustomEvent('auth:logout'));
-      console.log('[CoordinatorAdminNavigationBar] Dispatched auth:logout event');
+      if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Dispatched auth:logout event');
     } catch (e) {
-      console.warn('[CoordinatorAdminNavigationBar] Failed to dispatch auth:logout', e);
+      if (import.meta.env.DEV) console.debug('[CoordinatorAdminNavigationBar] Failed to dispatch auth:logout', e);
     }
-    
+
     setIsMobileMenuOpen(false);
-    // Navigate to login and pass a flag so the login page can show a brief
-    // loading state after logout. Avoid forcing a full page reload.
-    navigate('/', { state: { fromLogout: true } });
+
+    // Redirect to auth service login page (use configured AUTH base; defaults to localhost:8003)
+    try {
+      const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+      window.location.href = `${AUTH_BASE}/login`;
+    } catch (e) {
+      navigate('/', { state: { fromLogout: true } });
+    }
   };
 
   useEffect(() => {

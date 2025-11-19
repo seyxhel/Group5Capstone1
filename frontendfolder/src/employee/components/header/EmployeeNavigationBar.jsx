@@ -59,25 +59,134 @@ const EmployeeNavBar = () => {
   // track profile image via state so we can update it dynamically
   const [profileImageUrl, setProfileImageUrl] = useState(currentUser?.image || currentUser?.profileImage || DEFAULT_PROFILE_IMAGE);
   const [backendAvailable, setBackendAvailable] = useState(true); // Always assume backend is available
-  const scrolled = useScrollShrink(0, { debug: true });
+  const scrolled = useScrollShrink(0, { debug: false });
 
   // Fetch employee profile with image on mount
   useEffect(() => {
     const fetchProfileImage = async () => {
       try {
-        const profile = await backendEmployeeService.getCurrentEmployee();
-        console.log('Fetched employee profile:', profile);
-        
-        if (profile.image) {
-          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
-          if (resolved) {
-            console.log('Profile image URL:', resolved);
-            setProfileImageUrl(resolved);
+        const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+
+        // Helper to normalize and secure any returned image URL
+        const normalizeImageUrl = (rawUrl, base) => {
+          if (!rawUrl) return null;
+          let imageUrl = rawUrl;
+          if (typeof imageUrl !== 'string') imageUrl = (imageUrl.url || imageUrl.image || '') + '';
+          imageUrl = imageUrl.trim();
+
+          // If already absolute or data URL, prefer it
+          if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) return convertToSecureUrl(imageUrl) || imageUrl;
+
+          // If relative path, attach provided base
+          if (base) {
+            const pref = imageUrl.startsWith('/') ? '' : '/';
+            return convertToSecureUrl(`${base}${pref}${imageUrl}`) || `${base}${pref}${imageUrl}`;
+          }
+
+          // Last resort: try backend media resolver
+          const resolved = resolveMediaUrl(imageUrl);
+          return convertToSecureUrl(resolved) || resolved;
+        };
+
+        // 1) Prefer cookie-based fetch (some deployments use cookie auth)
+        try {
+          // Try the general profile endpoint first (auth service commonly exposes this)
+          let resp2 = await fetch(`${AUTH_BASE}/api/v1/users/profile/`, { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+          const contentType = resp2 ? (resp2.headers.get('content-type') || '') : '';
+
+          if (resp2 && resp2.ok && contentType.includes('application/json')) {
+            try {
+              const profile = await resp2.json();
+              if (import.meta.env.DEV) console.debug('[Navbar] Auth profile (cookie):', profile);
+              const candidate = normalizeImageUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profile_picture, AUTH_BASE);
+              if (candidate) { setProfileImageUrl(candidate); return; }
+            } catch (err) {
+              if (import.meta.env.DEV) console.debug('[Navbar] Failed to parse /api/v1/users/profile/ JSON:', err);
+            }
+          }
+
+          // Try agent-management list for render-ready entries
+          try {
+            const listResp = await fetch(`${AUTH_BASE}/api/v1/users/agent-management/`, { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+            if (listResp && listResp.ok) {
+              const list = await listResp.json();
+              if (Array.isArray(list) && list.length) {
+                const uid = currentUser?.id || currentUser?.user_id || null;
+                const match = uid ? list.find((u) => String(u.id) === String(uid)) : list.find((u) => u.email === currentUser?.email);
+                if (match) {
+                  const candidate2 = normalizeImageUrl(match.image || match.profile_image || match.profile_picture || match.image_url || match.imageUrl, AUTH_BASE);
+                  if (candidate2) { setProfileImageUrl(candidate2); return; }
+                }
+              }
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) console.debug('[Navbar] agent-management fetch failed:', err);
+          }
+
+          // As a last-resort, try the settings/profile endpoint which may be present in some deployments
+          try {
+            const respSettings = await fetch(`${AUTH_BASE}/api/v1/users/settings/profile/`, { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+            const ct = respSettings ? (respSettings.headers.get('content-type') || '') : '';
+            if (respSettings && respSettings.ok && ct.includes('application/json')) {
+              try {
+                const profile = await respSettings.json();
+                const candidate = normalizeImageUrl(profile.image || profile.profile_image || profile.profile_picture || profile.image_url || profile.imageUrl, AUTH_BASE);
+                if (candidate) { setProfileImageUrl(candidate); return; }
+              } catch (err) { /* ignore parse errors */ }
+            }
+          } catch (err) {
+            /* ignore */
+          }
+        } catch (err) {
+          if (import.meta.env.DEV) console.debug('[Navbar] Auth profile (cookie) fetch failed:', err);
+        }
+
+        // 2) Fallback to Bearer token based call if token exists (secondary)
+        let token = null;
+        try { token = localStorage.getItem('access_token'); } catch (e) { token = null; }
+
+        if (token) {
+          try {
+            const resp = await fetch(`${AUTH_BASE}/api/v1/users/settings/profile/`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+            });
+            if (resp.ok) {
+              const profile = await resp.json();
+              if (import.meta.env.DEV) console.debug('[Navbar] Auth profile (Bearer):', profile);
+              const candidate = normalizeImageUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl, AUTH_BASE);
+              if (candidate) { setProfileImageUrl(candidate); return; }
+            } else {
+              if (import.meta.env.DEV) console.debug('[Navbar] Auth profile (Bearer) not ok:', resp.status);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) console.debug('[Navbar] Auth profile (Bearer) fetch failed:', err);
           }
         }
+
+        // 3) Backend employee service fallback
+        try {
+          const profile = await backendEmployeeService.getCurrentEmployee();
+          if (import.meta.env.DEV) console.debug('[Navbar] Backend employee profile:', profile);
+          // Prefer auth service base for rendering images created by auth service
+          const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+          const BACKEND_BASE = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
+          let candidate = normalizeImageUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl, AUTH_BASE);
+          if (!candidate) {
+            candidate = normalizeImageUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl, BACKEND_BASE);
+          }
+          if (candidate) { setProfileImageUrl(candidate); return; }
+        } catch (err) {
+          if (import.meta.env.DEV) console.debug('[Navbar] Backend employee fetch failed:', err);
+        }
+
+        // If nothing worked, leave default
+        if (import.meta.env.DEV) console.debug('[Navbar] No profile image found; using default.');
       } catch (error) {
-        console.error('Failed to fetch profile image:', error);
-        // Keep using the default image on error
+        console.error('Failed to fetch profile image (unexpected):', error);
       }
     };
 
@@ -122,30 +231,76 @@ const EmployeeNavBar = () => {
     setShowNotification(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Try to call the auth service logout endpoint (server should clear HttpOnly cookies)
+    try {
+      const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+      const LOGOUT_URL = `${AUTH_BASE}/api/v1/token/logout/`;
+      try {
+        await fetch(LOGOUT_URL, { method: 'POST', credentials: 'include' });
+        if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Called auth logout endpoint');
+      } catch (err) {
+        if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Auth logout endpoint call failed:', err);
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Logout: failed to compute auth logout URL', e);
+    }
+
     // Clear all auth-related localStorage items
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('user');
-    localStorage.removeItem('chatbotMessages');
-    
+    try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('loggedInUser');
+      localStorage.removeItem('user');
+      localStorage.removeItem('chatbotMessages');
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Clearing localStorage failed', e);
+    }
+
+    // Attempt to clear non-HttpOnly cookies by expiring them.
+    try {
+      if (typeof document !== 'undefined') {
+        const cookies = document.cookie ? document.cookie.split(';').map(c => c.split('=')[0].trim()) : [];
+        cookies.forEach((name) => {
+          try {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Clearing cookies failed', e);
+    }
+
     // Dispatch auth:logout event to stop the inactivity watcher
     try {
       window.dispatchEvent(new CustomEvent('auth:logout'));
-      console.log('[EmployeeNavigationBar] Dispatched auth:logout event');
+      if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Dispatched auth:logout event');
     } catch (e) {
-      console.warn('[EmployeeNavigationBar] Failed to dispatch auth:logout', e);
+      if (import.meta.env.DEV) console.debug('[EmployeeNavigationBar] Failed to dispatch auth:logout', e);
     }
-    
+
     // Close any open menus
     setShowProfileMenu(false);
     setIsMobileMenuOpen(false);
-    
-    // Navigate to login page. Pass a flag so the login page can show a loading
-    // indicator immediately after logout (instead of showing it only when the
-    // login form is submitted). Avoid forcing a full page reload.
-    navigate('/', { state: { fromLogout: true } });
+
+    // Redirect to auth service login page (use configured AUTH base; defaults to localhost:8003)
+    try {
+      const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+      // Give the auth service a short moment to clear server cookies, then force a full navigation.
+      setTimeout(() => {
+        try {
+          window.location.replace(`${AUTH_BASE}/login`);
+        } catch (err) {
+          try { window.location.href = `${AUTH_BASE}/login`; } catch (e) { navigate('/', { state: { fromLogout: true } }); }
+        }
+      }, 250);
+    } catch (e) {
+      // Fallback: navigate to root of frontend
+      navigate('/', { state: { fromLogout: true } });
+    }
   };
 
   const getFullName = () => {
@@ -263,17 +418,33 @@ const EmployeeNavBar = () => {
           return;
         }
 
-        // If no explicit image provided (or no event id), attempt to re-fetch profile once
-        backendEmployeeService.getCurrentEmployee()
+        // If no explicit image provided, prefer cookie-based fetch from auth service
+        const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+
+        fetch(`${AUTH_BASE}/api/v1/users/settings/profile/`, {
+          method: 'GET',
+          credentials: 'include',
+        })
+          .then(response => response.ok ? response.json() : null)
           .then((profile) => {
-            if (profile && profile.image) {
+            if (profile && (profile.image || profile.profile_image || profile.image_url || profile.imageUrl)) {
+              const imageUrl = profile.image || profile.profile_image || profile.image_url || profile.imageUrl;
+              const clean = (typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? imageUrl : `${AUTH_BASE}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+              setProfileImageUrl(clean);
+            } else {
+              // Fallback to backend employee service
+              return backendEmployeeService.getCurrentEmployee();
+            }
+          })
+          .then((profile) => {
+            if (profile && (profile.image || profile.profile_image || profile.image_url || profile.imageUrl)) {
+              const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
               const BASE_URL = API_CONFIG.BACKEND.BASE_URL.replace(/\/$/, '');
-              let imageUrl = profile.image;
-              if (!imageUrl.startsWith('http')) {
-                imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-                imageUrl = `${BASE_URL}${imageUrl}`;
-              }
-              setProfileImageUrl(imageUrl);
+              let imageUrl = profile.image || profile.profile_image || profile.image_url || profile.imageUrl;
+              const candidateAuth = (typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? imageUrl : `${AUTH_BASE}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+              const candidateBackend = (typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? imageUrl : `${BASE_URL}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+              // Prefer auth-hosted rendering path
+              setProfileImageUrl(candidateAuth || candidateBackend);
             }
           })
           .catch(() => {});

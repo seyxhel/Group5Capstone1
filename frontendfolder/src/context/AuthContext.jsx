@@ -43,22 +43,26 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = useCallback(async () => {
     try {
-      console.log('AuthContext: Fetching user profile from:', PROFILE_URL);
-      console.log('AuthContext: Cookies:', document.cookie);
+      if (import.meta.env.DEV) {
+        console.debug('AuthContext: Fetching user profile from:', PROFILE_URL);
+        console.debug('AuthContext: Cookies:', typeof document !== 'undefined' ? document.cookie : 'n/a');
+      }
       const response = await api.get(PROFILE_URL);
-      console.log('AuthContext: Profile response:', response.data);
-      console.log('AuthContext: Response status:', response.status);
-      console.log('AuthContext: Response headers:', response.headers);
+      if (import.meta.env.DEV) {
+        console.debug('AuthContext: Profile response:', response.data);
+        console.debug('AuthContext: Response status:', response.status);
+        console.debug('AuthContext: Response headers:', response.headers);
+      }
       
       if (response.status === 200) {
         // Extract role for hdts system
         let hdtsRole = null;
         if (Array.isArray(response.data.system_roles)) {
-          console.log('AuthContext: System roles:', response.data.system_roles);
+          if (import.meta.env.DEV) console.debug('AuthContext: System roles:', response.data.system_roles);
           const hdts = response.data.system_roles.find(r => r.system_slug === "hdts");
           if (hdts) {
             hdtsRole = hdts.role_name;
-            console.log('AuthContext: Found HDTS role:', hdtsRole);
+            if (import.meta.env.DEV) console.debug('AuthContext: Found HDTS role:', hdtsRole);
           } else {
             console.warn('AuthContext: No HDTS system role found in:', response.data.system_roles);
           }
@@ -71,12 +75,14 @@ export const AuthProvider = ({ children }) => {
   const userWithRole = { ...response.data, role: normalizedRole };
         localStorage.setItem("user", JSON.stringify(userWithRole));
         setUser(userWithRole);
-        console.log('AuthContext: User set with role:', hdtsRole);
+        if (import.meta.env.DEV) console.debug('AuthContext: User set with role:', hdtsRole);
       }
     } catch (error) {
       console.error("AuthContext: Failed to fetch user profile:", error);
-      console.error("AuthContext: Error response:", error.response?.data);
-      console.error("AuthContext: Error status:", error.response?.status);
+      if (error?.response) {
+        console.error("AuthContext: Error response:", error.response?.data);
+        console.error("AuthContext: Error status:", error.response?.status);
+      }
       clearAuth();
     } finally {
       setLoading(false);

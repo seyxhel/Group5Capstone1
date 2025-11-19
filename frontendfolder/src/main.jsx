@@ -37,11 +37,22 @@ const Root = () => {
     window.__APP_SESSION__ = session;
     window.__APP_SESSION_INITIALIZED__ = true;
 
-    // Start the inactivity watcher if user is logged in (has any access token)
+    // Start the inactivity watcher if user is logged in (has any access token).
+    // Some deployments use cookie-based SSO (access token stored in cookie).
+    const cookieHasToken = (() => {
+      try {
+        const m = document.cookie.match(/(?:^|; )access_token=([^;]+)/);
+        return !!(m && m[1]);
+      } catch (e) {
+        return false;
+      }
+    })();
+
     const hasToken = !!(
       localStorage.getItem('admin_access_token') || 
       localStorage.getItem('employee_access_token') || 
-      localStorage.getItem('access_token')
+      localStorage.getItem('access_token') ||
+      cookieHasToken
     );
     
     if (hasToken) {
