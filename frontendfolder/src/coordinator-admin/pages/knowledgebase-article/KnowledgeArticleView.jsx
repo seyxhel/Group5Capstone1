@@ -13,6 +13,7 @@ import DeleteConfirmationModal from '../../components/modals/SysAdminDeleteConfi
 import ArchiveConfirmationModal from '../../components/modals/SysAdminArchiveConfirmationModal';
 import kbService from '../../../services/kbService';
 import authService from '../../../utilities/service/authService';
+import KnowledgeArticleVersionHistory from './KnowledgeArticleVersionHistory';
 
 const KnowledgeArticleView = () => {
   const { id } = useParams();
@@ -142,38 +143,54 @@ const KnowledgeArticleView = () => {
     const timer = setTimeout(() => {
       try {
         if (kbService.getArticle) {
-          const fetchedArticle = kbService.getArticle(id);
-          setArticle(fetchedArticle);
+          // kbService.getArticle may return a Promise or a sync value; normalize with Promise.resolve
+          Promise.resolve(kbService.getArticle(id))
+            .then((fetchedArticle) => {
+              setArticle(fetchedArticle);
 
-          // Enforce system-admin-only visibility: kbService normalizes visibility to title case.
-          // If the article is "System Admin" only, prevent non-System Admin users from viewing it.
-          try {
-            const isAdminOnly = fetchedArticle?.visibility === 'System Admin';
-            const currentRole = authService.getUserRole();
-            if (isAdminOnly && currentRole !== 'System Admin') {
-              setUnauthorized(true);
-            } else {
-              setUnauthorized(false);
-            }
-          } catch (e) {
-            // if anything goes wrong, default to not unauthorized
-            setUnauthorized(false);
-          }
+              // Enforce system-admin-only visibility
+              try {
+                const isAdminOnly = fetchedArticle?.visibility === 'System Admin';
+                const currentRole = authService.getUserRole();
+                if (isAdminOnly && currentRole !== 'System Admin') {
+                  setUnauthorized(true);
+                } else {
+                  setUnauthorized(false);
+                }
+              } catch (e) {
+                setUnauthorized(false);
+              }
 
-          // Load category
-          if (fetchedArticle && kbService.listCategories) {
-            const categories = kbService.listCategories();
-            const cat = categories.find(
-              (c) => c.id === fetchedArticle.category_id || c.id === fetchedArticle.categoryId
-            );
-            setCategory(cat);
-          }
+              // Load category (kbService.listCategories may be sync or Promise)
+              if (fetchedArticle && kbService.listCategories) {
+                Promise.resolve(kbService.listCategories())
+                  .then((categories) => {
+                    const cat = (categories || []).find(
+                      (c) => c.id === fetchedArticle.category_id || c.id === fetchedArticle.categoryId
+                    );
+                    setCategory(cat);
+                  })
+                  .catch((err) => {
+                    console.error('Failed to load categories:', err);
+                    setCategory(null);
+                  });
+              }
 
-          // Load feedbacks
-          if (fetchedArticle && kbService.listFeedback) {
-            const fetchedFeedbacks = kbService.listFeedback(id);
-            setFeedbacks(Array.isArray(fetchedFeedbacks) ? fetchedFeedbacks : []);
-          }
+              // Load feedbacks (kbService.listFeedback may return a Promise)
+              if (fetchedArticle && kbService.listFeedback) {
+                Promise.resolve(kbService.listFeedback(id))
+                  .then((fetchedFeedbacks) => {
+                    setFeedbacks(Array.isArray(fetchedFeedbacks) ? fetchedFeedbacks : []);
+                  })
+                  .catch((err) => {
+                    console.error('Failed to load feedbacks:', err);
+                    setFeedbacks([]);
+                  });
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to load article (async):', err);
+            });
         }
       } catch (err) {
         console.error('Failed to load article:', err);
@@ -439,7 +456,7 @@ const KnowledgeArticleView = () => {
               <Tabs
                 tabs={[
                   { label: 'Feedback', value: 'details' },
-                  { label: 'Info', value: 'info' }
+                  { label: 'Version History', value: 'info' }
                 ]}
                 active={activeTab}
                 onChange={setActiveTab}
@@ -479,22 +496,7 @@ const KnowledgeArticleView = () => {
                     )}
                   </div>
                 ) : (
-                  <div className={localStyles.infoTab}>
-                    <div className={localStyles.infoItem}>
-                      <strong>Created:</strong> {formatDate(article.date_created || article.dateCreated)}
-                    </div>
-                    <div className={localStyles.infoItem}>
-                      <strong>Last Modified:</strong> {formatDate(article.date_modified || article.dateModified)}
-                    </div>
-                    <div className={localStyles.infoItem}>
-                      <strong>Category:</strong> {category ? category.name : 'Uncategorized'}
-                    </div>
-                    {article.tags && article.tags.length > 0 && (
-                      <div className={localStyles.infoItem}>
-                        <strong>Tags:</strong> {article.tags.join(', ')}
-                      </div>
-                    )}
-                  </div>
+                  <KnowledgeArticleVersionHistory article={article} category={category} />
                 )}
               </Tabs>
             </div>

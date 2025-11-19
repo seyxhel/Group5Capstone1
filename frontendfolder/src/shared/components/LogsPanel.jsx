@@ -43,7 +43,17 @@ export default function LogsPanel({ logs = [] }) {
               {getLogIcon(log.action || log.text)}
             </div>
             <div className={styles.logBody}>
-              <div className={styles.logText}>{renderLogText(log.text || log.action, log.highlight)}</div>
+              <div className={styles.logText}>
+                {log.user ? (
+                  <>
+                    <strong className={styles.logUserLabel}>{log.user}</strong>
+                    {': '}
+                    {renderLogText(log.text || log.action, log.highlight)}
+                  </>
+                ) : (
+                  renderLogText(log.text || log.action, log.highlight)
+                )}
+              </div>
               <div className={styles.logTimestamp}>{log.timestamp}</div>
             </div>
           </div>

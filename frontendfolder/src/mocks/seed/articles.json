@@ -3,6 +3,22 @@
     "id": 101,
     "title": "How to Reset Your Password",
     "content": "Step 1: Navigate to the login page and click 'Forgot Password'.\nStep 2: Enter your registered email address.\nStep 3: Check your email for a password reset link.\nStep 4: Click the link and enter your new password.\nStep 5: Confirm your new password and save changes.\n\nNote: Password reset links expire after 24 hours. If you encounter issues, contact IT Support.",
+    "versions": [
+      {
+        "number": "1.1.1",
+        "date": "2025-09-15",
+        "author": "John Smith",
+        "changes": "Initial release: basic password reset steps.",
+        "visibility": "Employee"
+      },
+      {
+        "number": "1.1.2",
+        "date": "2025-09-25",
+        "author": "John Smith",
+        "changes": "Minor clarifications to instructions.",
+        "visibility": "Employee"
+      }
+    ],
     "category_id": 5,
     "categoryId": 5,
     "visibility": "employee",
@@ -27,7 +43,16 @@
     "date_modified": "2025-09-20",
     "dateModified": "2025-09-20",
     "archived": false,
-    "tags": ["equipment", "assets", "requests"]
+    "tags": ["equipment", "assets", "requests"],
+    "versions": [
+      {
+        "number": "1.1.1",
+        "date": "2025-09-10",
+        "author": "Sarah Johnson",
+        "changes": "Initial article created.",
+        "visibility": "Employee"
+      }
+    ]
   },
   {
     "id": 103,
@@ -42,7 +67,23 @@
     "date_modified": "2025-10-10",
     "dateModified": "2025-10-10",
     "archived": false,
-    "tags": ["server", "maintenance", "downtime", "schedule"]
+    "tags": ["server", "maintenance", "downtime", "schedule"],
+    "versions": [
+      {
+        "number": "1.3.1",
+        "date": "2025-10-01",
+        "author": "Michael Chen",
+        "changes": "Initial server maintenance schedule publish.",
+        "visibility": "System Admin"
+      },
+      {
+        "number": "1.3.2",
+        "date": "2025-10-10",
+        "author": "Michael Chen",
+        "changes": "Updated monthly deep maintenance window details.",
+        "visibility": "System Admin"
+      }
+    ]
   },
   {
     "id": 104,
@@ -57,7 +98,23 @@
     "date_modified": "2025-09-25",
     "dateModified": "2025-09-25",
     "archived": false,
-    "tags": ["remote work", "WFH", "policy", "HR"]
+    "tags": ["remote work", "WFH", "policy", "HR"],
+    "versions": [
+      {
+        "number": "1.1.1",
+        "date": "2025-09-05",
+        "author": "Emily Rodriguez",
+        "changes": "Initial remote work guidelines.",
+        "visibility": "Employee"
+      },
+      {
+        "number": "1.1.2",
+        "date": "2025-09-25",
+        "author": "Emily Rodriguez",
+        "changes": "Added clarification on core hours.",
+        "visibility": "Employee"
+      }
+    ]
   },
   {
     "id": 105,
@@ -72,6 +129,15 @@
     "date_modified": "2025-08-20",
     "dateModified": "2025-08-20",
     "archived": false,
-    "tags": ["holidays", "calendar", "time off", "PTO"]
+    "tags": ["holidays", "calendar", "time off", "PTO"],
+    "versions": [
+      {
+        "number": "1.1.1",
+        "date": "2025-08-20",
+        "author": "David Lee",
+        "changes": "Published company holiday calendar for 2025.",
+        "visibility": "Employee"
+      }
+    ]
   }
 ]

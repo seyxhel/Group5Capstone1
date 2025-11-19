@@ -172,6 +172,41 @@
   margin: 24px 0;
 }
 
+/* Tag pill and remove button used in editor fields */
+.tagPill {
+  background: #eee;
+  padding: 4px 8px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.tagRemove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 12px;
+  line-height: 1;
+  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.tagRemove:hover {
+  background-color: var(--neutral-gray, #414651);
+  color: var(--error-color, #b91c1c); /* darker red on hover */
+  transform: translateY(-1px);
+}
+
+.tagRemove {
+  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.tagRemove:focus {
+  outline: 2px solid rgba(37,99,235,0.18);
+}
+
 /* Feedback Section */
 .feedbackSection {
   margin-top: 32px;

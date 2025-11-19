@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './CoordinatorAdminTicketLogs.module.css';
-import { FiUser, FiUsers, FiTag, FiCheckCircle, FiInbox, FiClock } from 'react-icons/fi';
+import LogsPanel from '../../../shared/components/LogsPanel';
 
 export default function CoordinatorAdminTicketLogs({ ticketLogs }) {
   const renderUser = (u) => {
@@ -45,32 +45,7 @@ export default function CoordinatorAdminTicketLogs({ ticketLogs }) {
       <div className={styles.panelContent}>
         <div className={styles.logsPanel}>
           {ticketLogs && ticketLogs.length > 0 ? (
-            ticketLogs.map((log) => {
-              const getLogIcon = (action) => {
-                const a = (action || '').toLowerCase();
-                if (a.includes('created')) return <FiInbox />;
-                if (a.includes('assigned') || a.includes('assign')) return <FiUsers />;
-                if (a.includes('status') || a.includes('updated') || a.includes('changed')) return <FiTag />;
-                if (a.includes('resolved')) return <FiCheckCircle />;
-                if (a.includes('closed')) return <FiClock />;
-                return <FiUser />;
-              };
-              return (
-                <div key={log.id} className={styles.logEntry}>
-                  <div className={styles.logAvatar}>{getLogIcon(log.action || log.text)}</div>
-                  <div className={styles.logBody}>
-                    <div className={styles.logText}>
-                      <strong className={styles.logUserLabel}>{renderUser(log.user)}</strong>
-                      {': '}
-                      {renderLogText(log.text || log.action, log.highlight)}
-                    </div>
-                    {log.timestamp ? (
-                      <div className={styles.logTimestamp}>{log.timestamp}</div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })
+            <LogsPanel logs={ticketLogs} />
           ) : (
             <div className={styles.noLogs}>No logs available.</div>
           )}

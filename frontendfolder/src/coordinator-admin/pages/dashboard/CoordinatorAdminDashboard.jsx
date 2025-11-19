@@ -53,7 +53,7 @@ const CoordinatorAdminDashboard = () => {
     : [
       { label: 'Tickets', value: 'tickets' },
       { label: 'Users', value: 'users' },
-      { label: 'KB', value: 'kb' },
+      { label: 'Knowledge Base', value: 'kb' },
       { label: 'CSAT', value: 'csat' },
     ];
 

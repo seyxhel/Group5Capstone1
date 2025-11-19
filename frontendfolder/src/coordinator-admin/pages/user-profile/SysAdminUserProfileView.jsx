@@ -5,13 +5,13 @@ import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import ViewCard from '../../../shared/components/ViewCard';
 import Tabs from '../../../shared/components/Tabs';
 import Button from '../../../shared/components/Button';
-import styles from './CoordinatorAdminUserProfileView.module.css';
+import styles from './SysAdminUserProfileView.module.css';
 import detailStyles from '../ticket-tracker/CoordinatorAdminTicketDetails.module.css';
 import { getEmployeeUsers, getEmployeeUserById } from '../../../utilities/storages/employeeUserStorage';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { backendUserService } from '../../../services/backend/userService.js';
 import { getUserActivityLogs } from '../../../utilities/storages/userActivityLog';
-import { FiUser, FiCheckCircle, FiClock } from 'react-icons/fi';
+import SysAdminUserProfileLogs from './SysAdminUserProfileLogs';
 
 export default function CoordinatorAdminUserProfileView() {
   const { companyId } = useParams();
@@ -261,12 +261,7 @@ export default function CoordinatorAdminUserProfileView() {
     });
   };
 
-  const getLogIcon = (action) => {
-    const a = (action || '').toLowerCase();
-    if (a.includes('resolved')) return <FiCheckCircle />;
-    if (a.includes('closed')) return <FiClock />;
-    return <FiUser />;
-  };
+  
 
   if (isLoading && !user) {
     return (
@@ -398,19 +393,7 @@ export default function CoordinatorAdminUserProfileView() {
                 <div className={styles.panelContent}>
                   <div className={styles.logsPanel}>
                     {activityLogs && activityLogs.length > 0 ? (
-                      activityLogs.map((log) => (
-                        <div key={log.id} className={styles.logEntry}>
-                          <div className={styles.logAvatar}>{getLogIcon(log.action)}</div>
-                          <div className={styles.logBody}>
-                            <div className={styles.logText}>
-                              <strong className={styles.logUserLabel}>System</strong>
-                              {': '}
-                              {log.action?.replace(/_/g, ' ').toUpperCase()}
-                            </div>
-                            <div className={styles.logTimestamp}>{formatTimestamp(log.timestamp)}</div>
-                          </div>
-                        </div>
-                      ))
+                      <SysAdminUserProfileLogs activityLogs={activityLogs} />
                     ) : (
                       <div className={styles.noLogs}>No activity recorded for this user.</div>
                     )}
