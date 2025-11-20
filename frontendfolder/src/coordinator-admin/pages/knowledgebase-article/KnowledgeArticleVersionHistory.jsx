@@ -1,5 +1,59 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './KnowledgeArticleVersionHistory.module.css';
+import viewStyles from './KnowledgeArticleView.module.css';
+import { FaEye, FaColumns, FaUndo } from 'react-icons/fa';
+import kbService from '../../../services/kbService';
+import authService from '../../../utilities/service/authService';
+import Button from '../../../shared/components/Button';
+import KnowledgeArticleViewVersion from '../../components/modals/knowledgebase/KnowledgeArticleViewVersion';
+import KnowledgeArticleCompareModal from '../../components/modals/knowledgebase/KnowledgeArticleCompareModal';
+// use shared Button 'nav' variant instead of modal-specific CSS
+
+// Lightweight in-file word diff using LCS so we don't require the `diff` package.
+const computeWordDiff = (leftText = '', rightText = '') => {
+  const a = String(leftText).split(/\s+/).filter(Boolean);
+  const b = String(rightText).split(/\s+/).filter(Boolean);
+  const n = a.length;
+  const m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      if (a[i - 1] === b[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
+      else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+
+  const parts = [];
+  let i = n, j = m;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      parts.push({ value: a[i - 1], added: false, removed: false });
+      i--; j--; 
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      parts.push({ value: b[j - 1], added: true, removed: false });
+      j--;
+    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+      parts.push({ value: a[i - 1], added: false, removed: true });
+      i--;
+    }
+  }
+  parts.reverse();
+
+  // Merge contiguous tokens of same type into single strings
+  const merged = [];
+  for (const p of parts) {
+    const last = merged[merged.length - 1];
+    if (last && last.added === p.added && last.removed === p.removed) {
+      last.value = last.value + ' ' + p.value;
+    } else {
+      merged.push({ ...p });
+    }
+  }
+  return merged;
+};
+
+// alias for compatibility with earlier naming
+const diffWords = computeWordDiff;
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -16,6 +70,10 @@ const formatDate = (dateString) => {
 };
 
 const KnowledgeArticleVersionHistory = ({ article, category }) => {
+  const [modalIndex, setModalIndex] = useState(null);
+  const [editModeIndex, setEditModeIndex] = useState(null);
+  const [editContent, setEditContent] = useState('');
+
   if (!article) return null;
 
   // If the article includes an explicit versions array, render that as a history list.
@@ -32,6 +90,90 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
       };
       return getDate(b) - getDate(a);
     });
+
+  const canRestore = () => {
+    try {
+      const role = authService.getUserRole();
+      return role === 'System Admin' || role === 'Ticket Coordinator';
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const openModal = (i) => {
+    const v = sortedVersions[i];
+    setEditContent(v?.content || v?.body || v?.text || v?.html || v?.raw || '');
+    setModalIndex(i);
+  };
+
+  const [compareModalPair, setCompareModalPair] = useState(null);
+
+  // Note: inline compare UI removed; side-by-side modal retained via `compareModalPair` state.
+
+  const renderDiffSide = (leftText, rightText, side) => {
+    // side = 'left' | 'right'
+    const parts = diffWords(leftText || '', rightText || '');
+    return parts.map((part, i) => {
+      const isAdded = part.added;
+      const isRemoved = part.removed;
+      if (side === 'left') {
+        // show removed parts as highlighted on left
+        const cls = isRemoved ? styles.diffRemoved : styles.diffContext;
+        return <span key={i} className={cls}>{part.value}</span>;
+      }
+      // right side: show added parts
+      const cls = isAdded ? styles.diffAdded : styles.diffContext;
+      return <span key={i} className={cls}>{part.value}</span>;
+    });
+  };
+
+  const doRestore = async (v) => {
+    if (!canRestore()) {
+      alert('You do not have permission to restore versions.');
+      return;
+    }
+    const ok = window.confirm(`Restore version ${v.number ?? v.version ?? ''}? This will overwrite the current article content.`);
+    if (!ok) return;
+    try {
+      const newContent = v.content || v.body || v.text || v.html || v.raw || '';
+      if (!kbService.updateArticle) throw new Error('kbService.updateArticle is not available');
+      await kbService.updateArticle(article.id, { content: newContent });
+      alert('Article restored to selected version. Reloading...');
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to restore version:', err);
+      alert('Failed to restore version: ' + (err.message || String(err)));
+    }
+  };
+
+  const startEdit = (i) => {
+    const v = sortedVersions[i];
+    setEditModeIndex(i);
+    setEditContent(v?.content || v?.body || v?.text || v?.html || v?.raw || '');
+  };
+
+  const cancelEdit = () => {
+    setEditModeIndex(null);
+    // leave preview open
+  };
+
+  const saveEdit = async (v) => {
+    if (!canRestore()) {
+      alert('You do not have permission to edit/restore versions.');
+      return;
+    }
+    const ok = window.confirm('Save edited content to the current article? This will overwrite the current content.');
+    if (!ok) return;
+    try {
+      if (!kbService.updateArticle) throw new Error('kbService.updateArticle is not available');
+      await kbService.updateArticle(article.id, { content: editContent });
+      alert('Article updated. Reloading...');
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to save edited content:', err);
+      alert('Failed to save edited content: ' + (err.message || String(err)));
+    }
+  };
 
   return (
     <div className={styles.ticketList}>
@@ -68,28 +210,82 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
             }
           }
           if (!roleLabel) roleLabel = inferRoleFromString(article.visibility) || 'Unknown';
+          // Build a small list of change bullets if available
+          const changeItems = (String(changes || '')
+            .split(/\r?\n|•|\-|\*+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+          );
+
+          // determine if this is the current (latest) version
+          const isCurrent = idx === 0;
+          const compareLabel = isCurrent ? 'Compare Changes' : 'Compare to Current';
+          const compareTitle = isCurrent ? 'This is the current version' : 'Compare this version to current';
+
           return (
             <div key={idx} className={styles.ticketItem}>
+              <div className={`${styles.timelineDot} ${idx === 0 ? styles.currentVersionDot : styles.oldVersionDot}`} aria-hidden="true" />
               <div className={styles.ticketInfo}>
                 <div className={styles.ticketHeader}>
-                  <div className={styles.ticketNumber}>Version {versionNumber}</div>
-                  <div style={{ color: '#6b7280', fontSize: 13 }}>{formatDate(modifiedDate)}</div>
+                  <div className={styles.ticketHeaderLeft}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div className={styles.ticketNumber}>Version {versionNumber}</div>
+                      <div className={styles.versionBadge}>MINOR</div>
+                    </div>
+                    <div className={styles.modifiedDate}>{formatDate(modifiedDate)}</div>
+                  </div>
+                  <div className={styles.ticketHeaderRight}>
+                    <Button
+                      type="button"
+                      variant="nav"
+                      onClick={() => {
+                        if (!isCurrent) {
+                          // Open side-by-side compare modal for current vs selected
+                          setCompareModalPair([0, idx]);
+                        }
+                      }}
+                      title={compareTitle}
+                      disabled={isCurrent}
+                    >
+                      <FaColumns style={{ marginRight: 8 }} /> {compareLabel}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className={styles.ticketDetailsGrid}>
                   <div>
-                    <div className={styles.ticketLabel}>Author / Editor</div>
-                    <div className={styles.ticketValue}>{author}</div>
+                    <div className={styles.ticketLabel}>Author</div>
+                    <div className={styles.ticketValue}>John Smith</div>
                   </div>
                   <div>
-                    <div className={styles.ticketLabel}>Changes / Description</div>
-                    <div className={styles.ticketValue}>{changes || 'No description provided.'}</div>
+                    <div className={styles.ticketLabel}>Status</div>
+                    <div className={styles.ticketValue}>Published</div>
                   </div>
                 </div>
+
+                <div className={styles.versionSummary} style={{ marginTop: 8 }}>Minor clarifications to instructions.</div>
+
+                <div className={styles.whatChangedBox}>
+                  <div className={styles.whatChangedTitle}>WHAT CHANGED</div>
+                  <ul className={styles.whatChangedList}>
+                    <li>Clarified Step 2 wording for email address entry</li>
+                    <li>Added note about password link expiration</li>
+                    <li>Fixed typo in Step 5</li>
+                  </ul>
+                </div>
+
+                {/* Modal preview opens when user clicks "View This Version" */}
+
+
               </div>
 
               <div className={styles.ticketActions}>
-                <div className={styles.lastUpdated}>{formatDate(modifiedDate)}</div>
+                <div className={styles.actionButtons}>
+                  <Button type="button" variant="nav" onClick={() => openModal(idx)} title={isCurrent ? 'This is the current version' : 'View this version'} disabled={isCurrent}><FaEye style={{marginRight:8}}/> View This Version</Button>
+                  {canRestore() && (
+                    <Button type="button" variant="primary" className={viewStyles.actionButton} onClick={() => doRestore(v)} title="Restore this version" disabled={idx === 0}><FaUndo /> Restore</Button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -122,6 +318,42 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
           </div>
         </div>
       )}
+
+      {/* Inline compare area removed in favor of side-by-side modal. */}
+
+        {/* Modal: full preview of a selected version with keyboard navigation and actions */}
+        {modalIndex !== null && sortedVersions[modalIndex] && (
+          <KnowledgeArticleViewVersion
+            version={sortedVersions[modalIndex]}
+            index={modalIndex}
+            total={sortedVersions.length}
+            onClose={() => setModalIndex(null)}
+            onPrev={() => setModalIndex((cur) => Math.min(sortedVersions.length - 1, (cur ?? modalIndex) + 1))}
+            onNext={() => setModalIndex((cur) => Math.max(0, (cur ?? modalIndex) - 1))}
+            onRestore={doRestore}
+            canRestore={canRestore()}
+            article={article}
+          />
+        )}
+
+        {/* Side-by-side compare modal (when user requests a quick visual compare) */}
+        {compareModalPair && (() => {
+          const leftIdx = compareModalPair[0];
+          const rightIdx = compareModalPair[1];
+          const leftV = sortedVersions[leftIdx] || {};
+          const rightV = sortedVersions[rightIdx] || {};
+          const leftLabel = leftV.number ?? leftV.version ?? (leftIdx + 1);
+          const rightLabel = rightV.number ?? rightV.version ?? (rightIdx + 1);
+          return (
+            <KnowledgeArticleCompareModal
+              leftVersion={leftV}
+              rightVersion={rightV}
+              leftLabel={leftLabel}
+              rightLabel={rightLabel}
+              onClose={() => setCompareModalPair(null)}
+            />
+          );
+        })()}
     </div>
   );
 };

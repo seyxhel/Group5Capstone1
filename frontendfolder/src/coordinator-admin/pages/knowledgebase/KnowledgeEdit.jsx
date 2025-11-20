@@ -5,6 +5,7 @@ import FormCard from '../../../shared/components/FormCard';
 import FormActions from '../../../shared/components/FormActions';
 // Editor fields will be inlined below (previously ArticleEditor)
 import InputField from '../../../shared/components/InputField';
+import SelectField from '../../../shared/components/SelectField';
 import { FiX } from 'react-icons/fi';
 import styles from './KnowledgeEdit.module.css';
 import kbService from '../../../services/kbService';
@@ -32,7 +33,7 @@ const KnowledgeEdit = () => {
             category_id: article.category_id || null,
             visibility: article.visibility || 'employee',
             status: article.archived ? 'archived' : (article.status || 'active'),
-            tags: article.tags || []
+            tags: (article.tags || []).map(t => (t ? String(t).split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '').join(' ') : t))
           });
         }
       })
@@ -110,11 +111,20 @@ export default KnowledgeEdit;
 function EditorFields({ data, setData, categories = [], disabled = false, externalErrors = {}, showStatus = false }) {
   const [tagInput, setTagInput] = useState('');
 
+  const titleCase = (s) => {
+    if (!s) return s;
+    return String(s)
+      .split(' ')
+      .map(word => word ? (word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) : '')
+      .join(' ');
+  };
+
   const setField = (field, value) => setData(prev => ({ ...prev, [field]: value }));
 
   const addTag = (t) => {
-    const tag = (t || tagInput || '').trim();
-    if (!tag) return;
+    const raw = (t || tagInput || '').trim();
+    if (!raw) return;
+    const tag = titleCase(raw);
     const exists = (data.tags || []).some(x => String(x).toLowerCase() === tag.toLowerCase());
     if (exists) {
       setTagInput('');
@@ -143,32 +153,42 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         placeholder="Enter article title"
         value={data.title}
         onChange={(e) => setField('title', e.target.value)}
-        required
         error={externalErrors.title}
         disabled={disabled}
       />
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Category</label>
-        <select value={data.category_id ?? ''} onChange={(e) => setField('category_id', e.target.value ? (isNaN(e.target.value) ? e.target.value : Number(e.target.value)) : null)} disabled={disabled} style={{ width: '100%', padding: 8 }}>
-          <option value="">-- Select category --</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.title || c.name || c.id}</option>)}
-        </select>
-        {externalErrors.category && <div style={{ color: 'crimson' }}>{externalErrors.category}</div>}
+      <div style={{ marginBottom: 16 }}>
+        <SelectField
+          label="Category"
+          value={data.category_id ?? ''}
+          onChange={(e) => setField('category_id', e.target.value ? (isNaN(e.target.value) ? e.target.value : Number(e.target.value)) : null)}
+          disabled={disabled}
+          error={externalErrors.category}
+          options={categories.map(c => ({ value: c.id, label: c.title || c.name || c.id }))}
+          placeholder="-- Select category --"
+        />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Visibility</label>
-        <select value={data.visibility} onChange={(e) => setField('visibility', e.target.value)} disabled={disabled} style={{ width: '100%', padding: 8 }}>
-          <option value="employee">Employee</option>
-          <option value="ticket_coordinator">Ticket Coordinator</option>
-          <option value="system_admin">System Admin</option>
-        </select>
-        {externalErrors.visibility && <div style={{ color: 'crimson' }}>{externalErrors.visibility}</div>}
+      <div style={{ marginBottom: 16 }}>
+        <SelectField
+          label="Visibility"
+          value={data.visibility}
+          onChange={(e) => setField('visibility', e.target.value)}
+          disabled={disabled}
+          error={externalErrors.visibility}
+          options={[
+            { value: 'employee', label: 'Employee' },
+            { value: 'ticket_coordinator', label: 'Ticket Coordinator' },
+            { value: 'system_admin', label: 'System Admin' }
+          ]}
+          placeholder="Select visibility"
+        />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Tags</label>
+      
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>Tags</label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           {(data.tags || []).map((t, i) => (
             <div key={i} className={styles.tagPill}>
@@ -180,7 +200,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
                 className={styles.tagRemove}
                 aria-label={`Remove tag ${t}`}
               >
-                <FiX size={14} aria-hidden="true" />
+                    <FiX size={22} aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -193,21 +213,24 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
           disabled={disabled}
           inputStyle={{ width: '100%', padding: 8 }}
         />
+        {externalErrors.tags && <div style={{ color: 'crimson', marginTop: 8 }}>{externalErrors.tags}</div>}
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Article Content</label>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>Article Content</label>
         <textarea value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} style={{ width: '100%', padding: 8 }} />
         {externalErrors.content && <div style={{ color: 'crimson' }}>{externalErrors.content}</div>}
       </div>
 
       {showStatus && (
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', fontWeight: 600 }}>Status</label>
-          <select value={data.status} onChange={(e) => setField('status', e.target.value)} disabled={disabled} style={{ width: '100%', padding: 8 }}>
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-          </select>
+        <div style={{ marginBottom: 16 }}>
+          <SelectField
+            label="Status"
+            value={data.status}
+            onChange={(e) => setField('status', e.target.value)}
+            disabled={disabled}
+            options={[{ value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' }]}
+          />
         </div>
       )}
     </>

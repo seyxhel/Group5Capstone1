@@ -5,6 +5,7 @@ import { FaEye, FaEdit, FaArchive, FaTimes } from 'react-icons/fa';
 import userStyles from '../user-management/CoordinatorAdminUserAccess.module.css';
 import TablePagination from '../../../shared/table/TablePagination';
 import Button from '../../../shared/components/Button';
+import InputField from '../../../shared/components/InputField';
 import SysAdminArticlesFilter from '../../components/filters/SysAdminArticlesFilter';
 import DeleteConfirmationModal from '../../components/modals/SysAdminDeleteConfirmationModal';
 import ArchiveConfirmationModal from '../../components/modals/SysAdminArchiveConfirmationModal';
@@ -243,12 +244,12 @@ const KnowledgeArticles = () => {
         <div className={userStyles.tableHeader}>
           <h2>Articles</h2>
             <div className={userStyles.tableActions}>
-            <input
-              className={userStyles.searchBar}
+            <InputField
               type="search"
               placeholder="Search..."
               value={query}
               onChange={e => { setQuery(e.target.value); setCurrentPage(1); }}
+              inputStyle={{ width: '260px' }}
             />
             {authService.getUserRole() === 'System Admin' && (
               <button
@@ -269,6 +270,7 @@ const KnowledgeArticles = () => {
               <tr>
                 <th style={{ width: 260 }}>Article</th>
                 <th>Category</th>
+                <th>Tags</th>
                 <th style={{ width: 120, textAlign: 'center' }}>Visibility</th>
                 <th style={{ width: 140, textAlign: 'center' }}>Created</th>
                 <th style={{ width: 140, textAlign: 'center' }}>Total Likes</th>
@@ -282,6 +284,7 @@ const KnowledgeArticles = () => {
                   <tr key={i}>
                     <td><Skeleton width="100%" height="40px" /></td>
                     <td><Skeleton width="100%" height="40px" /></td>
+                    <td><Skeleton width="100%" height="40px" /></td>
                     <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
                     <td style={{ textAlign: 'center' }}><Skeleton width="100px" height="40px" /></td>
                     <td style={{ textAlign: 'center' }}><Skeleton width="60px" height="40px" /></td>
@@ -291,7 +294,7 @@ const KnowledgeArticles = () => {
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
                     No articles found for this category or search.
                   </td>
                 </tr>
@@ -304,8 +307,9 @@ const KnowledgeArticles = () => {
                         <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{a.author} • {formatArticleDate(a)}</div>
                       </div>
                     </td>
-                    <td>{getCategoryName(a.category_id)}</td>
-              <td style={{ textAlign: 'center' }}>{a.visibility}</td>
+                      <td>{getCategoryName(a.category_id)}</td>
+                      <td>{a.tags && a.tags.length ? a.tags.join(', ') : ''}</td>
+                    <td style={{ textAlign: 'center' }}>{a.visibility}</td>
               <td style={{ textAlign: 'center' }}>{formatArticleDate(a)}</td>
                     <td style={{ textAlign: 'center' }}><LikesCount articleId={a.id} /></td>
                     <td style={{ textAlign: 'center' }}><DislikesCount articleId={a.id} /></td>
@@ -314,7 +318,7 @@ const KnowledgeArticles = () => {
                         <button title="View" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/view/${a.id}`)}>
                           <FaEye />
                         </button>
-                        <button title="Edit" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/create?edit=${a.id}`)}>
+                        <button title="Edit" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/edit/${a.id}`)}>
                           <FaEdit />
                         </button>
                         <button title="Archive" className={userStyles.actionButton} onClick={() => handleArchive(a)}>

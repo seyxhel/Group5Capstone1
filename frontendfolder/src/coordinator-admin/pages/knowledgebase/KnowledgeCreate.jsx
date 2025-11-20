@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import FormCard from '../../../shared/components/FormCard';
 import FormActions from '../../../shared/components/FormActions';
@@ -12,63 +12,28 @@ import kbService from '../../../services/kbService';
 const KnowledgeCreate = () => {
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const [categories, setCategories] = useState([]);
-  const [isEdit, setIsEdit] = useState(false);
-  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     kbService.listCategories().then(setCategories).catch(()=>{});
   }, []);
 
-  // detect ?edit=ID
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const editId = params.get('edit');
-    if (editId) {
-      setIsEdit(true);
-      setEditingId(editId);
-      // load article
-      kbService.getArticle(editId).then(a => {
-        if (a) {
-          setEditorData({
-            title: a.title || '',
-            content: a.content || '',
-            category_id: a.category_id || null,
-            visibility: a.visibility || 'employee',
-            status: a.archived ? 'archived' : (a.status || 'active'),
-            tags: a.tags || []
-          });
-        }
-      }).catch(()=>{});
-    }
-  }, [location.search]);
+  // categories loader
 
   const handleSave = async (data) => {
     setSaving(true);
     try {
-      if (isEdit && editingId) {
-        const updated = await kbService.updateArticle(editingId, {
-          title: data.title,
-          content: data.content,
-          category_id: data.category_id || null,
-          archived: data.status === 'archived',
-          tags: data.tags || []
-        });
-        window.dispatchEvent(new CustomEvent('kb:articleUpdated', { detail: updated }));
-      } else {
-        const newArticle = await kbService.submitArticle({
-          title: data.title,
-          content: data.content,
-          category_id: data.category_id || null,
-          visibility: data.visibility || 'employee',
-          archived: data.status === 'archived',
-          tags: data.tags || [],
-          author: 'Current Admin',
-          date_modified: new Date().toISOString().slice(0,10)
-        });
-        window.dispatchEvent(new CustomEvent('kb:articleCreated', { detail: newArticle }));
-      }
+      const newArticle = await kbService.submitArticle({
+        title: data.title,
+        content: data.content,
+        category_id: data.category_id || null,
+        visibility: data.visibility || 'employee',
+        archived: data.status === 'archived',
+        tags: data.tags || [],
+        author: 'Current Admin',
+        date_modified: new Date().toISOString().slice(0,10)
+      });
+      window.dispatchEvent(new CustomEvent('kb:articleCreated', { detail: newArticle }));
 
       navigate('/admin/knowledge/articles');
     } catch (err) {
@@ -106,7 +71,7 @@ const KnowledgeCreate = () => {
 
   return (
     <div className={styles.container}>
-      <Breadcrumb root="Knowledge Base" currentPage={isEdit ? 'Edit Article' : 'Create Article'} rootNavigatePage="/admin/knowledge/articles" title={isEdit ? 'Edit Knowledge Article' : 'Create Knowledge Article'} />
+      <Breadcrumb root="Knowledge Base" currentPage={'Create Article'} rootNavigatePage="/admin/knowledge/articles" title={'Create Knowledge Article'} />
 
       <section>
         <FormCard>
@@ -124,7 +89,7 @@ const KnowledgeCreate = () => {
             <FormActions
               onCancel={onCancel}
               cancelLabel="Cancel"
-              submitLabel={saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Save Article')}
+              submitLabel={saving ? 'Saving…' : 'Save Article'}
               submitDisabled={saving}
               submitVariant="primary"
             />
@@ -144,8 +109,10 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
   const setField = (field, value) => setData(prev => ({ ...prev, [field]: value }));
 
   const addTag = (t) => {
-    const tag = (t || tagInput || '').trim();
-    if (!tag) return;
+    const raw = (t || tagInput || '').trim();
+    if (!raw) return;
+    const titleCase = (s) => String(s).split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '').join(' ');
+    const tag = titleCase(raw);
     const exists = (data.tags || []).some(x => String(x).toLowerCase() === tag.toLowerCase());
     if (exists) {
       setTagInput('');
@@ -176,6 +143,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         onChange={(e) => setField('title', e.target.value)}
         required
         error={externalErrors.title}
+        inputStyle={{ width: '100%' }}
         disabled={disabled}
       />
 
@@ -210,7 +178,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Tags</label>
+        <label style={{ display: 'block', fontWeight: 600 }}>Tags <span className="required">*</span></label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           {(data.tags || []).map((t, i) => (
             <div key={i} style={{ background: '#eee', padding: '4px 8px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -231,8 +199,8 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Article Content</label>
-        <textarea value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} style={{ width: '100%', padding: 8 }} />
+        <label style={{ display: 'block', fontWeight: 600 }}>Article Content <span className="required">*</span></label>
+        <textarea required value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} style={{ width: '100%', padding: 8 }} />
         {externalErrors.content && <div style={{ color: 'crimson' }}>{externalErrors.content}</div>}
       </div>
     </>

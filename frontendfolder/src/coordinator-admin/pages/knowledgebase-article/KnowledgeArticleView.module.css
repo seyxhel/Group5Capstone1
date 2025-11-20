@@ -73,6 +73,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   flex: 1;
   min-width: 0;
+  color: var(--text-light, #FFFFFF) !important; /* Ensure button text uses the light token (fallback white) */
 }
 
 .actionButton:hover {
@@ -80,9 +81,51 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
+/* Ensure icons inside action buttons are white so they contrast with button backgrounds */
+.actionButton svg {
+  color: var(--text-light, #FFFFFF) !important;
+  fill: var(--text-light, #FFFFFF) !important;
+  stroke: var(--text-light, #FFFFFF) !important;
+}
+
+/* Ensure the buttonText span also inherits the light color */
+.actionButton .buttonText {
+  color: var(--text-light, #FFFFFF) !important;
+}
+
 .buttonText {
   font-size: 0.85rem;
   white-space: nowrap;
+}
+
+/* Current Version Badge */
+.currentBadge {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* Neutral action (used for Edit and Archive) */
+.actionButton.neutralButton {
+  /* Use the same withdraw/neutral color as EmployeeTicketTracker */
+  background: var(--withdrawn-text, #9CA3AF) !important;
+  color: #FFFFFF !important;
+}
+.actionButton.neutralButton:hover:not(:disabled) {
+  background: #6B7280 !important; /* match Withdraw hover exactly */
+}
+
+/* Danger action (used for Delete) */
+.dangerButton {
+  background: #ef4444;
+  color: #FFFFFF;
+}
+.dangerButton:hover {
+  background: #dc2626;
 }
 
 /* ============================================================================
@@ -94,6 +137,9 @@
   gap: 16px;
   align-items: center;
 }
+
+/* Feedback summary for article view */
+/* (Removed aggregated feedback summary styles — using existing feedbackStats and metadata styles) */
 
 .feedbackLikes,
 .feedbackDislikes {

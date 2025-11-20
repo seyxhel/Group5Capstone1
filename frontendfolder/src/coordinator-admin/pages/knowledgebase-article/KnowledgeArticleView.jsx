@@ -22,7 +22,7 @@ const KnowledgeArticleView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [category, setCategory] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState('info');
   const leftColRef = useRef(null);
   const rightColRef = useRef(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, isDeleting: false });
@@ -260,6 +260,14 @@ const KnowledgeArticleView = () => {
     }
   };
 
+  const formatShortDate = (dateInput) => {
+    if (!dateInput) return 'N/A';
+    const d = new Date(dateInput);
+    if (isNaN(d)) return 'N/A';
+    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  };
+
+
   if (isLoading) {
     return (
       <ViewCard>
@@ -320,6 +328,15 @@ const KnowledgeArticleView = () => {
   };
   const visData = visibilityMap[article.visibility?.toLowerCase()] || visibilityMap['employee'];
 
+  // Feedback aggregates
+  const helpfulCount = (feedbacks || []).filter(f => f.helpful).length;
+  const notHelpfulCount = (feedbacks || []).filter(f => !f.helpful).length;
+  const totalFeedbacks = helpfulCount + notHelpfulCount;
+  const helpfulPercent = totalFeedbacks ? Math.round((helpfulCount / totalFeedbacks) * 100) : 0;
+  const notHelpfulPercent = totalFeedbacks ? Math.round((notHelpfulCount / totalFeedbacks) * 100) : 0;
+  const feedbackDates = (feedbacks || []).map(f => new Date(f.date || f.createdAt || f.timestamp)).filter(d => !isNaN(d));
+  const lastFeedbackDate = feedbackDates.length ? new Date(Math.max(...feedbackDates.map(d => d.getTime()))) : null;
+
   return (
     <>
       <main className={styles.employeeTicketTrackerPage}>
@@ -348,6 +365,7 @@ const KnowledgeArticleView = () => {
                     </div>
                     <h2 className={styles.ticketSubject}>{article.title}</h2>
                   </div>
+                  <div className={localStyles.currentBadge}>CURRENT VERSION: 1.1.2</div>
                 </div>
 
                 {/* Meta Information */}
@@ -395,17 +413,18 @@ const KnowledgeArticleView = () => {
                   </div>
 
                   <div className={styles.detailItem}>
-                    <div className={styles.detailLabel}>Feedback</div>
+                    <div className={styles.detailLabel}>Feedback Score</div>
                     <div className={styles.detailValue}>
                       <div className={localStyles.feedbackStats}>
-                        <span className={localStyles.feedbackLikes}>
-                          👍 {feedbacks.filter(f => f.helpful).length} Helpful
-                        </span>
-                        <span className={localStyles.feedbackDislikes}>
-                          👎 {feedbacks.filter(f => !f.helpful).length} Not Helpful
-                        </span>
+                        <span className={localStyles.feedbackLikes}>👍 {helpfulCount} Helpful</span>
+                        <span className={localStyles.feedbackDislikes}>👎 {notHelpfulCount} Not Helpful</span>
                       </div>
                     </div>
+                  </div>
+
+                  <div className={styles.detailItem}>
+                    <div className={styles.detailLabel}>Last feedback</div>
+                    <div className={styles.detailValue}>{lastFeedbackDate ? formatDate(lastFeedbackDate) : 'None'}</div>
                   </div>
 
                   {/* Full-width Content Section */}
@@ -413,7 +432,7 @@ const KnowledgeArticleView = () => {
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>Article Content</div>
                       <div className={styles.detailValue}>
-                        {article.content || 'No content provided.'}
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{article.content || 'No content provided.'}</div>
                       </div>
                     </div>
                   </div>
@@ -428,24 +447,22 @@ const KnowledgeArticleView = () => {
                 <div className={localStyles.actionButtonsContainer}>
                   <Button
                     variant="primary"
-                    className={localStyles.actionButton}
-                    onClick={() => navigate(`/admin/knowledge/create?edit=${article.id}`)}
+                    className={`${localStyles.actionButton} ${localStyles.neutralButton}`}
+                    onClick={() => navigate(`/admin/knowledge/edit/${article.id}`)}
                   >
                     <FaEdit /> <span className={localStyles.buttonText}>Edit</span>
                   </Button>
                   <Button
                     variant="primary"
-                    className={localStyles.actionButton}
+                    className={`${localStyles.actionButton} ${localStyles.neutralButton}`}
                     onClick={openArchiveModal}
-                    style={{ background: '#2563EB' }}
                   >
                     <FaArchive /> <span className={localStyles.buttonText}>Archive</span>
                   </Button>
                   <Button
                     variant="danger"
-                    className={localStyles.actionButton}
+                    className={`${localStyles.actionButton} ${localStyles.dangerButton}`}
                     onClick={openDeleteModal}
-                    style={{ background: '#ef4444' }}
                   >
                     <FaTrash /> <span className={localStyles.buttonText}>Delete</span>
                   </Button>
@@ -454,50 +471,13 @@ const KnowledgeArticleView = () => {
 
               {/* Tabs for Feedback and Info */}
               <Tabs
-                tabs={[
-                  { label: 'Feedback', value: 'details' },
-                  { label: 'Version History', value: 'info' }
-                ]}
+                tabs={[{ label: 'Version History', value: 'info' }]}
                 active={activeTab}
                 onChange={setActiveTab}
                 fullHeight={true}
                 className={detailStyles.tabsFill}
               >
-                {activeTab === 'details' ? (
-                  <div className={localStyles.feedbackContainer}>
-                    {feedbacks.length === 0 ? (
-                      <div className={localStyles.emptyState}>
-                        No feedback yet
-                      </div>
-                    ) : (
-                      <div className={localStyles.feedbackList}>
-                        {feedbacks.map((feedback, idx) => (
-                          <div key={idx} className={localStyles.feedbackItem}>
-                            <div className={localStyles.feedbackItemHeader}>
-                              <span className={localStyles.feedbackDate}>
-                                {new Date(feedback.date).toLocaleDateString()}
-                              </span>
-                              <span
-                                className={`${localStyles.feedbackStatus} ${
-                                  feedback.helpful ? localStyles.statusHelpful : localStyles.statusNotHelpful
-                                }`}
-                              >
-                                {feedback.helpful ? 'Helpful' : 'Not Helpful'}
-                              </span>
-                            </div>
-                            {feedback.comment && (
-                              <div className={localStyles.feedbackComment}>
-                                {feedback.comment}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <KnowledgeArticleVersionHistory article={article} category={category} />
-                )}
+                <KnowledgeArticleVersionHistory article={article} category={category} />
               </Tabs>
             </div>
           </div>

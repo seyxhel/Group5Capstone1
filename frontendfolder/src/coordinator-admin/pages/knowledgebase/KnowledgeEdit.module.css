@@ -15,21 +15,23 @@
 }
 
 .tagRemove {
-  border: none;
-  background: none;
+  border: none !important;
+  background: none !important;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 12px;
+  padding: 4px;
+  border-radius: 6px;
   line-height: 1;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 .tagRemove:hover {
-  background-color: var(--neutral-gray, #414651);
-  color: var(--text-light, #FCFCFC); /* Light text for contrast */
+  background-color: var(--gray-300, #E0E0E0) !important;
+  color: var(--text-color, #0C0C0C) !important;
   transform: translateY(-1px);
 }
 
@@ -48,3 +50,17 @@
   color: inherit;
   transform: none;
 }
+
+/* When hovering the whole pill, ensure the close icon shows the dark background */
+.tagPill:hover .tagRemove {
+  background-color: var(--gray-300, #E0E0E0) !important;
+  color: var(--text-color, #0C0C0C) !important;
+}
+
+/* Slight lift and subtle pill background change on hover for affordance */
+.tagPill:hover {
+  background-color: #f3f4f6; /* light gray to indicate hover */
+  transform: translateY(-1px);
+}
+
+/* (Removed .sectionDivider — divider was removed from markup) */
