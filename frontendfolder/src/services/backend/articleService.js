@@ -48,6 +48,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/`, {
         method: 'GET',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);
@@ -73,6 +74,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/choices/`, {
         method: 'GET',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);
@@ -94,6 +96,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/`, {
         method: 'GET',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);
@@ -117,6 +120,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify(articleData),
       });
 
@@ -150,6 +154,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify(articleData),
       });
 
@@ -175,6 +180,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/archive/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);
@@ -199,6 +205,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/restore/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);
@@ -223,6 +230,7 @@ export const backendArticleService = {
       const response = await fetch(`${BASE_URL}/api/articles/${articleId}/`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
 
       handleAuthError(response);

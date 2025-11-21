@@ -6,6 +6,7 @@ import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import styles from './CoordinatorAdminDashboard.module.css';
 import authService from '../../../utilities/service/authService';
+import kbService from '../../../services/kbService';
 
 const kbFeedbackTypes = [
   { label: 'Helpful', type: 'helpful' },
@@ -29,14 +30,14 @@ const StatCard = ({ label, count, onClick }) => {
   );
 };
 
-const DataTable = ({ title, headers, data, maxVisibleRows }) => (
+const DataTable = ({ title, headers, data, maxVisibleRows, loading = false }) => (
   <div className={tableStyles.tableContainer}>
     <div className={tableStyles.tableHeader}>
       <h3 className={tableStyles.tableTitle}>{title}</h3>
     </div>
 
     <div className={`${tableStyles.tableOverflow} ${maxVisibleRows ? tableStyles.scrollableRows : ''}`} style={ maxVisibleRows ? { ['--visible-rows']: maxVisibleRows } : {} }>
-      {data.length > 0 ? (
+      {loading ? (
         <table className={tableStyles.table}>
           <thead className={tableStyles.tableHead}>
             <tr>
@@ -46,25 +47,48 @@ const DataTable = ({ title, headers, data, maxVisibleRows }) => (
             </tr>
           </thead>
           <tbody>
-            {data.map((row, i) => (
-              <tr key={i} className={tableStyles.tableRow}>
-                {Object.values(row).map((cell, j) => (
-                  <td key={j} className={tableStyles.tableCell}>{cell}</td>
+            {Array.from({ length: maxVisibleRows || 5 }).map((_, rIdx) => (
+              <tr key={rIdx} className={tableStyles.tableRow}>
+                {headers.map((_, cIdx) => (
+                  <td key={cIdx} className={tableStyles.tableCell}>
+                    <div style={{ width: '80%', height: 12, background: '#e5e7eb', borderRadius: 4 }} />
+                  </td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
       ) : (
-        <div className={tableStyles.emptyState}>
-          No articles yet.
-        </div>
+        data.length > 0 ? (
+          <table className={tableStyles.table}>
+            <thead className={tableStyles.tableHead}>
+              <tr>
+                {headers.map((header, idx) => (
+                  <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, i) => (
+                <tr key={i} className={tableStyles.tableRow}>
+                  {Object.values(row).map((cell, j) => (
+                    <td key={j} className={tableStyles.tableCell}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className={tableStyles.emptyState}>
+            No articles yet.
+          </div>
+        )
       )}
     </div>
   </div>
 );
 
-const FeedbackPieChart = ({ data, title, activities, onBrowse }) => {
+const FeedbackPieChart = ({ data, title, activities, onBrowse, pieRange, setPieRange }) => {
   const Button = ({ variant, className, onClick, children }) => (
     <button
       className={className}
@@ -119,6 +143,21 @@ const FeedbackPieChart = ({ data, title, activities, onBrowse }) => {
   return (
     <div className={chartStyles.chartContainer} style={{ position: 'relative' }}>
       <h3 className={chartStyles.chartTitle}>{title}</h3>
+
+      {/* Inline range selector for Feedback Distribution (Days/Week/Month) */}
+      {setPieRange && (
+        <div style={{ position: 'absolute', right: 12, top: 8 }}>
+          <select
+            value={pieRange}
+            onChange={(e) => setPieRange(e.target.value)}
+            style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff' }}
+          >
+            <option value="days">Days</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+          </select>
+        </div>
+      )}
 
       <div className={chartStyles.chartContentRow}>
         <div className={chartStyles.statusColumn}>
@@ -238,14 +277,16 @@ const ArticleTrendChart = ({ data, title }) => {
 const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
   const navigate = useNavigate();
   const [kbDataState, setKbDataState] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pieRange, setPieRange] = useState('days');
 
-  const stats = [{ label: 'Articles', count: 42 }, { label: 'Categories', count: 8 }];
+  const stats = kbDataState ? [
+    { label: 'Articles', count: (kbDataState.articles || []).length },
+    { label: 'Categories', count: (kbDataState.categories || []).length }
+  ] : [{ label: 'Articles', count: 0 }, { label: 'Categories', count: 0 }];
 
   const kbData = kbDataState || {
-    tableData: [
-      { id: 'A-001', title: 'How to reset password', category: 'Account', lastFeedback: '06/10/2025', likes: 12, dislikes: 2 },
-      { id: 'A-002', title: 'VPN setup guide', category: 'Networking', lastFeedback: '05/22/2025', likes: 8, dislikes: 1 }
-    ],
+    tableData: [],
     pieData: [
       { name: 'Helpful', value: 85, fill: '#3B82F6' },
       { name: 'Neutral', value: 23, fill: '#F59E0B' },
@@ -265,6 +306,56 @@ const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
     { time: "04:20 PM", action: "3 negative feedbacks on troubleshooting guide", type: "feedback" },
   ];
 
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+
+    Promise.allSettled([kbService.listArticles(), kbService.listCategories()])
+      .then(([articlesRes, categoriesRes]) => {
+        if (!mounted) return;
+
+        const articles = (articlesRes.status === 'fulfilled' && Array.isArray(articlesRes.value)) ? articlesRes.value : (Array.isArray(articlesRes.value) ? articlesRes.value : []);
+        const categories = (categoriesRes.status === 'fulfilled' && Array.isArray(categoriesRes.value)) ? categoriesRes.value : (Array.isArray(categoriesRes.value) ? categoriesRes.value : []);
+
+        // Normalize categories to map id->name for lookup
+        const categoryMap = (categories || []).reduce((acc, c) => {
+          const id = c.id ?? c.value ?? c.name ?? String(c);
+          const name = c.name ?? c.label ?? c.value ?? String(c);
+          acc[id] = name;
+          return acc;
+        }, {});
+
+        const formatDate = (d) => {
+          if (!d) return '';
+          try {
+            const dt = new Date(d);
+            if (Number.isNaN(dt.getTime())) return String(d);
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            const dd = String(dt.getDate()).padStart(2, '0');
+            const yyyy = dt.getFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          } catch (e) {
+            return String(d);
+          }
+        };
+
+        const tableData = (articles || []).map(a => ({
+          id: `A-${String(a.id || a.articleId || '').padStart(3, '0')}`,
+          title: a.title || a.subject || a.name || '',
+          category: categoryMap[a.category_id] || categoryMap[a.category] || (a.category && (a.category.name || a.category.title)) || a.category || '',
+          lastFeedback: formatDate(a.date_modified || a.updated_at || a.dateModified || a.date_created || a.created_at || a.created || ''),
+          likes: (a.likes != null) ? a.likes : 0,
+          dislikes: (a.dislikes != null) ? a.dislikes : 0,
+        }));
+
+        setKbDataState({ articles, categories, tableData, pieData: kbData.pieData, lineData: kbData.lineData });
+      })
+      .catch((e) => console.warn('[KB] failed to fetch articles/categories', e))
+      .finally(() => { if (mounted) setIsLoading(false); });
+
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <>
       <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
@@ -273,7 +364,7 @@ const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
             key={i}
             label={stat.label}
             count={stat.count}
-            onClick={() => navigate('/admin/knowledge/view-articles')}
+            onClick={() => navigate('/admin/knowledge/articles')}
           />
         ))}
       </div>
@@ -282,6 +373,8 @@ const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
         title="Last Feedback Articles"
         headers={['ID', 'Title', 'Category', 'Last Feedback', 'Likes', 'Dislikes']}
         data={kbData.tableData}
+        maxVisibleRows={5}
+        loading={isLoading}
       />
 
       <div style={{ position: 'relative', marginTop: 12 }}>
@@ -302,7 +395,9 @@ const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
             data={kbData.pieData}
             title="Feedback Distribution"
             activities={activityTimeline}
-            onBrowse={() => navigate('/admin/knowledge/view-articles')}
+            onBrowse={() => navigate('/admin/knowledge/articles')}
+            pieRange={pieRange}
+            setPieRange={setPieRange}
           />
           <ArticleTrendChart
             data={kbData.lineData}
@@ -310,6 +405,8 @@ const KnowledgeBaseTab = ({ chartRange, setChartRange }) => {
           />
         </div>
       </div>
+
+      
     </>
   );
 };
