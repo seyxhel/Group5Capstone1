@@ -662,13 +662,7 @@ export default function CoordinatorAdminTicketTracker() {
                   <div className={styles.ticketMetaItem}>
                     <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdatedRaw)}</span> </span>
                   </div>
-                  {ticket.csat_rating && (
-                    <div className={styles.ticketMetaItem}>
-                      <span className={styles.ticketMetaLabel}>CSAT Rating <span className={styles.ticketMetaValue}>
-                        {`${ticket.csat_rating}/5 \u2B50`}
-                      </span> </span>
-                    </div>
-                  )}
+                  {/* CSAT Rating moved to Resolution Details in Details tab */}
                 </div>
                 {/* Ticket Details - consolidated and always present */}
                 <div className={styles.detailsGrid}>
@@ -698,14 +692,7 @@ export default function CoordinatorAdminTicketTracker() {
                     <div className={styles.detailLabel}>Department</div>
                     <div className={styles.detailValue}>{department || 'None'}</div>
                   </div>
-                  {ticket.csat_rating && (
-                    <div className={styles.detailItem}>
-                      <div className={styles.detailLabel}>CSAT Rating</div>
-                      <div className={styles.detailValue}>
-                        {`${ticket.csat_rating}/5 \u2B50`}
-                      </div>
-                    </div>
-                  )}
+                  {/* CSAT Rating moved to Resolution Details in Details tab */}
                   <div className={styles.singleColumnGroup}>
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>Description</div>

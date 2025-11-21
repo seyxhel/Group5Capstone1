@@ -325,14 +325,28 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     ? (csatTickets.reduce((sum, t) => sum + t.csat_rating, 0) / totalResponses).toFixed(1)
     : '0.0';
   const excellentCount = csatTickets.filter(t => t.csat_rating === 5).length;
-  const needsImprovementCount = csatTickets.filter(t => t.csat_rating <= 2).length;
+  // Count ratings 1-4 as Needs Improvement per user request
+  const needsImprovementCount = csatTickets.filter(t => (t.csat_rating >= 1 && t.csat_rating <= 4)).length;
 
   // Build table data from real tickets
+  const formatRating = (rating) => {
+    if (!rating && rating !== 0) return 'N/A';
+    return `${rating} \u2B50`;
+  };
+
+  const formatSubmittedDate = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    const datePart = d.toLocaleDateString();
+    const timePart = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s(?=[AP]M$)/, '');
+    return `${datePart} ${timePart}`;
+  };
+
   const tableData = csatTickets
     .slice(0, 5) // Show recent 5
     .map(ticket => {
-      const ratingText = `${'⭐'.repeat(ticket.csat_rating)} (${ticket.csat_rating})`;
-      let ratingClass = 'ratingExcellent';
+      const ratingClassDefault = 'ratingExcellent';
+      let ratingClass = ratingClassDefault;
       if (ticket.csat_rating === 4) ratingClass = 'ratingGood';
       else if (ticket.csat_rating === 3) ratingClass = 'ratingNeutral';
       else if (ticket.csat_rating <= 2) ratingClass = 'ratingPoor';
@@ -340,9 +354,9 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       return {
         ticketNumber: ticket.ticket_number || ticket.ticketNumber,
         subject: ticket.subject,
-        rating: { text: ratingText, statusClass: ratingClass },
+        rating: { text: formatRating(ticket.csat_rating), statusClass: ratingClass },
         feedback: ticket.feedback || 'No feedback provided',
-        submittedDate: new Date(ticket.update_date || ticket.updatedAt).toLocaleString()
+        submittedDate: formatSubmittedDate(ticket.update_date || ticket.updatedAt)
       };
     });
 
@@ -382,11 +396,29 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     ]
   };
 
-  const csatActivityTimeline = csatTickets.slice(0, 4).map(ticket => {
-    const time = new Date(ticket.update_date || ticket.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const ratingText = ticket.csat_rating === 5 ? '5★ Excellent' : 
-                       ticket.csat_rating === 4 ? '4★ Good' :
-                       ticket.csat_rating === 3 ? '3★ Neutral' : '★ feedback';
+  const csatActivityTimeline = csatTickets.slice(0, 5).map(ticket => {
+    const time = new Date(ticket.update_date || ticket.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s(?=[AP]M$)/, '');
+    let ratingText = '';
+    switch (ticket.csat_rating) {
+      case 5:
+        ratingText = `${formatRating(5)} Excellent Feedback`;
+        break;
+      case 4:
+        ratingText = `${formatRating(4)} Good Feedback`;
+        break;
+      case 3:
+        ratingText = `${formatRating(3)} Neutral Feedback`;
+        break;
+      case 2:
+        ratingText = `${formatRating(2)} Poor Feedback`;
+        break;
+      case 1:
+        ratingText = `${formatRating(1)} Very Poor Feedback`;
+        break;
+      default:
+        ratingText = `${formatRating(ticket.csat_rating)} Feedback`;
+    }
+
     return {
       time,
       action: `CSAT ${ticket.ticket_number || ticket.ticketNumber} - ${ratingText}`,
