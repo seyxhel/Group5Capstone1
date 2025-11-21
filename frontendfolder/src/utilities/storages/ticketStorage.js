@@ -361,7 +361,7 @@ const TICKETS = [
     location: "Main Office - 3rd Floor",
     expectedReturnDate: "2026-06-10",
     assignedDepartment: "Asset Management",
-    status: "Open",
+    status: "New",
   assignedTo: 3,
   assignedToName: "Rumi Nakamura",
     coordinatorComment: null,

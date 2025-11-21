@@ -66,3 +66,49 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.assetTableWrap {
+  margin-top: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fff;
+}
+
+.assetTableHeader {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.assetTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.assetTable th,
+.assetTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+  font-size: 13px;
+}
+
+.selectAssetBtn {
+  padding: 6px 10px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.selectedRow {
+  background: #f1f5f9;
+}
+
+.selectedAssetSummary {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #111827;
+}
