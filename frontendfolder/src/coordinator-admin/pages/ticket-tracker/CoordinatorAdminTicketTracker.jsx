@@ -665,8 +665,7 @@ export default function CoordinatorAdminTicketTracker() {
                   {ticket.csat_rating && (
                     <div className={styles.ticketMetaItem}>
                       <span className={styles.ticketMetaLabel}>CSAT Rating <span className={styles.ticketMetaValue}>
-                        {'⭐'.repeat(ticket.csat_rating)} ({ticket.csat_rating}/5)
-                        {/* feedback intentionally not shown in meta */}
+                        {`${ticket.csat_rating}/5 \u2B50`}
                       </span> </span>
                     </div>
                   )}
@@ -703,7 +702,7 @@ export default function CoordinatorAdminTicketTracker() {
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>CSAT Rating</div>
                       <div className={styles.detailValue}>
-                        {'⭐'.repeat(ticket.csat_rating)} ({ticket.csat_rating}/5)
+                        {`${ticket.csat_rating}/5 \u2B50`}
                       </div>
                     </div>
                   )}

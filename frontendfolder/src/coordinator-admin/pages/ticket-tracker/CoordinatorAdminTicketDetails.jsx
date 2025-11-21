@@ -479,7 +479,7 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
               <div className={styles.infoField}>
                 <div className={styles.fieldLabel}>CSAT Rating</div>
                 <div className={styles.fieldValue}>
-                  {csatRaw ? `${renderStars(csatRaw)} (${csatRaw}/5)` : 'None'}
+                  {csatRaw ? `${csatRaw}/5 \u2B50` : 'None'}
                 </div>
               </div>
               {/* Feedback removed from Resolution Details per request */}
