@@ -43,12 +43,11 @@ const CoordinatorAdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const currentUser = authService.getCurrentUser();
 
-  // Ticket Coordinators should see Tickets and CSAT; other roles see full set
+  // Ticket Coordinators should NOT see the CSAT tab; other roles see full set
   const isTicketCoordinator = currentUser?.role === 'Ticket Coordinator';
   const dashboardTabs = isTicketCoordinator
     ? [
-      { label: 'Tickets', value: 'tickets' },
-      { label: 'CSAT', value: 'csat' },
+      { label: 'Tickets', value: 'tickets' }
     ]
     : [
       { label: 'Tickets', value: 'tickets' },

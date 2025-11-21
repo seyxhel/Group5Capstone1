@@ -217,22 +217,11 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
     labels: data.map(item => item.month),
     datasets: [
       {
-        label: isTicketChart ? 'Submitted Tickets' : 'New Users',
+        label: 'Average Score',
         data: data.map(item => item.dataset1),
         fill: false,
         borderColor: '#3e506cff',
         backgroundColor: '#3e506cff',
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-      {
-        label: isTicketChart ? 'Closed Tickets' : 'Active Users',
-        data: data.map(item => item.dataset2),
-        fill: false,
-        borderColor: '#22C55E',
-        backgroundColor: '#22C55E',
         tension: 0.4,
         borderWidth: 2,
         pointRadius: 4,
@@ -246,15 +235,7 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
-        labels: {
-          padding: 15,
-          font: {
-            size: 12,
-          },
-          usePointStyle: true,
-          pointStyle: 'circle',
-        },
+        display: false,
       },
       title: {
         display: false,
@@ -270,9 +251,20 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
           display: true,
           color: 'rgba(0, 0, 0, 0.05)',
         },
+        ticks: {
+          autoSkip: true,
+          maxRotation: 0,
+          minRotation: 0,
+        }
       },
       y: {
         beginAtZero: true,
+        min: 0,
+        max: 5,
+        ticks: {
+          stepSize: 0.5,
+          callback: function(value) { return value.toFixed(1); }
+        },
         grid: {
           display: true,
           color: 'rgba(0, 0, 0, 0.05)',
@@ -342,7 +334,14 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     return `${datePart} ${timePart}`;
   };
 
+  // Sort tickets by submitted/updated date (newest first), then take recent 5
   const tableData = csatTickets
+    .slice()
+    .sort((a, b) => {
+      const ta = new Date(a.update_date || a.updatedAt).getTime() || 0;
+      const tb = new Date(b.update_date || b.updatedAt).getTime() || 0;
+      return tb - ta;
+    })
     .slice(0, 5) // Show recent 5
     .map(ticket => {
       const ratingClassDefault = 'ratingExcellent';
@@ -386,17 +385,98 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     ],
     tableData,
     pieData,
-    lineData: [
-      { month: 'Jan', dataset1: 4.2, dataset2: 285 },
-      { month: 'Feb', dataset1: 4.3, dataset2: 312 },
-      { month: 'Mar', dataset1: 4.4, dataset2: 298 },
-      { month: 'Apr', dataset1: 4.5, dataset2: 315 },
-      { month: 'May', dataset1: 4.6, dataset2: 328 },
-      { month: 'Jun', dataset1: 4.5, dataset2: 328 }
-    ]
+    // lineData will be computed dynamically based on `chartRange` and `csatTickets`
+    lineData: []
   };
 
-  const csatActivityTimeline = csatTickets.slice(0, 5).map(ticket => {
+  // Helpers to build labels and average values per period
+  const monthShort = (d) => d.toLocaleString(undefined, { month: 'short' });
+
+  const buildLineData = (range) => {
+    const now = new Date();
+    const results = [];
+
+    if (range === 'days') {
+      // Last 7 days ending today (labels like '15 Nov')
+      for (let i = 6; i >= 0; i--) {
+        const day = new Date(now);
+        day.setDate(now.getDate() - i);
+        const label = `${day.getDate()} ${monthShort(day)}`;
+        const dayStr = day.toDateString();
+        const ticketsForDay = csatTickets.filter(t => {
+          const d = new Date(t.update_date || t.updatedAt);
+          return d.toDateString() === dayStr;
+        });
+        const avg = ticketsForDay.length ? (ticketsForDay.reduce((s, x) => s + x.csat_rating, 0) / ticketsForDay.length) : 0;
+        results.push({ month: label, dataset1: Number(avg.toFixed(2)) });
+      }
+      return results;
+    }
+
+    if (range === 'week') {
+      // Divide current month into 4 buckets: W1..W4
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let w = 0; w < 4; w++) {
+        const start = Math.floor((w * daysInMonth) / 4) + 1;
+        const end = Math.floor(((w + 1) * daysInMonth) / 4);
+        const label = `W${w + 1}`;
+        const ticketsForWeek = csatTickets.filter(t => {
+          const d = new Date(t.update_date || t.updatedAt);
+          return d.getMonth() === month && d.getFullYear() === year && d.getDate() >= start && d.getDate() <= end;
+        });
+        const avg = ticketsForWeek.length ? (ticketsForWeek.reduce((s, x) => s + x.csat_rating, 0) / ticketsForWeek.length) : 0;
+        results.push({ month: label, dataset1: Number(avg.toFixed(2)) });
+      }
+      return results;
+    }
+
+    if (range === 'month') {
+      // Last 6 months including current month
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = monthShort(d);
+        const monthIndex = d.getMonth();
+        const year = d.getFullYear();
+        const ticketsForMonth = csatTickets.filter(t => {
+          const td = new Date(t.update_date || t.updatedAt);
+          return td.getMonth() === monthIndex && td.getFullYear() === year;
+        });
+        const avg = ticketsForMonth.length ? (ticketsForMonth.reduce((s, x) => s + x.csat_rating, 0) / ticketsForMonth.length) : 0;
+        results.push({ month: label, dataset1: Number(avg.toFixed(2)) });
+      }
+      return results;
+    }
+
+    // yearly: last 12 months ending with current month (previous 11 + current)
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = monthShort(d);
+      const monthIndex = d.getMonth();
+      const year = d.getFullYear();
+      const ticketsForMonth = csatTickets.filter(t => {
+        const td = new Date(t.update_date || t.updatedAt);
+        return td.getMonth() === monthIndex && td.getFullYear() === year;
+      });
+      const avg = ticketsForMonth.length ? (ticketsForMonth.reduce((s, x) => s + x.csat_rating, 0) / ticketsForMonth.length) : 0;
+      results.push({ month: label, dataset1: Number(avg.toFixed(2)) });
+    }
+    return results;
+  };
+
+  // Update csatData.lineData dynamically based on current chartRange
+  csatData.lineData = buildLineData(chartRange);
+
+  const csatActivityTimeline = csatTickets
+    .slice()
+    .sort((a, b) => {
+      const ta = new Date(a.update_date || a.updatedAt).getTime() || 0;
+      const tb = new Date(b.update_date || b.updatedAt).getTime() || 0;
+      return tb - ta;
+    })
+    .slice(0, 5)
+    .map(ticket => {
     const time = new Date(ticket.update_date || ticket.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s(?=[AP]M$)/, '');
     let ratingText = '';
     switch (ticket.csat_rating) {
