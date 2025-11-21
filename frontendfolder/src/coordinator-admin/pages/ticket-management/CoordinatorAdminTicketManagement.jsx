@@ -110,76 +110,85 @@ const CoordinatorAdminTicketManagement = () => {
 
   useEffect(() => {
     // Always refresh tickets when the URL status changes or when the page is visited
+    // Also refresh when currentUser changes (role/department scope may differ)
     setIsLoading(true);
-    const timer = setTimeout(() => {
-  const user = currentUser;
 
-      const loadTickets = async () => {
-        try {
-          const fetched = await backendTicketService.getAllTickets();
-          const ticketList = Array.isArray(fetched) ? fetched : (fetched?.results || []);
-          let ticketsToShow = ticketList;
-          if (user) {
-            if (user.role === 'Ticket Coordinator') {
-              // If the URL requests a specific status (e.g., withdrawn-tickets), allow the page to
-              // consider the full ticket list so the status-specific filter can surface matching tickets
-              // (otherwise coordinators' department/assignment filtering may accidentally hide them).
-              const normalizedStatus = status.replace('-tickets', '').toLowerCase();
-              // For coordinators: when viewing the "all" page, show the full ticket list (all statuses).
-              // For specific-status pages, apply coordinator scoping (department/assignment/new tickets)
-              if (normalizedStatus === 'all') {
-                ticketsToShow = ticketList;
-              } else {
-                ticketsToShow = ticketList.filter(ticket => {
-                  const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
-                  const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
-                  const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
-                  const statusLower = (ticket.status || '').toString().toLowerCase();
-                  const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
-                  // Coordinators see their department, assigned-to, and ALL new/untriaged tickets
-                  return isNewish || ticketDept === user.department || isAssignedToUser;
-                });
-              }
-            } else if (user.role === 'System Admin') {
+    const loadTickets = async () => {
+      try {
+        const fetched = await backendTicketService.getAllTickets();
+        const ticketList = Array.isArray(fetched) ? fetched : (fetched?.results || []);
+        let ticketsToShow = ticketList;
+        const user = currentUser;
+        if (user) {
+          if (user.role === 'Ticket Coordinator') {
+            // Coordinators should see all tickets when viewing a specific status page
+            // but retain special scoping for the 'new' (untriaged) page so unassigned/new
+            // tickets are visible to coordinators for triage.
+            const normalizedStatus = status.replace('-tickets', '').toLowerCase();
+            if (normalizedStatus === 'new') {
+              ticketsToShow = ticketList.filter(ticket => {
+                const ticketDept = ticket.department || ticket.assignedDepartment || ticket.assigned_to_department || null;
+                const assignedToId = typeof ticket.assignedTo === 'object' ? ticket.assignedTo?.id : ticket.assignedTo;
+                const isAssignedToUser = assignedToId === user.id || ticket.assignedToId === user.id || ticket.assigned_to === user.id;
+                const statusLower = (ticket.status || '').toString().toLowerCase();
+                const isNewish = statusLower === 'new' || statusLower === 'submitted' || statusLower === 'pending';
+                return isNewish || ticketDept === user.department || isAssignedToUser;
+              });
+            } else {
+              // For other specific-status views (e.g., 'open'), show the full ticket list
               ticketsToShow = ticketList;
             }
+          } else if (user.role === 'System Admin') {
+            ticketsToShow = ticketList;
           }
-          // Normalize tickets to the shape expected by the UI
-          const normalized = ticketsToShow.map((t) => {
-            const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
-            const lastUpdated = t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || null;
-            return {
-              ...t,
-              ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
-              subCategory: t.sub_category || t.subCategory || t.subcategory || '',
-              priorityLevel: t.priority || t.priorityLevel || '',
-              dateCreated,
-              lastUpdated,
-              assignedAgent: t.assigned_to || t.assignedTo || '',
-              assignedDepartment: t.department || t.assignedDepartment || '',
-              __effectiveStatus: computeEffectiveStatus({ status: t.status, dateCreated }),
-            };
-          })
-          // Ensure newest-first based on last updated timestamp (newest -> oldest)
-          .sort((a, b) => {
-            const da = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
-            const db = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
-            return db - da;
-          });
-
-          setAllTickets(normalized);
-          setIsLoading(false);
-        } catch (err) {
-          setAllTickets([]);
-          setIsLoading(false);
-          console.error('Failed to fetch tickets:', err);
         }
-      };
 
-      loadTickets();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [status]);
+        // Normalize tickets to the shape expected by the UI
+        const normalized = ticketsToShow.map((t) => {
+          const dateCreated = t.submit_date || t.submitDate || t.dateCreated || t.created_at || t.createdAt || null;
+          const lastUpdated = t.update_date || t.lastUpdated || t.updatedAt || t.updated_at || t.time_closed || t.closedAt || t.submit_date || t.dateCreated || t.createdAt || null;
+          return {
+            ...t,
+            ticketNumber: t.ticket_number || t.ticket_id || t.ticketNumber || t.id,
+            subCategory: t.sub_category || t.subCategory || t.subcategory || '',
+            priorityLevel: t.priority || t.priorityLevel || '',
+            dateCreated,
+            lastUpdated,
+            assignedAgent: t.assigned_to || t.assignedTo || '',
+            assignedDepartment: t.department || t.assignedDepartment || '',
+            __effectiveStatus: computeEffectiveStatus({ status: t.status, dateCreated }),
+          };
+        })
+        // Ensure newest-first based on last updated timestamp (newest -> oldest)
+        .sort((a, b) => {
+          const da = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+          const db = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+          return db - da;
+        });
+
+        setAllTickets(normalized);
+        setIsLoading(false);
+      } catch (err) {
+        setAllTickets([]);
+        setIsLoading(false);
+        console.error('Failed to fetch tickets:', err);
+      }
+    };
+
+    // Debounced initial fetch to avoid jank on rapid navigation
+    const timer = setTimeout(() => loadTickets(), 300);
+
+    // Poll periodically to pick up new tickets created by other users/systems
+    const pollIntervalMs = 30000; // 30s
+    const pollId = setInterval(() => {
+      loadTickets().catch(() => {});
+    }, pollIntervalMs);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(pollId);
+    };
+  }, [status, currentUser]);
 
   // Build dynamic filter options from loaded tickets
   const categoryOptions = useMemo(() => {
