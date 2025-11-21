@@ -147,16 +147,17 @@ export const getArticle = (id) => {
     .then((a) => {
       if (!a) return null;
       return {
-        id: a.id,
-        title: a.title || a.name,
-        content: a.content || a.body || a.description,
-        category_id: a.category_id || (a.category && a.category.id) || a.category,
-        visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
-        date_created: a.date_created || a.created_at,
-        date_modified: a.date_modified || a.updated_at,
-        archived: !!a.archived || !!a.is_archived,
-        versions: Array.isArray(a.versions) ? a.versions : (a.versions || []),
-      };
+          id: a.id,
+          // prefer common fields, fallback to subject for some backends
+          title: a.title || a.name || a.subject,
+          content: a.content || a.body || a.description,
+          category_id: a.category_id || (a.category && a.category.id) || a.category,
+          visibility: normalizeVisibility(a.visibility || a.access || 'Employee'),
+          date_created: a.date_created || a.created_at,
+          date_modified: a.date_modified || a.updated_at,
+          archived: !!a.archived || !!a.is_archived,
+          versions: Array.isArray(a.versions) ? a.versions : (a.versions || []),
+        };
     })
     .catch(() => Promise.resolve(mockArticles.find(a => a.id === Number(id)) || null));
 };

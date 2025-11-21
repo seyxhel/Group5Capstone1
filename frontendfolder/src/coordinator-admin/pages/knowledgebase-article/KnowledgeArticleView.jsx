@@ -400,7 +400,24 @@ const KnowledgeArticleView = () => {
                   <div className={styles.detailItem}>
                     <div className={styles.detailLabel}>Author</div>
                     <div className={styles.detailValue}>
-                      {article.author || 'Unknown'}
+                      {(() => {
+                        // Prefer explicit `author` field
+                        if (article.author) return article.author;
+                        // Backend may expose creator info in `created_by`, `created_by_name`, or similar
+                        const cb = article.created_by || article.createdBy || article.created_by_user || null;
+                        if (cb) {
+                          if (typeof cb === 'string') return cb;
+                          const first = cb.first_name || cb.firstname || cb.firstName || cb.given_name || '';
+                          const last = cb.last_name || cb.lastname || cb.lastName || cb.family_name || '';
+                          const full = `${first} ${last}`.trim();
+                          if (full) return full;
+                          if (cb.email) return cb.email;
+                        }
+                        if (article.created_by_name) return article.created_by_name;
+                        if (article.createdByName) return article.createdByName;
+                        // Fallback to generic label
+                        return 'System Admin';
+                      })()}
                     </div>
                   </div>
 

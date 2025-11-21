@@ -572,6 +572,7 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
         title="Recent CSAT Feedback"
         headers={['Ticket Number', 'Subject', 'Rating', 'Feedback', 'Date Submitted']}
         data={csatData.tableData}
+        maxVisibleRows={5}
       />
 
       <div style={{ position: 'relative', marginTop: 12 }}>
