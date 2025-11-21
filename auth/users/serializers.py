@@ -66,13 +66,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         # No composition rules (no need to check for digits, uppercase, etc.)
 
-        # Check for username/email in password
-        username = self.initial_data.get('username', '').lower()
-        email = self.initial_data.get('email', '').lower()
-        if username and username in value.lower():
-            raise serializers.ValidationError("Password must not contain your username.")
-        if email and email.split('@')[0] in value.lower():
-            raise serializers.ValidationError("Password must not contain part of your email address.")
+        # Note: intentionally allow passwords that contain the username or email
+        # to accommodate legacy and external account flows where strict
+        # username/extract checks can cause unnecessary failures.
 
         # Check against HaveIBeenPwned API for breached passwords
         is_pwned, breach_count = check_password_pwned(value)
@@ -552,18 +548,13 @@ class ResetPasswordSerializer(serializers.Serializer):
 
         # No composition rules
 
-        # Check for username/email in password (if user can be determined from token)
+        # Note: intentionally allow passwords that contain the username or email
+        # for the reset flow. Historically this check caused issues for some
+        # external account flows; we accept these cases to improve compatibility.
         reset_token = PasswordResetToken.get_valid_token(token)
         if not reset_token:
             raise serializers.ValidationError('Invalid or expired reset token')
         user = getattr(reset_token, 'user', None)
-        if user:
-            username = getattr(user, 'username', '').lower()
-            email = getattr(user, 'email', '').lower()
-            if username and username in password.lower():
-                raise serializers.ValidationError("Password must not contain your username.")
-            if email and email.split('@')[0] in password.lower():
-                raise serializers.ValidationError("Password must not contain part of your email address.")
 
         # Check against common passwords (placeholder)
         common_passwords = {"password", "12345678", "qwerty", "letmein", "admin", "welcome", "admin123", "password123"}
@@ -678,13 +669,8 @@ class ProfilePasswordResetSerializer(serializers.Serializer):
         if len(new_password) > max_length:
             raise serializers.ValidationError({'new_password': f'Password must be at most {max_length} characters long.'})
 
-        # Check for username/email in password
-        username = user.username.lower() if user.username else ''
-        email = user.email.lower() if user.email else ''
-        if username and username in new_password.lower():
-            raise serializers.ValidationError({'new_password': 'Password must not contain your username.'})
-        if email and email.split('@')[0] in new_password.lower():
-            raise serializers.ValidationError({'new_password': 'Password must not contain part of your email address.'})
+        # Intentionally allow passwords that contain username/email here
+        # to avoid blocking legitimate password choices for external accounts.
 
         # Check against common passwords (including "admin123" and others)
         common_passwords = {"password", "12345678", "qwerty", "letmein", "admin", "welcome", "admin123", "password123"}

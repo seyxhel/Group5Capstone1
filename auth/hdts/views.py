@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from users.serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from system_roles.models import UserSystemRole
@@ -138,6 +139,52 @@ def get_pending_users_api(request):
         'count': pending_users.count(),
         'users': serializer.data
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_user_status_api(request, user_id: int):
+    """
+    API endpoint to approve or reject a pending HDTS user via JSON POST.
+    Expected JSON: { "action": "approve" } or { "action": "reject" }
+    Returns JSON { success: true } on success.
+    """
+    from django.utils import timezone
+
+    user_to_update = get_object_or_404(User, id=user_id)
+
+    # Ensure user belongs to HDTS
+    is_hdts_member = UserSystemRole.objects.filter(user=user_to_update, system__slug='hdts').exists()
+    if not is_hdts_member:
+        return Response({ 'detail': 'User not found in HDTS' }, status=status.HTTP_404_NOT_FOUND)
+
+    action = request.data.get('action')
+    if not action:
+        return Response({ 'detail': 'Missing action' }, status=status.HTTP_400_BAD_REQUEST)
+
+    if user_to_update.status != 'Pending':
+        return Response({ 'detail': 'User not pending' }, status=status.HTTP_400_BAD_REQUEST)
+
+    if action == 'approve':
+        user_to_update.status = 'Approved'
+        user_to_update.approved_at = timezone.now()
+        # Try to record approver from request.user if available
+        try:
+            user_to_update.approved_by = request.user
+        except Exception:
+            pass
+    elif action == 'reject':
+        user_to_update.status = 'Rejected'
+        user_to_update.rejected_at = timezone.now()
+        try:
+            user_to_update.rejected_by = request.user
+        except Exception:
+            pass
+    else:
+        return Response({ 'detail': 'Invalid action' }, status=status.HTTP_400_BAD_REQUEST)
+
+    user_to_update.save(update_fields=['status', 'approved_at', 'rejected_at', 'approved_by', 'rejected_by'])
+    return Response({ 'success': True })
 
 
 @api_view(['GET'])

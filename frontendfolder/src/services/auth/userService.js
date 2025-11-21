@@ -98,4 +98,36 @@ export const authUserService = {
       throw error;
     }
   }
+  ,
+
+  /**
+   * Approve an HDTS pending user by id
+   * Calls the auth service endpoint to approve the pending user
+   */
+  async approveHdtsUser(userId) {
+    try {
+      if (!userId) throw new Error('Missing userId for approval');
+      // Call the new JSON API endpoint which uses DRF and accepts Authorization
+      const url = `${AUTH_BASE_URL}/api/v1/hdts/user-management/update-status-api/${userId}/`;
+      const headers = getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ action: 'approve' }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to approve user: ${response.status} ${text}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error approving HDTS user:', error);
+      throw error;
+    }
+  }
 };

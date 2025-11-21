@@ -183,6 +183,13 @@ const CoordinatorAdminAccountRegister = () => {
   // dev utilities or older code may use 'admin_access_token'. Prefer
   // admin-specific key but fall back to generic 'access_token'.
   const token = localStorage.getItem('admin_access_token') || localStorage.getItem('access_token'); 
+      // Validate required business fields before sending
+      if (!formData.role) {
+        toast.error('Please select a role before submitting.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Build payload expected by the auth system invite endpoint
       const payload = new FormData();
       payload.append('last_name', formData.lastName.trim());
@@ -205,9 +212,22 @@ const CoordinatorAdminAccountRegister = () => {
         credentials: 'include',
         body: payload
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        const text = await res.text().catch(() => '');
+        console.error('Account register unexpected response:', res.status, text);
+        toast.error('Failed to create user account. Server returned unexpected response.');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (!res.ok) {
-        toast.error(data.error || data.detail || 'Failed to create user account.');
+        console.error('Account register failed:', res.status, data);
+        // Show first meaningful error
+        const message = data.error || data.detail || (data.role_id && Array.isArray(data.role_id) ? data.role_id.join(', ') : null) || JSON.stringify(data);
+        toast.error(message || 'Failed to create user account.');
         setIsSubmitting(false);
         return;
       }

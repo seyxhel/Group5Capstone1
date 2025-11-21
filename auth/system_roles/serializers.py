@@ -216,22 +216,30 @@ class AdminInviteUserSerializer(serializers.Serializer):
         else:
             role_choices = Role.objects.select_related('system').values_list('id', 'name', 'system__name')
 
-        self.fields['role_id'].choices = [
-            (str(role_id), f"{role_name} ({system_name})") 
-            for role_id, role_name, system_name in role_choices
-        ]
+        # Build choices from available roles
+        built = [(str(role_id), f"{role_name} ({system_name})") for role_id, role_name, system_name in role_choices]
+        # Ensure special token 'admin_hdts' is available so frontend can request HDTS Admin when exact id isn't known
+        if not any(choice[0] == 'admin_hdts' for choice in built):
+            built.append(('admin_hdts', 'System Admin (HDTS)'))
+
+        self.fields['role_id'].choices = built
 
     def validate_role_id(self, value):
+        # Accept either a single value or a list (FormData may submit arrays)
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            value = value[0]
+
         # Allow special token to request HDTS Admin role when frontend cannot fetch role ids
         if isinstance(value, str) and value == 'admin_hdts':
             try:
                 return Role.objects.select_related('system').get(name='Admin', system__slug='hdts')
             except Role.DoesNotExist:
                 raise serializers.ValidationError("Requested HDTS Admin role not available on server.")
-
         try:
-            role = Role.objects.select_related('system').get(id=value)
-        except Role.DoesNotExist:
+            # If numeric string provided, attempt to coerce to int
+            lookup = int(value) if (isinstance(value, str) and value.isdigit()) else value
+            role = Role.objects.select_related('system').get(id=lookup)
+        except (Role.DoesNotExist, ValueError, TypeError):
             raise serializers.ValidationError("Role does not exist.")
         return role
 

@@ -241,37 +241,51 @@ class AdminInviteUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        # Get the role to check system permissions
-        role_id = request.data.get('role_id')
+
         try:
-            role = Role.objects.select_related('system').get(id=role_id)
-            
-            # Check if user can invite to this system
-            if not request.user.is_superuser:
-                if not UserSystemRole.objects.filter(
-                    user=request.user,
-                    system=role.system,
-                    role__name='Admin'
-                ).exists():
-                    return Response(
-                        {"error": "Access denied to this system"}, 
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-        except Role.DoesNotExist:
-            return Response(
-                {"error": "Invalid role specified"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        result = serializer.save()
-        return Response({
-            "user": result["user"].email,
-            "temporary_password": result["temporary_password"],
-            "role": result["assigned_role"].role.name,
-            "system": result["assigned_role"].system.slug
-        }, status=status.HTTP_201_CREATED)
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the role object from the serializer's validated data.
+        # The serializer's `validate_role_id` returns a Role instance (or raises),
+        # so prefer that instead of re-querying using the raw request value which
+        # may contain tokens like 'admin_hdts'.
+        role = serializer.validated_data.get('role_id')
+        if not isinstance(role, Role):
+            try:
+                role = Role.objects.select_related('system').get(id=role)
+            except Role.DoesNotExist:
+                return Response(
+                    {"error": "Invalid role specified"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Check if user can invite to this system
+        if not request.user.is_superuser:
+            if not UserSystemRole.objects.filter(
+                user=request.user,
+                system=role.system,
+                role__name='Admin'
+            ).exists():
+                return Response(
+                    {"error": "Access denied to this system"}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            result = serializer.save()
+            return Response({
+                "user": result["user"].email,
+                "temporary_password": result["temporary_password"],
+                "role": result["assigned_role"].role.name,
+                "system": result["assigned_role"].system.slug
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            # Avoid exposing sensitive internals but return useful message for debugging in dev
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e) or 'Internal error during invite'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @extend_schema_view(
