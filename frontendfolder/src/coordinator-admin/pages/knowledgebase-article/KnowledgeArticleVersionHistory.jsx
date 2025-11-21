@@ -7,6 +7,7 @@ import authService from '../../../utilities/service/authService';
 import Button from '../../../shared/components/Button';
 import KnowledgeArticleViewVersion from '../../components/modals/knowledgebase/KnowledgeArticleViewVersion';
 import KnowledgeArticleCompareModal from '../../components/modals/knowledgebase/KnowledgeArticleCompareModal';
+import KnowledgeArticleRestoreModal from '../../components/modals/knowledgebase/KnowledgeArticleRestoreModal';
 import Loading from '../../../shared/components/Loading/Loading';
 // use shared Button 'nav' variant instead of modal-specific CSS
 
@@ -74,6 +75,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
   const [modalIndex, setModalIndex] = useState(null);
   const [editModeIndex, setEditModeIndex] = useState(null);
   const [editContent, setEditContent] = useState('');
+  const [restoreVersion, setRestoreVersion] = useState(null);
 
   if (!article) return null;
 
@@ -136,18 +138,8 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
       alert('You do not have permission to restore versions.');
       return;
     }
-    const ok = window.confirm(`Restore version ${v.number ?? v.version ?? ''}? This will overwrite the current article content.`);
-    if (!ok) return;
-    try {
-      const newContent = v.content || v.body || v.text || v.html || v.raw || '';
-      if (!kbService.updateArticle) throw new Error('kbService.updateArticle is not available');
-      await kbService.updateArticle(article.id, { content: newContent });
-      alert('Article restored to selected version. Reloading...');
-      window.location.reload();
-    } catch (err) {
-      console.error('Failed to restore version:', err);
-      alert('Failed to restore version: ' + (err.message || String(err)));
-    }
+    // Open restore confirmation modal instead of inline confirm
+    setRestoreVersion(v);
   };
 
   const startEdit = (i) => {
@@ -277,15 +269,6 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
 
                 <div className={styles.versionSummary} style={{ marginTop: 8 }}>Minor clarifications to instructions.</div>
 
-                <div className={styles.whatChangedBox}>
-                  <div className={styles.whatChangedTitle}>WHAT CHANGED</div>
-                  <ul className={styles.whatChangedList}>
-                    <li>Clarified Step 2 wording for email address entry</li>
-                    <li>Added note about password link expiration</li>
-                    <li>Fixed typo in Step 5</li>
-                  </ul>
-                </div>
-
                 {/* Modal preview opens when user clicks "View This Version" */}
 
 
@@ -366,6 +349,20 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
             />
           );
         })()}
+
+        {/* Restore confirmation modal */}
+        {restoreVersion && (
+          <KnowledgeArticleRestoreModal
+            version={restoreVersion}
+            article={article}
+            onClose={() => setRestoreVersion(null)}
+            onRestoreSuccess={() => {
+              setRestoreVersion(null);
+              alert('Article restored successfully. Reloading...');
+              window.location.reload();
+            }}
+          />
+        )}
     </div>
   );
 };

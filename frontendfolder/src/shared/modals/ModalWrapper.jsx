@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import ReactDOM from "react-dom";
 import styles from "./ModalWrapper.module.css";
 
-const ModalWrapper = ({ children, onClose }) => {
+const ModalWrapper = ({ children, onClose, className, contentProps = {} }) => {
   // Lock background scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -17,9 +17,11 @@ const ModalWrapper = ({ children, onClose }) => {
     }
   };
 
+  const contentClass = className ? `${styles["modal-content"]} ${className}` : styles["modal-content"];
+
   return ReactDOM.createPortal(
     <div className={styles["modal-overlay"]} onClick={handleOverlayClick}>
-      <div className={styles["modal-content"]}>{children}</div>
+      <div className={contentClass} {...contentProps}>{children}</div>
     </div>,
     document.body
   );

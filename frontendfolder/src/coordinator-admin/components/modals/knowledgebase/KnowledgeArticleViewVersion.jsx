@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import styles from './KnowledgeArticleViewVersion.module.css';
 import Button from '../../../../shared/components/Button';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import ModalWrapper from '../../../../shared/modals/ModalWrapper';
 
 const KnowledgeArticleViewVersion = ({
   version,
@@ -14,8 +15,6 @@ const KnowledgeArticleViewVersion = ({
   canRestore,
   article
 }) => {
-  const overlayRef = useRef(null);
-
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -31,30 +30,16 @@ const KnowledgeArticleViewVersion = ({
   }, [onClose, onPrev, onNext]);
 
   // Lock background scroll while modal is open
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev || 'auto';
-    };
-  }, []);
+  // ModalWrapper handles scroll locking
 
-  const handleOverlayClick = (e) => {
-    if (e.target === overlayRef.current) onClose?.();
-  };
+  // overlay click handled by ModalWrapper
 
   const versionLabel = version?.number ?? version?.version ?? index + 1;
   const content = version?.content || version?.body || version?.text || version?.html || version?.raw || 'No content available for this version.';
-  const changes = version?.changes || version?.summary || version?.description || version?.notes || '';
-
-  const changeItems = String(changes || '')
-    .split(/\r?\n|•|\-|\*+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  
 
   return (
-    <div className={styles.overlay} ref={overlayRef} onClick={handleOverlayClick}>
-      <div className={styles.modalContent} role="dialog" aria-modal="true">
+    <ModalWrapper onClose={onClose} className={styles.modalContent} contentProps={{ role: 'dialog', 'aria-modal': true }}>
         <div className={styles.header}>
           <div className={styles.versionInfo}>
             <h2 className={styles.versionTitle}>Version {versionLabel}</h2>
@@ -73,16 +58,7 @@ const KnowledgeArticleViewVersion = ({
             <div className={styles.previewContent}>{content}</div>
           </div>
 
-          <div className={styles.changesSection}>
-            <div className={styles.changesTitle}>WHAT CHANGED</div>
-            {changeItems.length > 0 ? (
-              <ul className={styles.changesList}>
-                {changeItems.map((c, i) => <li key={i}>{c}</li>)}
-              </ul>
-            ) : (
-              <div className={styles.noChanges}>No change summary available.</div>
-            )}
-          </div>
+          {/* Change summary removed per design */}
         </div>
 
         <div className={styles.footer}>
@@ -92,8 +68,7 @@ const KnowledgeArticleViewVersion = ({
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

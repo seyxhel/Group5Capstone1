@@ -15,6 +15,8 @@ import KnowledgeEdit from '../coordinator-admin/pages/knowledgebase/KnowledgeEdi
 import KnowledgeArticles from '../coordinator-admin/pages/knowledgebase/KnowledgeArticles';
 import KnowledgeArchived from '../coordinator-admin/pages/knowledgebase/KnowledgeArchived';
 import KnowledgeArticleView from '../coordinator-admin/pages/knowledgebase-article/KnowledgeArticleView';
+import CoordinatorAMSDashboard from '../coordinator-admin/pages/integration/ams/CoordinatorAMSDashboard';
+import CoordinatorAMSTickets from '../coordinator-admin/pages/integration/ams/CoordinatorAMSTickets';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const CoordinatorAdminRoutes = () => (
@@ -50,6 +52,11 @@ const CoordinatorAdminRoutes = () => (
         <Route path="archived" element={<KnowledgeArchived />} />
         <Route path="create" element={<KnowledgeCreate />} />
         <Route path="edit/:id" element={<KnowledgeEdit />} />
+      </Route>
+      {/* AMS integration routes */}
+      <Route path="ams">
+        <Route path="dashboard" element={<CoordinatorAMSDashboard />} />
+        <Route path="tickets" element={<CoordinatorAMSTickets />} />
       </Route>
       
       <Route path="*" element={<NotFoundPage />} />
