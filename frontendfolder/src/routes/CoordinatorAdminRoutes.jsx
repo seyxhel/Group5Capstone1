@@ -15,7 +15,6 @@ import KnowledgeEdit from '../coordinator-admin/pages/knowledgebase/KnowledgeEdi
 import KnowledgeArticles from '../coordinator-admin/pages/knowledgebase/KnowledgeArticles';
 import KnowledgeArchived from '../coordinator-admin/pages/knowledgebase/KnowledgeArchived';
 import KnowledgeArticleView from '../coordinator-admin/pages/knowledgebase-article/KnowledgeArticleView';
-import KnowledgeViewArticles from '../coordinator-admin/pages/knowledgebase/KnowledgeViewArticles';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 // protected route
 import ProtectedRoute from "./ProtectedRoute";
@@ -51,7 +50,6 @@ const CoordinatorAdminRoutes = () => (
       <Route path="knowledge">
         <Route path="articles" element={<KnowledgeArticles />} />
         <Route path="view/:id" element={<KnowledgeArticleView />} />
-        <Route path="view-articles" element={<KnowledgeViewArticles />} />
         <Route path="archived" element={<KnowledgeArchived />} />
         <Route path="create" element={<KnowledgeCreate />} />
         <Route path="edit/:id" element={<KnowledgeEdit />} />

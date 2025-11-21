@@ -155,6 +155,7 @@ const KnowledgeViewArticles = () => {
               <tr>
                 <th style={{ width: 260 }}>Article</th>
                 <th>Category</th>
+                 <th>Tags</th>
                 <th style={{ width: 120, textAlign: 'center' }}>Visibility</th>
                 <th style={{ width: 140, textAlign: 'center' }}>Created</th>
                 <th style={{ width: 180, textAlign: 'center' }}>Actions</th>
@@ -166,6 +167,7 @@ const KnowledgeViewArticles = () => {
                   <tr key={i}>
                     <td><Skeleton width="100%" height="40px" /></td>
                     <td><Skeleton width="100%" height="40px" /></td>
+                     <td><Skeleton width="100%" height="40px" /></td>
                     <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
                     <td style={{ textAlign: 'center' }}><Skeleton width="100px" height="40px" /></td>
                     <td><Skeleton width="120px" height="40px" /></td>
@@ -187,6 +189,7 @@ const KnowledgeViewArticles = () => {
                       </div>
                     </td>
                     <td>{getCategoryName(a.category_id)}</td>
+                     <td>{a.tags && a.tags.length ? a.tags.join(', ') : ''}</td>
                     <td style={{ textAlign: 'center' }}>{a.visibility}</td>
                     <td style={{ textAlign: 'center' }}>{formatArticleDate(a)}</td>
                     <td>

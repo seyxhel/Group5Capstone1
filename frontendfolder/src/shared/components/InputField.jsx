@@ -14,10 +14,18 @@ const InputField = ({
   error = '',
   style = {},
   inputStyle = {},
+  // Accept container class and input-specific class names
+  className = '',
+  inputClassName = '',
   ...props
 }) => {
+  // Avoid passing className/inputClassName through to the input via {...props}
+  const otherProps = { ...props };
+  delete otherProps.className;
+  delete otherProps.inputClassName;
+
   return (
-    <div className={styles.inputFieldContainer} style={style}>
+    <div className={`${styles.inputFieldContainer} ${className || ''}`} style={style}>
       {label && (
         <label className={styles.label}>
           {label}
@@ -26,7 +34,7 @@ const InputField = ({
       )}
       <input
         type={type}
-        className={`${styles.input} ${error ? styles.inputError : ''} ${disabled ? styles.inputDisabled : ''}`}
+        className={`${styles.input} ${inputClassName || ''} ${error ? styles.inputError : ''} ${disabled ? styles.inputDisabled : ''}`}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
@@ -34,7 +42,7 @@ const InputField = ({
         onFocus={onFocus}
         disabled={disabled}
         style={inputStyle}
-        {...props}
+        {...otherProps}
       />
       {error && (
         <div className={styles.errorMessage}>
