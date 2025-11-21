@@ -28,8 +28,7 @@ const Root = () => {
     const session = createSessionTimeout({ 
       timeoutMinutes: 30, // 30 minutes inactivity timeout
       onTimeout: () => {
-        // eslint-disable-next-line no-console
-        console.log('[main.jsx] Inactivity timeout fired - user will be logged out');
+        if (import.meta.env.DEV) console.debug('[main.jsx] Inactivity timeout fired - user will be logged out');
       }
     });
     
@@ -56,23 +55,19 @@ const Root = () => {
     );
     
     if (hasToken) {
-      // eslint-disable-next-line no-console
-      console.log('[main.jsx] Token found - starting inactivity watcher');
+      if (import.meta.env.DEV) console.debug('[main.jsx] Token found - starting inactivity watcher');
       session.start();
     } else {
-      // eslint-disable-next-line no-console
-      console.log('[main.jsx] No token found - inactivity watcher not started');
+      if (import.meta.env.DEV) console.debug('[main.jsx] No token found - inactivity watcher not started');
     }
 
     // Listen for login/logout events to start/stop the inactivity watcher
     const onLogin = () => {
-      // eslint-disable-next-line no-console
-      console.log('[main.jsx] auth:login event - starting inactivity watcher');
+      if (import.meta.env.DEV) console.debug('[main.jsx] auth:login event - starting inactivity watcher');
       session.start();
     };
     const onLogout = () => {
-      // eslint-disable-next-line no-console
-      console.log('[main.jsx] auth:logout event - stopping inactivity watcher');
+      if (import.meta.env.DEV) console.debug('[main.jsx] auth:logout event - stopping inactivity watcher');
       session.stop();
     };
     
@@ -88,12 +83,10 @@ const Root = () => {
           localStorage.getItem('access_token')
         );
         if (present) {
-          // eslint-disable-next-line no-console
-          console.log('[main.jsx] Storage event - token added, starting watcher');
+          if (import.meta.env.DEV) console.debug('[main.jsx] Storage event - token added, starting watcher');
           session.start();
         } else {
-          // eslint-disable-next-line no-console
-          console.log('[main.jsx] Storage event - token removed, stopping watcher');
+          if (import.meta.env.DEV) console.debug('[main.jsx] Storage event - token removed, stopping watcher');
           session.stop();
         }
       }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pie, Line } from 'react-chartjs-2';
 import chartStyles from './CoordinatorAdminDashboardCharts.module.css';
@@ -6,6 +6,8 @@ import tableStyles from './CoordinatorAdminDashboardTable.module.css';
 import statCardStyles from './CoordinatorAdminDashboardStatusCards.module.css';
 import styles from './CoordinatorAdminDashboard.module.css';
 import authService from '../../../utilities/service/authService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
+import { backendTicketService } from '../../../services/backend/ticketService';
 
 const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) => {
   const getStatusClass = (label) => {
@@ -28,46 +30,88 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
   );
 };
 
-const DataTable = ({ title, headers, data }) => (
-  <div className={tableStyles.tableContainer}>
-    <div className={tableStyles.tableHeader}>
-      <h3 className={tableStyles.tableTitle}>{title}</h3>
-    </div>
+const DataTable = ({ title, headers, data, maxVisibleRows, loading = false }) => {
+  const skeletonRows = maxVisibleRows || 5;
+  if (loading) {
+    return (
+      <div className={tableStyles.tableContainer}>
+        <div className={tableStyles.tableHeader}>
+          <h3 className={tableStyles.tableTitle}>{title}</h3>
+        </div>
 
-    <div className={tableStyles.tableOverflow}>
-      {data.length > 0 ? (
-        <table className={tableStyles.table}>
-          <thead className={tableStyles.tableHead}>
-            <tr>
-              {headers.map((header, idx) => (
-                <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, i) => (
-              <tr key={i} className={tableStyles.tableRow}>
-                {Object.values(row).map((cell, j) => (
-                  <td key={j} className={tableStyles.tableCell}>
-                    {typeof cell === 'object' ? (
-                      <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
-                        {cell.text}
-                      </span>
-                    ) : cell}
-                  </td>
+        <div
+          className={`${tableStyles.tableOverflow} ${maxVisibleRows ? tableStyles.scrollableRows : ''}`}
+          style={maxVisibleRows ? { ['--visible-rows']: maxVisibleRows } : {}}
+        >
+          <table className={tableStyles.table}>
+            <thead className={tableStyles.tableHead}>
+              <tr>
+                {headers.map((header, idx) => (
+                  <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className={tableStyles.emptyState}>
-          No records found.
+            </thead>
+            <tbody>
+              {Array.from({ length: skeletonRows }).map((_, rIdx) => (
+                <tr key={rIdx} className={tableStyles.tableRow}>
+                  {headers.map((_, cIdx) => (
+                    <td key={cIdx} className={tableStyles.tableCell}>
+                      <div style={{ width: '80%', height: 14, background: '#e5e7eb', borderRadius: 4 }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={tableStyles.tableContainer}>
+      <div className={tableStyles.tableHeader}>
+        <h3 className={tableStyles.tableTitle}>{title}</h3>
+      </div>
+
+      <div
+        className={`${tableStyles.tableOverflow} ${maxVisibleRows ? tableStyles.scrollableRows : ''}`}
+        style={maxVisibleRows ? { ['--visible-rows']: maxVisibleRows } : {}}
+      >
+        {data.length > 0 ? (
+          <table className={tableStyles.table}>
+            <thead className={tableStyles.tableHead}>
+              <tr>
+                {headers.map((header, idx) => (
+                  <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, i) => (
+                <tr key={i} className={tableStyles.tableRow}>
+                  {Object.values(row).map((cell, j) => (
+                    <td key={j} className={tableStyles.tableCell}>
+                      {typeof cell === 'object' ? (
+                        <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
+                          {cell.text}
+                        </span>
+                      ) : cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className={tableStyles.emptyState}>
+            No records found.
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmin, onBrowse }) => {
   const Button = ({ variant, className, onClick, children }) => (
@@ -255,58 +299,79 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
 const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
+  const [csatTickets, setCSatTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCSATData = async () => {
+      try {
+        const tickets = await backendTicketService.getAllTickets();
+        // Filter tickets with CSAT ratings (closed tickets that have ratings)
+        const ratedTickets = tickets.filter(t => t.csat_rating && t.csat_rating > 0);
+        setCSatTickets(ratedTickets);
+      } catch (error) {
+        console.error('Failed to fetch CSAT data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCSATData();
+  }, []);
+
+  // Calculate statistics from real data
+  const totalResponses = csatTickets.length;
+  const averageScore = totalResponses > 0 
+    ? (csatTickets.reduce((sum, t) => sum + t.csat_rating, 0) / totalResponses).toFixed(1)
+    : '0.0';
+  const excellentCount = csatTickets.filter(t => t.csat_rating === 5).length;
+  const needsImprovementCount = csatTickets.filter(t => t.csat_rating <= 2).length;
+
+  // Build table data from real tickets
+  const tableData = csatTickets
+    .slice(0, 5) // Show recent 5
+    .map(ticket => {
+      const ratingText = `${'⭐'.repeat(ticket.csat_rating)} (${ticket.csat_rating})`;
+      let ratingClass = 'ratingExcellent';
+      if (ticket.csat_rating === 4) ratingClass = 'ratingGood';
+      else if (ticket.csat_rating === 3) ratingClass = 'ratingNeutral';
+      else if (ticket.csat_rating <= 2) ratingClass = 'ratingPoor';
+
+      return {
+        ticketNumber: ticket.ticket_number || ticket.ticketNumber,
+        subject: ticket.subject,
+        rating: { text: ratingText, statusClass: ratingClass },
+        feedback: ticket.feedback || 'No feedback provided',
+        submittedDate: new Date(ticket.update_date || ticket.updatedAt).toLocaleString()
+      };
+    });
+
+  // Build pie chart data from real ratings
+  const ratingCounts = {
+    5: csatTickets.filter(t => t.csat_rating === 5).length,
+    4: csatTickets.filter(t => t.csat_rating === 4).length,
+    3: csatTickets.filter(t => t.csat_rating === 3).length,
+    2: csatTickets.filter(t => t.csat_rating === 2).length,
+    1: csatTickets.filter(t => t.csat_rating === 1).length,
+  };
+
+  const pieData = [
+    { name: 'Excellent (5★)', value: ratingCounts[5], fill: '#10B981' },
+    { name: 'Good (4★)', value: ratingCounts[4], fill: '#3B82F6' },
+    { name: 'Neutral (3★)', value: ratingCounts[3], fill: '#F59E0B' },
+    { name: 'Poor (2★)', value: ratingCounts[2], fill: '#EF4444' },
+    { name: 'Very Poor (1★)', value: ratingCounts[1], fill: '#7F1D1D' }
+  ];
 
   const csatData = {
     stats: [
-      { label: 'Average Score', count: '4.5', path: null },
-      { label: 'Total Responses', count: 328, path: null },
-      { label: 'Excellent', count: 185, path: null },
-      { label: 'Needs Improvement', count: 23, path: null }
+      { label: 'Average Score', count: averageScore, path: null },
+      { label: 'Total Responses', count: totalResponses, path: null },
+      { label: 'Excellent', count: excellentCount, path: null },
+      { label: 'Needs Improvement', count: needsImprovementCount, path: null }
     ],
-    tableData: [
-      {
-        ticketNumber: 'TX0001',
-        subject: 'Asset Replacement',
-        rating: { text: '5 ⭐', statusClass: 'ratingExcellent' },
-        feedback: 'Great service and fast resolution',
-        submittedDate: '06/12/2025 2:30PM'
-      },
-      {
-        ticketNumber: 'TX0002',
-        subject: 'Network Problem',
-        rating: { text: '4 ⭐', statusClass: 'ratingGood' },
-        feedback: 'Good support but took longer than expected',
-        submittedDate: '06/11/2025 4:45PM'
-      },
-      {
-        ticketNumber: 'TX0003',
-        subject: 'Software Installation',
-        rating: { text: '5 ⭐', statusClass: 'ratingExcellent' },
-        feedback: 'Excellent support team',
-        submittedDate: '06/10/2025 10:15AM'
-      },
-      {
-        ticketNumber: 'TX0004',
-        subject: 'Email Issue',
-        rating: { text: '3 ⭐', statusClass: 'ratingNeutral' },
-        feedback: 'Could be improved',
-        submittedDate: '06/09/2025 3:20PM'
-      },
-      {
-        ticketNumber: 'TX0005',
-        subject: 'Password Reset',
-        rating: { text: '5 ⭐', statusClass: 'ratingExcellent' },
-        feedback: 'Very satisfied',
-        submittedDate: '06/08/2025 9:40AM'
-      }
-    ],
-    pieData: [
-      { name: 'Excellent (5★)', value: 185, fill: '#10B981' },
-      { name: 'Good (4★)', value: 92, fill: '#3B82F6' },
-      { name: 'Neutral (3★)', value: 35, fill: '#F59E0B' },
-      { name: 'Poor (2★)', value: 12, fill: '#EF4444' },
-      { name: 'Very Poor (1★)', value: 4, fill: '#7F1D1D' }
-    ],
+    tableData,
+    pieData,
     lineData: [
       { month: 'Jan', dataset1: 4.2, dataset2: 285 },
       { month: 'Feb', dataset1: 4.3, dataset2: 312 },
@@ -317,12 +382,66 @@ const CSATTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     ]
   };
 
-  const csatActivityTimeline = [
-    { time: "02:30 PM", action: "CSAT TX0001 - 5★ Excellent feedback", type: "csat" },
-    { time: "04:45 PM", action: "CSAT TX0002 - 4★ Good feedback", type: "csat" },
-    { time: "10:15 AM", action: "CSAT TX0003 - 5★ Excellent feedback", type: "csat" },
-    { time: "03:20 PM", action: "CSAT TX0004 - 3★ Neutral feedback", type: "csat" },
-  ];
+  const csatActivityTimeline = csatTickets.slice(0, 4).map(ticket => {
+    const time = new Date(ticket.update_date || ticket.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const ratingText = ticket.csat_rating === 5 ? '5★ Excellent' : 
+                       ticket.csat_rating === 4 ? '4★ Good' :
+                       ticket.csat_rating === 3 ? '3★ Neutral' : '★ feedback';
+    return {
+      time,
+      action: `CSAT ${ticket.ticket_number || ticket.ticketNumber} - ${ratingText}`,
+      type: 'csat'
+    };
+  });
+
+  if (isLoading) {
+    return (
+      <>
+        <div className={styles.statusCardsGrid} style={{ marginTop: 12 }}>
+          {csatData.stats.map((stat, i) => (
+            <StatCard
+              key={i}
+              label={stat.label}
+              count={stat.count}
+              onClick={() => stat.path && navigate(stat.path)}
+            />
+          ))}
+        </div>
+
+        <DataTable
+          title="Recent CSAT Feedback"
+          headers={['Ticket Number', 'Subject', 'Rating', 'Feedback', 'Date Submitted']}
+          data={[]}
+          loading={true}
+          maxVisibleRows={5}
+        />
+        <div style={{ position: 'relative', marginTop: 12 }}>
+          <div style={{ position: 'absolute', top: 8, right: 8 }}>
+            <select
+              value={chartRange}
+              onChange={(e) => setChartRange(e.target.value)}
+              disabled
+              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff' }}
+            >
+              <option value="days">Days</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              {(currentUser?.role === 'System Admin' || currentUser?.role === 'Ticket Coordinator') && <option value="yearly">Yearly</option>}
+            </select>
+          </div>
+
+          <div className={chartStyles.chartsGrid}>
+            <div style={{ width: '340px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Skeleton width="100%" height="340px" borderRadius="8px" />
+            </div>
+            <div style={{ width: '100%', minHeight: '300px' }}>
+              <Skeleton width="100%" height="300px" borderRadius="8px" />
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

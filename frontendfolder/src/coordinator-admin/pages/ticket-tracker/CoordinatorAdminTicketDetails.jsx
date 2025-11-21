@@ -105,7 +105,6 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
       const secure = convertToSecureUrl(raw);
       const abs = absoluteFallback(raw);
       const final = secure || abs || raw || DEFAULT_AVATAR;
-      console.log('CoordinatorAdminTicketDetails.resolveImage', { raw, secure, abs, final, isSecure: isSecureUrl(secure) });
       return final;
     } catch (e) {
       console.warn('CoordinatorAdminTicketDetails.resolveImage error', e, 'raw=', raw);
@@ -114,32 +113,11 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   };
 
   const employeeImage = resolveImage(rawEmployeeImage);
-  console.log('CoordinatorAdminTicketDetails: employeeImage resolved=', employeeImage, 'raw=', rawEmployeeImage);
 
   // Try to fetch authoritative employee data from backend when available
   useEffect(() => {
     let mounted = true;
-    console.log('CoordinatorAdminTicketDetails: mount/useEffect ticket=', ticket);
-    try {
-      const tok = getAccessToken();
-      console.log('CoordinatorAdminTicketDetails: access token present=', !!tok, tok ? `(len=${tok.length})` : tok);
-    } catch (e) {
-      console.warn('CoordinatorAdminTicketDetails: getAccessToken error', e);
-    }
-    // Extra debug: log possible employee fields so we can see why id derivation fails
-    try {
-      console.log('CoordinatorAdminTicketDetails: possible employee fields', {
-        employeeField: ticket?.employee,
-        employee_id: ticket?.employee_id,
-        employeeId: ticket?.employeeId,
-        requester: ticket?.requester,
-        requester_id: ticket?.requester_id,
-        created_by: ticket?.created_by,
-        raw: ticket?.raw,
-      });
-    } catch (e) {
-      console.warn('CoordinatorAdminTicketDetails: debug logging failed', e);
-    }
+    // debug logs removed from mount effect
     const loadEmployee = () => {
       try {
         if (!ticket) return;
@@ -168,18 +146,26 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
   const coordinatorUser = coordinatorId ? getEmployeeUserById(Number(coordinatorId)) : null;
   const rawCoordinatorImage = coordinatorUser?.profileImage || ticket?.coordinatorReview?.coordinatorProfileImage || DEFAULT_AVATAR;
   const coordinatorImage = resolveImage(rawCoordinatorImage);
-  console.log('CoordinatorAdminTicketDetails: coordinatorImage resolved=', coordinatorImage, 'raw=', rawCoordinatorImage);
 
   // Get the agent/assignee info if ticket is assigned
   const agentId = ticket?.assignedTo;
   const agentUser = agentId ? getEmployeeUserById(Number(agentId)) : null;
   const rawAgentImage = agentUser?.profileImage || DEFAULT_AVATAR;
   const agentImage = resolveImage(rawAgentImage);
-  console.log('CoordinatorAdminTicketDetails: agentImage resolved=', agentImage, 'raw=', rawAgentImage);
   const agentName = agentUser ? `${agentUser.firstName} ${agentUser.lastName}` : ticket?.assignedAgent || 'None';
 
   // Determine ticket stage
   const ticketStage = getTicketStage(ticket?.status);
+  // Prefer backend-provided fields when available (accept multiple naming styles)
+  const dateCompletedRaw = ticket?.date_completed || ticket?.dateCompleted || ticket?.dateResolved || ticket?.dateClosed || ticket?.time_closed || ticket?.timeClosed || ticket?.raw?.date_completed || ticket?.raw?.dateCompleted || null;
+  const csatRaw = (typeof ticket?.csat_rating !== 'undefined' && ticket?.csat_rating !== null) ? ticket.csat_rating : (typeof ticket?.csatRating !== 'undefined' ? ticket.csatRating : (typeof ticket?.raw?.csat_rating !== 'undefined' ? ticket.raw.csat_rating : (typeof ticket?.raw?.csatRating !== 'undefined' ? ticket.raw.csatRating : null)));
+  const csatVal = csatRaw !== null && typeof csatRaw !== 'undefined' ? Number(csatRaw) : null;
+  // feedback intentionally not displayed in admin Details UI
+  const renderStars = (n) => {
+    const num = Number(n);
+    if (!num || isNaN(num) || num <= 0) return '';
+    return Array.from({ length: Math.min(5, Math.max(0, Math.floor(num))) }).map(() => '⭐').join('');
+  };
   // Raw ticket viewer removed — prefer embedded UI and avoid exposing raw JSON here
 
   // Helper: detect whether ticket ever passed through one of the progressive stages
@@ -477,8 +463,8 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
           </div>
         )}
 
-        {/* COMPLETION INFO - Visible when ticket is Resolved, Closed, Rejected, or Withdrawn */}
-        {['completed'].includes(ticketStage) && (
+        {/* COMPLETION INFO - Visible only when ticket is Closed */}
+        {(ticket?.status && String(ticket.status).toLowerCase() === 'closed') && (
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Resolution Details</div>
             <div className={styles.resolutionCard}>
@@ -488,14 +474,15 @@ export default function CoordinatorAdminTicketDetails({ ticket, ticketLogs = [],
               </div>
               <div className={styles.infoField}>
                 <div className={styles.fieldLabel}>Date Completed</div>
-                <div className={styles.fieldValue}>{formatDate ? formatDate(ticket?.dateResolved || ticket?.dateClosed) : ticket?.dateResolved || ticket?.dateClosed || 'None'}</div>
+                <div className={styles.fieldValue}>{formatDate ? (dateCompletedRaw ? formatDate(dateCompletedRaw) : 'None') : (dateCompletedRaw || 'None')}</div>
               </div>
               <div className={styles.infoField}>
                 <div className={styles.fieldLabel}>CSAT Rating</div>
                 <div className={styles.fieldValue}>
-                  {ticket?.csatRating ? `${ticket.csatRating}/5 ⭐` : '5/5 ⭐'}
+                  {csatRaw ? `${renderStars(csatRaw)} (${csatRaw}/5)` : 'None'}
                 </div>
               </div>
+              {/* Feedback removed from Resolution Details per request */}
             </div>
           </div>
         )}

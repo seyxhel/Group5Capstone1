@@ -255,6 +255,9 @@ class Ticket(models.Model):
     resolution_time = models.DurationField(blank=True, null=True)
     time_closed = models.DateTimeField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
+    date_completed = models.DateTimeField(blank=True, null=True, help_text="Date when ticket was completed (Closed status)")
+    csat_rating = models.IntegerField(blank=True, null=True, help_text="Customer satisfaction rating (1-5 stars)")
+    feedback = models.CharField(max_length=255, blank=True, null=True, help_text="Quick feedback from CSAT modal")
 
     def __str__(self):
         return f"Ticket #{self.id} - {self.subject}"

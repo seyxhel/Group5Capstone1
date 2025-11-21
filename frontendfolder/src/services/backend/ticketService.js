@@ -111,6 +111,7 @@ export const backendTicketService = {
       if (!response.ok) {
         throw new Error('Failed to fetch ticket by number');
       }
+      // return the API payload
       return await response.json();
     } catch (error) {
       console.error('Error fetching ticket by number:', error);

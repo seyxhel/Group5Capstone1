@@ -156,7 +156,7 @@ class TicketAdmin(admin.ModelAdmin):
 
     list_display = (
         'id', 'subject', 'employee', 'department', 'priority',
-        'status', 'scheduled_date', 'submit_date', 'assigned_to'
+        'status', 'scheduled_date', 'submit_date', 'assigned_to', 'csat_rating', 'date_completed'
     )
     list_filter = ('department', 'priority', 'status')
     search_fields = (
@@ -172,7 +172,8 @@ class TicketAdmin(admin.ModelAdmin):
             'fields': (
                 'employee', 'subject', 'category', 'sub_category',
                 'description', 'scheduled_date', 'priority', 'department',
-                'status', 'assigned_to', 'response_time', 'resolution_time', 'time_closed'
+                'status', 'assigned_to', 'response_time', 'resolution_time', 'time_closed',
+                'csat_rating', 'feedback', 'date_completed'
             )
         }),
         ('Timestamps', {

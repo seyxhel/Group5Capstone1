@@ -798,6 +798,16 @@ def get_ticket_detail(request, ticket_id):
             'coordinator': None,
             'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None,
         })
+
+        # Include CSAT and completion metadata when available
+        try:
+            ticket_data['date_completed'] = ticket.date_completed if hasattr(ticket, 'date_completed') else None
+        except Exception:
+            ticket_data['date_completed'] = None
+        try:
+            ticket_data['csat_rating'] = ticket.csat_rating if hasattr(ticket, 'csat_rating') else None
+        except Exception:
+            ticket_data['csat_rating'] = None
         
         # Try to resolve coordinator from approved_by or rejected_by
         try:
@@ -1052,6 +1062,19 @@ def get_ticket_by_number(request, ticket_number):
             'coordinator': None,
             'rejected_by': ticket.rejected_by if hasattr(ticket, 'rejected_by') else None,
         })
+        # Include CSAT and completion fields so frontend can render them
+        try:
+            ticket_data['date_completed'] = ticket.date_completed if hasattr(ticket, 'date_completed') else None
+        except Exception:
+            ticket_data['date_completed'] = None
+        try:
+            ticket_data['csat_rating'] = ticket.csat_rating if hasattr(ticket, 'csat_rating') else None
+        except Exception:
+            ticket_data['csat_rating'] = None
+        try:
+            ticket_data['feedback'] = ticket.feedback if hasattr(ticket, 'feedback') else None
+        except Exception:
+            ticket_data['feedback'] = None
 
         try:
             # Prefer approved_by, fall back to rejected_by when resolving coordinator
@@ -1404,6 +1427,7 @@ def update_ticket_status(request, ticket_id):
         # Handle special status changes
         if new_status == 'Closed' and old_status != 'Closed':
             ticket.time_closed = timezone.now()
+            ticket.date_completed = timezone.now()  # Set completion date
             if ticket.submit_date:
                 ticket.resolution_time = timezone.now() - ticket.submit_date
         
@@ -1529,6 +1553,124 @@ def withdraw_ticket(request, ticket_id):
             'old_status': old_status,
             'new_status': 'Withdrawn'
         }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_csat_rating(request, ticket_id):
+    """
+    Submit CSAT rating and feedback for a closed ticket
+    """
+    try:
+        ticket = get_object_or_404(Ticket, id=ticket_id)
+        
+        # Check if user is the ticket owner (handle both ExternalUser and local User)
+        is_ticket_owner = (
+            (hasattr(request.user, 'id') and ticket.employee_cookie_id == request.user.id) or 
+            (ticket.employee == request.user)
+        )
+        if not is_ticket_owner:
+            return Response({'error': 'You can only rate your own tickets'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if ticket is closed
+        if ticket.status != 'Closed':
+            return Response({'error': 'Can only rate closed tickets'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        rating = request.data.get('rating')
+        feedback = request.data.get('feedback', '')
+        
+        # Validate rating (1-5 stars)
+        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return Response({'error': 'Rating must be an integer between 1 and 5'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate feedback is one of the allowed options
+        allowed_feedback = ['Fast response', 'Very helpful', 'Professional', 'Problem solved']
+        if feedback:
+            # Frontend sends comma-separated string or single value
+            feedback_items = [f.strip() for f in feedback.split(',')]
+            # Validate all items are allowed
+            for item in feedback_items:
+                if item and item not in allowed_feedback:
+                    return Response({'error': f'Invalid feedback option: {item}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        ticket.csat_rating = rating
+        ticket.feedback = feedback
+        ticket.save()
+        
+        # Create activity log entry
+        try:
+            if ticket.employee:
+                ActivityLog.objects.create(
+                    user=ticket.employee,
+                    action_type='csat_submitted',
+                    message=f'Submitted CSAT rating ({rating} stars) for ticket {ticket.ticket_number}',
+                    ticket=ticket,
+                    actor=request.user if not isinstance(request.user, ExternalUser) else None,
+                    metadata={'rating': rating, 'feedback': feedback}
+                )
+        except Exception:
+            pass
+        
+        return Response({
+            'message': 'CSAT rating submitted successfully',
+            'ticket_id': ticket.id,
+            'rating': rating,
+            'feedback': feedback
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_csat_feedback(request):
+    """
+    Get all tickets with CSAT ratings for dashboard display
+    Only for System Admin and Ticket Coordinator
+    """
+    try:
+        # Check if user has permission
+        user = request.user
+        if isinstance(user, ExternalUser):
+            if user.role not in ['System Admin', 'Ticket Coordinator', 'Admin']:
+                return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        elif not (user.is_staff or getattr(user, 'role', None) in ['System Admin', 'Ticket Coordinator']):
+            return Response({'error': 'permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get all tickets with CSAT ratings
+        tickets = Ticket.objects.filter(
+            csat_rating__isnull=False
+        ).select_related('employee').order_by('-update_date')
+        
+        feedback_data = []
+        for ticket in tickets:
+            employee_name = 'Unknown'
+            if ticket.employee:
+                employee_name = f"{ticket.employee.first_name} {ticket.employee.last_name}"
+            elif ticket.employee_cookie_id:
+                # Try to fetch external user profile
+                try:
+                    profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+                    first = profile.get('first_name', '')
+                    last = profile.get('last_name', '')
+                    employee_name = f"{first} {last}".strip() or 'External User'
+                except Exception:
+                    employee_name = 'External User'
+            
+            feedback_data.append({
+                'id': ticket.id,
+                'ticket_number': ticket.ticket_number,
+                'subject': ticket.subject,
+                'rating': ticket.csat_rating,
+                'feedback': ticket.feedback or '',
+                'employee_name': employee_name,
+                'submitted_date': ticket.update_date,
+                'status': ticket.status
+            })
+        
+        return Response(feedback_data, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

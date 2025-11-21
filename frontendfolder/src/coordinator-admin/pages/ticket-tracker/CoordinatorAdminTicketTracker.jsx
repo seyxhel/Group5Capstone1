@@ -281,6 +281,57 @@ export default function CoordinatorAdminTicketTracker() {
   // Move auth hook to top-level so hooks order is stable across renders
   const { user: authUser, isTicketCoordinator, isAdmin } = useAuth();
 
+  // Helper: normalize backend ticket shapes into the UI shape used by this component
+  const normalizeTicket = (t) => {
+    if (!t) return null;
+    const normalized = {
+      id: t.id || t.ticket_number || t.ticketNumber || null,
+      ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
+      subject: t.subject || t.title || '',
+      category: t.category || t.category_name || '',
+      subCategory: t.sub_category || t.subCategory || t.subcategory || null,
+      // preserve dynamic_data and common asset/issue fields so admin view can render them
+      dynamic_data: t.dynamic_data || t.dynamicData || {},
+      asset_name: t.asset_name || t.assetName || t.dynamic_data?.assetName || t.dynamicData?.assetName || null,
+      serial_number: t.serial_number || t.serialNumber || t.dynamic_data?.serialNumber || t.dynamicData?.serialNumber || null,
+      location: t.location || t.dynamic_data?.location || t.dynamicData?.location || null,
+      issue_type: t.issue_type || t.issueType || t.dynamic_data?.issueType || t.dynamicData?.issueType || null,
+      // Expected return fields for Asset Check Out (align with employee view keys)
+      expectedReturnDate: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
+      expected_return_date: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
+      expectedReturn: t.expectedReturn || t.expectedReturnDate || t.expected_return_date || (t.dynamic_data && (t.dynamic_data.expectedReturn || t.dynamic_data.expected_return_date)) || null,
+      status: t.status || '',
+      // Completion and CSAT fields (support multiple backend naming conventions)
+      date_completed: t.date_completed || t.dateCompleted || t.dateResolved || t.dateClosed || t.time_closed || t.timeClosed || null,
+      dateCompleted: t.date_completed || t.dateCompleted || t.dateResolved || t.dateClosed || t.time_closed || t.timeClosed || null,
+      csat_rating: (typeof t.csat_rating !== 'undefined' ? t.csat_rating : (typeof t.csatRating !== 'undefined' ? t.csatRating : null)),
+      csatRating: (typeof t.csat_rating !== 'undefined' ? t.csat_rating : (typeof t.csatRating !== 'undefined' ? t.csatRating : null)),
+          // feedback intentionally omitted from normalized ticket for admin tracker UI
+          feedback: null,
+      createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
+      dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
+      lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
+      assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
+      assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
+      department: t.department || t.assignedDepartment || null,
+      activity: t.activity || t.logs || t.comments || [],
+      attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
+      description: t.description || t.details || '',
+      employee: t.employee || t.requester || t.requested_by || t.created_by || null,
+      employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
+        || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
+      employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
+        || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
+        || t.employeeName || null,
+      employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
+      employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
+      employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
+      raw: t,
+    };
+    // Debug logging removed for production
+    return normalized;
+  };
+
   // Background load: try to refresh from backend but don't block the immediate render
   useEffect(() => {
     let mounted = true;
@@ -289,46 +340,8 @@ export default function CoordinatorAdminTicketTracker() {
       try {
         const fetched = await backendTicketService.getTicketByNumber(ticketNumber);
         if (!fetched) return;
-        // Normalize backend ticket to the UI shape expected by this component
-        const t = fetched;
-        const normalized = {
-          id: t.id || t.ticket_number || t.ticketNumber || null,
-          ticketNumber: t.ticket_number || t.ticketNumber || t.ticket_id || String(t.id || ''),
-          subject: t.subject || t.title || '',
-          category: t.category || t.category_name || '',
-          subCategory: t.sub_category || t.subCategory || t.subcategory || null,
-          // preserve dynamic_data and common asset/issue fields so admin view can render them
-          dynamic_data: t.dynamic_data || t.dynamicData || {},
-          asset_name: t.asset_name || t.assetName || t.dynamic_data?.assetName || t.dynamicData?.assetName || null,
-          serial_number: t.serial_number || t.serialNumber || t.dynamic_data?.serialNumber || t.dynamicData?.serialNumber || null,
-          location: t.location || t.dynamic_data?.location || t.dynamicData?.location || null,
-          issue_type: t.issue_type || t.issueType || t.dynamic_data?.issueType || t.dynamicData?.issueType || null,
-          // Expected return fields for Asset Check Out (align with employee view keys)
-          expectedReturnDate: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
-          expected_return_date: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
-          expectedReturn: t.expectedReturn || t.expectedReturnDate || t.expected_return_date || (t.dynamic_data && (t.dynamic_data.expectedReturn || t.dynamic_data.expected_return_date)) || null,
-          status: t.status || '',
-          createdAt: t.submit_date || t.submitDate || t.created_at || t.createdAt || t.submit_date || null,
-          dateCreated: t.submit_date || t.createdAt || t.dateCreated || null,
-          lastUpdated: t.update_date || t.updatedAt || t.update_date || null,
-          assignedTo: (t.assigned_to && (t.assigned_to.id || t.assigned_to)) || t.assignedTo || t.assigned_to || null,
-          assignedToName: (t.assigned_to && (t.assigned_to_name || t.assigned_to_name)) || t.assignedToName || (t.assigned_to && t.assigned_to_name) || t.assignedTo || null,
-          department: t.department || t.assignedDepartment || null,
-          activity: t.activity || t.logs || t.comments || [],
-          attachments: t.attachments || t.ticket_attachments || t.attachments_list || [],
-          description: t.description || t.details || '',
-          employee: t.employee || t.requester || t.requested_by || t.created_by || null,
-          employeeId: (t.employee && (typeof t.employee === 'object' ? (t.employee.id || t.employee.pk || t.employee.employee_id) : t.employee))
-            || t.employee_id || t.requester_id || t.requested_by_id || t.created_by?.id || t.employeeId || null,
-          employeeName: t.employee_name || (t.employee && ((t.employee.first_name || t.employee.firstName ? `${t.employee.first_name || t.employee.firstName}` : '') + (t.employee.last_name || t.employee.lastName ? ` ${t.employee.last_name || t.employee.lastName}` : '')).trim())
-            || (t.requester && ((t.requester.first_name || t.requester.firstName ? `${t.requester.first_name || t.requester.firstName}` : '') + (t.requester.last_name || t.requester.lastName ? ` ${t.requester.last_name || t.requester.lastName}` : '')).trim())
-            || t.employeeName || null,
-          employeeDepartment: t.employee_department || (t.employee && (t.employee.department || t.employee.dept)) || t.requester?.department || t.department || null,
-          employeeProfileImage: t.employee_image || (t.employee && (t.employee.image || t.employee.profile_image || t.employee.photo)) || t.requester?.image || t.requester?.profile_image || t.employeeProfileImage || null,
-          employeeCompanyId: (t.employee && (t.employee.company_id || t.employee.companyId)) || t.company_id || t.requester?.company_id || t.employee_company_id || t.companyId || null,
-          raw: t,
-        };
-        if (mounted) setTicket(normalized);
+        // debug logs removed
+        if (mounted) setTicket(normalizeTicket(fetched));
       } catch (err) {
         // backend may be slow or unavailable; don't overwrite the local ticket
         console.warn('Backend ticket fetch failed (background)', err);
@@ -578,13 +591,14 @@ export default function CoordinatorAdminTicketTracker() {
       setShowOpenModal(false);
       setShowRejectModal(false);
       if (updatedTicket) {
-        setTicket(updatedTicket);
+        // Ensure we normalize any backend-shaped or partial ticket before setting state
+        setTicket(normalizeTicket(updatedTicket));
         return;
       }
       if (ticketNumber) {
         try {
           const fresh = await backendTicketService.getTicketByNumber(ticketNumber);
-          if (fresh) setTicket(fresh);
+          if (fresh) setTicket(normalizeTicket(fresh));
         } catch (err) {
           console.error('Failed to refresh ticket after modal success', err);
         }
@@ -648,6 +662,14 @@ export default function CoordinatorAdminTicketTracker() {
                   <div className={styles.ticketMetaItem}>
                     <span className={styles.ticketMetaLabel}>Date Updated <span className={styles.ticketMetaValue}>{formatDate(lastUpdatedRaw)}</span> </span>
                   </div>
+                  {ticket.csat_rating && (
+                    <div className={styles.ticketMetaItem}>
+                      <span className={styles.ticketMetaLabel}>CSAT Rating <span className={styles.ticketMetaValue}>
+                        {'⭐'.repeat(ticket.csat_rating)} ({ticket.csat_rating}/5)
+                        {/* feedback intentionally not shown in meta */}
+                      </span> </span>
+                    </div>
+                  )}
                 </div>
                 {/* Ticket Details - consolidated and always present */}
                 <div className={styles.detailsGrid}>
@@ -677,6 +699,14 @@ export default function CoordinatorAdminTicketTracker() {
                     <div className={styles.detailLabel}>Department</div>
                     <div className={styles.detailValue}>{department || 'None'}</div>
                   </div>
+                  {ticket.csat_rating && (
+                    <div className={styles.detailItem}>
+                      <div className={styles.detailLabel}>CSAT Rating</div>
+                      <div className={styles.detailValue}>
+                        {'⭐'.repeat(ticket.csat_rating)} ({ticket.csat_rating}/5)
+                      </div>
+                    </div>
+                  )}
                   <div className={styles.singleColumnGroup}>
                     <div className={styles.detailItem}>
                       <div className={styles.detailLabel}>Description</div>
@@ -839,7 +869,10 @@ export default function CoordinatorAdminTicketTracker() {
                 </div>
               )}
               <Tabs
-                tabs={[{ label: 'Details', value: 'details' }, { label: 'Logs', value: 'logs' }]}
+                tabs={[
+                  { label: 'Details', value: 'details' }, 
+                  { label: 'Logs', value: 'logs' }
+                ]}
                 active={activeTab}
                 onChange={setActiveTab}
                 fullHeight={true}

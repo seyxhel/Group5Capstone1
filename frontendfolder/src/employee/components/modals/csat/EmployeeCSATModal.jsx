@@ -10,16 +10,22 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
   const [selectedRating, setSelectedRating] = useState(null);
   const [hoveredRating, setHoveredRating] = useState(null);
   const [selectedFeedback, setSelectedFeedback] = useState([]);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(12);
 
-  // Auto-close countdown on thank you screen
+  // Auto-close countdown on thank you screen — submit CSAT then close
   useEffect(() => {
     if (step === "thankyou") {
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            onClose();
+            // ensure we call the submission handler so rating/feedback get saved
+            try {
+              handleClose();
+            } catch (e) {
+              // fallback to simple close if submission handler fails
+              onClose();
+            }
             return 0;
           }
           return prev - 1;
@@ -28,7 +34,7 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
 
       return () => clearInterval(timer);
     }
-  }, [step, onClose]);
+  }, [step]);
 
   const handleRatingClick = (rating) => {
     setSelectedRating(rating);
@@ -47,12 +53,38 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
   };
 
   const handleClose = () => {
-    // Save CSAT data here (API call)
-    console.log({
-      ticketNumber: ticket.ticketNumber,
-      rating: selectedRating,
-      feedback: selectedFeedback,
-    });
+    // Save CSAT data to backend
+    const ticketId = ticket.id || ticket.ticketId;
+    const feedbackString = selectedFeedback.join(', ');
+    
+    if (selectedRating && ticketId) {
+      // Call backend API to submit CSAT rating
+      fetch(`http://localhost:8000/api/tickets/${ticketId}/csat/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          rating: selectedRating,
+          feedback: feedbackString
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          console.error('Failed to submit CSAT rating');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('CSAT submitted:', data);
+      })
+      .catch(error => {
+        console.error('Error submitting CSAT:', error);
+      });
+    }
+    
     onClose();
   };
 
@@ -70,7 +102,7 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
           
           {/* Ticket Info */}
           <p className={styles.ticketInfo}>
-            Ticket #{ticket.ticketNumber} - {ticket.subject}
+            Ticket {ticket.ticketNumber || ticket.ticket_number} - {ticket.subject}
           </p>
 
           {/* Star Rating */}

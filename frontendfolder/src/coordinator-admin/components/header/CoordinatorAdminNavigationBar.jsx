@@ -125,8 +125,8 @@ const CoordinatorAdminNavBar = () => {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // temporarily set threshold to 0 and enable debug to observe scroll events during testing
-  const scrolled = useScrollShrink(0, { debug: true });
+  // temporarily set threshold to 0; debug disabled in production to avoid noisy logs
+  const scrolled = useScrollShrink(0, { debug: false });
 
   const toggleDropdown = (key) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
