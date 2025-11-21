@@ -76,6 +76,23 @@
   color: #4b5563;
 }
 
+/* Column helpers used by Knowledge pages to avoid inline styles */
+.colArticle { width: 260px; }
+.colVisibility { width: 120px; text-align: center; }
+.colCreated { width: 140px; text-align: center; }
+.colLikes { width: 140px; text-align: center; }
+.colDislikes { width: 160px; text-align: center; }
+.colActions { width: 180px; text-align: center; }
+
+.textCenter { text-align: center; }
+
+.emptyState { text-align: center; padding: 40px; color: #6b7280; font-style: italic; }
+
+.subjectTitle { font-weight: 600; }
+.subjectMeta { color: var(--text-muted); font-size: 13px; }
+
+.searchInput { width: 260px; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .pageHeader {
@@ -172,40 +189,7 @@
   margin: 24px 0;
 }
 
-/* Tag pill and remove button used in editor fields */
-.tagPill {
-  background: #eee;
-  padding: 4px 8px;
-  border-radius: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 2px 0;
-}
-
-.tagRemove {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 12px;
-  line-height: 1;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
-}
-
-.tagRemove:hover {
-  background-color: var(--neutral-gray, #414651);
-  color: var(--error-color, #b91c1c); /* darker red on hover */
-  transform: translateY(-1px);
-}
-
-.tagRemove {
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
-}
-
-.tagRemove:focus {
-  outline: 2px solid rgba(37,99,235,0.18);
-}
+/* Tag pill and remove button moved to KnowledgeCreateEdit.module.css */
 
 /* Feedback Section */
 .feedbackSection {

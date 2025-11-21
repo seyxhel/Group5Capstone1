@@ -7,6 +7,7 @@ import FormActions from '../../../shared/components/FormActions';
 import InputField from '../../../shared/components/InputField';
 import SelectField from '../../../shared/components/SelectField';
 import styles from './knowledge.module.css';
+import createEditStyles from './KnowledgeCreateEdit.module.css';
 import kbService from '../../../services/kbService';
 
 const KnowledgeCreate = () => {
@@ -143,11 +144,11 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         onChange={(e) => setField('title', e.target.value)}
         required
         error={externalErrors.title}
-        inputStyle={{ width: '100%' }}
+        inputClassName={createEditStyles.fullWidthInput}
         disabled={disabled}
       />
 
-      <div style={{ marginBottom: 12 }}>
+      <div className={createEditStyles.formField}>
         <SelectField
           label="Category"
           value={data.category_id ?? ''}
@@ -160,7 +161,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
+      <div className={createEditStyles.formField}>
         <SelectField
           label="Visibility"
           value={data.visibility}
@@ -177,13 +178,13 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Tags <span className="required">*</span></label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+      <div className={createEditStyles.formField}>
+        <label className={createEditStyles.formLabel}>Tags <span className={createEditStyles.required}>*</span></label>
+        <div className={createEditStyles.tagList}>
           {(data.tags || []).map((t, i) => (
-            <div key={i} style={{ background: '#eee', padding: '4px 8px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div key={i} className={createEditStyles.tagPill}>
               <span>{t}</span>
-              <button type="button" onClick={() => removeTag(i)} disabled={disabled} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>×</button>
+              <button type="button" onClick={() => removeTag(i)} disabled={disabled} className={createEditStyles.tagRemove}>×</button>
             </div>
           ))}
         </div>
@@ -193,15 +194,15 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={onTagKeyDown}
           disabled={disabled}
-          inputStyle={{ width: '100%', padding: 8 }}
+          inputClassName={createEditStyles.fullWidthInput}
         />
-        {externalErrors.tags && <div style={{ color: 'crimson', marginTop: 8 }}>{externalErrors.tags}</div>}
+        {externalErrors.tags && <div className={createEditStyles.errorText}>{externalErrors.tags}</div>}
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'block', fontWeight: 600 }}>Article Content <span className="required">*</span></label>
-        <textarea required value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} style={{ width: '100%', padding: 8 }} />
-        {externalErrors.content && <div style={{ color: 'crimson' }}>{externalErrors.content}</div>}
+      <div className={createEditStyles.formField}>
+        <label className={createEditStyles.formLabel}>Article Content <span className="required">*</span></label>
+        <textarea required value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} className={createEditStyles.textarea} />
+        {externalErrors.content && <div className={createEditStyles.errorText}>{externalErrors.content}</div>}
       </div>
     </>
   );

@@ -270,15 +270,13 @@ const KnowledgeArticleView = () => {
 
   if (isLoading) {
     return (
-      <ViewCard>
-        <div className={styles.contentGrid}>
-          <div className={styles.leftColumn}>
-            <div className={localStyles.loadingContainer}>
-              <Loading text="Loading article..." centered />
-            </div>
+      <main className={styles.employeeTicketTrackerPage}>
+        <ViewCard>
+          <div style={{ padding: '48px 24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <Loading text="Loading article..." centered />
           </div>
-        </div>
-      </ViewCard>
+        </ViewCard>
+      </main>
     );
   }
 

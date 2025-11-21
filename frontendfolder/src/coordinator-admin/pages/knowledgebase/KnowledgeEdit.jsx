@@ -7,7 +7,7 @@ import FormActions from '../../../shared/components/FormActions';
 import InputField from '../../../shared/components/InputField';
 import SelectField from '../../../shared/components/SelectField';
 import { FiX } from 'react-icons/fi';
-import styles from './KnowledgeEdit.module.css';
+import createEditStyles from './KnowledgeCreateEdit.module.css';
 import kbService from '../../../services/kbService';
 
 
@@ -66,16 +66,16 @@ const KnowledgeEdit = () => {
 
   if (loading) {
     return (
-      <div className={styles.container}>
+      <div className={createEditStyles.container}>
         <FormCard>
-          <div style={{ padding: 24 }}>Loading article for edit…</div>
+          <div className={createEditStyles.loadingInner}>Loading article for edit…</div>
         </FormCard>
       </div>
     );
   }
 
   return (
-    <div className={styles.container}>
+    <div className={createEditStyles.container}>
       <Breadcrumb root="Knowledge Base" currentPage="Edit Article" rootNavigatePage="/admin/knowledge/articles" title="Edit Knowledge Article" />
       <section>
         <FormCard>
@@ -157,7 +157,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         disabled={disabled}
       />
 
-      <div style={{ marginBottom: 16 }}>
+      <div className={createEditStyles.formFieldLg}>
         <SelectField
           label="Category"
           value={data.category_id ?? ''}
@@ -169,7 +169,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
         />
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div className={createEditStyles.formFieldLg}>
         <SelectField
           label="Visibility"
           value={data.visibility}
@@ -187,17 +187,17 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
 
       
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>Tags</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+      <div className={createEditStyles.formFieldLg}>
+        <label className={createEditStyles.formLabel}>Tags</label>
+        <div className={createEditStyles.tagList}>
           {(data.tags || []).map((t, i) => (
-            <div key={i} className={styles.tagPill}>
+            <div key={i} className={createEditStyles.tagPill}>
               <span>{t}</span>
               <button
                 type="button"
                 onClick={() => removeTag(i)}
                 disabled={disabled}
-                className={styles.tagRemove}
+                className={createEditStyles.tagRemove}
                 aria-label={`Remove tag ${t}`}
               >
                     <FiX size={22} aria-hidden="true" />
@@ -211,19 +211,19 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={onTagKeyDown}
           disabled={disabled}
-          inputStyle={{ width: '100%', padding: 8 }}
+          inputClassName={createEditStyles.fullWidthInput}
         />
-        {externalErrors.tags && <div style={{ color: 'crimson', marginTop: 8 }}>{externalErrors.tags}</div>}
+        {externalErrors.tags && <div className={createEditStyles.errorText}>{externalErrors.tags}</div>}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>Article Content</label>
-        <textarea value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} style={{ width: '100%', padding: 8 }} />
-        {externalErrors.content && <div style={{ color: 'crimson' }}>{externalErrors.content}</div>}
+      <div className={createEditStyles.formFieldLg}>
+        <label className={createEditStyles.formLabel}>Article Content</label>
+        <textarea value={data.content} onChange={(e) => setField('content', e.target.value)} disabled={disabled} rows={12} className={createEditStyles.textarea} />
+        {externalErrors.content && <div className={createEditStyles.errorText}>{externalErrors.content}</div>}
       </div>
 
       {showStatus && (
-        <div style={{ marginBottom: 16 }}>
+            <div className={createEditStyles.formFieldLg}>
           <SelectField
             label="Status"
             value={data.status}
@@ -231,7 +231,7 @@ function EditorFields({ data, setData, categories = [], disabled = false, extern
             disabled={disabled}
             options={[{ value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' }]}
           />
-        </div>
+            </div>
       )}
     </>
   );

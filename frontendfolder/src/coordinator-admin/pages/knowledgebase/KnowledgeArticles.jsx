@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaEye, FaEdit, FaArchive, FaTimes } from 'react-icons/fa';
 
 import userStyles from '../user-management/CoordinatorAdminUserAccess.module.css';
+import knowledgeStyles from './knowledge.module.css';
 import TablePagination from '../../../shared/table/TablePagination';
 import Button from '../../../shared/components/Button';
 import InputField from '../../../shared/components/InputField';
@@ -249,7 +250,7 @@ const KnowledgeArticles = () => {
               placeholder="Search..."
               value={query}
               onChange={e => { setQuery(e.target.value); setCurrentPage(1); }}
-              inputStyle={{ width: '260px' }}
+              inputClassName={knowledgeStyles.searchInput}
             />
             {authService.getUserRole() === 'System Admin' && (
               <button
@@ -268,14 +269,14 @@ const KnowledgeArticles = () => {
           <table className={userStyles.table}>
             <thead>
               <tr>
-                <th style={{ width: 260 }}>Article</th>
-                <th>Category</th>
-                <th>Tags</th>
-                <th style={{ width: 120, textAlign: 'center' }}>Visibility</th>
-                <th style={{ width: 140, textAlign: 'center' }}>Created</th>
-                <th style={{ width: 140, textAlign: 'center' }}>Total Likes</th>
-                <th style={{ width: 160, textAlign: 'center' }}>Total Dislikes</th>
-                <th style={{ width: 180, textAlign: 'center' }}>Actions</th>
+                <th className={knowledgeStyles.colArticle}>Article</th>
+                <th className={knowledgeStyles.colCategory}>Category</th>
+                <th className={knowledgeStyles.colTags}>Tags</th>
+                <th className={knowledgeStyles.colVisibility}>Visibility</th>
+                <th className={knowledgeStyles.colCreated}>Created</th>
+                <th className={knowledgeStyles.colLikes}>Total Likes</th>
+                <th className={knowledgeStyles.colDislikes}>Total Dislikes</th>
+                <th className={knowledgeStyles.colActions}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -285,16 +286,16 @@ const KnowledgeArticles = () => {
                     <td><Skeleton width="100%" height="40px" /></td>
                     <td><Skeleton width="100%" height="40px" /></td>
                     <td><Skeleton width="100%" height="40px" /></td>
-                    <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
-                    <td style={{ textAlign: 'center' }}><Skeleton width="100px" height="40px" /></td>
-                    <td style={{ textAlign: 'center' }}><Skeleton width="60px" height="40px" /></td>
-                    <td style={{ textAlign: 'center' }}><Skeleton width="80px" height="40px" /></td>
+                    <td className={knowledgeStyles.textCenter}><Skeleton width="80px" height="40px" /></td>
+                    <td className={knowledgeStyles.textCenter}><Skeleton width="100px" height="40px" /></td>
+                    <td className={knowledgeStyles.textCenter}><Skeleton width="60px" height="40px" /></td>
+                    <td className={knowledgeStyles.textCenter}><Skeleton width="80px" height="40px" /></td>
                     <td><Skeleton width="120px" height="40px" /></td>
                   </tr>
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
+                  <td colSpan={8} className={knowledgeStyles.emptyState}>
                     No articles found for this category or search.
                   </td>
                 </tr>
@@ -303,16 +304,16 @@ const KnowledgeArticles = () => {
                   <tr key={a.id || idx}>
                     <td>
                       <div className={userStyles.subjectCell}>
-                        <div style={{ fontWeight: 600 }}>{a.title}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{a.author} • {formatArticleDate(a)}</div>
+                        <div className={knowledgeStyles.subjectTitle}>{a.title}</div>
+                        <div className={knowledgeStyles.subjectMeta}>{a.author} • {formatArticleDate(a)}</div>
                       </div>
                     </td>
                       <td>{getCategoryName(a.category_id)}</td>
                       <td>{a.tags && a.tags.length ? a.tags.join(', ') : ''}</td>
-                    <td style={{ textAlign: 'center' }}>{a.visibility}</td>
-              <td style={{ textAlign: 'center' }}>{formatArticleDate(a)}</td>
-                    <td style={{ textAlign: 'center' }}><LikesCount articleId={a.id} /></td>
-                    <td style={{ textAlign: 'center' }}><DislikesCount articleId={a.id} /></td>
+                    <td className={knowledgeStyles.textCenter}>{a.visibility}</td>
+              <td className={knowledgeStyles.textCenter}>{formatArticleDate(a)}</td>
+                    <td className={knowledgeStyles.textCenter}><LikesCount articleId={a.id} /></td>
+                    <td className={knowledgeStyles.textCenter}><DislikesCount articleId={a.id} /></td>
                     <td>
                       <div className={userStyles.actionButtonCont}>
                         <button title="View" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/view/${a.id}`)}>

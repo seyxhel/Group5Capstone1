@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import userStyles from '../user-management/CoordinatorAdminUserAccess.module.css';
+import knowledgeStyles from './knowledge.module.css';
 import SysAdminArticlesFilter from '../../components/filters/SysAdminArticlesFilter';
 import TablePagination from '../../../shared/table/TablePagination';
 import kbService from '../../../services/kbService';
@@ -145,23 +146,23 @@ const KnowledgeArchived = () => {
                   </tr>
                 ))
               ) : paginated.length === 0 ? (
-                <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
-                    No archived articles found.
-                  </td>
-                </tr>
+                    <tr>
+                        <td colSpan={7} className={knowledgeStyles.emptyState}>
+                        No archived articles found.
+                      </td>
+                    </tr>
               ) : (
                 paginated.map((a, idx) => (
                   <tr key={a.id || idx}>
                     <td>
                       <div className={userStyles.subjectCell}>
-                        <div style={{ fontWeight: 600 }}>{a.title}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{a.author} • {formatArticleDate(a)}</div>
+                            <div className={knowledgeStyles.subjectTitle}>{a.title}</div>
+                            <div className={knowledgeStyles.subjectMeta}>{a.author} • {formatArticleDate(a)}</div>
                       </div>
                     </td>
-                    <td>{getCategoryName(a.category_id)}</td>
-                    <td style={{ textAlign: 'center' }}>{a.visibility}</td>
-                    <td style={{ textAlign: 'center' }}>{formatArticleDate(a)}</td>
+                        <td>{getCategoryName(a.category_id)}</td>
+                        <td className={knowledgeStyles.textCenter}>{a.visibility}</td>
+                        <td className={knowledgeStyles.textCenter}>{formatArticleDate(a)}</td>
                     <td>
                       <div className={userStyles.actionButtonCont}>
                         <button title="Restore" className={userStyles.actionButton} onClick={() => handleRestore(a)}>Restore</button>

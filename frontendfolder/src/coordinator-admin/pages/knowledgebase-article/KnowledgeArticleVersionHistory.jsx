@@ -7,6 +7,7 @@ import authService from '../../../utilities/service/authService';
 import Button from '../../../shared/components/Button';
 import KnowledgeArticleViewVersion from '../../components/modals/knowledgebase/KnowledgeArticleViewVersion';
 import KnowledgeArticleCompareModal from '../../components/modals/knowledgebase/KnowledgeArticleCompareModal';
+import Loading from '../../../shared/components/Loading/Loading';
 // use shared Button 'nav' variant instead of modal-specific CSS
 
 // Lightweight in-file word diff using LCS so we don't require the `diff` package.
@@ -77,7 +78,10 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
   if (!article) return null;
 
   // If the article includes an explicit versions array, render that as a history list.
-  const versions = Array.isArray(article.versions) ? article.versions : [];
+  // If `article.versions` is undefined (still loading from service), show skeleton placeholders.
+  const rawVersions = article?.versions;
+  const isVersionsLoading = article && !Array.isArray(rawVersions);
+  const versions = Array.isArray(rawVersions) ? rawVersions : [];
 
   // Sort versions by modified date (newest first). Use common date fields and fall back to index.
   const sortedVersions = versions
@@ -177,7 +181,15 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
 
   return (
     <div className={styles.ticketList}>
-      {sortedVersions.length > 0 ? (
+      {isVersionsLoading ? (
+        <div className={styles.ticketItem}>
+          <div className={styles.ticketInfo}>
+            <div style={{ padding: 16 }}>
+              <Loading text="Loading versions..." centered />
+            </div>
+          </div>
+        </div>
+      ) : sortedVersions.length > 0 ? (
         sortedVersions.map((v, idx) => {
           const versionNumber = v.number ?? v.version ?? idx + 1;
           const modifiedDate = v.date || v.updated_at || v.dateModified || v.modified || article.date_modified || article.dateModified;

@@ -1,3 +1,71 @@
+.container {
+  /* shared container for create/edit pages */
+  padding: 0;
+}
+
+.loadingInner {
+  padding: 24px;
+}
+
+.formField { margin-bottom: 12px; }
+.formFieldLg { margin-bottom: 16px; }
+
+.formLabel {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.fullWidthInput {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.inputNoPadding {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tagList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.tagPill {
+  background: #eee;
+  padding: 4px 8px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagRemove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 12px;
+  line-height: 1;
+  transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.tagRemove:hover { background-color: var(--neutral-gray, #414651); color: var(--error-color, #b91c1c); transform: translateY(-1px); }
+.tagRemove:focus { outline: 2px solid rgba(37,99,235,0.18); }
+
+.textarea {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.errorText { color: crimson; margin-top: 8px; }
+
+.required { color: var(--error-color, #b91c1c); }
 /* KnowledgeEdit specific styles */
 .container {
   display: block;
