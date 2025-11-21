@@ -210,5 +210,110 @@ export const localTicketService = {
       success: true,
       data: stats
     };
+  },
+
+  // Force create ticket (Employee) - creates ticket with custom status immediately
+  forceCreateTicket: async (ticketData) => {
+    await delay(200);
+    const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
+    
+    const randomFourDigits = Math.floor(Math.random() * 9000) + 1000;
+    const ticketNumber = `TCK-${new Date().getFullYear()}-${String(tickets.length + 1).padStart(3, '0')}`;
+    const currentDateTime = new Date().toISOString();
+    
+    const newTicket = {
+      id: generateId(),
+      ticketNumber: ticketNumber,
+      ticket_number: ticketNumber,
+      employeeId: ticketData.employeeId || 1,
+      employeeName: ticketData.employeeName || 'Employee',
+      employeeDepartment: ticketData.employeeDepartment || 'General',
+      subject: ticketData.subject || 'New Ticket',
+      category: ticketData.category || 'General Request',
+      subCategory: ticketData.subCategory || null,
+      priority: ticketData.priority || 'Medium',
+      priorityLevel: ticketData.priority || 'Medium',
+      description: ticketData.description || '',
+      status: ticketData.status || 'New',
+      assignedDepartment: ticketData.assignedDepartment || null,
+      assignedTo: ticketData.assignedTo || null,
+      assignedToName: ticketData.assignedToName || null,
+      createdAt: currentDateTime,
+      updatedAt: currentDateTime,
+      dateCreated: currentDateTime,
+      date_created: currentDateTime,
+      fileAttachments: ticketData.fileAttachments || [],
+      scheduleRequest: ticketData.scheduleRequest || null,
+      assetName: ticketData.assetName || null,
+      serialNumber: ticketData.serialNumber || null,
+      location: ticketData.location || null,
+      issueType: ticketData.issueType || null,
+      otherIssue: ticketData.otherIssue || null,
+      comments: []
+    };
+    
+    tickets.push(newTicket);
+    setToStorage(STORAGE_KEYS.TICKETS, tickets);
+    
+    return {
+      success: true,
+      data: newTicket
+    };
+  },
+
+  // Update ticket (Ticket Coordinator) - update ticket with coordinator actions
+  coordinatorUpdateTicket: async (ticketNumber, updates) => {
+    await delay(200);
+    const tickets = getFromStorage(STORAGE_KEYS.TICKETS) || [];
+    const ticketIndex = tickets.findIndex(t => 
+      t.ticketNumber === ticketNumber || t.ticket_number === ticketNumber
+    );
+    
+    if (ticketIndex === -1) {
+      return {
+        success: false,
+        error: 'Ticket not found'
+      };
+    }
+    
+    const currentDateTime = new Date().toISOString();
+    tickets[ticketIndex] = {
+      ...tickets[ticketIndex],
+      ...updates,
+      updatedAt: currentDateTime,
+      date_updated: currentDateTime
+    };
+    
+    setToStorage(STORAGE_KEYS.TICKETS, tickets);
+    // Also write to 'tickets' key for UI visibility
+    localStorage.setItem('tickets', JSON.stringify(tickets));
+    
+    return {
+      success: true,
+      data: tickets[ticketIndex]
+    };
+  },
+
+  // Reset mock data for testing
+  resetMockData: async () => {
+    await delay(100);
+    try {
+      const mod = await import('../../mock-data/tickets.js');
+      const mockTickets = mod.mockTickets || [];
+      setToStorage(STORAGE_KEYS.TICKETS, mockTickets);
+      // Also write to 'tickets' key for UI visibility
+      localStorage.setItem('tickets', JSON.stringify(mockTickets));
+      
+      return {
+        success: true,
+        data: mockTickets,
+        message: `Reset ${mockTickets.length} mock tickets`
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: String(err)
+      };
+    }
   }
 };

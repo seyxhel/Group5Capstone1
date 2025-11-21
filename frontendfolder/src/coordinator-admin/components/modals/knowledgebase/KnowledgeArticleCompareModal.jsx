@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import styles from './KnowledgeArticleCompareModal.module.css';
 import Button from '../../../../shared/components/Button';
+import ModalWrapper from '../../../../shared/modals/ModalWrapper';
 
 // Lightweight in-file word diff using LCS (copied from History page)
 const computeWordDiff = (leftText = '', rightText = '') => {
@@ -57,22 +58,18 @@ const renderDiffSide = (leftText, rightText, side) => {
 };
 
 const KnowledgeArticleCompareModal = ({ leftVersion = {}, rightVersion = {}, leftLabel, rightLabel, onClose }) => {
-  const overlayRef = useRef(null);
-
+  // keep Escape handling; ModalWrapper locks background scroll
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    return () => { document.removeEventListener('keydown', onKey); };
   }, [onClose]);
 
   const leftContent = leftVersion.content || leftVersion.body || leftVersion.text || leftVersion.html || leftVersion.raw || '';
   const rightContent = rightVersion.content || rightVersion.body || rightVersion.text || rightVersion.html || rightVersion.raw || '';
 
   return (
-    <div className={styles.overlay} ref={overlayRef} onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}>
-      <div className={styles.modal} role="dialog" aria-modal="true">
+    <ModalWrapper onClose={onClose} className={styles.modal} contentProps={{ role: 'dialog', 'aria-modal': true }}>
         <div className={styles.header}>
           <div className={styles.title}>Compare Versions</div>
           <div>
@@ -97,8 +94,7 @@ const KnowledgeArticleCompareModal = ({ leftVersion = {}, rightVersion = {}, lef
         <div className={styles.footer}>
           <Button type="button" variant="nav" onClick={onClose}>Done</Button>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

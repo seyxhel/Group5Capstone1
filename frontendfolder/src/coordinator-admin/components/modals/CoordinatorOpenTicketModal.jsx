@@ -1,7 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useState, useEffect } from "react";
-import { backendTicketService } from '../../../services/backend/ticketService';
-import authService from '../../../utilities/service/authService';
+import { useState, useEffect, useMemo } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
@@ -10,8 +8,10 @@ import styles from "./CoordinatorOpenTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
 const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [assetType, setAssetType] = useState("");
+  const [selectedAsset, setSelectedAsset] = useState(null);
 
   useEffect(() => {
     reset({
@@ -19,6 +19,11 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
       department: ticket.department || ticket.assignedDepartment || ticket.employeeDepartment || "",
       comment: "",
     });
+    // clear asset selections when modal opens or ticket changes
+    setAssetType("");
+    setSelectedAsset(null);
+    setValue('assetType', "");
+    setValue('selectedAssetId', null);
   }, [ticket, reset]);
 
   const onSubmit = async (data) => {
@@ -70,6 +75,30 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
       setIsSubmitting(false);
     }
   };
+
+  // Asset types limited to the AMS preset
+  const assetTypeOptions = useMemo(() => [
+    'Laptop',
+    'Printer',
+    'Projector',
+    'Mouse',
+    'Keyboard'
+  ], []);
+
+  // Sample asset inventory (local within modal). This can be replaced with real data later.
+  const assets = useMemo(() => ([
+    { id: 'AST-001', name: 'Dell Latitude 5420', productType: 'Laptop', quantity: 15, location: 'Warehouse A', status: 'Available' },
+    { id: 'AST-002', name: 'HP EliteBook 840', productType: 'Laptop', quantity: 0, location: 'Warehouse A', status: 'Out of Stock' },
+    { id: 'AST-003', name: 'Epson PowerLite 1795F', productType: 'Projector', quantity: 3, location: 'Main Office - Room 301', status: 'Available' },
+    { id: 'AST-004', name: 'Canon LBP Printer', productType: 'Printer', quantity: 6, location: 'Warehouse B', status: 'Available' },
+    { id: 'AST-005', name: 'Logitech M510', productType: 'Mouse', quantity: 25, location: 'Warehouse B', status: 'Available' },
+    { id: 'AST-006', name: 'Dell KB216', productType: 'Keyboard', quantity: 20, location: 'Warehouse B', status: 'Available' }
+  ]), []);
+
+  const filteredAssets = useMemo(() => {
+    if (!assetType) return [];
+    return assets.filter(a => String(a.productType).toLowerCase() === String(assetType).toLowerCase());
+  }, [assetType, assets]);
 
   return (
     <ModalWrapper onClose={onClose}>
@@ -147,6 +176,81 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
           </select>
           {errors.department && <p className={styles.error}>{errors.department.message}</p>}
         </div>
+
+        {/* Asset type selector only for Asset Check In/Out categories */}
+        {(ticket.category === 'Asset Check In' || ticket.category === 'Asset Check Out') && (
+          <>
+            <div className={styles.field}>
+              <label>Asset Type</label>
+              <select
+                {...register('assetType')}
+                className={styles.input}
+                value={assetType}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAssetType(v);
+                  setValue('assetType', v);
+                  // clear previously selected asset
+                  setSelectedAsset(null);
+                  setValue('selectedAssetId', null);
+                }}
+              >
+                <option value="">Select Asset Type</option>
+                {assetTypeOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Asset list table shown after selecting an asset type */}
+            {assetType && (
+              <div className={styles.assetTableWrap}>
+                <div className={styles.assetTableHeader}>Available {assetType}s</div>
+                <table className={styles.assetTable}>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Location</th>
+                      <th>Quantity</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssets.length === 0 && (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: '12px' }}>No assets found for this type.</td></tr>
+                    )}
+                    {filteredAssets.map((a) => (
+                      <tr key={a.id} className={selectedAsset && selectedAsset.id === a.id ? styles.selectedRow : ''}>
+                        <td>{a.id}</td>
+                        <td>{a.name}</td>
+                        <td>{a.location}</td>
+                        <td>{a.quantity}</td>
+                        <td>{a.status}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.selectAssetBtn}
+                            onClick={() => {
+                              setSelectedAsset(a);
+                              setValue('selectedAssetId', a.id);
+                            }}
+                          >
+                            {selectedAsset && selectedAsset.id === a.id ? 'Selected' : 'Select'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {selectedAsset && (
+                  <div className={styles.selectedAssetSummary}>Selected: {selectedAsset.name} ({selectedAsset.id})</div>
+                )}
+              </div>
+            )}
+          </>
+        )}
 
         <div className={styles.field}>
           <label>Comment (Optional)</label>
