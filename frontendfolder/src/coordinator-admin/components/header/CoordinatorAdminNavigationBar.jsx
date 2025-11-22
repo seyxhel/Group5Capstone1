@@ -46,37 +46,70 @@ const CoordinatorAdminNavBar = () => {
   // Inline SVG fallback used if the PNG looks wrong or fails to load
   const FALLBACK_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23007bff"/%3E%3Ctext x="50" y="55" text-anchor="middle" font-size="36" fill="%23fff"%3E%3C/tspan%3E%3C/text%3E%3C/svg%3E';
 
-  // Helper to get correct image URL (always return absolute URL pointing to backend)
-  const getProfileImageUrl = (user) => {
-    let image = user?.profileImage;
-    if (!image || image === '' || image === null) {
-      // Return backend absolute URL for default image
-      return `${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE.startsWith('/') ? DEFAULT_PROFILE_IMAGE : `/${DEFAULT_PROFILE_IMAGE}`}`;
-    }
-    // If image is a relative path, prepend backend base URL
-    if (!image.startsWith('http')) {
-      image = image.startsWith('/') ? image : `/${image}`;
-      return `${BACKEND_BASE_URL}${image}`;
-    }
-    return image;
-  };
-
   // State to hold the actual profile image URL fetched from backend
-  const [profileImageUrl, setProfileImageUrl] = useState(`${BACKEND_BASE_URL}${DEFAULT_PROFILE_IMAGE}`);
+  const [profileImageUrl, setProfileImageUrl] = useState(FALLBACK_SVG);
 
   // Fetch current employee profile from backend to get freshest image path
   useEffect(() => {
     const fetchProfileImage = async () => {
       try {
-        const profile = await backendEmployeeService.getCurrentEmployee();
-        // profile.image may be a relative path like 'employee_images/xyz.jpg'
-        if (profile?.image) {
-          const resolved = resolveMediaUrl(profile.image || profile.profile_image || profile.image_url || profile.imageUrl);
-          if (resolved) setProfileImageUrl(resolved);
+        const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+
+        // Helper to normalize image URL
+        const normalizeImageUrl = (rawUrl, base) => {
+          if (!rawUrl) return null;
+          let imageUrl = rawUrl;
+          if (typeof imageUrl !== 'string') imageUrl = (imageUrl.url || imageUrl.image || '') + '';
+          imageUrl = imageUrl.trim();
+
+          // If already absolute or data URL, return as-is
+          if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) return imageUrl;
+
+          // If relative path, attach provided base
+          if (base) {
+            const pref = imageUrl.startsWith('/') ? '' : '/';
+            return `${base}${pref}${imageUrl}`;
+          }
+
+          return null;
+        };
+
+        // Try auth service profile endpoint with cookies (same as employee navbar)
+        try {
+          const resp = await fetch(`${AUTH_BASE}/api/v1/users/profile/`, { 
+            method: 'GET', 
+            credentials: 'include', 
+            headers: { 'Accept': 'application/json' } 
+          });
+          
+          if (resp && resp.ok) {
+            const profile = await resp.json();
+            const candidate = normalizeImageUrl(
+              profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profile_picture, 
+              AUTH_BASE
+            );
+            if (candidate) { 
+              setProfileImageUrl(candidate); 
+              return; 
+            }
+          }
+        } catch (err) {
+          console.error('[Admin Navbar] Auth profile fetch failed:', err);
+        }
+
+        // Fallback to backend employee service
+        try {
+          const profile = await backendEmployeeService.getCurrentEmployee();
+          const imgCandidate = profile?.image || profile?.profile_image || profile?.profile_picture || profile?.image_url || profile?.imageUrl;
+          if (imgCandidate) {
+            const candidate = normalizeImageUrl(imgCandidate, AUTH_BASE);
+            if (candidate) setProfileImageUrl(candidate);
+          }
+        } catch (err) {
+          console.error('Failed to fetch admin profile image:', err);
         }
       } catch (err) {
-        // keep default on error
-        console.error('Failed to fetch admin profile image:', err);
+        console.error('Unexpected error fetching profile image:', err);
       }
     };
 
@@ -97,7 +130,7 @@ const CoordinatorAdminNavBar = () => {
         if (eventUserId && currentId && String(eventUserId) !== String(currentId)) return;
 
         // If the event includes a resolved (and cache-busted) image URL, use it directly
-        const newImg = detail.profileImage || detail.image || detail.imageUrl;
+        const newImg = detail.profileImage || detail.image || detail.imageUrl || detail.profile_picture;
         if (newImg) {
           setProfileImageUrl(newImg);
           return;
@@ -106,13 +139,26 @@ const CoordinatorAdminNavBar = () => {
         // fall through to re-fetch below
       }
 
-      // Fallback: re-fetch profile once if event didn't provide an image
-      backendEmployeeService.getCurrentEmployee()
+      // Fallback: re-fetch profile from auth service
+      const AUTH_BASE = API_CONFIG.AUTH.BASE_URL.replace(/\/$/, '');
+      
+      fetch(`${AUTH_BASE}/api/v1/users/profile/`, { 
+        method: 'GET', 
+        credentials: 'include', 
+        headers: { 'Accept': 'application/json' } 
+      })
+        .then(resp => resp.ok ? resp.json() : null)
         .then((profile) => {
           if (!profile) return;
-          const imgCandidate = profile.image || profile.profile_image || profile.image_url || profile.imageUrl || profile.profileImage;
-          const resolved = resolveMediaUrl(imgCandidate);
-          if (resolved) setProfileImageUrl(resolved);
+          const imgCandidate = profile.image || profile.profile_image || profile.profile_picture || profile.image_url || profile.imageUrl;
+          if (imgCandidate) {
+            if (imgCandidate.startsWith('data:') || imgCandidate.startsWith('http')) {
+              setProfileImageUrl(imgCandidate);
+            } else {
+              const pref = imgCandidate.startsWith('/') ? '' : '/';
+              setProfileImageUrl(`${AUTH_BASE}${pref}${imgCandidate}`);
+            }
+          }
         })
         .catch((err) => {
           console.warn('[CoordinatorAdminNav] failed to re-fetch profile after profile:updated', err);

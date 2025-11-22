@@ -340,7 +340,7 @@ export default function EmployeeSettings({ editingUserId = null }) {
                 <div className={styles.profileImageSection}>
                   <div className={styles.profileImageContainer}>
                     <img
-                      src={previewUrl || user?.profileImage || user?.profile_picture || "https://i.pinimg.com/736x/19/de/17/19de17c09737a59c5684e14cbaccdfc1.jpg"}
+                      src={previewUrl || user?.profileImage || user?.profile_picture || 'https://i.pinimg.com/736x/8b/16/7a/8b167af653c2399dd93b952a48740620.jpg'}
                       alt="Profile"
                       className={styles.profileImage}
                     />
