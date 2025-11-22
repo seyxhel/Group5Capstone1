@@ -7,6 +7,7 @@ import authService from '../../../utilities/service/authService';
 import Button from '../../../shared/components/Button';
 import KnowledgeArticleViewVersion from '../../components/modals/knowledgebase/KnowledgeArticleViewVersion';
 import KnowledgeArticleCompareModal from '../../components/modals/knowledgebase/KnowledgeArticleCompareModal';
+import ModalWrapper from '../../../shared/modals/ModalWrapper';
 import KnowledgeArticleRestoreModal from '../../components/modals/knowledgebase/KnowledgeArticleRestoreModal';
 import Loading from '../../../shared/components/Loading/Loading';
 // use shared Button 'nav' variant instead of modal-specific CSS
@@ -113,6 +114,8 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
   };
 
   const [compareModalPair, setCompareModalPair] = useState(null);
+  const [compareModalData, setCompareModalData] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   // Note: inline compare UI removed; side-by-side modal retained via `compareModalPair` state.
 
@@ -245,7 +248,48 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
                       onClick={() => {
                         if (!isCurrent) {
                           // Open side-by-side compare modal for current vs selected
-                          setCompareModalPair([0, idx]);
+                          // Fetch full version content if needed and then open modal
+                          (async () => {
+                            try {
+                              setCompareLoading(true);
+                              const leftIdx = 0;
+                              const rightIdx = idx;
+                                  const leftRaw = sortedVersions[leftIdx] || {};
+                                  const rightRaw = sortedVersions[rightIdx] || {};
+                                  const leftIdentifier = leftRaw.number ?? leftRaw.id ?? leftIdx;
+                                  const rightIdentifier = rightRaw.number ?? rightRaw.id ?? rightIdx;
+                                  let leftV = leftRaw;
+                                  let rightV = rightRaw;
+
+                                  // If version objects already include content, prefer them and avoid
+                                  // calling the backend per-version endpoint (which may not exist).
+                                  if (!leftV.content && !leftV.body && !leftV.text && (typeof kbService.getArticleVersion === 'function')) {
+                                    try {
+                                      const fetched = await kbService.getArticleVersion(article.id, leftIdentifier);
+                                      if (fetched) leftV = fetched;
+                                    } catch (e) {
+                                      /* ignore and use leftRaw */
+                                    }
+                                  }
+                                  if (!rightV.content && !rightV.body && !rightV.text && (typeof kbService.getArticleVersion === 'function')) {
+                                    try {
+                                      const fetched = await kbService.getArticleVersion(article.id, rightIdentifier);
+                                      if (fetched) rightV = fetched;
+                                    } catch (e) {
+                                      /* ignore and use rightRaw */
+                                    }
+                                  }
+
+                                  const leftLabel = leftV.number ?? leftV.version ?? (leftIdx + 1);
+                                  const rightLabel = rightV.number ?? rightV.version ?? (rightIdx + 1);
+                                  setCompareModalData({ leftVersion: leftV, rightVersion: rightV, leftLabel, rightLabel });
+                            } catch (err) {
+                              console.error('Failed to load compare versions:', err);
+                              alert('Failed to load version content for compare.');
+                            } finally {
+                              setCompareLoading(false);
+                            }
+                          })();
                         }
                       }}
                       title={compareTitle}
@@ -332,23 +376,23 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
         )}
 
         {/* Side-by-side compare modal (when user requests a quick visual compare) */}
-        {compareModalPair && (() => {
-          const leftIdx = compareModalPair[0];
-          const rightIdx = compareModalPair[1];
-          const leftV = sortedVersions[leftIdx] || {};
-          const rightV = sortedVersions[rightIdx] || {};
-          const leftLabel = leftV.number ?? leftV.version ?? (leftIdx + 1);
-          const rightLabel = rightV.number ?? rightV.version ?? (rightIdx + 1);
-          return (
-            <KnowledgeArticleCompareModal
-              leftVersion={leftV}
-              rightVersion={rightV}
-              leftLabel={leftLabel}
-              rightLabel={rightLabel}
-              onClose={() => setCompareModalPair(null)}
-            />
-          );
-        })()}
+        {compareLoading && (
+          <ModalWrapper onClose={() => {}} className={styles.modal}>
+            <div style={{ padding: 24 }}>
+              <Loading text="Loading compare..." centered />
+            </div>
+          </ModalWrapper>
+        )}
+
+        {compareModalData && (
+          <KnowledgeArticleCompareModal
+            leftVersion={compareModalData.leftVersion}
+            rightVersion={compareModalData.rightVersion}
+            leftLabel={compareModalData.leftLabel}
+            rightLabel={compareModalData.rightLabel}
+            onClose={() => setCompareModalData(null)}
+          />
+        )}
 
         {/* Restore confirmation modal */}
         {restoreVersion && (

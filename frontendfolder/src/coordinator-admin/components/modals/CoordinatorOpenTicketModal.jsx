@@ -4,6 +4,7 @@ import { ToastContainer, toast } from "react-toastify";
 import ModalWrapper from "../../../shared/modals/ModalWrapper";
 import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
 import departmentOptions from "../../../utilities/options/departmentOptions";
+import { backendTicketService } from "../../../services/backend/ticketService";
 import styles from "./CoordinatorOpenTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 

@@ -74,7 +74,7 @@ const KnowledgeArticleView = () => {
     sync();
     const lateTimer = setTimeout(sync, 220);
 
-    // Watch images inside columns so when they load we re-sync
+    // watch images inside columns so when they load we re-sync
     const watchImages = () => {
       imgs = [];
       imgLoadHandlers = [];
@@ -124,6 +124,8 @@ const KnowledgeArticleView = () => {
         try { observer.disconnect(); } catch (e) {}
       }
       window.removeEventListener('resize', onResize);
+      try { window.removeEventListener('error', onErrorEvent); } catch (e) {}
+      try { window.onerror = null; } catch (e) {}
       if (leftColRef.current) leftColRef.current.style.minHeight = '';
       if (rightColRef.current) rightColRef.current.style.minHeight = '';
     };
@@ -140,65 +142,61 @@ const KnowledgeArticleView = () => {
 
   // Load article on mount
   useEffect(() => {
+    let cancelled = false;
     const timer = setTimeout(() => {
-      try {
-        if (kbService.getArticle) {
-          // kbService.getArticle may return a Promise or a sync value; normalize with Promise.resolve
-          Promise.resolve(kbService.getArticle(id))
-            .then((fetchedArticle) => {
-              setArticle(fetchedArticle);
+      (async () => {
+        setIsLoading(true);
+        try {
+          if (!kbService.getArticle) return;
+          const fetchedArticle = await Promise.resolve(kbService.getArticle(id));
+          if (cancelled) return;
+          setArticle(fetchedArticle || null);
 
-              // Enforce system-admin-only visibility
-              try {
-                const isAdminOnly = fetchedArticle?.visibility === 'System Admin';
-                const currentRole = authService.getUserRole();
-                if (isAdminOnly && currentRole !== 'System Admin') {
-                  setUnauthorized(true);
-                } else {
-                  setUnauthorized(false);
-                }
-              } catch (e) {
-                setUnauthorized(false);
-              }
+          // Enforce system-admin-only visibility
+          try {
+            const isAdminOnly = fetchedArticle?.visibility === 'System Admin';
+            const currentRole = authService.getUserRole();
+            setUnauthorized(Boolean(isAdminOnly && currentRole !== 'System Admin'));
+          } catch (e) {
+            setUnauthorized(false);
+          }
 
-              // Load category (kbService.listCategories may be sync or Promise)
-              if (fetchedArticle && kbService.listCategories) {
-                Promise.resolve(kbService.listCategories())
-                  .then((categories) => {
-                    const cat = (categories || []).find(
-                      (c) => c.id === fetchedArticle.category_id || c.id === fetchedArticle.categoryId
-                    );
-                    setCategory(cat);
-                  })
-                  .catch((err) => {
-                    console.error('Failed to load categories:', err);
-                    setCategory(null);
-                  });
+          // Load category
+          if (fetchedArticle && kbService.listCategories) {
+            try {
+              const categories = await Promise.resolve(kbService.listCategories());
+              if (!cancelled) {
+                const cat = (categories || []).find(
+                  (c) => c.id === fetchedArticle.category_id || c.id === fetchedArticle.categoryId
+                );
+                setCategory(cat || null);
               }
+            } catch (err) {
+              console.error('Failed to load categories:', err);
+              if (!cancelled) setCategory(null);
+            }
+          }
 
-              // Load feedbacks (kbService.listFeedback may return a Promise)
-              if (fetchedArticle && kbService.listFeedback) {
-                Promise.resolve(kbService.listFeedback(id))
-                  .then((fetchedFeedbacks) => {
-                    setFeedbacks(Array.isArray(fetchedFeedbacks) ? fetchedFeedbacks : []);
-                  })
-                  .catch((err) => {
-                    console.error('Failed to load feedbacks:', err);
-                    setFeedbacks([]);
-                  });
-              }
-            })
-            .catch((err) => {
-              console.error('Failed to load article (async):', err);
-            });
+          // Load feedbacks
+          if (fetchedArticle && kbService.listFeedback) {
+            try {
+              const fetchedFeedbacks = await Promise.resolve(kbService.listFeedback(id));
+              if (!cancelled) setFeedbacks(Array.isArray(fetchedFeedbacks) ? fetchedFeedbacks : []);
+            } catch (err) {
+              console.error('Failed to load feedbacks:', err);
+              if (!cancelled) setFeedbacks([]);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load article:', err);
+          if (!cancelled) setArticle(null);
+        } finally {
+          if (!cancelled) setIsLoading(false);
         }
-      } catch (err) {
-        console.error('Failed to load article:', err);
-      }
-      setIsLoading(false);
+      })();
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [id]);
 
   const openDeleteModal = () => {

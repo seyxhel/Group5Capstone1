@@ -108,9 +108,23 @@ export const listCategories = () => {
 
 export const listArticles = (filters = {}) => {
   // Try to fetch from backend and apply filters client-side as needed.
-  return backendArticleService.getAllArticles()
+  // If caller passed pagination params (page, page_size), forward them so server-side pagination works.
+  const params = {};
+  if (filters.page) params.page = filters.page;
+  if (filters.page_size) params.page_size = filters.page_size;
+  const isServerRequest = Boolean(filters.page || filters.page_size || filters.serverSide);
+
+  return backendArticleService.getAllArticles(params)
     .then((articles) => {
-      let results = Array.isArray(articles) ? articles.map(a => ({
+      // Support multiple backend shapes: array OR paginated object { results: [...] } OR { data: [...] }
+      let rawList = [];
+      let meta = null;
+      if (Array.isArray(articles)) rawList = articles;
+      else if (articles && Array.isArray(articles.results)) { rawList = articles.results; meta = articles; }
+      else if (articles && Array.isArray(articles.data)) { rawList = articles.data; meta = articles; }
+      else rawList = [];
+
+      let results = rawList.length ? rawList.map(a => ({
         id: a.id,
         title: a.title || a.name || a.subject,
         content: a.content || a.body || a.description || '',
@@ -120,6 +134,14 @@ export const listArticles = (filters = {}) => {
         date_modified: a.date_modified || a.updated_at || a.updated || new Date().toISOString(),
         archived: !!a.archived || !!a.is_archived || false,
       })) : [...mockArticles];
+
+      // If backend returned meta (count/next/previous) and caller explicitly
+      // requested server-side pagination (passed page/page_size or serverSide flag),
+      // return the wrapped shape so callers can use meta.count for total items.
+      if (meta && isServerRequest) {
+        return { results, meta };
+      }
+      return results;
 
       if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
       if (filters.visibility) results = results.filter(a => a.visibility === filters.visibility);
@@ -160,6 +182,70 @@ export const getArticle = (id) => {
         };
     })
     .catch(() => Promise.resolve(mockArticles.find(a => a.id === Number(id)) || null));
+};
+
+/**
+ * Fetch a specific version for an article. Tries backend endpoint first,
+ * falls back to retrieving the article and locating the version in the
+ * article. `versionIdentifier` may be a numeric id, version number string,
+ * or the index.
+ */
+export const getArticleVersion = async (articleId, versionIdentifier) => {
+  // Try backend dedicated endpoint if available
+  try {
+    if (typeof backendArticleService.getArticleVersion === 'function') {
+      const v = await backendArticleService.getArticleVersion(articleId, versionIdentifier);
+      if (v) {
+        return {
+          id: v.id ?? null,
+          number: v.number ?? v.version ?? v.id ?? null,
+          date: v.date || v.updated_at || v.dateModified || v.modified || null,
+          author: v.author || v.editor || v.updatedBy || null,
+          changes: v.changes || v.summary || v.description || v.notes || '',
+          visibility: normalizeVisibility(v.visibility || v.access || 'Employee'),
+          content: v.content || v.body || v.text || v.html || v.raw || '',
+        };
+      }
+    }
+  } catch (err) {
+    // backend may not implement versions endpoint; fall through
+    console.warn('backend getArticleVersion failed:', err);
+  }
+
+  // Fallback: fetch full article and locate version by number/id/index
+  try {
+    const a = await getArticle(articleId);
+    if (!a) return null;
+    const versions = Array.isArray(a.versions) ? a.versions : [];
+    if (!versions.length) return null;
+
+    // If versionIdentifier is numeric index or id, try to find by id
+    let found = null;
+    if (versionIdentifier === undefined || versionIdentifier === null) {
+      found = versions[0];
+    } else {
+      // try match by number or id or numeric index
+      found = versions.find(v => String(v.number) === String(versionIdentifier) || String(v.id) === String(versionIdentifier));
+      if (!found) {
+        const idx = Number(versionIdentifier);
+        if (!Number.isNaN(idx) && idx >= 0 && idx < versions.length) found = versions[idx];
+      }
+    }
+
+    if (!found) return null;
+    return {
+      id: found.id ?? null,
+      number: found.number ?? found.version ?? null,
+      date: found.date || found.updated_at || found.dateModified || found.modified || null,
+      author: found.author || found.editor || null,
+      changes: found.changes || found.summary || found.description || found.notes || '',
+      visibility: normalizeVisibility(found.visibility || 'Employee'),
+      content: found.content || found.body || found.text || found.html || found.raw || '',
+    };
+  } catch (err) {
+    console.warn('kbService.getArticleVersion fallback failed:', err);
+    return null;
+  }
 };
 
 export const submitArticle = (article) => {
@@ -297,7 +383,15 @@ export const listPublishedArticles = (filters = {}) => {
   // Use backend when available, fallback to mock. Published = not archived.
   return backendArticleService.getAllArticles()
     .then((articles) => {
-      let results = Array.isArray(articles) ? articles.map(a => ({
+      // Support paginated or wrapped responses as in listArticles
+      let rawList = [];
+      let meta = null;
+      if (Array.isArray(articles)) rawList = articles;
+      else if (articles && Array.isArray(articles.results)) { rawList = articles.results; meta = articles; }
+      else if (articles && Array.isArray(articles.data)) { rawList = articles.data; meta = articles; }
+      else rawList = [];
+
+      let results = rawList.length ? rawList.map(a => ({
         id: a.id,
         // include subject fallback because some backends use `subject` instead of `title`
         title: a.title || a.name || a.subject,
@@ -308,6 +402,9 @@ export const listPublishedArticles = (filters = {}) => {
         date_modified: a.date_modified || a.updated_at || new Date().toISOString(),
         archived: !!a.archived || !!a.is_archived || false,
       })) : [...mockArticles];
+
+      if (meta && isServerRequest) return { results, meta };
+      return results;
 
       results = results.filter(a => !a.archived);
       if (filters.category_id) results = results.filter(a => a.category_id === filters.category_id || a.categoryId === filters.category_id);
@@ -370,6 +467,7 @@ export default {
   listArticles,
   listPublishedArticles,
   getArticle,
+  getArticleVersion,
   submitArticle,
   updateArticle,
   archiveArticle,

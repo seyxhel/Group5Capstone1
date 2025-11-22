@@ -301,6 +301,8 @@ export default function CoordinatorAdminTicketTracker() {
       expected_return_date: t.expectedReturnDate || t.expected_return_date || t.expectedReturn || t.dynamic_data?.expectedReturnDate || t.dynamic_data?.expected_return_date || null,
       expectedReturn: t.expectedReturn || t.expectedReturnDate || t.expected_return_date || (t.dynamic_data && (t.dynamic_data.expectedReturn || t.dynamic_data.expected_return_date)) || null,
       status: t.status || '',
+      // Normalize priority across different backend shapes so admin UI can read it
+      priorityLevel: t.priority || t.priorityLevel || t.priority_level || (t.coordinatorReview && (t.coordinatorReview.priority || t.coordinatorReview.priorityLevel)) || null,
       // Completion and CSAT fields (support multiple backend naming conventions)
       date_completed: t.date_completed || t.dateCompleted || t.dateResolved || t.dateClosed || t.time_closed || t.timeClosed || null,
       dateCompleted: t.date_completed || t.dateCompleted || t.dateResolved || t.dateClosed || t.time_closed || t.timeClosed || null,

@@ -17,6 +17,8 @@ import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 const KnowledgeArticles = () => {
   const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [serverSide, setServerSide] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -45,9 +47,51 @@ const KnowledgeArticles = () => {
   const fetch = async () => {
     setLoading(true);
     try {
-      const [cats, arts] = await Promise.all([kbService.listCategories(), kbService.listArticles({})]);
+      // Try server-aware fetch: request first page with serverSide flag so we can detect meta
+      const cats = await kbService.listCategories();
+      const firstPage = await kbService.listArticles({ page: 1, page_size: itemsPerPage, serverSide: true });
       setCategories(cats || []);
-      setArticles((arts || []).filter(a => !a.archived));
+
+      // If backend returned wrapped response { results, meta }
+      if (firstPage && firstPage.results && firstPage.meta) {
+        const results = firstPage.results || [];
+        const meta = firstPage.meta || {};
+        const total = meta.count ?? meta.total ?? (meta.results_count ?? results.length);
+        // Determine server page size (try meta.page_size/limit, fallback to provided itemsPerPage or results.length)
+        const pageSize = meta.page_size || meta.page_size || meta.limit || itemsPerPage || results.length || 10;
+        const totalPages = Math.max(1, Math.ceil((total || results.length) / pageSize));
+
+        // If only one page, just use results. If multiple pages, fetch remaining pages then combine.
+        if (totalPages <= 1) {
+          const all = (results || []).filter(a => !a.archived);
+          setServerSide(false);
+          setArticles(all);
+          setTotalCount(all.length || 0);
+        } else {
+          // Fetch remaining pages in sequence (small number of pages expected)
+          const pages = [results];
+          for (let p = 2; p <= totalPages; p++) {
+            try {
+              const pageResp = await kbService.listArticles({ page: p, page_size: pageSize, serverSide: true });
+              const pageResults = (pageResp && pageResp.results) ? pageResp.results : [];
+              pages.push(pageResults);
+            } catch (e) {
+              console.warn('Failed to fetch articles page', p, e);
+            }
+          }
+          const combined = pages.flat().filter(a => !a.archived);
+          setServerSide(false);
+          setArticles(combined);
+          setTotalCount(combined.length || 0);
+        }
+      } else {
+        // Backend did not return meta; assume array result
+        const list = Array.isArray(firstPage) ? firstPage : (firstPage && firstPage.results ? firstPage.results : []);
+        const filteredAll = (list || []).filter(a => !a.archived);
+        setServerSide(false);
+        setArticles(filteredAll);
+        setTotalCount(filteredAll.length || 0);
+      }
     } catch (e) {
       // swallow for now
     } finally {
@@ -64,7 +108,7 @@ const KnowledgeArticles = () => {
       window.removeEventListener('kb:articleCreated', onCreated);
       window.removeEventListener('kb:articleUpdated', onCreated);
     };
-  }, []);
+  }, [currentPage, itemsPerPage]);
 
   const getCategoryName = (id) => {
     const c = categories.find(x => String(x.id) === String(id));
@@ -204,9 +248,10 @@ const KnowledgeArticles = () => {
 
   // pagination slice
   const paginated = useMemo(() => {
+    if (serverSide) return articles; // already contains current page
     const start = (currentPage - 1) * itemsPerPage;
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  }, [filtered, currentPage, itemsPerPage, serverSide, articles]);
 
   // small components for counts (kept simple)
   const LikesCount = ({ articleId }) => {
@@ -369,7 +414,7 @@ const KnowledgeArticles = () => {
         <div className={userStyles.tablePagination}>
           <TablePagination
             currentPage={currentPage}
-            totalItems={filtered.length}
+            totalItems={serverSide ? totalCount : filtered.length}
             initialItemsPerPage={itemsPerPage}
             onPageChange={(p) => setCurrentPage(p)}
             onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}

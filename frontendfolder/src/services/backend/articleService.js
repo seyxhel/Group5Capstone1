@@ -3,6 +3,10 @@ import { API_CONFIG } from '../../config/environment.js';
 
 const BASE_URL = API_CONFIG.BACKEND.BASE_URL;
 
+// Cache whether the backend supports the per-version endpoint to avoid
+// repeated 404 requests during a session. undefined = unknown, true/false = cached result.
+let _supportsVersionEndpoint;
+
 // Helper function to get auth headers from cookies
 const getAuthHeaders = () => {
   // Try to get the access token from cookies (set by auth service)
@@ -43,9 +47,14 @@ export const backendArticleService = {
   /**
    * Get all knowledge articles
    */
-  async getAllArticles() {
+  // Accept an optional params object { page, page_size, ... } which will be encoded
+  async getAllArticles(params = {}) {
     try {
-      const response = await fetch(`${BASE_URL}/api/articles/`, {
+      // Build query string from params
+      const qs = Object.keys(params || {}).length
+        ? `?${Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')}`
+        : '';
+      const response = await fetch(`${BASE_URL}/api/articles/${qs}`, {
         method: 'GET',
         headers: getAuthHeaders(),
         credentials: 'include',
@@ -243,6 +252,51 @@ export const backendArticleService = {
     } catch (error) {
       console.error('Error deleting article:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Get a single version of an article (if backend exposes versions endpoint)
+   * Falls back to throwing if endpoint not available; callers should handle by
+   * fetching the parent article and finding the version locally.
+   */
+  async getArticleVersion(articleId, versionId) {
+    try {
+      // If we've previously determined the endpoint is not supported, skip calling it.
+      if (_supportsVersionEndpoint === false) return null;
+      const response = await fetch(`${BASE_URL}/api/articles/${articleId}/versions/${versionId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      handleAuthError(response);
+
+      if (!response.ok) {
+        // If the backend doesn't expose per-version endpoints, mark the flag
+        // and return null so callers can fallback to article.versions.
+        if (response.status === 404) {
+          _supportsVersionEndpoint = false;
+          return null;
+        }
+
+        let errorMsg = 'Failed to fetch article version';
+        try {
+          const errBody = await response.json();
+          errorMsg = errBody && (errBody.detail || JSON.stringify(errBody)) || errorMsg;
+        } catch (e) {
+          // ignore parse errors
+        }
+        throw new Error(errorMsg);
+      }
+
+      // Successful response — mark support true and return parsed body
+      _supportsVersionEndpoint = true;
+      return await response.json();
+    } catch (error) {
+      // Log at debug level and return null so callers can fall back silently.
+      console.warn('getArticleVersion failed:', error);
+      return null;
     }
   },
 };

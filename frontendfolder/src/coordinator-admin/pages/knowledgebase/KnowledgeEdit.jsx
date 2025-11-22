@@ -79,7 +79,7 @@ const KnowledgeEdit = () => {
       <Breadcrumb root="Knowledge Base" currentPage="Edit Article" rootNavigatePage="/admin/knowledge/articles" title="Edit Knowledge Article" />
       <section>
         <FormCard>
-          <form onSubmit={(e) => { e.preventDefault(); /* parent FormActions handles save */ }}>
+          <form onSubmit={(e) => { e.preventDefault(); handleSave(editorData); }}>
             <EditorFields
               data={editorData}
               setData={setEditorData}
@@ -95,8 +95,7 @@ const KnowledgeEdit = () => {
               submitLabel={saving ? 'Saving…' : 'Save Changes'}
               submitDisabled={saving}
               submitVariant="primary"
-              // trigger handleSave with current editorData
-              onSubmit={() => handleSave(editorData)}
+              // Form submit is handled by the parent form's onSubmit
             />
           </form>
         </FormCard>
