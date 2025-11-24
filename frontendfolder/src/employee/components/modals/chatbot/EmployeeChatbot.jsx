@@ -14,9 +14,9 @@ const EmployeeChatbot = ({ closeModal }) => {
     sender: "bot",
     isList: false,
     suggestions: [
-      { label: 'Tickets Help', type: 'redirect', route: '/employee/tickets' },
-      { label: 'Recommend Solutions', type: 'redirect', route: '/employee/frequently-asked-questions' },
-      { label: 'Fill Out Forms', type: 'prefill', route: '/employee/submit-ticket' }
+      { label: 'Browse FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
+      { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+      { label: 'View My Tickets', type: 'redirect', route: '/employee/active-tickets' }
     ]
   };
 
@@ -92,10 +92,19 @@ const EmployeeChatbot = ({ closeModal }) => {
   useEffect(() => {
     const fetchFAQs = async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        // Try to get token from localStorage first, then cookies
+        let token = localStorage.getItem("access_token");
+        if (!token && typeof document !== 'undefined' && document.cookie) {
+          try {
+            const match = document.cookie.match(/(?:^|; )access_token=([^;]+)/);
+            if (match && match[1]) token = decodeURIComponent(match[1]);
+          } catch (e) {
+            // ignore cookie parsing errors
+          }
+        }
         if (!token) {
-          console.error("No access token found. Please log in.");
-          return;
+          console.warn("No access token found. FAQs may not load.");
+          // Continue anyway — the request might work with session cookies
         }
 
     const baseUrl = API_CONFIG.BACKEND.BASE_URL || '';
@@ -104,10 +113,12 @@ const EmployeeChatbot = ({ closeModal }) => {
     // If BASE_URL is empty string, fall back to relative path
     const requestUrl = baseUrl ? articlesUrl : '/api/articles/';
 
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     const response = await axios.get(requestUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
+          withCredentials: true,
           validateStatus: (status) => status < 500, // Accept all 2xx and 4xx responses
         });
 
@@ -142,8 +153,15 @@ const EmployeeChatbot = ({ closeModal }) => {
             }))
             .filter((faq) => !faq.is_archived && (faq.visibility || '').toLowerCase() === 'employee');
 
-          console.log('Loaded FAQs count=', mapped.length);
-          console.debug('Loaded FAQs (summary):', mapped.map(f => ({ id: f.id, question: f.question?.slice(0,80), visibility: f.visibility, is_archived: f.is_archived })));
+          console.log(`✅ Chatbot loaded ${mapped.length} Knowledge Base articles (employee-visible, non-archived):`);
+          console.table(mapped.map((faq, idx) => ({
+            '#': idx + 1,
+            'Article ID': faq.id,
+            'Subject': faq.question.slice(0, 60) + (faq.question.length > 60 ? '...' : ''),
+            'Answer Length': `${faq.answer.length} chars`,
+            'Visibility': faq.visibility
+          })));
+          console.log('These articles will be used for FAQ matching in the chatbot.');
           setFaqs(mapped);
         } else {
           console.error("Unexpected response format. Expected JSON but received:", response.data);
@@ -181,52 +199,94 @@ const EmployeeChatbot = ({ closeModal }) => {
   };
   // Ensure the OpenRouter API key is set in your .env file.
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-  console.log("OpenRouter API Key present:", !!import.meta.env.VITE_OPENROUTER_API_KEY);
+  if (import.meta.env.DEV) {
+    console.debug("OpenRouter API Key present:", !!import.meta.env.VITE_OPENROUTER_API_KEY);
+  }
 
-  // Simple local FAQ matcher: returns a FAQ answer if it matches closely enough
+  // Enhanced local FAQ matcher with weighted scoring
   const findFAQAnswer = (userMessage) => {
     if (!userMessage) return null;
-    const text = userMessage.toLowerCase();
+    const text = userMessage.toLowerCase().trim();
 
-    // Avoid matching tiny inputs like "hi" against FAQ content.
-    // Short strings often appear inside other words (e.g. 'hi' in 'this')
-    // which causes accidental matches. For short greetings, return the
-    // default greeting instead of searching the KB.
-    const trimmed = userMessage.trim();
-    if (trimmed.length < 3) {
+    console.log(`🔍 Chatbot FAQ Search: "${userMessage}"`);
+    console.log(`📚 Available KB articles for matching: ${faqs?.length || 0}`);
+
+    // Handle greetings
+    if (text.length < 3) {
       const greetingRe = /^(hi|hello|hey|hey there|good morning|good afternoon|good evening)[.!]?$/i;
-      if (greetingRe.test(trimmed)) {
-        console.debug('Detected greeting, returning canned greeting.');
-        return defaultMessages[0].text;
+      if (greetingRe.test(text)) {
+        console.log('✅ Detected greeting, returning canned greeting.');
+        return { answer: defaultMessages[0].text, question: "greeting", faq: null };
       }
       return null;
     }
 
-    // Exact substring match against question or answer
-    for (const faq of faqs) {
-      const q = faq.question.toLowerCase();
-      const a = faq.answer.toLowerCase();
-      if (q.includes(text) || a.includes(text) || text.includes(q)) return faq.answer;
+    if (!faqs || faqs.length === 0) {
+      console.warn('⚠️ No KB articles available for FAQ matching!');
+      return null;
     }
 
-    // Token match: count overlapping tokens (allow shorter tokens to help match brief questions)
-    const tokens = text.split(/\W+/).filter(t => t.length > 2);
+    // Tokenize user input (ignore common stop words)
+    const stopWords = new Set(['the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in', 'with', 'to', 'for', 'of', 'as', 'by', 'from', 'that', 'this', 'it', 'be', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can']);
+    const tokens = text.split(/\W+/).filter(t => t.length > 2 && !stopWords.has(t));
+    
     if (tokens.length === 0) return null;
-    let best = { score: 0, answer: null };
+
+    // Score each FAQ
+    let best = { score: 0, answer: null, question: null };
     for (const faq of faqs) {
-      const q = (faq.question || '').toLowerCase() + ' ' + (faq.answer || '').toLowerCase();
+      const q = (faq.question || '').toLowerCase();
+      const a = (faq.answer || '').toLowerCase();
       let score = 0;
-      for (const tok of tokens) if (q.includes(tok)) score++;
-      // log each faq's score for this query (debug level)
-      console.debug('FAQ score', { id: faq.id, question: faq.question, score });
-      if (score > best.score) best = { score, answer: faq.answer };
+
+      // Exact phrase match in question (highest weight)
+      if (q.includes(text)) score += 100;
+      
+      // Exact phrase match in answer (high weight)
+      if (a.includes(text)) score += 80;
+
+      // User query is substring of FAQ question (very relevant)
+      if (text.includes(q) && q.length > 5) score += 90;
+
+      // Token matching with position weighting
+      tokens.forEach((tok, idx) => {
+        const posWeight = 1 + (tokens.length - idx) * 0.1; // Earlier tokens weighted higher
+        
+        // Question match (higher weight)
+        if (q.includes(tok)) score += 10 * posWeight;
+        
+        // Answer match (lower weight)
+        if (a.includes(tok)) score += 5 * posWeight;
+        
+        // Exact word boundary match (bonus)
+        const wordBoundaryRegex = new RegExp(`\\b${tok}\\b`);
+        if (wordBoundaryRegex.test(q)) score += 5 * posWeight;
+        if (wordBoundaryRegex.test(a)) score += 3 * posWeight;
+      });
+
+      // Length similarity bonus (prefer FAQs with similar length to query)
+      const lengthDiff = Math.abs(q.length - text.length);
+      if (lengthDiff < 20) score += 5;
+
+      if (score > best.score) {
+        best = { score, answer: faq.answer, question: faq.question, faq }; // Include full FAQ object for context
+      }
     }
-    // require at least one token match to accept (lenient)
-    if (best.score >= 1) {
-      console.debug('FAQ matcher: matched tokens=', tokens, 'score=', best.score, 'answer=', best.answer?.slice(0, 120));
-      return best.answer;
+
+    // Require minimum score threshold
+    const threshold = tokens.length > 3 ? 15 : 10;
+    if (best.score >= threshold) {
+      console.log(`✅ FAQ Match Found! Score: ${best.score.toFixed(1)} (threshold: ${threshold})`);
+      console.log(`   Matched KB Article: "${best.question?.slice(0, 100)}${best.question?.length > 100 ? '...' : ''}"`);
+      console.log(`   Answer preview: "${best.answer?.slice(0, 150)}${best.answer?.length > 150 ? '...' : ''}"`);
+      return { answer: best.answer, question: best.question, faq: best.faq }; // Return full context
     }
-    console.debug('FAQ matcher: no good local match', { tokens, best });
+    
+    console.log(`❌ No FAQ match found. Best score: ${best.score.toFixed(1)} (threshold: ${threshold})`);
+    if (best.question) {
+      console.log(`   Closest match was: "${best.question.slice(0, 80)}${best.question.length > 80 ? '...' : ''}" (score: ${best.score.toFixed(1)})`);
+    }
+    console.log(`   Search tokens used: [${tokens.join(', ')}]`);
     return null;
   };
 
@@ -235,19 +295,23 @@ const EmployeeChatbot = ({ closeModal }) => {
     // If the user explicitly asks to list FAQs, return a list from the loaded `faqs`.
     const listFaqsRe = /\b(list|show|display|what are)\b.*\b(faqs|faq|knowledge articles|articles|knowledge base)\b/i;
     if (listFaqsRe.test(userMessage)) {
-      if (!faqs || faqs.length === 0) return "There are no knowledge base articles available right now.";
+      if (!faqs || faqs.length === 0) return { text: "There are no knowledge base articles available right now.", matchedQuestion: null };
       // Return a friendly bullet list (short subjects)
       const items = faqs.map((f, i) => `${i + 1}. ${f.question}`);
-      return `Here are the available knowledge base articles:\n\n${items.join('\n')}`;
+      return { text: `Here are the available knowledge base articles:\n\n${items.join('\n')}`, matchedQuestion: "list_faqs" };
     }
 
     const localFirst = findFAQAnswer(userMessage);
     // If we have a local FAQ hit, attempt to paraphrase it so responses feel fresh
     if (localFirst) {
-      console.log('Local FAQ hit — attempting paraphrase via OpenRouter');
+      console.log('✅ Using FAQ answer (will paraphrase if API key available)');
+      const answerText = typeof localFirst === 'string' ? localFirst : localFirst.answer;
+      const matchedQuestion = typeof localFirst === 'object' ? localFirst.question : null;
+      
       // If no API key, return the raw local answer
       if (!apiKey) {
-        return localFirst;
+        console.log('⚠️ No OpenRouter API key - returning raw FAQ answer');
+        return { text: answerText, matchedQuestion };
       }
 
       // Build a paraphrase prompt that keeps technical tokens intact
@@ -264,7 +328,7 @@ const EmployeeChatbot = ({ closeModal }) => {
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: paraphraseSystem },
-              { role: "user", content: `Question: ${userMessage}\n\nFAQ answer:\n${localFirst}` },
+              { role: "user", content: `Question: ${userMessage}\n\nFAQ answer:\n${answerText}` },
             ],
           }),
         });
@@ -273,19 +337,19 @@ const EmployeeChatbot = ({ closeModal }) => {
         if (data?.choices?.[0]?.message?.content) {
           const paraphrased = data.choices[0].message.content.trim();
           // Safety: if paraphrase is suspiciously short/empty, fallback to original
-          if (paraphrased.length < 10) return localFirst;
-          return paraphrased;
+          if (paraphrased.length < 10) return { text: answerText, matchedQuestion };
+          return { text: paraphrased, matchedQuestion };
         }
-        return localFirst;
+        return { text: answerText, matchedQuestion };
       } catch (e) {
         console.error('Paraphrase request failed, returning original FAQ answer', e);
-        return localFirst;
+        return { text: answerText, matchedQuestion };
       }
     }
 
     // If we don't have an OpenRouter API key and no local match, fall back to a generic message
     if (!apiKey) {
-      return "Please refer to our support team.";
+      return { text: "Please refer to our support team.", matchedQuestion: null };
     }
 
     try {
@@ -310,104 +374,129 @@ const EmployeeChatbot = ({ closeModal }) => {
         const msg = data.error.message || "Unknown error from API.";
         if (/auth|credential/i.test(msg)) {
           const local = findFAQAnswer(userMessage);
-          return local || "Please refer to our support team.";
+          if (local) {
+            const answerText = typeof local === 'string' ? local : local.answer;
+            const matchedQuestion = typeof local === 'object' ? local.question : null;
+            return { text: answerText, matchedQuestion };
+          }
+          return { text: "Please refer to our support team.", matchedQuestion: null };
         }
-        return `Error: ${msg}`;
+        return { text: `Error: ${msg}`, matchedQuestion: null };
       }
-      return data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
+      return { text: data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.", matchedQuestion: null };
     } catch (error) {
       // Network or other error: fallback to local FAQ
       const local = findFAQAnswer(userMessage);
-      return local || "Sorry, there was an error connecting to the support service.";
+      if (local) {
+        const answerText = typeof local === 'string' ? local : local.answer;
+        const matchedQuestion = typeof local === 'object' ? local.question : null;
+        return { text: answerText, matchedQuestion };
+      }
+      return { text: "Sorry, there was an error connecting to the support service.", matchedQuestion: null };
     }
+  };
+
+  // Generate context-aware suggestions based on the matched KB article
+  const getContextualSuggestions = (matchedQuestion) => {
+    if (!matchedQuestion) return getDefaultSuggestions();
+    
+    const q = matchedQuestion.toLowerCase();
+    
+    // Ticket-related questions
+    if (q.includes('ticket') || q.includes('submit')) {
+      if (q.includes('categories') || q.includes('issues')) {
+        return [
+          { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+          { label: 'View My Tickets', type: 'redirect', route: '/employee/ticket-tracker' },
+          { label: 'Browse All FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' }
+        ];
+      }
+      if (q.includes('track') || q.includes('status')) {
+        return [
+          { label: 'View My Tickets', type: 'redirect', route: '/employee/ticket-tracker' },
+          { label: 'Submit New Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+          { label: 'Browse FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' }
+        ];
+      }
+      if (q.includes('attach') || q.includes('file')) {
+        return [
+          { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+          { label: 'View Ticket Guidelines', type: 'redirect', route: '/employee/frequently-asked-questions' },
+          { label: 'My Tickets', type: 'redirect', route: '/employee/ticket-tracker' }
+        ];
+      }
+    }
+    
+    // Password/account questions
+    if (q.includes('password') || q.includes('profile') || q.includes('account')) {
+      return [
+        { label: 'Go to Settings', type: 'redirect', route: '/employee/settings' },
+        { label: 'View Account FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
+        { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' }
+      ];
+    }
+    
+    // General FAQ browsing
+    return [
+      { label: 'Browse All FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
+      { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+      { label: 'View My Tickets', type: 'redirect', route: '/employee/ticket-tracker' }
+    ];
   };
 
   const handleSend = async () => {
     if (!inputValue.trim()) return;
 
-    const userMessage = {
-      text: inputValue,
+    const userMessage = inputValue.trim();
+    const userMessageObj = {
+      text: userMessage,
       sender: "user",
       time: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessageObj]);
     setInputValue("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const botResponse = getBotResponse(inputValue);
+    try {
+      // Use the FAQ-aware response function instead of hardcoded patterns
+      const botResponse = await fetchOpenRouterResponse(userMessage);
+      const responseText = typeof botResponse === 'string' ? botResponse : botResponse.text;
+      const matchedQuestion = typeof botResponse === 'object' ? botResponse.matchedQuestion : null;
+      
+      console.log(`💡 Generating suggestions for matched question: "${matchedQuestion || 'none'}"`);
+      const suggestions = getContextualSuggestions(matchedQuestion);
+      
       setMessages((prev) => [
         ...prev,
         {
-          text: botResponse.text,
+          text: responseText,
           sender: "bot",
-          isList: botResponse.isList,
-          listItems: botResponse.listItems,
-          suggestions: botResponse.suggestions,
+          time: new Date(),
+          suggestions,
         },
       ]);
+    } catch (error) {
+      console.error('Error getting bot response:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: "Sorry, I encountered an error. Please try again.",
+          sender: "bot",
+          time: new Date(),
+          suggestions: getDefaultSuggestions(),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
-  const getBotResponse = (message) => {
-    const msg = message.toLowerCase();
-    if (msg.includes("hardware") || msg.includes("software")) {
-      return {
-        text: "For hardware vs software issues, try the following steps:",
-        isList: true,
-        listItems: [
-          "✅ Restart your device",
-          "✅ Check if others have the same issue",
-          "✅ Look for error messages",
-          "✅ Contact IT support for diagnosis",
-        ],
-        suggestions: [
-          { label: 'Open FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
-          { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' }
-        ]
-      };
-    }
-    if (msg.includes('password') || msg.includes('forgot') || msg.includes('change password')) {
-      return {
-        text: "If you need to change or reset your password, you can go to your settings to update it or follow the reset flow.",
-        isList: false,
-        suggestions: [
-          { label: 'Reset / Change Password', type: 'redirect', route: '/employee/settings' },
-          { label: 'How to reset password (KB)', type: 'redirect', route: '/employee/frequently-asked-questions' },
-        ],
-      };
-    }
-    if (msg.includes('submit') || msg.includes('create ticket') || msg.includes('open ticket') || msg.includes('report')) {
-      return {
-        text: "I can help you open a ticket. Would you like me to pre-fill a ticket form for you based on your message?",
-        isList: false,
-        suggestions: [
-          { label: 'Open pre-filled ticket', type: 'prefill', route: '/employee/submit-ticket' },
-          { label: 'Browse ticket categories', type: 'redirect', route: '/employee/faq' },
-        ],
-      };
-    }
-    if (msg.includes('faq') || msg.includes('help article') || msg.includes('knowledge')) {
-      return {
-        text: 'Here are some frequently asked questions and articles that might help:',
-        isList: false,
-        suggestions: [
-          { label: 'Open FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
-        ],
-      };
-    }
-    return {
-      text: "Thanks for your message! Would you like to browse solutions, FAQs, or open a ticket?",
-      isList: false,
-      suggestions: [
-        { label: 'Open FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
-        { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
-        { label: 'Reset Password', type: 'redirect', route: '/employee/settings' }
-      ]
-    };
-  };
+  const getDefaultSuggestions = () => [
+    { label: 'Browse FAQs', type: 'redirect', route: '/employee/frequently-asked-questions' },
+    { label: 'Submit a Ticket', type: 'prefill', route: '/employee/submit-ticket' },
+    { label: 'View My Tickets', type: 'redirect', route: '/employee/ticket-tracker' }
+  ];
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSend();
