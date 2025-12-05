@@ -380,3 +380,93 @@ class KnowledgeArticleVersion(models.Model):
 
     def __str__(self):
         return f"Article {self.article_id} - v{self.version_number} @ {self.modified_at}"
+
+
+class HDTSUser(models.Model):
+    """
+    Model to store HDTS user information synced from the auth service via message broker.
+    This model mirrors the User model from auth2/users but is stored in the backend database
+    for local access without cross-service calls.
+    """
+    # Primary identifier from auth service
+    hdts_user_id = models.IntegerField(unique=True, db_index=True)
+    
+    # User profile information
+    email = models.EmailField(unique=True, db_index=True)
+    username = models.CharField(max_length=150, db_index=True)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    full_name = models.CharField(max_length=200, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Company/Department information
+    company_id = models.CharField(max_length=8, db_index=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Status tracking
+    status = models.CharField(max_length=20, default='Pending')  # Pending, Approved, Rejected
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    
+    # Profile picture URL from auth service
+    profile_picture = models.URLField(blank=True, null=True)
+    
+    # Timestamp information
+    date_joined = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    
+    # Sync tracking
+    last_synced_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-last_synced_at']
+        verbose_name = 'HDTS User'
+        verbose_name_plural = 'HDTS Users'
+        indexes = [
+            models.Index(fields=['hdts_user_id']),
+            models.Index(fields=['email']),
+            models.Index(fields=['company_id']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.full_name or self.email} ({self.company_id})"
+
+
+class HDTSUserRole(models.Model):
+    """
+    Model to store HDTS user role assignments synced from the auth service.
+    Tracks which roles are assigned to HDTS users.
+    """
+    hdts_user_role_id = models.IntegerField(unique=True, db_index=True)
+    hdts_user = models.ForeignKey(HDTSUser, on_delete=models.CASCADE, related_name='roles')
+    
+    # Role information
+    role_name = models.CharField(max_length=100, db_index=True)
+    role_id = models.IntegerField()
+    
+    # Assignment tracking
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    # Role settings (arbitrary JSON data from auth service)
+    settings = models.JSONField(blank=True, null=True)
+    
+    # Sync tracking
+    last_synced_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-last_synced_at']
+        verbose_name = 'HDTS User Role'
+        verbose_name_plural = 'HDTS User Roles'
+        unique_together = ['hdts_user', 'role_name']
+        indexes = [
+            models.Index(fields=['hdts_user', 'role_name']),
+            models.Index(fields=['role_name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.hdts_user.email} - {self.role_name}"

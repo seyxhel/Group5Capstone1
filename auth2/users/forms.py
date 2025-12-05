@@ -1,0 +1,557 @@
+# auth/users/forms.py
+from django import forms
+from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from captcha.fields import CaptchaField
+from .models import User, UserOTP
+from .rate_limiting import check_login_rate_limits
+from .serializers import (
+    validate_profile_picture_file_size,
+    validate_profile_picture_dimensions,
+    CustomTokenObtainPairSerializer,
+)
+
+class ProfileSettingsForm(forms.ModelForm):
+    """
+    Form for updating user profile details with role-based field restrictions
+    based on the user's matrix.
+    """
+
+    profile_picture = forms.ImageField(
+        required=False,
+        validators=[validate_profile_picture_file_size, validate_profile_picture_dimensions]
+    )
+
+    # Use suffix choices from the User model
+    suffix = forms.ChoiceField(
+        choices=[('', '')] + User._meta.get_field('suffix').choices,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            # Personal (Editable by both)
+            'username',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'suffix',
+            'phone_number',
+
+            # Organization (Mixed Editability)
+            'email',
+            'company_id',
+            'department',
+
+            # Profile Picture
+            'profile_picture',
+
+            # Security (Mixed Editability)
+            'otp_enabled',
+            # 'last_login',  <-- REMOVED (Non-editable)
+            # 'date_joined', <-- REMOVED (Non-editable)
+
+            # Admin-Only Fields (Editable subset)
+            'status',
+            'notified',
+            'is_active',
+            'is_staff',
+            'is_superuser',
+            # 'failed_login_attempts', <-- REMOVED (Non-editable)
+            'is_locked',
+            # 'lockout_time', <-- REMOVED (Non-editable)
+        ]
+        
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'middle_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'company_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'department': forms.Select(attrs={'class': 'form-control'}),
+            'otp_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'notified': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_staff': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_superuser': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_locked': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        
+        # Define read-only fields for template rendering (optional, helps clarify)
+        # We handle actual disabling in __init__ based on roles
+        read_only = ('last_login', 'date_joined', 'failed_login_attempts', 'lockout_time')
+
+    # UPDATED __init__ including temporary exclusion logic for admin stuff since i commented it out
+    def __init__(self, *args, **kwargs):
+        self.request_user = kwargs.pop('request_user', None)
+        super().__init__(*args, **kwargs)
+
+        # 🧩 TEMPORARY EXCLUSION: Hide admin/system fields during template testing
+        if not getattr(self, "temporary_dev_mode", False):
+            temp_excluded_fields = [
+                "status",
+                "notified",
+                "is_active",
+                "is_staff",
+                "is_superuser",
+                "is_locked",
+            ]
+            for field in temp_excluded_fields:
+                self.fields.pop(field, None)
+
+        if not self.request_user:
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
+            return
+        
+        # Handle field restrictions for non-admin users
+        is_admin = self.request_user.is_superuser or self.request_user.is_staff
+        
+        if not is_admin:
+            # Fields that non-admin users cannot edit - make them disabled but visible
+            admin_only_fields = [
+                'email', 'company_id', 'department',
+                'first_name', 'middle_name', 'last_name', 'suffix'
+            ]
+            
+            for field_name in admin_only_fields:
+                if field_name in self.fields:
+                    # Disable the field so it can't be edited
+                    self.fields[field_name].disabled = True
+                    # Make it not required so validation doesn't fail
+                    self.fields[field_name].required = False
+                    # Add help text
+                    
+
+# ORIGINAL __init__ just remove the "1" 
+    def __init__1(self, *args, **kwargs):
+        self.request_user = kwargs.pop('request_user', None)
+        super().__init__(*args, **kwargs)
+
+        if not self.request_user:
+            # If no user context, disable everything for safety
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
+            return
+
+        is_admin = self.request_user.is_superuser or self.request_user.is_staff
+
+        # --- Fields editable ONLY by admin ---
+        admin_only_editable = [
+            'email',
+            'company_id',
+            'department',
+            'status',
+            'notified',
+            'is_active',
+            'is_staff',
+            'is_superuser',
+            'is_locked'
+        ]
+
+        # --- Fields editable by regular users (non-admin) ---
+        user_editable = [
+            'username',
+            'phone_number',
+            'profile_picture'  # This field may not be in this form but handled separately
+        ]
+
+        # If user is NOT an admin, disable admin-only fields
+        if not is_admin:
+            for field_name in admin_only_editable:
+                if field_name in self.fields:
+                    self.fields[field_name].disabled = True
+                    
+
+        # Add help text for regular user fields
+        for field_name in user_editable:
+            if field_name in self.fields:
+                if not is_admin:
+                    self.fields[field_name].help_text = "This field can be edited by you."
+
+    def clean(self):
+        """
+        Custom validation to ensure non-admin users cannot submit restricted fields.
+        This mirrors the API validation logic.
+        
+        Note: The view already filters the POST data for non-admins, so this is
+        an additional safety check. Disabled fields are allowed to pass through
+        unchanged.
+        """
+        cleaned_data = super().clean()
+        
+        if not self.request_user:
+            raise forms.ValidationError("User context is required for validation.")
+        
+        is_admin = self.request_user.is_superuser or self.request_user.is_staff
+        
+        # If not admin, check if they're trying to modify restricted fields
+        # Skip this check for disabled fields since they can't be modified
+        if not is_admin:
+            allowed_fields = {'username', 'phone_number', 'profile_picture', 'otp_enabled'}
+            admin_only_fields = {
+                'email', 'company_id', 'department', 'first_name', 'middle_name', 
+                'last_name', 'suffix', 'status', 'notified',
+                'is_active', 'is_staff', 'is_superuser', 'is_locked'
+            }
+            
+            # Check if any admin-only fields were changed
+            # Skip fields that are disabled (they can't be edited anyway)
+            for field_name in admin_only_fields:
+                if field_name in cleaned_data and field_name in self.fields:
+                    # Skip disabled fields - they're read-only and safe
+                    if self.fields[field_name].disabled:
+                        continue
+                        
+                    # Get the original value from the instance
+                    original_value = getattr(self.instance, field_name, None)
+                    new_value = cleaned_data.get(field_name)
+                    
+                    # If the value has changed, raise an error
+                    if original_value != new_value:
+                        raise forms.ValidationError(
+                            f"You can only update: {', '.join(sorted(allowed_fields))}. "
+                            f"You do not have permission to modify '{field_name}'."
+                        )
+        
+        return cleaned_data
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        # Only validate if field exists and is in cleaned_data (for admins)
+        if 'email' not in self.fields:
+            return email
+            
+        # Check if the field is disabled (meaning non-admin tried to change it)
+        if self.fields['email'].disabled and self.instance and email != self.instance.email:
+             raise forms.ValidationError("You do not have permission to change the email address.")
+
+        if not email:
+            return email
+
+        # Check for duplicates if email changed
+        if self.instance and self.instance.pk and email != self.instance.email:
+            if User.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
+                raise forms.ValidationError("A user with this email already exists.")
+        return email
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A user with this username already exists.")
+        return username
+
+    def clean_phone_number(self):
+        phone_number = self.cleaned_data.get('phone_number')
+        if not phone_number:
+            return phone_number # Allow clearing the phone number
+
+        # Normalize or validate phone number format here if needed
+
+        if User.objects.filter(phone_number=phone_number).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A user with this phone number already exists.")
+        return phone_number
+
+    # Clean method for Company ID if admins change it
+    def clean_company_id(self):
+        company_id = self.cleaned_data.get('company_id')
+        # Only validate if field exists (for admins)
+        if 'company_id' not in self.fields:
+            return company_id
+            
+        # Check if the field is disabled (meaning non-admin tried to change it)
+        if self.fields['company_id'].disabled and self.instance and company_id != self.instance.company_id:
+             raise forms.ValidationError("You do not have permission to change the Company ID.")
+
+        if not company_id:
+            # Handle case where admin might clear it - decide if allowed
+            # raise forms.ValidationError("Company ID cannot be empty.")
+            return company_id # Or return None if allowed
+
+        # Check for duplicates if company_id changed
+        if self.instance and self.instance.pk and company_id != self.instance.company_id:
+             if User.objects.filter(company_id=company_id).exclude(pk=self.instance.pk).exists():
+                 raise forms.ValidationError("A user with this Company ID already exists.")
+        return company_id
+
+    def save(self, commit=True):
+        """Override save to handle image clearing manually."""
+        instance = super().save(commit=False)
+
+        # Handle profile picture clear checkbox
+        # Check if 'profile_picture-clear' was sent in POST data
+        if self.data.get('profile_picture-clear'):
+            instance.profile_picture = None
+        # Handle the case where a new file is uploaded (handled by ModelForm)
+        # Handle the case where no file is uploaded and clear is not checked (field remains unchanged)
+
+        if commit:
+            instance.save()
+        return instance
+
+
+class LoginForm(forms.Form):
+    """Login form with support for email/password authentication, 2FA OTP, and captcha protection."""
+
+    CAPTCHA_FAILED_ATTEMPT_THRESHOLD = 5
+    email = forms.EmailField(
+        max_length=254,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email',
+            'required': True
+        }),
+        error_messages={
+            'required': 'Email address is required.',
+            'invalid': 'Please enter a valid email address.'
+        }
+    )
+    
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your password',
+            'autocomplete': 'current-password',
+            'required': True
+        }),
+        error_messages={
+            'required': 'Password is required.'
+        }
+    )
+    
+    otp_code = forms.CharField(
+        max_length=6,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter 6-digit OTP (if enabled)',
+            'autocomplete': 'one-time-code',
+            'pattern': '[0-9]{6}',
+            'maxlength': '6'
+        }),
+        help_text='Required only if 2FA is enabled for your account.'
+    )
+    
+    captcha = CaptchaField(
+        error_messages={
+            'invalid': 'Please solve the captcha correctly.',
+            'required': 'Captcha verification is required.'
+        }
+    )
+    
+    remember_me = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        }),
+        label='Keep me signed in'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        self.rate_limit_state = kwargs.pop('rate_limit_state', None)
+        super().__init__(*args, **kwargs)
+        
+        # Check if we're in OTP verification mode (credentials stored in session)
+        if self.request and self.request.session.get('otp_email'):
+            # We're in OTP mode - make email, password, system optional since they're in session
+            if 'email' in self.fields:
+                self.fields['email'].required = False
+            if 'password' in self.fields:
+                self.fields['password'].required = False
+        
+        session_email = None
+        if self.request:
+            session_email = self.request.session.get('force_captcha_email')
+            if session_email and not self.data:
+                self.initial.setdefault('email', session_email)
+
+        # Determine which email value we can inspect for captcha rules
+        email = None
+        if self.data and 'email' in self.data:
+            email = self.data.get('email')
+        elif self.request:
+            if self.request.method == 'POST':
+                email = self.request.POST.get('email')
+            if not email:
+                email = self.request.session.get('otp_email')
+        if not email:
+            email = session_email
+
+        # Decide whether to render captcha based on multiple signals
+        self.show_captcha = self.should_require_captcha(
+            request=self.request,
+            email=email,
+            rate_limit_state=self.rate_limit_state,
+        )
+
+        if not self.show_captcha:
+            self.fields.pop('captcha', None)
+        
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        password = cleaned_data.get('password')
+        otp_code = cleaned_data.get('otp_code')
+        
+        # Check if we're in OTP verification mode (credentials in session)
+        if self.request and self.request.session.get('otp_email'):
+            email = self.request.session.get('otp_email')
+            password = self.request.session.get('otp_password')
+        
+        if email and password:
+            # Use the same authentication logic as the API
+            # Provide both username and email to match serializer expectations
+            serializer_data = {
+                'username': email,  # Use username field as expected by TokenObtainPairSerializer
+                'email': email,     # Also provide email field 
+                'password': password,
+                'otp_code': otp_code or ''
+            }
+            
+            # Create serializer instance with request context
+            serializer = CustomTokenObtainPairSerializer(
+                data=serializer_data,
+                context={'request': self.request} if self.request else {}
+            )
+            
+            try:
+                # Validate using the same logic as API
+                if serializer.is_valid(raise_exception=True):
+                    # Get the authenticated user
+                    user = serializer.user
+                    
+                    # Store the authenticated user for the view
+                    self.user_cache = user
+                else:
+                    # This shouldn't happen since we use raise_exception=True
+                    raise ValidationError(
+                        'Authentication failed. Please check your credentials.',
+                        code='authentication_failed'
+                    )
+                    
+            except ValidationError as e:
+                # Re-raise Django form validation errors
+                raise e
+            except DRFValidationError as e:
+                # Convert DRF validation errors to Django form errors
+                error_detail = getattr(e, 'detail', str(e))
+                
+                # Check for specific error codes from the serializer
+                if isinstance(error_detail, dict):
+                    # Handle non-field errors
+                    non_field_errors = error_detail.get('non_field_errors', [])
+                    if non_field_errors:
+                        error_msg = str(non_field_errors[0]) if non_field_errors else str(e)
+                    else:
+                        error_msg = str(e)
+                elif isinstance(error_detail, list):
+                    error_msg = str(error_detail[0]) if error_detail else str(e)
+                else:
+                    error_msg = str(error_detail)
+                
+                # Get the error code from the exception if available
+                error_code = None
+                if hasattr(e, 'detail'):
+                    if isinstance(e.detail, dict):
+                        # Check non_field_errors for code
+                        non_field = e.detail.get('non_field_errors', [])
+                        if non_field and hasattr(non_field[0], 'code'):
+                            error_code = non_field[0].code
+                    elif isinstance(e.detail, list) and e.detail:
+                        if hasattr(e.detail[0], 'code'):
+                            error_code = e.detail[0].code
+                
+                # Map specific error codes or messages to appropriate validation errors
+                if error_code == 'account_locked' or 'account is locked' in error_msg.lower() or 'account locked' in error_msg.lower():
+                    raise ValidationError(error_msg, code='account_locked')
+                elif error_code == 'otp_required' or ('otp' in error_msg.lower() and 'required' in error_msg.lower()):
+                    raise ValidationError(error_msg, code='otp_required')
+                elif 'otp' in error_msg.lower() and 'invalid' in error_msg.lower():
+                    raise ValidationError(error_msg, code='otp_invalid')
+                elif 'otp' in error_msg.lower() and 'expired' in error_msg.lower():
+                    raise ValidationError(error_msg, code='otp_expired')
+                else:
+                    raise ValidationError(error_msg, code='authentication_failed')
+            except Exception as e:
+                # Handle any other unexpected errors
+                raise ValidationError(
+                    'Authentication failed. Please try again.',
+                    code='authentication_failed'
+                )
+        
+        return cleaned_data
+    
+    def get_user(self):
+        """Return the authenticated user."""
+        return getattr(self, 'user_cache', None)
+
+    @classmethod
+    def should_require_captcha(cls, request=None, email=None, rate_limit_state=None):
+        """Centralized logic for deciding if captcha should be enforced."""
+        captcha_required = False
+
+        if request:
+            if request.session.get('otp_email'):
+                return False
+            # Session flag wins immediately
+            captcha_required = request.session.get('force_captcha', False)
+
+            if not captcha_required:
+                override = getattr(request, 'captcha_required_override', False)
+                captcha_required = bool(override)
+
+            if not captcha_required:
+                state = rate_limit_state
+                if state is None:
+                    state = check_login_rate_limits(request)
+                if state:
+                    captcha_required = state.get('captcha_required', False)
+
+        if not captcha_required and email:
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                captcha_required = (
+                    user.failed_login_attempts >= cls.CAPTCHA_FAILED_ATTEMPT_THRESHOLD
+                    or user.is_locked
+                )
+
+        return captcha_required
+
+
+class ForgotPasswordForm(forms.Form):
+    """
+    Form for requesting password reset that matches the DRF ForgotPasswordSerializer validation.
+    """
+    email = forms.EmailField(
+        max_length=254,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email',
+            'required': True
+        }),
+        error_messages={
+            'required': 'Email address is required.',
+            'invalid': 'Please enter a valid email address.'
+        }
+    )
+
+    def clean_email(self):
+        """
+        Validate email using same logic as ForgotPasswordSerializer.
+        For security, don't reveal whether the email exists or not.
+        """
+        email = self.cleaned_data.get('email')
+        if email:
+            # We don't validate if the user exists here for security reasons
+            # The view will handle this logic just like the DRF serializer
+            pass
+        return email
