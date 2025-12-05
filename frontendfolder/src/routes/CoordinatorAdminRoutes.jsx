@@ -17,6 +17,8 @@ import KnowledgeArchived from '../coordinator-admin/pages/knowledgebase/Knowledg
 import KnowledgeArticleView from '../coordinator-admin/pages/knowledgebase-article/KnowledgeArticleView';
 import CoordinatorAMSDashboard from '../coordinator-admin/pages/integration/ams/CoordinatorAMSDashboard';
 import CoordinatorAMSTickets from '../coordinator-admin/pages/integration/ams/CoordinatorAMSTickets';
+import CoordinatorOwnedTickets from '../coordinator-admin/pages/owned-tickets/CoordinatorOwnedTickets';
+import CoordinatorOwnedTicketDetail from '../coordinator-admin/pages/owned-tickets/CoordinatorOwnedTicketDetail';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 // protected route
 import ProtectedRoute from "./ProtectedRoute";
@@ -60,6 +62,12 @@ const CoordinatorAdminRoutes = () => (
       <Route path="ams">
         <Route path="dashboard" element={<CoordinatorAMSDashboard />} />
         <Route path="tickets" element={<CoordinatorAMSTickets />} />
+      </Route>
+
+      {/* Owned Tickets routes */}
+      <Route path="owned-tickets">
+        <Route path="" element={<CoordinatorOwnedTickets />} />
+        <Route path=":ticketNumber" element={<CoordinatorOwnedTicketDetail />} />
       </Route>
       
       <Route path="*" element={<NotFoundPage />} />

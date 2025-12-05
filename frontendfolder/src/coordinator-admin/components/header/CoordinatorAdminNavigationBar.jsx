@@ -367,11 +367,20 @@ const CoordinatorAdminNavBar = () => {
     ]
   };
 
+  const ownedTicketsSection = {
+    key: 'owned-tickets',
+    label: 'Owned Tickets',
+    basePath: '/admin/owned-tickets',
+    links: [
+      { label: 'My Tickets', path: '/admin/owned-tickets' }
+    ]
+  };
+
   // Role-based section composition
   let navSections = [];
   if (role === 'Ticket Coordinator') {
-    // Ticket coordinator: Ticket Management, AMS, BMS, Reports
-    navSections = [ticketsSection, amsSection, bmsSection, reportsSection];
+    // Ticket coordinator: Ticket Management, Owned Tickets, AMS, BMS, Reports
+    navSections = [ticketsSection, ownedTicketsSection, amsSection, bmsSection, reportsSection];
   } else if (role === 'System Admin') {
     // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
     navSections = [ticketsSection, usersSection, reportsSection, kbSection];
