@@ -111,6 +111,9 @@ urlpatterns = [
     path('captcha/verify/', CaptchaVerifyView.as_view(), name='captcha-verify'),
     path('captcha/required/', captcha_required_view, name='captcha-required'),
     
+    # Invite agent endpoint (must come before router to have priority)
+    path('invite-agent/', UserViewSet.as_view({'get': 'invite_agent', 'post': 'invite_agent'}), name='api-invite-agent'),
+    
     # User listing endpoint
     path('list/', UserViewSet.as_view({'get': 'list'}), name='user-list'),
     

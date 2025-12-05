@@ -328,10 +328,14 @@ CELERY_RESULT_BACKEND = None  # Disable result backend to avoid dependencies
 
 # Celery Task Routes
 CELERY_TASK_ROUTES = {
+    # TTS routes
     'tts.tasks.sync_role_to_workflow_api': {'queue': 'tts.role.sync'},
     'tts.tasks.sync_user_system_role_to_workflow_api': {'queue': 'tts.user_system_role.sync'},
     'tts.tasks.sync_user_system_role_delete': {'queue': 'tts.user_system_role.sync'},
+    # HDTS routes
+    'hdts.tasks.sync_user': {'queue': 'hdts.user.sync'},
+    'hdts.tasks.sync_user_system_role': {'queue': 'hdts.user_system_role.sync'},
 }
 
-CELERY_TASK_DEFAULT_QUEUE = 'tts'
+CELERY_TASK_DEFAULT_QUEUE = 'default'
 

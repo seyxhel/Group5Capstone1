@@ -15,9 +15,10 @@ def hdts_user_post_save(sender, instance, created, **kwargs):
     """
     Signal handler for when an HDTS user is saved locally.
     This is triggered after processing sync messages from the auth service.
+    Combined user + role data is now stored in a single HDTSUser model.
     """
     action = "created" if created else "updated"
-    logger.info(f"HDTS User {action} locally: {instance.email} (hdts_user_id={instance.hdts_user_id})")
+    logger.info(f"HDTS User {action} locally: {instance.email} with role '{instance.role}' (hdts_user_id={instance.hdts_user_id})")
     
     # Future: Add any local business logic here
     # For example: trigger workflows, send notifications, etc.
@@ -34,27 +35,3 @@ def hdts_user_post_delete(sender, instance, **kwargs):
     # Future: Add any cleanup logic here
     # For example: cascade deletes, audit logs, notifications, etc.
 
-
-@receiver(post_save, sender='core.HDTSUserRole')
-def hdts_user_role_post_save(sender, instance, created, **kwargs):
-    """
-    Signal handler for when an HDTS user role is saved locally.
-    This is triggered after processing role sync messages from the auth service.
-    """
-    action = "assigned" if created else "updated"
-    logger.info(f"HDTS User role {action} locally: {instance.hdts_user.email} -> {instance.role_name}")
-    
-    # Future: Add any local business logic here
-    # For example: permission updates, workflow access control, etc.
-
-
-@receiver(post_delete, sender='core.HDTSUserRole')
-def hdts_user_role_post_delete(sender, instance, **kwargs):
-    """
-    Signal handler for when an HDTS user role is deleted locally.
-    This happens when a delete action is received from the auth service.
-    """
-    logger.info(f"HDTS User role deleted locally: {instance.hdts_user.email} -> {instance.role_name}")
-    
-    # Future: Add any cleanup logic here
-    # For example: permission revocation, access control cleanup, etc.
