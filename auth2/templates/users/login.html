@@ -12,6 +12,9 @@
 
     <!-- Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google reCAPTCHA v2 -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
 <body>
@@ -85,27 +88,14 @@
                 {% endif %}
                 -->
 
-                <!-- Captcha Field (shown only when needed) -->
-                {% if form.captcha %}
-                <div class="captcha-container">
-                    <label class="form-label">Security Verification:</label>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
-                        Please type the characters you see in the image below:
-                    </p>
-                    <div style="background: #ffebee; padding: 8px; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.85rem; color: #c62828;">
-                        Security verification required due to multiple failed login attempts.
+                <!-- Captcha Field (reCAPTCHA v3 - invisible) -->
+                <input type="hidden" id="id_captcha" name="captcha" value="">
+                {% if form.captcha.errors %}
+                    <div class="errorMsg" style="margin-top: 0.5rem; text-align: center;">
+                        {% for error in form.captcha.errors %}
+                            {{ error }}
+                        {% endfor %}
                     </div>
-                    <div class="captcha-wrapper">
-                        {{ form.captcha }}
-                    </div>
-                    {% if form.captcha.errors %}
-                        <div class="errorMsg" style="margin-top: 0.5rem; text-align: center;">
-                            {% for error in form.captcha.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
                 {% endif %}
 
                 <!-- Remember Me -->
@@ -113,6 +103,9 @@
                     {{ form.remember_me }}
                     <label for="{{ form.remember_me.id_for_label }}">{{ form.remember_me.label }}</label>
                 </div>
+
+                <!-- reCAPTCHA v2 Checkbox -->
+                <div class="g-recaptcha" data-sitekey="6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT"></div>
 
                 <!-- Submit Button -->
                 <button type="submit" class="logInButton" id="loginButton" data-original-text="Log In">
@@ -159,7 +152,7 @@
             <!-- Forgot Password & Register -->
             <div class="form-footer">
                 <a href="{{ forgot_password_url }}" class="forgotPassword">Forgot Password?</a>
-                <a href="{% url 'hdts-register-shortcut' %}" class="registerButton">Create Account</a>
+                <a href="{% url 'hdts-register-shortcut' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Help Desk Account</a>
             </div>
         </section>
     </main>
@@ -169,9 +162,26 @@
         document.addEventListener('DOMContentLoaded', function () {
             // Password visibility toggle
             document.querySelectorAll('.showPassword').forEach(toggle => {
+                const targetId = toggle.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                
+                // Function to show/hide eye icon based on input value
+                const updateIconVisibility = () => {
+                    if (passwordInput.value.length > 0) {
+                        toggle.style.display = 'flex';
+                    } else {
+                        toggle.style.display = 'none';
+                    }
+                };
+                
+                // Initial check
+                updateIconVisibility();
+                
+                // Update on input
+                passwordInput.addEventListener('input', updateIconVisibility);
+                
+                // Toggle visibility on click
                 toggle.addEventListener('click', function () {
-                    const targetId = this.getAttribute('data-target');
-                    const passwordInput = document.getElementById(targetId);
                     const icon = this.querySelector('i');
 
                     if (passwordInput.type === 'password') {
@@ -203,26 +213,132 @@
             let isFormSubmitting = false;
             
             loginForm.addEventListener('submit', function (e) {
-                // Prevent accidental double submission via keyboard
+                // Prevent default form submission
+                e.preventDefault();
+                
+                // Prevent double submission
                 if (isFormSubmitting) {
-                    e.preventDefault();
                     return false;
+                }
+                
+                // Check if grecaptcha is available
+                if (typeof grecaptcha === 'undefined') {
+                    console.error('reCAPTCHA not loaded');
+                    alert('Security verification failed to load. Please refresh the page.');
+                    return false;
+                }
+                
+                // Get reCAPTCHA response from the checkbox widget
+                const recaptchaResponse = grecaptcha.getResponse();
+                
+                if (!recaptchaResponse) {
+                    alert('Please complete the reCAPTCHA verification.');
+                    return false;
+                }
+                
+                // Get form data
+                const email = document.querySelector('input[name="email"]').value;
+                const password = document.querySelector('input[name="password"]').value;
+                
+                if (!email || !password) {
+                    alert('Email and password are required.');
+                    return;
                 }
                 
                 isFormSubmitting = true;
                 
-                // Disable submit buttons only to prevent clicking twice
+                // Disable submit buttons and show loading state
                 [loginButton, otpButton].forEach(btn => {
                     if (btn) {
                         btn.disabled = true;
                         const buttonText = btn.querySelector('.buttonText');
                         const spinner = btn.querySelector('.spinner');
-                        const originalText = btn.getAttribute('data-original-text') || 'Submitting...';
                         
-                        buttonText.textContent = originalText === 'Log In' ? 'Logging in...' : 'Verifying...';
+                        buttonText.textContent = 'Logging in...';
                         spinner.style.display = 'inline-block';
                     }
                 });
+                
+                // Call login API
+                fetch('/api/v1/users/login/api/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        g_recaptcha_response: recaptchaResponse
+                    })
+                })
+                .then(response => {
+                    return response.json().then(data => ({
+                        status: response.status,
+                        data: data
+                    }));
+                })
+                .then(result => {
+                    if (result.status === 200 && result.data.success) {
+                        // Login successful - store tokens and redirect
+                        localStorage.setItem('access_token', result.data.access_token);
+                        localStorage.setItem('refresh_token', result.data.refresh_token);
+                        
+                        // Set cookies for token
+                        document.cookie = `access_token=${result.data.access_token}; path=/`;
+                        document.cookie = `refresh_token=${result.data.refresh_token}; path=/`;
+                        
+                        // Redirect to system welcome page
+                        window.location.href = '/api/v1/users/welcome/';
+                    } else {
+                        // Login failed - show error
+                        const errorMsg = result.data.errors?.non_field_errors?.[0] || 
+                                        result.data.errors?.email?.[0] || 
+                                        result.data.errors?.password?.[0] ||
+                                        result.data.errors?.g_recaptcha_response?.[0] ||
+                                        'Login failed. Please try again.';
+                        
+                        alert(errorMsg);
+                        isFormSubmitting = false;
+                        
+                        // Re-enable buttons
+                        [loginButton, otpButton].forEach(btn => {
+                            if (btn) {
+                                btn.disabled = false;
+                                const buttonText = btn.querySelector('.buttonText');
+                                const spinner = btn.querySelector('.spinner');
+                                
+                                buttonText.textContent = 'Log In';
+                                spinner.style.display = 'none';
+                            }
+                        });
+                        
+                        // Reset reCAPTCHA for retry
+                        grecaptcha.reset();
+                    }
+                })
+                .catch(error => {
+                    console.error('API error:', error);
+                    alert('Login failed: ' + error.message);
+                    isFormSubmitting = false;
+                    
+                    // Re-enable buttons
+                    [loginButton, otpButton].forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            const buttonText = btn.querySelector('.buttonText');
+                            const spinner = btn.querySelector('.spinner');
+                            
+                            buttonText.textContent = 'Log In';
+                            spinner.style.display = 'none';
+                        }
+                    });
+                    
+                    // Reset reCAPTCHA for retry
+                    grecaptcha.reset();
+                });
+                
+                return false;
             });
             
             // Reset form state if user goes back (for OTP screen)

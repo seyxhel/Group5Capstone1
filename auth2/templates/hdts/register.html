@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account - SmartSupport</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <link rel="stylesheet" href="{% static 'hdts/styles.css' %}">
 </head>
 <body>
@@ -26,7 +27,7 @@
 
                 <header class="form-header">
                     <div class="logo">
-                        <div class="logo-icon">SS</div>
+                        <img src="{% static 'hdts/MapLogo.png' %}" alt="SmartSupport logo" class="logo-icon">
                         <h1 class="logo-text">SmartSupport</h1>
                     </div>
                     <h2>Create Account</h2>
@@ -60,6 +61,37 @@
                 </form>
             </div>
         </section>
+    </div>
+
+    <!-- Modal for Image Cropper -->
+    <div class="modal-overlay" id="cropperModal">
+        <div class="modal-container cropper-modal-container">
+            <div class="modal-header">
+                <h2>Crop Profile Picture (1:1)</h2>
+                <button type="button" class="modal-close-btn" onclick="closeCropperModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="cropper-content">
+                <div class="cropper-wrapper">
+                    <img id="cropperImage" src="" alt="Image for cropping">
+                </div>
+                <div class="cropper-preview">
+                    <div class="preview-label">Preview</div>
+                    <div class="preview-container" id="previewContainer"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal-btn" onclick="closeCropperModal()">
+                    <i class="fas fa-times"></i>&nbsp;Cancel
+                </button>
+                <button type="button" class="modal-btn primary" onclick="saveCropperImage()">
+                    <i class="fas fa-check"></i>&nbsp;Save
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal for Privacy Policy & Terms -->
@@ -102,6 +134,17 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        // Verify Cropper library is loaded
+        window.addEventListener('load', function() {
+            if (typeof Cropper !== 'undefined') {
+                console.log('Cropper.js loaded successfully');
+            } else {
+                console.error('Cropper.js failed to load');
+            }
+        });
+    </script>
     <script src="{% static 'hdts/script.js' %}"></script>
 </body>
 </html>

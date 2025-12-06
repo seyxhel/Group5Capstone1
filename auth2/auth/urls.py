@@ -53,9 +53,6 @@ urlpatterns = [
     # UI Login endpoint (supports ?system=<slug> parameter)
     path('login/', LoginView.as_view(), name='auth_login'),
     path('request-otp/', request_otp_for_login, name='auth_request_otp'),
-    
-    # Captcha URLs
-    path('captcha/', include('captcha.urls')),
 
     # Profile and Settings shortcuts (direct access without /api/v1/users/)
     path('settings/profile/', profile_settings_view, name='profile-settings'),

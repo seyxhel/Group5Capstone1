@@ -11,7 +11,7 @@ from .views.profile_views import ProfileView, profile_settings_view
 from .views.otp_views import RequestOTPView, Enable2FAView, Disable2FAView, request_otp_authenticated_view, verify_disable_otp_view
 from .views.password_views import ForgotPasswordView, ForgotPasswordUIView, ResetPasswordView, ProfilePasswordResetView, ChangePasswordUIView
 from .views.user_management_views import UserViewSet, agent_management_view, invite_agent_view
-from .views.login_views import LoginView, request_otp_for_login, SystemWelcomeView
+from .views.login_views import LoginView, request_otp_for_login, SystemWelcomeView, LoginAPIView
 from .views.captcha_views import CaptchaGenerateView, CaptchaVerifyView, captcha_required_view
 
 class PasswordResetSerializer(serializers.Serializer):
@@ -77,6 +77,7 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='user-register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('login/ui/', LoginView.as_view(), name='auth_login'),
+    path('login/api/', LoginAPIView.as_view(), name='login-api'),
     path('login/request-otp/', request_otp_for_login, name='auth_request_otp'),
     path('forgot-password/', ForgotPasswordUIView.as_view(), name='forgot-password-ui'),
     path('welcome/', SystemWelcomeView.as_view(), name='system-welcome'),

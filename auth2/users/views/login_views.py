@@ -148,14 +148,11 @@ class LoginView(FormView):
         return super().get(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
-        """Handle POST requests, including AJAX captcha checks and rate limiting"""
-        # Extract email from POST data or session (for OTP flow)
+        """Handle POST requests for login"""
+        # Check rate limits first
         user_email = request.POST.get('email') or request.session.get('otp_email')
-        
-        # Check rate limits first (per user email)
         rate_limit_check = check_login_rate_limits(request, user_email=user_email)
         request.rate_limit_state = rate_limit_check
-        request.captcha_required_override = rate_limit_check.get('captcha_required')
         
         # If IP is blocked, show error
         if not rate_limit_check['login_allowed']:
@@ -163,13 +160,7 @@ class LoginView(FormView):
                 request,
                 'Too many login attempts. Please try again later.'
             )
-            if rate_limit_check.get('captcha_required'):
-                self._mark_captcha_required()
             return self.form_invalid(self.get_form())
-        
-        # Handle AJAX request for captcha check
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.POST.get('check_captcha_only'):
-            return JsonResponse({'captcha_needed': rate_limit_check['captcha_required']})
         
         return super().post(request, *args, **kwargs)
     
@@ -235,7 +226,6 @@ class LoginView(FormView):
 
         # Record successful login for rate limiting (pass user email)
         record_successful_login(self.request, user_email=user.email)
-        self._clear_captcha_requirement()
 
         available_systems = System.objects.filter(
             user_roles__user=user,
@@ -337,10 +327,6 @@ class LoginView(FormView):
         # Record failed login attempt (skip if OTP error since credentials were valid)
         record_failed_login_attempt(self.request, user_email=user_email, skip_for_otp_error=is_otp_error)
         
-        if not is_otp_error:
-            self._evaluate_captcha_requirement(form)
-        self._evaluate_captcha_requirement(form)
-        
         # Check for account lockout
         if 'account_locked' in error_codes:
             lockout_message = None
@@ -404,37 +390,6 @@ class LoginView(FormView):
         
         # PRG: Redirect to GET to prevent form resubmission on refresh
         return redirect('auth_login')
-
-    def _mark_captcha_required(self, email=None):
-        session = self.request.session
-        session['force_captcha'] = True
-        if email:
-            session['force_captcha_email'] = email
-        session.modified = True
-
-    def _clear_captcha_requirement(self):
-        session = self.request.session
-        modified = False
-        for key in ('force_captcha', 'force_captcha_email'):
-            if key in session:
-                del session[key]
-                modified = True
-        if modified:
-            session.modified = True
-
-    def _evaluate_captcha_requirement(self, form):
-        email_value = (
-            form.data.get('email')
-            or self.request.session.get('otp_email')
-            or self.request.session.get('force_captcha_email')
-        )
-        requires_captcha = LoginForm.should_require_captcha(
-            request=self.request,
-            email=email_value,
-            rate_limit_state=getattr(self.request, 'rate_limit_state', None)
-        )
-        if requires_captcha:
-            self._mark_captcha_required(email_value)
 
     def _get_error_codes(self, form):
         """Extract validation error codes from the form for precise branching."""
@@ -563,6 +518,7 @@ class SystemWelcomeView(TemplateView):
             messages.error(request, 'You do not have access to the selected system.')
             return self.get(request, *args, **kwargs)
 
+
         request.session['last_selected_system'] = selected_system.slug
         response = create_system_redirect_response(request, selected_system.slug, include_token=True)
 
@@ -571,3 +527,62 @@ class SystemWelcomeView(TemplateView):
 
         messages.error(request, f'System "{selected_system.name}" is not properly configured. Please contact support.')
         return self.get(request, *args, **kwargs)
+
+
+# API-based login endpoint with reCAPTCHA
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+
+
+class LoginAPIView(APIView):
+    """
+    API endpoint for login with reCAPTCHA verification.
+    POST /api/v1/users/login/api/
+    {
+        "email": "user@example.com",
+        "password": "password",
+        "g_recaptcha_response": "response-from-client"
+    }
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        from ..serializers import LoginWithRecaptchaSerializer
+        
+        serializer = LoginWithRecaptchaSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            user = serializer.validated_data['user']
+            
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+            
+            # Reset failed login attempts
+            user.failed_login_attempts = 0
+            user.is_locked = False
+            user.lockout_time = None
+            user.save(update_fields=["failed_login_attempts", "is_locked", "lockout_time"])
+            
+            # Record successful login
+            record_successful_login(request, user_email=user.email)
+            
+            return Response({
+                'success': True,
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                }
+            })
+        else:
+            record_failed_login_attempt(request, user_email=request.data.get('email'))
+            
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=400)

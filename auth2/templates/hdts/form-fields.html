@@ -80,13 +80,33 @@
             <i class="fas fa-cloud-upload-alt"></i>&nbsp;&nbsp;Choose File
         </label>
         {{ form.profile_picture }}
-        <div class="image-preview" id="imagePreview" style="display: none;">
-            <img class="preview-img" id="previewImg" src="" alt="Profile preview">
-        </div>
     </div>
     {% if form.profile_picture.errors %}
     <span class="error-msg"><i class="fas fa-exclamation-circle"></i>&nbsp;{{ form.profile_picture.errors.0 }}</span>
     {% endif %}
+</div>
+
+<!-- Inline Profile Preview -->
+<div id="profilePreviewContainer" class="profile-preview-container" style="display: none;">
+    <div class="profile-preview-content">
+        <div class="profile-preview-picture">
+            <img id="profilePreviewImg" src="" alt="Profile Picture" class="profile-preview-img">
+        </div>
+        <div class="profile-preview-details">
+            <div class="profile-detail-row">
+                <span class="profile-detail-label">Name:</span>
+                <span class="profile-detail-value" id="previewFullName">-</span>
+            </div>
+            <div class="profile-detail-row">
+                <span class="profile-detail-label">Company ID:</span>
+                <span class="profile-detail-value" id="previewCompanyId">-</span>
+            </div>
+            <div class="profile-detail-row">
+                <span class="profile-detail-label">Department:</span>
+                <span class="profile-detail-value" id="previewDepartment">-</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <hr class="divider">

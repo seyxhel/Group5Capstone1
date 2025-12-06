@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'drf_spectacular', 
     'rest_framework_api_key',
     'corsheaders',  # Add CORS headers support
-    'captcha',  # Django simple captcha
     # Your apps
     'users',
     'roles',
@@ -338,4 +337,9 @@ CELERY_TASK_ROUTES = {
 }
 
 CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+# Google reCAPTCHA v3 Configuration
+RECAPTCHA_SITE_KEY = config('RECAPTCHA_SITE_KEY', default='6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT')
+RECAPTCHA_SECRET_KEY = config('RECAPTCHA_SECRET_KEY', default='6LdbGyMsAAAAAMcf9a4PKGAWL0E4NtF9cdjInlth')
+RECAPTCHA_VERSION = '2'  # v2 uses checkbox verification
 

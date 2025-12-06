@@ -9,6 +9,7 @@ from system_roles.models import UserSystemRole
 import hashlib
 import requests
 import re
+import logging
 
 
 def validate_phone_number(phone_number):
@@ -786,3 +787,55 @@ class AssignSystemRoleSerializer(serializers.Serializer):
         system = validated_data.pop('system')
         role = validated_data.pop('role')
         return UserSystemRole.objects.create(user=user, system=system, role=role)
+
+
+class LoginWithRecaptchaSerializer(serializers.Serializer):
+    """
+    Serializer for API-based login with reCAPTCHA v2 verification.
+    Handles email/password authentication and validates reCAPTCHA response server-side.
+    """
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+    g_recaptcha_response = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        """Authenticate user with email and password after reCAPTCHA v2 verification."""
+        email = attrs.get('email')
+        password = attrs.get('password')
+        recaptcha_response = attrs.get('g_recaptcha_response')
+        
+        # Verify reCAPTCHA v2 response first (MANDATORY)
+        if recaptcha_response:
+            verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+            secret_key = settings.RECAPTCHA_SECRET_KEY
+            
+            try:
+                response = requests.post(
+                    verify_url,
+                    data={'secret': secret_key, 'response': recaptcha_response},
+                    timeout=5
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                is_valid = result.get('success', False)
+                error_codes = result.get('error-codes', [])
+                
+                if not is_valid:
+                    raise serializers.ValidationError('reCAPTCHA verification failed.')
+                    
+            except requests.RequestException as e:
+                raise serializers.ValidationError('Failed to verify reCAPTCHA. Please try again.')
+        else:
+            raise serializers.ValidationError('reCAPTCHA verification is required.')
+        
+        # Authenticate user after reCAPTCHA passes
+        if email and password:
+            user = authenticate(username=email, password=password)
+            if not user:
+                raise serializers.ValidationError('Invalid email or password.')
+            attrs['user'] = user
+        else:
+            raise serializers.ValidationError('Email and password are required.')
+        
+        return attrs

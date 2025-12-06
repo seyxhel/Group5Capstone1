@@ -98,15 +98,7 @@ body {
 .logo-icon {
     width: 5rem;
     height: 5rem;
-    background: linear-gradient(135deg, var(--primary-color), #00d4ff);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    font-weight: bold;
-    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    object-fit: contain;
 }
 
 .logo-text {
@@ -298,7 +290,7 @@ input[type="file"] {
 .preview-img {
     max-width: 120px;
     height: 120px;
-    border-radius: 50%;
+    border-radius: 8px;
     object-fit: cover;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border: 3px solid var(--primary-color);
@@ -725,3 +717,176 @@ input[type="checkbox"] {
         padding: 0 12px;
     }
 }
+
+/* ==================== Image Cropper Modal Styles ==================== */
+.cropper-modal-container {
+    max-width: 800px;
+    width: 95%;
+}
+
+.cropper-content {
+    flex: 1;
+    padding: 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    overflow-y: auto;
+}
+
+.cropper-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    max-height: 400px;
+    overflow: hidden;
+}
+
+.cropper-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
+
+.cropper-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.preview-label {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.preview-container {
+    width: 200px;
+    height: 200px;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+}
+
+.preview-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Responsive design for cropper modal */
+@media (max-width: 768px) {
+    .cropper-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .cropper-wrapper {
+        max-height: 300px;
+    }
+    
+    .preview-container {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .cropper-modal-container {
+        max-width: 90vw;
+    }
+}
+
+/* ==================== Profile Preview (Inline) ====================  */
+.profile-preview-container {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.profile-preview-content {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.profile-preview-picture {
+    flex-shrink: 0;
+}
+
+.profile-preview-img {
+    width: 120px;
+    height: 120px;
+    border: 2px solid var(--primary-color);
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    object-fit: cover;
+}
+
+.profile-preview-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.profile-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+}
+
+.profile-detail-label {
+    font-weight: 600;
+    color: var(--text-color);
+    min-width: 100px;
+}
+
+.profile-detail-value {
+    color: var(--text-color);
+    word-break: break-word;
+    text-align: right;
+    flex: 1;
+    margin-left: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .profile-preview-content {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .profile-preview-picture {
+        text-align: center;
+    }
+
+    .profile-preview-img {
+        width: 100px;
+        height: 100px;
+    }
+
+    .profile-preview-details {
+        width: 100%;
+        gap: 0.4rem;
+    }
+
+    .profile-detail-row {
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .profile-detail-value {
+        text-align: left;
+        margin-left: 0;
+    }
+}
+
