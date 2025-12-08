@@ -4,47 +4,60 @@ from users.models import User
 from roles.models import Role
 from systems.models import System
 from django.utils.crypto import get_random_string
-from django.utils import timezone
-from users.models import SUFFIX_CHOICES as USER_SUFFIX_CHOICES
-from django.core.mail import send_mail
 from django.conf import settings
+from django.db import IntegrityError
+from notification_client import notification_client
+import re
+
+
+def validate_phone_number_format(phone_number):
+    """
+    Validate phone number in E.164 format.
+    E.164 format: +{country_code}{number} where country code is 1-3 digits and number is 10-14 digits.
+    Returns (is_valid, error_message)
+    """
+    if not phone_number or not phone_number.strip():
+        return True, None  # Phone is optional
+    
+    phone = phone_number.strip()
+    
+    # E.164 format pattern: +1-15 digits total
+    e164_pattern = r'^\+\d{1,3}\d{10,14}$'
+    
+    if not re.match(e164_pattern, phone):
+        return False, "Phone number must be in E.164 format (e.g., +15551234567). Include country code and 10-15 total digits."
+    
+    return True, None
 
 
 def send_invitation_email(user, temp_password, system_name, role_name):
-    """Send invitation email with temporary credentials to new user."""
-    subject = 'Welcome! Your Account has been Created'
-    message = f'''
-Hello {user.get_full_name() or user.email},
-
-You have been invited to join the {system_name} system with the role of "{role_name}".
-
-Your account has been created with the following details:
-
-Email: {user.email}
-Temporary Password: {temp_password}
-
-For security reasons, please log in and change your password as soon as possible.
-
-Login URL: Please contact your system administrator for the login URL.
-
-If you have any questions or need assistance, please contact your system administrator.
-
-Best regards,
-Authentication Service Team
-    '''
-    
+    """Send invitation email with temporary credentials to new user via notification service."""
     try:
-        send_mail(
-            subject=subject,
-            message=message.strip(),
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
-            recipient_list=[user.email],
-            fail_silently=False,
+        success = notification_client.send_invitation_email_async(
+            user=user,
+            temp_password=temp_password,
+            system_name=system_name,
+            role_name=role_name
         )
-        return True
+        return success
     except Exception as e:
         # Log the error in production
         print(f"Failed to send invitation email to {user.email}: {str(e)}")
+        return False
+
+
+def send_system_addition_email(user, system_name, role_name):
+    """Send notification email to existing user being added to a new system via notification service."""
+    try:
+        success = notification_client.send_system_addition_email_async(
+            user=user,
+            system_name=system_name,
+            role_name=role_name
+        )
+        return success
+    except Exception as e:
+        # Log the error in production
+        print(f"Failed to send system addition email to {user.email}: {str(e)}")
         return False
 
 
@@ -95,8 +108,10 @@ class UserSystemRoleSerializer(serializers.ModelSerializer):
             'system_slug',
             'role',
             'assigned_at',
+            'last_logged_on',
+            'settings',
         ]
-        read_only_fields = ['id', 'assigned_at']
+        read_only_fields = ['id', 'assigned_at', 'last_logged_on', 'settings']
 
     def validate(self, data):
         """
@@ -181,9 +196,16 @@ class AdminInviteUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True)
     middle_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
-    # Use centralized suffix choices from the User model, allow an explicit 'None' option
     suffix = serializers.ChoiceField(
-        choices=[('', 'None')] + USER_SUFFIX_CHOICES,
+        choices=[
+            ('', 'None'),
+            ('Jr.', 'Jr.'),
+            ('Sr.', 'Sr.'),
+            ('II', 'II'),
+            ('III', 'III'),
+            ('IV', 'IV'),
+            ('V', 'V'),
+        ],
         required=False,
         allow_null=True,
         allow_blank=True
@@ -216,115 +238,154 @@ class AdminInviteUserSerializer(serializers.Serializer):
         else:
             role_choices = Role.objects.select_related('system').values_list('id', 'name', 'system__name')
 
-        # Build choices from available roles
-        built = [(str(role_id), f"{role_name} ({system_name})") for role_id, role_name, system_name in role_choices]
-        # Ensure special token 'admin_hdts' is available so frontend can request HDTS Admin when exact id isn't known
-        if not any(choice[0] == 'admin_hdts' for choice in built):
-            built.append(('admin_hdts', 'System Admin (HDTS)'))
-
-        self.fields['role_id'].choices = built
+        self.fields['role_id'].choices = [
+            (str(role_id), f"{role_name} ({system_name})") 
+            for role_id, role_name, system_name in role_choices
+        ]
 
     def validate_role_id(self, value):
-        # Accept either a single value or a list (FormData may submit arrays)
-        if isinstance(value, (list, tuple)) and len(value) > 0:
-            value = value[0]
-
-        # Allow special token to request HDTS Admin role when frontend cannot fetch role ids
-        if isinstance(value, str) and value == 'admin_hdts':
-            try:
-                return Role.objects.select_related('system').get(name='Admin', system__slug='hdts')
-            except Role.DoesNotExist:
-                raise serializers.ValidationError("Requested HDTS Admin role not available on server.")
         try:
-            # If numeric string provided, attempt to coerce to int
-            lookup = int(value) if (isinstance(value, str) and value.isdigit()) else value
-            role = Role.objects.select_related('system').get(id=lookup)
-        except (Role.DoesNotExist, ValueError, TypeError):
+            role = Role.objects.select_related('system').get(id=value)
+        except Role.DoesNotExist:
             raise serializers.ValidationError("Role does not exist.")
         return role
 
+    def validate_email(self, value):
+        """
+        Validate email format and normalize it.
+        Note: We don't check if email exists here because users can be invited
+        to multiple systems with different roles. Duplicate check per system
+        happens in the create() method.
+        """
+        return value.lower().strip()
+
+    def validate_phone_number(self, value):
+        """Validate phone number format (E.164) and uniqueness"""
+        if not value or not value.strip():
+            return None  # Phone is optional
+        
+        phone = value.strip()
+        
+        # Validate E.164 format
+        is_valid, error_msg = validate_phone_number_format(phone)
+        if not is_valid:
+            raise serializers.ValidationError(error_msg)
+        
+        # Check uniqueness
+        if User.objects.filter(phone_number=phone).exists():
+            raise serializers.ValidationError(
+                "This phone number is already registered in the system. Please use a different phone number."
+            )
+        
+        return phone
+
     def create(self, validated_data):
         role = validated_data.pop("role_id")
-        email = validated_data.get("email")
+        email = validated_data.get("email").lower().strip()
 
         # Check if user already exists
-        try:
-            user = User.objects.get(email=email)
-            created = False
+        existing_user = User.objects.filter(email=email).first()
+        
+        if existing_user:
+            # User already exists, check if they already have a role in this system
+            existing_role = UserSystemRole.objects.filter(
+                user=existing_user,
+                system=role.system
+            ).first()
+            
+            if existing_role:
+                # User already has a role in this system
+                raise serializers.ValidationError(
+                    f"User {email} already has the role '{existing_role.role.name}' in the {role.system.name} system. "
+                    f"To change their role, please update their existing assignment instead of creating a new invitation."
+                )
+            
+            # User exists but doesn't have a role in this system - just assign the role
             temp_password = None
-        except User.DoesNotExist:
-            # Create new user using the custom manager to ensure company_id is auto-generated
-            # Use requested default password
-            temp_password = 'password123'
-
-            # Map a frontend "System Admin" semantic role to the HDTS Admin role if requested
-            effective_role = role
+            user = existing_user
+            
+            # Send notification email to existing user about new system access
+            send_system_addition_email(
+                user=user,
+                system_name=role.system.name,
+                role_name=role.name
+            )
+        else:
+            # Create new user
+            temp_password = get_random_string(length=10)
+            
+            # Generate unique username from email with increment if needed
+            base_username = email.split('@')[0].replace('.', '').replace('-', '')[:20]
+            username = base_username
+            counter = 1
+            max_attempts = 100
+            
+            # Ensure unique username
+            while User.objects.filter(username=username).exists() and counter < max_attempts:
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            if counter >= max_attempts:
+                raise serializers.ValidationError(
+                    "Unable to generate a unique username. Please contact support."
+                )
+            
             try:
-                if role.name and str(role.name).strip().lower() in ['system admin', 'system_admin', 'system-admin']:
-                    # Find the HDTS Admin role
-                    effective_role = Role.objects.select_related('system').get(name='Admin', system__slug='hdts')
-            except Role.DoesNotExist:
-                # If mapping fails, fallback to the originally selected role
-                effective_role = role
+                user = User.objects.create_user(
+                    email=email,
+                    password=temp_password,
+                    username=username,
+                    first_name=validated_data.get('first_name', '').strip(),
+                    middle_name=validated_data.get('middle_name', '').strip(),
+                    last_name=validated_data.get('last_name', '').strip(),
+                    suffix=validated_data.get('suffix', None) or '',
+                    phone_number=validated_data.get('phone_number') or None,  # Already validated and normalized
+                    department=validated_data.get('department', None) or '',
+                    is_active=True,
+                )
+                
+                # Send invitation email with temporary password
+                send_invitation_email(
+                    user=user,
+                    temp_password=temp_password,
+                    system_name=role.system.name,
+                    role_name=role.name
+                )
+            except IntegrityError as e:
+                error_msg = str(e).lower()
+                if 'email' in error_msg:
+                    raise serializers.ValidationError(
+                        "This email is already registered in the system."
+                    )
+                elif 'phone' in error_msg:
+                    raise serializers.ValidationError(
+                        "This phone number is already registered in the system. Please use a different phone number."
+                    )
+                elif 'username' in error_msg:
+                    raise serializers.ValidationError(
+                        "Unable to create user due to username conflict. Please contact support."
+                    )
+                else:
+                    raise serializers.ValidationError(
+                        "Unable to create user due to a database constraint violation. Please try again."
+                    )
 
-            user = User.objects.create_user(
-                email=email,
-                password=temp_password,
-                username=email.split('@')[0],
-                first_name=validated_data.get('first_name', ''),
-                middle_name=validated_data.get('middle_name', ''),
-                last_name=validated_data.get('last_name', ''),
-                suffix=validated_data.get('suffix', None),
-                phone_number=validated_data.get('phone_number', None),
-                department=validated_data.get('department', None),
-                is_active=True,
-                status='Approved',
-            )
-            created = True
-
-            # Mark approval metadata
-            try:
-                user.approved_at = timezone.now()
-                req = self.context.get('request')
-                user.approved_by = req.user if getattr(req, 'user', None) else None
-                user.save(update_fields=['approved_at', 'approved_by', 'status'])
-            except Exception:
-                pass
-
-            # Send invitation email with temporary password
-            send_invitation_email(
-                user=user,
-                temp_password=temp_password,
-                system_name=(effective_role.system.name if effective_role and effective_role.system else (role.system.name if role and role.system else '')), 
-                role_name=(effective_role.name if effective_role else role.name)
-            )
-
-        # Assign role and system
-        # Use effective_role if we remapped earlier, otherwise the validated role
-        assigned_role = None
-        try:
-            assigned_system = getattr(role, 'system', None)
-            # If we remapped, effective_role may be set in the scope above; prefer it
-            effective = locals().get('effective_role', role)
-            assigned_role, _ = UserSystemRole.objects.get_or_create(
-                user=user,
-                system=effective.system,
-                role=effective
-            )
-        except Exception:
-            # Fallback to original role assignment
-            assigned_role, _ = UserSystemRole.objects.get_or_create(
-                user=user,
-                system=role.system,
-                role=role
-            )
+        # Assign role and system (get_or_create to handle edge cases)
+        usr_role, created = UserSystemRole.objects.get_or_create(
+            user=user,
+            system=role.system,
+            defaults={'role': role}
+        )
+        
+        # If role assignment already existed, update it to the new role
+        if not created and usr_role.role != role:
+            usr_role.role = role
+            usr_role.save()
 
         return {
             "user": user,
             "temporary_password": temp_password,
-            "assigned_role": assigned_role,
-            "company_id": user.company_id,
-            "status": user.status,
+            "assigned_role": usr_role,
         }
 
 

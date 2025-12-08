@@ -8,6 +8,28 @@ from notification_client import notification_client
 from system_roles.models import UserSystemRole
 import hashlib
 import requests
+import re
+import logging
+
+
+def validate_phone_number(phone_number):
+    """
+    Validate phone number in E.164 format.
+    Returns (is_valid, error_message)
+    """
+    if not phone_number or not phone_number.strip():
+        return True, None  # Phone is optional
+    
+    phone = phone_number.strip()
+    
+    # E.164 format: +{country_code}{number}
+    # Pattern: +1-3 digit country code + 10-14 digit number = 11-17 total
+    e164_pattern = r'^\+\d{1,3}\d{10,14}$'
+    
+    if not re.match(e164_pattern, phone):
+        return False, "Phone number must be in E.164 format (e.g., +15551234567). Ensure country code is included."
+    
+    return True, None
 
 
 def check_password_pwned(password):
@@ -66,9 +88,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         # No composition rules (no need to check for digits, uppercase, etc.)
 
-        # Note: intentionally allow passwords that contain the username or email
-        # to accommodate legacy and external account flows where strict
-        # username/extract checks can cause unnecessary failures.
+        # Check for username/email in password
+        username = self.initial_data.get('username', '').lower()
+        email = self.initial_data.get('email', '').lower()
+        if username and username in value.lower():
+            raise serializers.ValidationError("Password must not contain your username.")
+        if email and email.split('@')[0] in value.lower():
+            raise serializers.ValidationError("Password must not contain part of your email address.")
 
         # Check against HaveIBeenPwned API for breached passwords
         is_pwned, breach_count = check_password_pwned(value)
@@ -119,8 +145,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return None
     
     def get_system_roles(self, obj):
-        """Get system roles for the user."""
+        """Get system roles for the user, filtered by current system from session."""
+        request = self.context.get('request')
         system_roles = UserSystemRole.objects.filter(user=obj).select_related('system', 'role')
+        
+        # Filter by current system if available in session
+        if request:
+            current_system_slug = request.session.get('last_selected_system')
+            if current_system_slug:
+                system_roles = system_roles.filter(system__slug=current_system_slug)
+        
         return [
             {
                 'id': assignment.id,  # Include the UserSystemRole ID for updates
@@ -128,6 +162,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'system_slug': assignment.system.slug,
                 'role_name': assignment.role.name,
                 'assigned_at': assignment.assigned_at,
+                'last_logged_on': assignment.last_logged_on,  # Last login timestamp for this system role
                 'is_active': assignment.is_active  # System-specific is_active status
             }
             for assignment in system_roles
@@ -204,12 +239,23 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone_number(self, value):
-        """Validate that phone number is unique (excluding current user)."""
-        if value:  # Only validate if phone number is provided
-            user = self.instance
-            if User.objects.filter(phone_number=value).exclude(pk=user.pk).exists():
-                raise serializers.ValidationError("A user with this phone number already exists.")
-        return value
+        """Validate phone number format (E.164) and uniqueness (excluding current user)."""
+        if not value:
+            return None  # Phone is optional
+        
+        phone = value.strip() if isinstance(value, str) else value
+        
+        # Validate E.164 format
+        is_valid, error_msg = validate_phone_number(phone)
+        if not is_valid:
+            raise serializers.ValidationError(error_msg)
+        
+        # Check uniqueness (excluding current user)
+        user = self.instance
+        if User.objects.filter(phone_number=phone).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("A user with this phone number already exists.")
+        
+        return phone
 
 
 class AdminUserProfileUpdateSerializer(serializers.ModelSerializer):
@@ -244,12 +290,23 @@ class AdminUserProfileUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ('username', 'email')  # Explicitly mark as read-only
 
     def validate_phone_number(self, value):
-        """Validate that phone number is unique (excluding current user)."""
-        if value:  # Only validate if phone number is provided
-            user = self.instance
-            if User.objects.filter(phone_number=value).exclude(pk=user.pk).exists():
-                raise serializers.ValidationError("A user with this phone number already exists.")
-        return value
+        """Validate phone number format (E.164) and uniqueness (excluding current user)."""
+        if not value:
+            return None  # Phone is optional
+        
+        phone = value.strip() if isinstance(value, str) else value
+        
+        # Validate E.164 format
+        is_valid, error_msg = validate_phone_number(phone)
+        if not is_valid:
+            raise serializers.ValidationError(error_msg)
+        
+        # Check uniqueness (excluding current user)
+        user = self.instance
+        if User.objects.filter(phone_number=phone).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("A user with this phone number already exists.")
+        
+        return phone
 
     def update(self, instance, validated_data):
         """Custom update method to handle UserSystemRole is_active updates."""
@@ -285,6 +342,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['email'] = user.email
         token['username'] = user.username
+        token['full_name'] = user.get_full_name()
         
         # Add system-specific roles using the existing UserSystemRole model
         roles = []
@@ -382,21 +440,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             if user_auth.otp_enabled:
                 # Check if OTP code is empty or missing
                 if not otp_code or otp_code.strip() == '':
+                    # Auto-generate and send OTP if not provided
+                    otp_instance = UserOTP.generate_for_user(user_auth, otp_type='email')
+                    
+                    # Send OTP email
+                    try:
+                        send_otp_email(user_auth, otp_instance.otp_code)
+                        print(f"OTP sent to {user_auth.email}: {otp_instance.otp_code}")  # Debug print
+                    except Exception as e:
+                        print(f"Failed to send OTP email: {str(e)}")  # Debug print
+                    
                     raise serializers.ValidationError(
-                        'OTP code is required for this account. Please provide the OTP code.',
+                        'OTP code is required for this account. An OTP has been sent to your email.',
                         code='otp_required'
                     )
 
                 # Get the most recent valid OTP for this user
                 otp_instance = UserOTP.get_valid_otp_for_user(user_auth)
                 if not otp_instance:
+                    # Generate new OTP if expired
+                    otp_instance = UserOTP.generate_for_user(user_auth, otp_type='email')
+                    try:
+                        send_otp_email(user_auth, otp_instance.otp_code)
+                        print(f"New OTP sent to {user_auth.email}: {otp_instance.otp_code}")  # Debug print
+                    except Exception as e:
+                        print(f"Failed to send OTP email: {str(e)}")  # Debug print
+                    
                     raise serializers.ValidationError(
-                        'No valid OTP found. Please request a new OTP code.',
+                        'Your previous OTP expired. A new OTP has been sent to your email.',
                         code='otp_expired'
                     )
                 
                 # Verify the provided OTP code
                 if not otp_instance.verify(otp_code):
+                    # OTP is invalid, but DON'T increment failed_login_attempts
+                    # because the email/password were already validated
                     raise serializers.ValidationError(
                         'Invalid OTP code. Please check your code and try again.',
                         code='otp_invalid'
@@ -404,33 +482,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             # Standard JWT token generation
             self.user = user_auth
-            # --- START: HDTS restriction ---
-            # Prevent users who are Employees for the HDTS system and are not Approved from logging in
-            try:
-                from system_roles.models import UserSystemRole
-                is_hdts_employee = UserSystemRole.objects.filter(
-                    user=user_auth,
-                    system__slug__iexact='hdts',
-                    role__name__iexact='Employee'
-                ).exists()
-            except Exception:
-                # If the system_roles app/models are not available for any reason,
-                # do not block login here; let higher-level checks handle it.
-                is_hdts_employee = False
-
-            if is_hdts_employee and getattr(user_auth, 'status', None) != 'Approved':
-                if getattr(user_auth, 'status', None) == 'Rejected':
-                    raise serializers.ValidationError(
-                        'Your account has been rejected by the HDTS system administrator.',
-                        code='hdts_blocked'
-                    )
-                # Default pending case
-                raise serializers.ValidationError(
-                    'Your account is pending approval by the HDTS system administrator.',
-                    code='hdts_blocked'
-                )
-            # --- END: HDTS restriction ---
-
             refresh = self.get_token(user_auth)
 
             return {
@@ -548,13 +599,18 @@ class ResetPasswordSerializer(serializers.Serializer):
 
         # No composition rules
 
-        # Note: intentionally allow passwords that contain the username or email
-        # for the reset flow. Historically this check caused issues for some
-        # external account flows; we accept these cases to improve compatibility.
+        # Check for username/email in password (if user can be determined from token)
         reset_token = PasswordResetToken.get_valid_token(token)
         if not reset_token:
             raise serializers.ValidationError('Invalid or expired reset token')
         user = getattr(reset_token, 'user', None)
+        if user:
+            username = getattr(user, 'username', '').lower()
+            email = getattr(user, 'email', '').lower()
+            if username and username in password.lower():
+                raise serializers.ValidationError("Password must not contain your username.")
+            if email and email.split('@')[0] in password.lower():
+                raise serializers.ValidationError("Password must not contain part of your email address.")
 
         # Check against common passwords (placeholder)
         common_passwords = {"password", "12345678", "qwerty", "letmein", "admin", "welcome", "admin123", "password123"}
@@ -573,30 +629,12 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 
 def send_otp_email(user, otp_code):
-    """Send OTP code to user's email."""
-    subject = 'Your Authentication Code'
-    message = f'''
-Hello {user.get_full_name() or user.email},
-
-Your authentication code is: {otp_code}
-
-This code will expire in 5 minutes. Please do not share this code with anyone.
-
-If you did not request this code, please ignore this email.
-
-Best regards,
-Authentication Service Team
-    '''
+    """Send OTP code to user's email via notification service."""
+    from notification_client import notification_client
     
     try:
-        send_mail(
-            subject=subject,
-            message=message.strip(),
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        return True
+        success = notification_client.send_otp_email_async(user, otp_code)
+        return success
     except Exception as e:
         # Log the error in production
         print(f"Failed to send OTP email to {user.email}: {str(e)}")
@@ -604,43 +642,15 @@ Authentication Service Team
 
 
 def send_password_reset_email(user, reset_token, request=None):
-    """Send password reset email to user."""
-    # Build the reset URL
-    if request:
-        base_url = f"{request.scheme}://{request.get_host()}"
-    else:
-        base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-    
-    reset_url = f"{base_url}/api/v1/users/password/reset?token={reset_token.token}"
-    
-    subject = 'Password Reset Request'
-    message = f'''
-Hello {user.get_full_name() or user.email},
-
-We received a request to reset your password. If you made this request, please click the link below to reset your password:
-
-{reset_url}
-
-This link will expire in 1 hour.
-
-If you did not request a password reset, please ignore this email. Your password will remain unchanged.
-
-Best regards,
-Authentication Service Team
-    '''
+    """Send password reset email to user via notification service."""
+    from notification_client import notification_client
     
     try:
-        send_mail(
-            subject=subject,
-            message=message.strip(),
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        return True
+        success = notification_client.send_password_reset_email_async(user, reset_token, request)
+        return success
     except Exception as e:
         # Log the error in production
-        print(f"Failed to send password reset email to {user.email}: {str(e)}")
+        print(f"Failed to initiate password reset email to {user.email}: {str(e)}")
         return False
 
 
@@ -669,8 +679,13 @@ class ProfilePasswordResetSerializer(serializers.Serializer):
         if len(new_password) > max_length:
             raise serializers.ValidationError({'new_password': f'Password must be at most {max_length} characters long.'})
 
-        # Intentionally allow passwords that contain username/email here
-        # to avoid blocking legitimate password choices for external accounts.
+        # Check for username/email in password
+        username = user.username.lower() if user.username else ''
+        email = user.email.lower() if user.email else ''
+        if username and username in new_password.lower():
+            raise serializers.ValidationError({'new_password': 'Password must not contain your username.'})
+        if email and email.split('@')[0] in new_password.lower():
+            raise serializers.ValidationError({'new_password': 'Password must not contain part of your email address.'})
 
         # Check against common passwords (including "admin123" and others)
         common_passwords = {"password", "12345678", "qwerty", "letmein", "admin", "welcome", "admin123", "password123"}
@@ -772,3 +787,55 @@ class AssignSystemRoleSerializer(serializers.Serializer):
         system = validated_data.pop('system')
         role = validated_data.pop('role')
         return UserSystemRole.objects.create(user=user, system=system, role=role)
+
+
+class LoginWithRecaptchaSerializer(serializers.Serializer):
+    """
+    Serializer for API-based login with reCAPTCHA v2 verification.
+    Handles email/password authentication and validates reCAPTCHA response server-side.
+    """
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+    g_recaptcha_response = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        """Authenticate user with email and password after reCAPTCHA v2 verification."""
+        email = attrs.get('email')
+        password = attrs.get('password')
+        recaptcha_response = attrs.get('g_recaptcha_response')
+        
+        # Verify reCAPTCHA v2 response first (MANDATORY)
+        if recaptcha_response:
+            verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+            secret_key = settings.RECAPTCHA_SECRET_KEY
+            
+            try:
+                response = requests.post(
+                    verify_url,
+                    data={'secret': secret_key, 'response': recaptcha_response},
+                    timeout=5
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                is_valid = result.get('success', False)
+                error_codes = result.get('error-codes', [])
+                
+                if not is_valid:
+                    raise serializers.ValidationError('reCAPTCHA verification failed.')
+                    
+            except requests.RequestException as e:
+                raise serializers.ValidationError('Failed to verify reCAPTCHA. Please try again.')
+        else:
+            raise serializers.ValidationError('reCAPTCHA verification is required.')
+        
+        # Authenticate user after reCAPTCHA passes
+        if email and password:
+            user = authenticate(username=email, password=password)
+            if not user:
+                raise serializers.ValidationError('Invalid email or password.')
+            attrs['user'] = user
+        else:
+            raise serializers.ValidationError('Email and password are required.')
+        
+        return attrs

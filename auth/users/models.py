@@ -9,14 +9,10 @@ from django.utils import timezone
 SUFFIX_CHOICES = [
     ('Jr.', 'Jr.'),
     ('Sr.', 'Sr.'),
+    ('II', 'II'),
     ('III', 'III'),
     ('IV', 'IV'),
     ('V', 'V'),
-    ('VI', 'VI'),
-    ('VII', 'VII'),
-    ('VIII', 'VIII'),
-    ('IX', 'IX'),
-    ('X', 'X'),
 ]
 
 DEPARTMENT_CHOICES = [
@@ -103,7 +99,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     middle_name = models.CharField(max_length=100, blank=True, null=True)  # Optional middle name
     suffix = models.CharField(max_length=10, choices=SUFFIX_CHOICES, blank=True, null=True)  # Optional suffix
     last_name = models.CharField(max_length=100, blank=True)  # Optional last name
-    phone_number = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Optional phone number
+    phone_number = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Optional phone number (in E.164 format)
     company_id = models.CharField(max_length=8, unique=True, null=True, blank=True)  # Auto-generated company ID
     department = models.CharField(max_length=100, choices=DEPARTMENT_CHOICES, blank=True, null=True)  # Optional department
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')  # User status
@@ -125,11 +121,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_login = models.DateTimeField(null=True, blank=True)  # Last login timestamp
     date_joined = models.DateTimeField(auto_now_add=True)  # Account creation timestamp
     
-    # Audit fields for approval/rejection
-    approved_at = models.DateTimeField(null=True, blank=True)  # When user was approved
-    rejected_at = models.DateTimeField(null=True, blank=True)  # When user was rejected
-    approved_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_users')  # Admin who approved
-    rejected_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_users')  # Admin who rejected
+    # Consolidated audit fields for status changes
+    status_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='status_changes')  # Admin who last changed status
+    status_at = models.DateTimeField(null=True, blank=True)  # Timestamp of last status change
 
     objects = CustomUserManager()  # Use custom manager
 
@@ -313,3 +307,130 @@ class PasswordResetToken(models.Model):
 
 # Manager to handle user creation (e.g., 'create_user', 'create_superuser')
 # auth_service/users/models.py
+
+
+class IPAddressRateLimit(models.Model):
+    """
+    Track login attempts per IP address and user email for strict rate limiting.
+    Used to block automated attacks at the network level while allowing different user accounts.
+    """
+    ip_address = models.GenericIPAddressField()
+    user_email = models.EmailField()
+    failed_attempts = models.IntegerField(default=0)
+    last_attempt = models.DateTimeField(auto_now=True)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'auth_ip_rate_limit'
+        verbose_name = 'IP Address Rate Limit'
+        verbose_name_plural = 'IP Address Rate Limits'
+        unique_together = [['ip_address', 'user_email']]
+    
+    def __str__(self):
+        return f"IP: {self.ip_address} - Email: {self.user_email} - Attempts: {self.failed_attempts}"
+    
+    def increment_failed_attempts(self):
+        """Increment failed attempts and update timestamp"""
+        self.failed_attempts += 1
+        self.last_attempt = timezone.now()
+        self.save(update_fields=['failed_attempts', 'last_attempt'])
+    
+    def reset_attempts(self):
+        """Reset failed attempts"""
+        self.failed_attempts = 0
+        self.blocked_until = None
+        self.save(update_fields=['failed_attempts', 'blocked_until'])
+    
+    def is_blocked(self):
+        """Check if IP is currently blocked"""
+        if self.blocked_until and timezone.now() < self.blocked_until:
+            return True
+        return False
+    
+    def block_until(self, duration_minutes=30):
+        """Block IP for specified duration"""
+        self.blocked_until = timezone.now() + timedelta(minutes=duration_minutes)
+        self.save(update_fields=['blocked_until'])
+
+
+class DeviceFingerprint(models.Model):
+    """
+    Track device/browser fingerprints to identify repeat offenders.
+    A fingerprint is created from browser/device characteristics (User-Agent, Accept-Language, etc.)
+    Tracks per device and user email combination.
+    """
+    fingerprint_hash = models.CharField(max_length=255, db_index=True)
+    user_email = models.EmailField()
+    failed_attempts = models.IntegerField(default=0)
+    last_attempt = models.DateTimeField(auto_now=True)
+    requires_captcha = models.BooleanField(default=False)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'auth_device_fingerprint'
+        verbose_name = 'Device Fingerprint'
+        verbose_name_plural = 'Device Fingerprints'
+        unique_together = [['fingerprint_hash', 'user_email']]
+    
+    def __str__(self):
+        return f"Device: {self.fingerprint_hash[:16]}... - Email: {self.user_email} - Attempts: {self.failed_attempts}"
+    
+    def increment_failed_attempts(self):
+        """Increment failed attempts and update timestamp"""
+        self.failed_attempts += 1
+        self.last_attempt = timezone.now()
+        self.save(update_fields=['failed_attempts', 'last_attempt'])
+    
+    def reset_attempts(self):
+        """Reset failed attempts"""
+        self.failed_attempts = 0
+        self.requires_captcha = False
+        self.blocked_until = None
+        self.save(update_fields=['failed_attempts', 'requires_captcha', 'blocked_until'])
+    
+    def is_blocked(self):
+        """Check if device is currently blocked"""
+        if self.blocked_until and timezone.now() < self.blocked_until:
+            return True
+        return False
+    
+    def block_until(self, duration_minutes=30):
+        """Block device for specified duration"""
+        self.blocked_until = timezone.now() + timedelta(minutes=duration_minutes)
+        self.save(update_fields=['blocked_until'])
+
+
+class RateLimitConfig(models.Model):
+    """
+    Configuration for rate limiting thresholds.
+    This allows adjusting limits without code changes.
+    """
+    # IP-based limits
+    ip_attempt_threshold = models.IntegerField(default=10, help_text="Failed attempts per IP before blocking")
+    ip_block_duration_minutes = models.IntegerField(default=30, help_text="Minutes to block an IP")
+    
+    # Device-based limits
+    device_attempt_threshold = models.IntegerField(default=5, help_text="Failed attempts per device before captcha")
+    device_captcha_threshold = models.IntegerField(default=8, help_text="Failed attempts per device before blocking")
+    device_block_duration_minutes = models.IntegerField(default=20, help_text="Minutes to block a device")
+    
+    # Time windows
+    attempt_reset_hours = models.IntegerField(default=24, help_text="Hours before resetting attempt count")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'auth_rate_limit_config'
+        verbose_name = 'Rate Limit Configuration'
+        verbose_name_plural = 'Rate Limit Configuration'
+    
+    def __str__(self):
+        return "Rate Limit Configuration"
+    
+    @classmethod
+    def get_config(cls):
+        """Get or create default configuration"""
+        config, created = cls.objects.get_or_create(pk=1)
+        return config
+

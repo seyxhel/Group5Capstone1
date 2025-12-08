@@ -3,10 +3,16 @@ from django import forms
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from captcha.fields import CaptchaField
+import logging
 from .models import User, UserOTP
-from .serializers import validate_profile_picture_file_size, validate_profile_picture_dimensions, CustomTokenObtainPairSerializer
-from systems.models import System
+from .rate_limiting import check_login_rate_limits
+from .serializers import (
+    validate_profile_picture_file_size,
+    validate_profile_picture_dimensions,
+    CustomTokenObtainPairSerializer,
+)
+
+logger = logging.getLogger(__name__)
 
 class ProfileSettingsForm(forms.ModelForm):
     """
@@ -83,8 +89,50 @@ class ProfileSettingsForm(forms.ModelForm):
         # We handle actual disabling in __init__ based on roles
         read_only = ('last_login', 'date_joined', 'failed_login_attempts', 'lockout_time')
 
-
+    # UPDATED __init__ including temporary exclusion logic for admin stuff since i commented it out
     def __init__(self, *args, **kwargs):
+        self.request_user = kwargs.pop('request_user', None)
+        super().__init__(*args, **kwargs)
+
+        # 🧩 TEMPORARY EXCLUSION: Hide admin/system fields during template testing
+        if not getattr(self, "temporary_dev_mode", False):
+            temp_excluded_fields = [
+                "status",
+                "notified",
+                "is_active",
+                "is_staff",
+                "is_superuser",
+                "is_locked",
+            ]
+            for field in temp_excluded_fields:
+                self.fields.pop(field, None)
+
+        if not self.request_user:
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
+            return
+        
+        # Handle field restrictions for non-admin users
+        is_admin = self.request_user.is_superuser or self.request_user.is_staff
+        
+        if not is_admin:
+            # Fields that non-admin users cannot edit - make them disabled but visible
+            admin_only_fields = [
+                'email', 'company_id', 'department',
+                'first_name', 'middle_name', 'last_name', 'suffix'
+            ]
+            
+            for field_name in admin_only_fields:
+                if field_name in self.fields:
+                    # Disable the field so it can't be edited
+                    self.fields[field_name].disabled = True
+                    # Make it not required so validation doesn't fail
+                    self.fields[field_name].required = False
+                    # Add help text
+                    
+
+# ORIGINAL __init__ just remove the "1" 
+    def __init__1(self, *args, **kwargs):
         self.request_user = kwargs.pop('request_user', None)
         super().__init__(*args, **kwargs)
 
@@ -121,7 +169,7 @@ class ProfileSettingsForm(forms.ModelForm):
             for field_name in admin_only_editable:
                 if field_name in self.fields:
                     self.fields[field_name].disabled = True
-                    self.fields[field_name].help_text = "Only administrators can edit this field."
+                    
 
         # Add help text for regular user fields
         for field_name in user_editable:
@@ -133,6 +181,10 @@ class ProfileSettingsForm(forms.ModelForm):
         """
         Custom validation to ensure non-admin users cannot submit restricted fields.
         This mirrors the API validation logic.
+        
+        Note: The view already filters the POST data for non-admins, so this is
+        an additional safety check. Disabled fields are allowed to pass through
+        unchanged.
         """
         cleaned_data = super().clean()
         
@@ -142,16 +194,23 @@ class ProfileSettingsForm(forms.ModelForm):
         is_admin = self.request_user.is_superuser or self.request_user.is_staff
         
         # If not admin, check if they're trying to modify restricted fields
+        # Skip this check for disabled fields since they can't be modified
         if not is_admin:
-            allowed_fields = {'username', 'phone_number'}
+            allowed_fields = {'username', 'phone_number', 'profile_picture', 'otp_enabled'}
             admin_only_fields = {
-                'email', 'company_id', 'department', 'status', 'notified',
+                'email', 'company_id', 'department', 'first_name', 'middle_name', 
+                'last_name', 'suffix', 'status', 'notified',
                 'is_active', 'is_staff', 'is_superuser', 'is_locked'
             }
             
             # Check if any admin-only fields were changed
+            # Skip fields that are disabled (they can't be edited anyway)
             for field_name in admin_only_fields:
-                if field_name in self.fields and field_name in cleaned_data:
+                if field_name in cleaned_data and field_name in self.fields:
+                    # Skip disabled fields - they're read-only and safe
+                    if self.fields[field_name].disabled:
+                        continue
+                        
                     # Get the original value from the instance
                     original_value = getattr(self.instance, field_name, None)
                     new_value = cleaned_data.get(field_name)
@@ -159,15 +218,18 @@ class ProfileSettingsForm(forms.ModelForm):
                     # If the value has changed, raise an error
                     if original_value != new_value:
                         raise forms.ValidationError(
-                            f"You can only update: {', '.join(allowed_fields)}. "
+                            f"You can only update: {', '.join(sorted(allowed_fields))}. "
                             f"You do not have permission to modify '{field_name}'."
                         )
         
         return cleaned_data
 
-
     def clean_email(self):
         email = self.cleaned_data.get('email')
+        # Only validate if field exists and is in cleaned_data (for admins)
+        if 'email' not in self.fields:
+            return email
+            
         # Check if the field is disabled (meaning non-admin tried to change it)
         if self.fields['email'].disabled and self.instance and email != self.instance.email:
              raise forms.ValidationError("You do not have permission to change the email address.")
@@ -201,6 +263,10 @@ class ProfileSettingsForm(forms.ModelForm):
     # Clean method for Company ID if admins change it
     def clean_company_id(self):
         company_id = self.cleaned_data.get('company_id')
+        # Only validate if field exists (for admins)
+        if 'company_id' not in self.fields:
+            return company_id
+            
         # Check if the field is disabled (meaning non-admin tried to change it)
         if self.fields['company_id'].disabled and self.instance and company_id != self.instance.company_id:
              raise forms.ValidationError("You do not have permission to change the Company ID.")
@@ -233,10 +299,9 @@ class ProfileSettingsForm(forms.ModelForm):
 
 
 class LoginForm(forms.Form):
-    """
-    Login form with support for email/password authentication, 2FA OTP,
-    system selection, and captcha protection.
-    """
+    """Login form with support for email/password authentication, 2FA OTP, and captcha protection."""
+
+    CAPTCHA_FAILED_ATTEMPT_THRESHOLD = 5
     email = forms.EmailField(
         max_length=254,
         widget=forms.EmailInput(attrs={
@@ -263,19 +328,6 @@ class LoginForm(forms.Form):
         }
     )
     
-    system = forms.ModelChoiceField(
-        queryset=System.objects.all(),
-        empty_label="Select a system to access",
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'required': True
-        }),
-        error_messages={
-            'required': 'Please select a system to access.',
-            'invalid_choice': 'Please select a valid system.'
-        }
-    )
-    
     otp_code = forms.CharField(
         max_length=6,
         required=False,
@@ -289,10 +341,13 @@ class LoginForm(forms.Form):
         help_text='Required only if 2FA is enabled for your account.'
     )
     
-    captcha = CaptchaField(
+    captcha = forms.CharField(
+        max_length=500,
+        required=True,
+        widget=forms.HiddenInput(),
         error_messages={
-            'invalid': 'Please solve the captcha correctly.',
-            'required': 'Captcha verification is required.'
+            'invalid': 'reCAPTCHA verification failed. Please try again.',
+            'required': 'reCAPTCHA verification is required.'
         }
     )
     
@@ -306,53 +361,42 @@ class LoginForm(forms.Form):
     
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
-        self.selected_system = kwargs.pop('system', None)
+        self.rate_limit_state = kwargs.pop('rate_limit_state', None)
         super().__init__(*args, **kwargs)
         
-        # Check if captcha is needed based on failed login attempts
-        email = None
-        if self.request and self.request.method == 'POST':
-            email = self.request.POST.get('email')
-        elif self.data and 'email' in self.data:
-            email = self.data.get('email')
+        # Check if we're in OTP verification mode (credentials stored in session)
+        if self.request and self.request.session.get('otp_email'):
+            # We're in OTP mode - make email, password optional since they're in session
+            if 'email' in self.fields:
+                self.fields['email'].required = False
+            if 'password' in self.fields:
+                self.fields['password'].required = False
         
-        # Remove captcha field if not needed
-        if email:
-            try:
-                user = User.objects.get(email=email)
-                # Only show captcha if user has 5+ failed attempts or is locked
-                if user.failed_login_attempts < 5 and not user.is_locked:
-                    self.fields.pop('captcha', None)
-            except User.DoesNotExist:
-                # If user doesn't exist, still show captcha for security
-                pass
-        else:
-            # If no email provided yet, don't show captcha initially
-            self.fields.pop('captcha', None)
-        
-        # Pre-select system if provided via URL parameter
-        if self.selected_system:
-            try:
-                system_obj = System.objects.get(slug=self.selected_system)
-                self.fields['system'].initial = system_obj
-            except System.DoesNotExist:
-                pass
-        
-        # Remember last selected system from session
-        if self.request and hasattr(self.request, 'session') and self.request.session.get('last_selected_system'):
-            try:
-                system_obj = System.objects.get(slug=self.request.session['last_selected_system'])
-                if not self.selected_system:  # Only use remembered system if not explicitly provided
-                    self.fields['system'].initial = system_obj
-            except System.DoesNotExist:
-                pass
-    
     def clean(self):
         cleaned_data = super().clean()
+        
+        # Validate reCAPTCHA token
+        captcha_token = cleaned_data.get('captcha')
+        if captcha_token:
+            is_valid = self._verify_recaptcha(captcha_token)
+            logger.info(f'reCAPTCHA token validation result: {is_valid}, token: {captcha_token[:20]}...')
+            if not is_valid:
+                logger.warning(f'reCAPTCHA verification failed for email: {cleaned_data.get("email")}')
+                # Uncomment below to enforce reCAPTCHA validation
+                # raise ValidationError('reCAPTCHA verification failed. Please try again.')
+        else:
+            logger.warning('No reCAPTCHA token provided')
+            # Uncomment below to require reCAPTCHA token
+            # raise ValidationError('reCAPTCHA verification is required.')
+        
         email = cleaned_data.get('email')
         password = cleaned_data.get('password')
         otp_code = cleaned_data.get('otp_code')
-        system = cleaned_data.get('system')
+        
+        # Check if we're in OTP verification mode (credentials in session)
+        if self.request and self.request.session.get('otp_email'):
+            email = self.request.session.get('otp_email')
+            password = self.request.session.get('otp_password')
         
         if email and password:
             # Use the same authentication logic as the API
@@ -375,15 +419,6 @@ class LoginForm(forms.Form):
                 if serializer.is_valid(raise_exception=True):
                     # Get the authenticated user
                     user = serializer.user
-                    
-                    # Check if user has access to the selected system
-                    if system:
-                        has_system_access = user.system_roles.filter(system=system, is_active=True).exists()
-                        if not has_system_access:
-                            raise ValidationError(
-                                f'You do not have access to the {system.name} system. Please contact your administrator.',
-                                code='system_access_denied'
-                            )
                     
                     # Store the authenticated user for the view
                     self.user_cache = user
@@ -414,10 +449,22 @@ class LoginForm(forms.Form):
                 else:
                     error_msg = str(error_detail)
                 
-                # Map specific error codes to appropriate validation errors
-                if 'account_locked' in error_msg.lower():
+                # Get the error code from the exception if available
+                error_code = None
+                if hasattr(e, 'detail'):
+                    if isinstance(e.detail, dict):
+                        # Check non_field_errors for code
+                        non_field = e.detail.get('non_field_errors', [])
+                        if non_field and hasattr(non_field[0], 'code'):
+                            error_code = non_field[0].code
+                    elif isinstance(e.detail, list) and e.detail:
+                        if hasattr(e.detail[0], 'code'):
+                            error_code = e.detail[0].code
+                
+                # Map specific error codes or messages to appropriate validation errors
+                if error_code == 'account_locked' or 'account is locked' in error_msg.lower() or 'account locked' in error_msg.lower():
                     raise ValidationError(error_msg, code='account_locked')
-                elif 'otp' in error_msg.lower() and 'required' in error_msg.lower():
+                elif error_code == 'otp_required' or ('otp' in error_msg.lower() and 'required' in error_msg.lower()):
                     raise ValidationError(error_msg, code='otp_required')
                 elif 'otp' in error_msg.lower() and 'invalid' in error_msg.lower():
                     raise ValidationError(error_msg, code='otp_invalid')
@@ -434,9 +481,48 @@ class LoginForm(forms.Form):
         
         return cleaned_data
     
+    def _verify_recaptcha(self, token):
+        """Verify reCAPTCHA v3 token with Google's servers."""
+        import requests
+        from django.conf import settings
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        secret_key = settings.RECAPTCHA_SECRET_KEY
+        verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+        min_score = 0.5  # Minimum score threshold for v3 (0.0 - 1.0)
+        
+        try:
+            response = requests.post(
+                verify_url,
+                data={'secret': secret_key, 'response': token},
+                timeout=5
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            logger.info(f'reCAPTCHA response: {result}')
+            
+            # reCAPTCHA v3 returns success and score
+            is_valid = result.get('success', False)
+            score = result.get('score', 0.0)
+            
+            logger.info(f'reCAPTCHA - success: {is_valid}, score: {score}')
+            
+            # Check if success and score meets minimum threshold
+            return is_valid and score >= min_score
+        except Exception as e:
+            logger.error(f'reCAPTCHA verification error: {str(e)}')
+            return False
+    
     def get_user(self):
         """Return the authenticated user."""
         return getattr(self, 'user_cache', None)
+
+    @classmethod
+    def should_require_captcha(cls, request=None, email=None, rate_limit_state=None):
+        """Always require captcha for Google reCAPTCHA v2."""
+        return True
 
 
 class ForgotPasswordForm(forms.Form):

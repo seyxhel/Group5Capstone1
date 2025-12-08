@@ -1,518 +1,521 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }} - MAP Active TicketFlow</title>
-    
+    <title>{{ page_title }} - MAP Active Sign In</title>
+
+    <!-- External stylesheet -->
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+
     <!-- Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
+    <!-- Google reCAPTCHA v2 -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-        }
-        
-        /* .left-panel {
-            flex: 1;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23667eea"/><stop offset="100%" style="stop-color:%23764ba2"/></linearGradient></defs><rect width="100" height="100" fill="url(%23bg)"/></svg>') center/cover;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        } */
-        
-        .office-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
+        .formMode {
+            display: none;
             width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
-        
-        .office-content {
+        .formMode.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            gap: 20px;
+        }
+        .infoBox {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #004085;
+            width: 100%;
+        }
+        .forgotLink {
             text-align: center;
-            color: white;
-            z-index: 2;
-            padding: 2rem;
         }
-        
-        .office-title {
-            font-size: 3rem;
-            font-weight: 300;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        .office-subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-        
-        .right-panel {
-            flex: 1;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            min-height: 100vh;
-            overflow-y: auto;
-        }
-        
-        .login-container {
-            width: 100%;
-            max-width: 400px;
-            padding: 2rem;
-            margin: auto 0;
-        }
-        
-        .logo-section {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        
-        .logo-text {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 0.5rem;
-        }
-        
-        .map-logo {
-            color: #2196F3;
-            font-weight: bold;
-            font-size: 1.5rem;
-        }
-        
-        .ticketflow-logo {
-            color: #2196F3;
-            font-weight: 300;
-            font-size: 1.5rem;
-        }
-        
-        .welcome-text {
-            color: #666;
-            font-size: 0.95rem;
-            margin-bottom: 2rem;
-        }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #333;
-            font-size: 0.9rem;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e1e8ed;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: #f8f9fa;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #2196F3;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-        }
-        
-        .password-field {
-            position: relative;
-        }
-        
-        .toggle-password {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
+        .forgotLink button {
             background: none;
             border: none;
-            color: #666;
-            cursor: pointer;
-            padding: 4px;
-        }
-        
-        .login-btn {
-            width: 100%;
-            padding: 14px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 1rem;
-        }
-        
-        .login-btn:hover {
-            background: #1976D2;
-            transform: translateY(-1px);
-        }
-        
-        .login-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .forgot-password {
-            text-align: center;
-            margin-top: 1rem;
-        }
-        
-        .forgot-password a {
-            color: #2196F3;
+            color: #007bff;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.3s;
         }
-        
-        .forgot-password a:hover {
+        .forgotLink button:hover {
+            color: #0056b3;
             text-decoration: underline;
         }
-        
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border: none;
-        }
-        
-        .alert-success {
-            background: #e8f5e8;
-            color: #2e7d32;
-        }
-        
-        .alert-error, .alert-danger {
-            background: #ffebee;
-            color: #c62828;
-        }
-        
-        .alert-warning {
-            background: #fff8e1;
-            color: #f57c00;
-        }
-        
-        .alert-info {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .system-selection {
-            margin-bottom: 1.5rem;
-        }
-        
-        .otp-field {
-            margin-bottom: 1.5rem;
-        }
-        
-        .captcha-container {
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 2px solid #e1e8ed;
-        }
-        
-        .remember-me {
+        #loginMode fieldset,
+        #forgotPasswordMode fieldset {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+            align-items: start;
+            width: 100%;
             gap: 8px;
-            margin-bottom: 1.5rem;
         }
-        
-        .remember-me input[type="checkbox"] {
-            width: auto;
+        #loginMode fieldset input,
+        #forgotPasswordMode fieldset input {
+            display: flex;
+            width: 100%;
+            height: 44px;
+            padding: 18px 16px;
+            border-radius: 40px;
+            border: 1px solid #d3d3d3;
+            background-color: #fcfcfc;
         }
-        
-        .invalid-feedback {
-            color: #c62828;
-            font-size: 0.85rem;
-            margin-top: 0.25rem;
-        }
-        
-        .form-text {
-            color: #666;
-            font-size: 0.85rem;
-            margin-top: 0.25rem;
-        }
-        
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-                overflow-y: auto;
-            }
-            
-            .left-panel {
-                min-height: 30vh;
-                flex-shrink: 0;
-            }
-            
-            .right-panel {
-                flex: 1;
-                min-height: 70vh;
-                align-items: flex-start;
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-            }
-            
-            .office-title {
-                font-size: 2rem;
-            }
-            
-            .login-container {
-                padding: 1rem;
-                margin: 0;
-                width: 100%;
-            }
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
     </style>
 </head>
+
 <body>
-    <div class="left-panel">
-        <div class="office-bg">
-            <div class="office-content">
-                <h1 class="office-title">Modern Workspace</h1>
-                <p class="office-subtitle">Secure access to your digital environment</p>
+    <!-- Toast Notification Component -->
+    {% include "components/toast_notification.html" %}
+
+    <main class="loginPage">
+        <!-- Left Panel -->
+        <section class="leftPanel">
+            <div class="leftImage">
+                <img src="{% static 'images/TTS_MAP_BG.png' %}" alt="Background" class="assetImage">
             </div>
-        </div>
-    </div>
-    
-    <div class="right-panel">
-        <div class="login-container">
-            <div class="logo-section">
-                <div class="logo-text">
-                    <span class="map-logo">MAP</span>
-                    <span style="color: #666; font-size: 0.8rem;">active</span>
-                    <span class="ticketflow-logo">TicketFlow</span>
-                </div>
-                <p class="welcome-text">Welcome! Please provide your credentials to log in.</p>
-            </div>
+        </section>
 
-            <!-- Messages -->
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
+        <!-- Right Panel -->
+        <section class="rightPanel">
+            <header class="formHeader">
+                <section class="logo">
+                    <img src="{% static 'images/map-logo.png' %}" alt="TicketFlow logo" />
+                    <h1 class="logoText">Sign In</h1>
+                </section>
+                <p>Welcome! Please provide your credentials to log in.</p>
+            </header>
 
-            <!-- System Selection Info -->
-            {% if selected_system %}
-                <div class="alert alert-info">
-                    You will be signed in to: <strong>{{ selected_system }}</strong>
-                </div>
-            {% endif %}
-
-            <!-- Login Form -->
-            <form method="post" novalidate>
+            <!-- Login / OTP / Forgot Password Form -->
+            <form method="post" novalidate class="lpForm" data-two-factor="{{ two_factor_required|default:False }}" id="loginFormMain">
                 {% csrf_token %}
-                
-                <!-- Email Field -->
-                <div class="form-group">
-                    <label for="{{ form.email.id_for_label }}" class="form-label">Email:</label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.email.errors %}
-                                {{ error }}
-                            {% endfor %}
+
+                <!-- Login Mode -->
+                <div id="loginMode" class="formMode active">
+                    {# If two_factor_required is not True, show the normal credential inputs #}
+                    {% if not two_factor_required %}
+                    <!-- Email -->
+                    <fieldset>
+                        <label for="id_email">Email:</label>
+                        <input type="email" id="id_email" name="email" required placeholder="Enter your email">
+                    </fieldset>
+
+                    <!-- Password -->
+                    <fieldset>
+                        <label for="id_password">Password:</label>
+                        <div class="passwordContainer">
+                            <input type="password" id="id_password" name="password" required placeholder="Enter your password">
+                            <span class="showPassword" data-target="id_password" title="Show password">
+                                <i class="fa-solid fa-eye"></i>
+                            </span>
                         </div>
+                    </fieldset>
+
+                    <!-- Remember Me -->
+                    <div class="remember-me">
+                        <input type="checkbox" id="id_remember_me" name="remember_me">
+                        <label for="id_remember_me">Remember me</label>
+                    </div>
+
+                    <!-- reCAPTCHA v2 Checkbox -->
+                    <div class="g-recaptcha" data-sitekey="6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT"></div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="logInButton" id="loginButton" data-original-text="Log In">
+                        <span class="buttonText">Log In</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
                     {% endif %}
                 </div>
 
-                <!-- Password Field -->
-                <div class="form-group">
-                    <label for="{{ form.password.id_for_label }}" class="form-label">Password:</label>
-                    <div class="password-field">
-                        {{ form.password }}
-                        <button type="button" class="toggle-password" data-target="{{ form.password.id_for_label }}">
-                            <i class="fas fa-eye"></i>
+                <!-- Forgot Password Mode -->
+                <div id="forgotPasswordMode" class="formMode">
+                    <!-- Reset Password Info -->
+                    <div class="infoBox">
+                        <i class="fa-solid fa-info-circle"></i> Enter your email address and we'll send you a link to reset your password.
+                    </div>
+
+                    <!-- Email for Reset -->
+                    <fieldset>
+                        <label for="reset_email">Email Address:</label>
+                        <input type="email" id="reset_email" name="reset_email" required placeholder="Enter your registered email">
+                    </fieldset>
+
+                    <!-- Reset Submit Button -->
+                    <button type="button" class="logInButton" id="resetButton" style="margin-top: 10px;">
+                        <span class="buttonText">Send Reset Link</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
+                    <!-- Back to Login Toggle -->
+                    <div class="forgotLink">
+                        <button type="button" id="backToLoginFromForgot">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Login
                         </button>
                     </div>
-                    {% if form.password.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.password.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
                 </div>
 
-                <!-- System Selection -->
-                <div class="form-group system-selection">
-                    <label for="{{ form.system.id_for_label }}" class="form-label">Select System:</label>
-                    {{ form.system }}
-                    {% if form.system.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.system.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    <div class="form-text">Choose which system you want to access</div>
+            <!-- Register & Navigation -->
+            <div class="form-footer">
+                <div class="forgotLink">
+                    <button type="button" id="toggleForgotPassword">
+                        <i class="fa-solid fa-question-circle"></i> Forgot Password?
+                    </button>
                 </div>
-
-                <!-- OTP Field -->
-                <div class="form-group otp-field">
-                    <label for="{{ form.otp_code.id_for_label }}" class="form-label">Two-Factor Authentication Code:</label>
-                    {{ form.otp_code }}
-                    {% if form.otp_code.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.otp_code.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    <div class="form-text">{{ form.otp_code.help_text }}</div>
-                </div>
-
-                <!-- Captcha Field (shown only when needed) -->
-                {% if form.captcha %}
-                <div class="captcha-container">
-                    <label class="form-label">Security Verification:</label>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
-                        Please type the characters you see in the image below:
-                    </p>
-                    <div style="background: #ffebee; padding: 8px; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.85rem; color: #c62828;">
-                        Security verification required due to multiple failed login attempts.
-                    </div>
-                    {{ form.captcha }}
-                    {% if form.captcha.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.captcha.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Remember Me -->
-                <div class="remember-me">
-                    {{ form.remember_me }}
-                    <label for="{{ form.remember_me.id_for_label }}">{{ form.remember_me.label }}</label>
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="login-btn">
-                    Log In
-                </button>
-
-                <!-- Form Errors -->
-                {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in form.non_field_errors %}
-                            {{ error }}
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </form>
-
-            <!-- Forgot Password Link -->
-            <div class="forgot-password">
-                <a href="{{ forgot_password_url }}"><i class="fa-solid fa-question-circle"></i> Forgot Password?</a>
+                <a href="{% url 'employee-login-shortcut' %}" style="color: #666; text-decoration: none; font-size: 14px; display: block; text-align: center; transition: color 0.3s;" onmouseover="this.style.color='#007bff'" onmouseout="this.style.color='#666';"><i class="fa-solid fa-headset"></i> Login to Help Desk </a>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
+    <!-- JS -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Password visibility toggle
-            const toggleButtons = document.querySelectorAll('.toggle-password');
-            toggleButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const targetId = this.dataset.target;
-                    const passwordField = document.getElementById(targetId);
-                    const icon = this.querySelector('i');
-                    
-                    if (passwordField.type === 'password') {
-                        passwordField.type = 'text';
-                        icon.className = 'fas fa-eye-slash';
-                    } else {
-                        passwordField.type = 'password';
-                        icon.className = 'fas fa-eye';
-                    }
-                });
-            });
-
-            // Form validation feedback
-            const form = document.querySelector('form');
-            form.addEventListener('submit', function(e) {
-                const requiredFields = form.querySelectorAll('[required]');
-                let isValid = true;
-
-                // Validate required fields
-                requiredFields.forEach(field => {
-                    if (!field.value.trim()) {
-                        field.style.borderColor = '#c62828';
-                        isValid = false;
-                    } else {
-                        field.style.borderColor = '#e1e8ed';
-                    }
-                });
-
-                if (!isValid) {
-                    e.preventDefault();
+        document.addEventListener('DOMContentLoaded', function () {
+            // Display Django messages using toast notifications
+            // Messages are injected by Django as data attributes on the body or via a meta tag
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check for logout success message in query params
+            if (urlParams.has('logout')) {
+                ToastNotification.success('Logged Out', 'You have been successfully logged out.', 3000);
+            }
+            
+            // Display any Django messages from the backend
+            const messagesData = document.querySelector('[data-messages]');
+            if (messagesData) {
+                try {
+                    const messages = JSON.parse(messagesData.getAttribute('data-messages'));
+                    messages.forEach(msg => {
+                        const type = msg.tags || 'info';
+                        ToastNotification[type](msg.message);
+                    });
+                } catch (e) {
+                    console.error('Failed to parse messages:', e);
                 }
-            });
-
-            // Real-time field validation
-            const inputs = form.querySelectorAll('input[required], select[required]');
-            inputs.forEach(input => {
-                input.addEventListener('blur', function() {
-                    if (this.value.trim()) {
-                        this.style.borderColor = '#2196F3';
+            }
+            
+            // Password visibility toggle
+            document.querySelectorAll('.showPassword').forEach(toggle => {
+                const targetId = toggle.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                
+                // Function to show/hide eye icon based on input value
+                const updateIconVisibility = () => {
+                    if (passwordInput.value.length > 0) {
+                        toggle.style.display = 'flex';
                     } else {
-                        this.style.borderColor = '#c62828';
+                        toggle.style.display = 'none';
                     }
-                });
+                };
+                
+                // Initial check
+                updateIconVisibility();
+                
+                // Update on input
+                passwordInput.addEventListener('input', updateIconVisibility);
+                
+                // Toggle visibility on click
+                toggle.addEventListener('click', function () {
+                    const icon = this.querySelector('i');
 
-                input.addEventListener('input', function() {
-                    if (this.style.borderColor === 'rgb(198, 40, 40)' && this.value.trim()) {
-                        this.style.borderColor = '#e1e8ed';
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        icon.classList.replace('fa-eye', 'fa-eye-slash');
+                        this.setAttribute('title', 'Hide password');
+                    } else {
+                        passwordInput.type = 'password';
+                        icon.classList.replace('fa-eye-slash', 'fa-eye');
+                        this.setAttribute('title', 'Show password');
                     }
                 });
             });
 
-            // Auto-dismiss alerts after 5 seconds
-            const alerts = document.querySelectorAll('.alert:not(.alert-info)');
-            alerts.forEach(alert => {
+            // Toggle between login and forgot password modes
+            const toggleForgotPassword = document.getElementById('toggleForgotPassword');
+            const backToLoginBtn = document.getElementById('backToLoginFromForgot');
+            const loginMode = document.getElementById('loginMode');
+            const forgotPasswordMode = document.getElementById('forgotPasswordMode');
+
+            if (toggleForgotPassword) {
+                toggleForgotPassword.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.remove('active');
+                    forgotPasswordMode.classList.add('active');
+                });
+            }
+
+            if (backToLoginBtn) {
+                backToLoginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.add('active');
+                    forgotPasswordMode.classList.remove('active');
+                    document.getElementById('reset_email').value = '';
+                });
+            }
+
+            // Handle forgot password submission
+            const resetButton = document.getElementById('resetButton');
+            if (resetButton) {
+                resetButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('reset_email').value.trim();
+                    
+                    if (!email) {
+                        ToastNotification.error('Invalid Input', 'Email address is required.');
+                        return;
+                    }
+
+                    resetButton.disabled = true;
+                    const buttonText = resetButton.querySelector('.buttonText');
+                    const spinner = resetButton.querySelector('.spinner');
+                    buttonText.textContent = 'Sending...';
+                    spinner.style.display = 'inline-block';
+
+                    // Call the API endpoint for forgot password
+                    fetch('/api/v1/users/api/password/forgot/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({ email: email })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success || data.message) {
+                            ToastNotification.success('Email Sent', 'Check your email for password reset instructions.');
+                            document.getElementById('reset_email').value = '';
+                            
+                            // After 2 seconds, switch back to login
+                            setTimeout(() => {
+                                loginMode.classList.add('active');
+                                forgotPasswordMode.classList.remove('active');
+                            }, 2000);
+                        } else {
+                            ToastNotification.error('Error', data.error || 'Failed to send reset email.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        ToastNotification.error('Error', 'An error occurred. Please try again.');
+                    })
+                    .finally(() => {
+                        resetButton.disabled = false;
+                        buttonText.textContent = 'Send Reset Link';
+                        spinner.style.display = 'none';
+                    });
+                });
+            }
+
+            // Auto-hide alerts
+            document.querySelectorAll('.alert').forEach(alert => {
                 setTimeout(() => {
                     alert.style.opacity = '0';
                     setTimeout(() => alert.remove(), 300);
                 }, 5000);
             });
+
+            // Handle form submission to disable buttons and show loading state
+            const loginForm = document.querySelector('.lpForm');
+            const loginButton = document.getElementById('loginButton');
+            const otpButton = document.getElementById('otpButton');
+            
+            // Track if form has been submitted to prevent accidental re-submission via Enter key
+            let isFormSubmitting = false;
+            
+            loginForm.addEventListener('submit', function (e) {
+                // Prevent default form submission
+                e.preventDefault();
+                
+                // Prevent double submission
+                if (isFormSubmitting) {
+                    return false;
+                }
+                
+                // Check if grecaptcha is available
+                if (typeof grecaptcha === 'undefined') {
+                    console.error('reCAPTCHA not loaded');
+                    ToastNotification.error('Security Error', 'Security verification failed to load. Please refresh the page.');
+                    return false;
+                }
+                
+                // Get reCAPTCHA response from the checkbox widget
+                const recaptchaResponse = grecaptcha.getResponse();
+                
+                if (!recaptchaResponse) {
+                    ToastNotification.warning('reCAPTCHA Required', 'Please complete the reCAPTCHA verification.');
+                    return false;
+                }
+                
+                // Get form data
+                const email = document.querySelector('input[name="email"]').value;
+                const password = document.querySelector('input[name="password"]').value;
+                
+                if (!email || !password) {
+                    ToastNotification.error('Invalid Input', 'Email and password are required.');
+                    return;
+                }
+                
+                isFormSubmitting = true;
+                
+                // Disable submit buttons and show loading state
+                [loginButton, otpButton].forEach(btn => {
+                    if (btn) {
+                        btn.disabled = true;
+                        const buttonText = btn.querySelector('.buttonText');
+                        const spinner = btn.querySelector('.spinner');
+                        
+                        buttonText.textContent = 'Logging in...';
+                        spinner.style.display = 'inline-block';
+                    }
+                });
+                
+                // Call login API
+                fetch('/api/v1/users/login/api/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        g_recaptcha_response: recaptchaResponse
+                    })
+                })
+                .then(response => {
+                    return response.json().then(data => ({
+                        status: response.status,
+                        data: data
+                    }));
+                })
+                .then(result => {
+                    if (result.status === 200 && result.data.success) {
+                        // Login successful - store tokens and redirect
+                        localStorage.setItem('access_token', result.data.access_token);
+                        localStorage.setItem('refresh_token', result.data.refresh_token);
+                        
+                        // Set cookies for token
+                        document.cookie = `access_token=${result.data.access_token}; path=/`;
+                        document.cookie = `refresh_token=${result.data.refresh_token}; path=/`;
+                        
+                        // Show success toast and redirect
+                        ToastNotification.success('Login Successful', 'Redirecting to your dashboard...', 1500);
+                        setTimeout(() => {
+                            window.location.href = '/api/v1/users/welcome/';
+                        }, 1500);
+                    } else {
+                        // Login failed - show error
+                        const errorMsg = result.data.errors?.non_field_errors?.[0] || 
+                                        result.data.errors?.email?.[0] || 
+                                        result.data.errors?.password?.[0] ||
+                                        result.data.errors?.g_recaptcha_response?.[0] ||
+                                        'Login failed. Please try again.';
+                        
+                        ToastNotification.error('Login Failed', errorMsg);
+                        isFormSubmitting = false;
+                        
+                        // Re-enable buttons
+                        [loginButton, otpButton].forEach(btn => {
+                            if (btn) {
+                                btn.disabled = false;
+                                const buttonText = btn.querySelector('.buttonText');
+                                const spinner = btn.querySelector('.spinner');
+                                
+                                buttonText.textContent = 'Log In';
+                                spinner.style.display = 'none';
+                            }
+                        });
+                        
+                        // Reset reCAPTCHA for retry
+                        grecaptcha.reset();
+                    }
+                })
+                .catch(error => {
+                    console.error('API error:', error);
+                    ToastNotification.error('Login Error', 'Login failed: ' + error.message);
+                    isFormSubmitting = false;
+                    
+                    // Re-enable buttons
+                    [loginButton, otpButton].forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            const buttonText = btn.querySelector('.buttonText');
+                            const spinner = btn.querySelector('.spinner');
+                            
+                            buttonText.textContent = 'Log In';
+                            spinner.style.display = 'none';
+                        }
+                    });
+                    
+                    // Reset reCAPTCHA for retry
+                    grecaptcha.reset();
+                });
+                
+                return false;
+            });
+            
+            // Reset form state if user goes back (for OTP screen)
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    // Page was restored from browser cache - reset the flag
+                    isFormSubmitting = false;
+                    // Re-enable submit buttons
+                    [loginButton, otpButton].forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            const buttonText = btn.querySelector('.buttonText');
+                            const spinner = btn.querySelector('.spinner');
+                            const originalText = btn.getAttribute('data-original-text');
+                            buttonText.textContent = originalText;
+                            spinner.style.display = 'none';
+                        }
+                    });
+                }
+            });
+
+            // Toast auto-hide
+            const toasts = document.querySelectorAll('.toast');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.5s forwards';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            });
+
+            // Handle Back to Login button - force server request to clear session
+            const backToLoginOtpBtn = document.querySelector('.backToLogin');
+            if (backToLoginOtpBtn) {
+                backToLoginOtpBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Reset form submission state
+                    isFormSubmitting = false;
+                    // Add timestamp to prevent caching and force session cleanup
+                    window.location.href = this.href + '?clear_otp=1&t=' + Date.now();
+                });
+            }
         });
     </script>
 </body>
+
 </html>

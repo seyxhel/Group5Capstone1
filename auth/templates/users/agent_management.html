@@ -7,18 +7,14 @@
     <title>Agent Management</title>
     <link rel="stylesheet" href="{% static 'css/profile_settings.css' %}" />
     <link rel="stylesheet" href="{% static 'css/agent_management.css' %}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   </head>
   <body>
+    {% include "components/nav.html" %}
     <main class="agentManagementPage">
       <div class="agentManagementContainer">
         <div class="header">
-          <h1>Agent Management</h1>
-          <div class="headerActions">
-            <a href="{% url 'profile-settings' %}" class="btn btnSecondary"
-              >My Profile</a
-            >
-            <a href="/logout/" class="btn btnDanger">Logout</a>
-          </div>
+          <h2>Agent Management</h2>
         </div>
 
         <!-- Toast Messages -->
@@ -42,12 +38,20 @@
             <h2 id="agents-title">System Agents</h2>
 
             <div class="agentsSearch">
+              <select id="system-filter" class="filterSelect">
+                <option value="">All Systems</option>
+                <option value="tts">TTS</option>
+                <option value="hdts">HDTS</option>
+                <option value="ams">AMS</option>
+                <option value="bms">BMS</option>
+              </select>
               <input
                 type="search"
                 id="search-input"
-                placeholder="Search agents by role, email, name, company, or phone..."
+                placeholder="Search agents by name, email, phone, or role..."
               />
               <button id="clear-search" class="btn btnSecondary">Clear</button>
+              <a href="{% url 'invite-agent' %}" class="btn btnPrimary">+ Invite Agent</a>
             </div>
 
             <!--<div class="agentsStats">
@@ -61,8 +65,9 @@
                 <tr>
                   <th>Avatar</th>
                   <th>Name</th>
-                  <th>Email</th>
                   <th>Role</th>
+                  <th>System</th>
+                  <th>Email</th>
                   <th>Company</th>
                   <th>Phone</th>
                   <th>Status</th>
@@ -90,6 +95,30 @@
             </div>
             <form id="edit-form">
               <div class="formGroup">
+                <label for="edit-first-name">First Name</label>
+                <input type="text" id="edit-first-name" name="first_name" />
+              </div>
+              <div class="formGroup">
+                <label for="edit-middle-name">Middle Name</label>
+                <input type="text" id="edit-middle-name" name="middle_name" />
+              </div>
+              <div class="formGroup">
+                <label for="edit-last-name">Last Name</label>
+                <input type="text" id="edit-last-name" name="last_name" />
+              </div>
+              <div class="formGroup">
+                <label for="edit-suffix">Suffix</label>
+                <select id="edit-suffix" name="suffix">
+                  <option value="">---------</option>
+                  <option value="Jr.">Jr.</option>
+                  <option value="Sr.">Sr.</option>
+                  <option value="II">II</option>
+                  <option value="III">III</option>
+                  <option value="IV">IV</option>
+                  <option value="V">V</option>
+                </select>
+              </div>
+              <div class="formGroup">
                 <label for="edit-username">Username</label>
                 <input
                   type="text"
@@ -99,30 +128,35 @@
                 />
               </div>
               <div class="formGroup">
-                <label for="edit-email">Email</label>
-                <input type="email" id="edit-email" name="email" required />
-              </div>
-              <div class="formGroup">
-                <label for="edit-first-name">First Name</label>
-                <input type="text" id="edit-first-name" name="first_name" />
-              </div>
-              <div class="formGroup">
-                <label for="edit-last-name">Last Name</label>
-                <input type="text" id="edit-last-name" name="last_name" />
-              </div>
-              <div class="formGroup">
                 <label for="edit-phone">Phone Number</label>
                 <input type="tel" id="edit-phone" name="phone_number" />
               </div>
               <div class="formGroup">
-                <label for="edit-company">Company</label>
+                <label for="edit-email">Email</label>
+                <input type="email" id="edit-email" name="email" required />
+              </div>
+              <div class="formGroup">
+                <label for="edit-company-id">Company ID</label>
                 <input
                   type="text"
-                  id="edit-company"
-                  name="company_name"
+                  id="edit-company-id"
+                  name="company_id"
                   readonly
                 />
-                <small>Company cannot be changed</small>
+                <small>Company ID cannot be changed</small>
+              </div>
+              <div class="formGroup">
+                <label for="edit-department">Department</label>
+                <select id="edit-department" name="department">
+                  <option value="">---------</option>
+                  <option value="IT Department">IT Department</option>
+                  <option value="Asset Department">Asset Department</option>
+                  <option value="Budget Department">Budget Department</option>
+                </select>
+              </div>
+              <div class="formGroup">
+                <label for="edit-asset-department">Asset Department</label>
+                <input type="text" id="edit-asset-department" name="asset_department" />
               </div>
               <div class="formGroup">
                 <label for="edit-active">Status</label>
@@ -195,6 +229,7 @@
 
       const csrfToken = getCookie("csrftoken");
       let currentAgentId = null;
+      let currentAgentSystemRoleId = null;
       let agents = [];
 
       // Toast notification system
@@ -239,7 +274,14 @@
         showLoading();
 
         try {
-          const response = await fetch("/api/v1/users/list/", {
+          const systemFilter = document.getElementById("system-filter").value;
+          let url = "/api/v1/users/list/";
+          
+          if (systemFilter) {
+            url += `?system_slug=${systemFilter}`;
+          }
+
+          const response = await fetch(url, {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
@@ -254,6 +296,9 @@
 
           const data = await response.json();
           agents = data.users || [];
+
+          // Log the data to console for debugging
+          console.log("Loaded agents:", agents);
 
           displayAgents(agents);
           const totalCount = agents.length;
@@ -283,143 +328,7 @@
         if (agentsData.length === 0) {
           tableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="noAgents">No agents found.</td>
-            </tr>`;
-          return;
-        }
-        return cookieValue;
-      }
-
-      let currentUser = null; // Store current authenticated user info
-      let currentSystemName = "System"; // Store current system name
-      let currentSystemSlug = ""; // Store current system slug for filtering
-
-      // Toast notification system
-      function showToast(message, type = "info") {
-        const container = document.getElementById("toast-container");
-        const toast = document.createElement("div");
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-
-        container.appendChild(toast);
-        container.classList.remove("hidden");
-
-        setTimeout(() => {
-          toast.remove();
-          if (container.children.length === 0) {
-            container.classList.add("hidden");
-          }
-        }, 5000);
-      }
-
-      // Show/hide loading
-      function showLoading() {
-        document.getElementById("loading").classList.remove("hidden");
-        document.getElementById("agents-container").classList.add("hidden");
-        document.getElementById("error-container").classList.add("hidden");
-      }
-
-      function hideLoading() {
-        document.getElementById("loading").classList.add("hidden");
-      }
-
-      // Show error
-      function showError(message) {
-        document.getElementById("error-message").textContent = message;
-        document.getElementById("error-container").classList.remove("hidden");
-        document.getElementById("agents-container").classList.add("hidden");
-        hideLoading();
-      }
-
-      // Load agents from API
-      async function loadAgents() {
-        showLoading();
-
-        try {
-          // Fetch current user profile and agents list simultaneously
-          const [profileResponse, agentsResponse] = await Promise.all([
-            fetch("/api/v1/users/profile/", {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": csrfToken,
-              },
-              credentials: "include",
-            }),
-            fetch("/api/v1/users/list/", {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": csrfToken,
-              },
-              credentials: "include",
-            })
-          ]);
-
-          if (!profileResponse.ok || !agentsResponse.ok) {
-            throw new Error(`HTTP error! Profile: ${profileResponse.status}, Agents: ${agentsResponse.status}`);
-          }
-
-          const [profileData, agentsData] = await Promise.all([
-            profileResponse.json(),
-            agentsResponse.json()
-          ]);
-
-          currentUser = profileData;
-          const allAgents = agentsData.users || [];
-          
-          // Debug: Log the profile data to see the structure
-          console.log('Current user profile data:', currentUser);
-          
-          // Get the system name from the user's system_roles
-          if (currentUser.system_roles && currentUser.system_roles.length > 0) {
-            console.log('User system roles:', currentUser.system_roles);
-            // Find the first admin role to get the system name
-            const adminRole = currentUser.system_roles.find(role => role.role_name === 'Admin');
-            if (adminRole && adminRole.system_name) {
-              currentSystemName = adminRole.system_name;
-              currentSystemSlug = adminRole.system_slug;
-            } else if (currentUser.system_roles[0].system_name) {
-              // Fallback to first system if no admin role found
-              currentSystemName = currentUser.system_roles[0].system_name;
-              currentSystemSlug = currentUser.system_roles[0].system_slug;
-            }
-          }
-          
-          console.log('Determined system name:', currentSystemName);
-          
-          // Filter out the current authenticated user from the agents list
-          agents = allAgents.filter(agent => agent.id !== currentUser.id);
-
-          displayAgents(agents);
-          const totalCount = agents.length;
-          // Update both the H2 title and the small stats span with system name
-          const titleEl = document.getElementById("agents-title");
-          const countEl = document.getElementById("agents-count");
-          if (titleEl) titleEl.textContent = `${currentSystemName} Agents (${totalCount})`;
-          if (countEl) countEl.textContent = `${totalCount} agents found`;
-
-          document
-            .getElementById("agents-container")
-            .classList.remove("hidden");
-          hideLoading();
-        } catch (error) {
-          console.error("Error loading agents:", error);
-          showError(
-            "Failed to load agents. Please check your connection and try again."
-          );
-        }
-      }
-
-      // Display agents in table
-      function displayAgents(agentsData) {
-        const tableBody = document.getElementById("agents-body");
-        tableBody.innerHTML = "";
-
-        if (agentsData.length === 0) {
-          tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="noAgents">No agents found.</td>
+                <td colspan="10" class="noAgents">No agents found.</td>
             </tr>`;
           return;
         }
@@ -451,30 +360,23 @@
           const totalCount = agents.length;
           const titleEl = document.getElementById("agents-title");
           const countEl = document.getElementById("agents-count");
-          if (titleEl) titleEl.textContent = `${currentSystemName} Agents (${totalCount})`;
+          if (titleEl) titleEl.textContent = `System Agents (${totalCount})`;
           if (countEl) countEl.textContent = `${totalCount} agents found`;
           return;
         }
 
-        // Filter agents (current user is already excluded from the agents array)
         const filtered = agents.filter((a) => {
           const email = (a.email || "").toLowerCase();
-          const company = (a.company_name || "").toLowerCase();
           const phone = (a.phone_number || "").toLowerCase();
           const fullName = `${a.first_name || ""} ${
             a.last_name || ""
           }`.toLowerCase();
-          
-          // Get the role name for the current system
-          let roleName = "";
-          if (a.system_roles && currentSystemSlug) {
-            const systemRole = a.system_roles.find(role => role.system_slug === currentSystemSlug);
-            roleName = systemRole ? systemRole.role_name.toLowerCase() : "";
-          }
+          const roleName = a.system_roles && a.system_roles.length > 0
+            ? (a.system_roles[0].role_name || "").toLowerCase()
+            : "";
 
           return (
             email.includes(query) ||
-            company.includes(query) ||
             phone.includes(query) ||
             fullName.includes(query) ||
             roleName.includes(query)
@@ -485,7 +387,7 @@
         const filteredCount = filtered.length;
         const titleEl = document.getElementById("agents-title");
         const countEl = document.getElementById("agents-count");
-        if (titleEl) titleEl.textContent = `${currentSystemName} Agents (${filteredCount})`;
+        if (titleEl) titleEl.textContent = `System Agents (${filteredCount})`;
         if (countEl) countEl.textContent = `${filteredCount} agents found`;
       }
 
@@ -494,6 +396,8 @@
       // Attach listeners for search input and clear button
       const searchInput = document.getElementById("search-input");
       const clearButton = document.getElementById("clear-search");
+      const systemFilter = document.getElementById("system-filter");
+      
       if (searchInput) {
         searchInput.addEventListener("input", debouncedApplySearch);
       }
@@ -503,29 +407,66 @@
           applySearchFilter();
         });
       }
+      if (systemFilter) {
+        systemFilter.addEventListener("change", function () {
+          loadAgents();
+        });
+      }
+
+      // Format time relative to now (e.g., "5 min ago", "2 hours ago")
+      function formatRelativeTime(dateString) {
+        if (!dateString) return "Never";
+        
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 60) return "Just now";
+        
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+        
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+        
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+        
+        const diffInWeeks = Math.floor(diffInDays / 7);
+        if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
+        
+        // Fall back to date format
+        return date.toLocaleDateString();
+      }
+
+      // Format date and time for display (e.g., "Nov 18, 2025 at 2:30 PM")
+      function formatFullDateTime(dateString) {
+        if (!dateString) return "Never";
+        
+        const date = new Date(dateString);
+        const options = { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        };
+        return date.toLocaleString(undefined, options);
+      }
 
       // Create table row for an agent
       function createAgentRow(agent) {
+        const systemRole = agent.system_roles && agent.system_roles.length > 0
+          ? agent.system_roles[0]
+          : {};
+        const roleName = systemRole.role_name || "N/A";
+        const systemSlug = systemRole.system_slug || "N/A";
+        const isActive = systemRole.is_active !== undefined ? systemRole.is_active : agent.is_active;
+        const lastLoggedOn = formatRelativeTime(systemRole.last_logged_on);
+
         const row = document.createElement("tr");
-        // Ensure agent.id is a valid number
-        const agentId = agent.id && !isNaN(agent.id) ? agent.id : null;
-        
-        if (!agentId) {
-          console.error('Invalid agent ID in createAgentRow:', agent);
-          return row; // Return empty row
-        }
-        
-        // Find the agent's role in the current system to get system-specific is_active status
-        let systemRoleActive = false;
-        let systemRoleName = "N/A";
-        if (agent.system_roles && currentSystemSlug) {
-          const systemRole = agent.system_roles.find(role => role.system_slug === currentSystemSlug);
-          if (systemRole) {
-            systemRoleActive = systemRole.is_active;
-            systemRoleName = systemRole.role_name;
-          }
-        }
-        
         row.innerHTML = `
         <td>
             <img src="${
@@ -536,25 +477,26 @@
                  class="agentAvatarSmall">
         </td>
         <td>${agent.first_name || ""} ${agent.last_name || ""}</td>
+        <td>${roleName}</td>
+        <td>${systemSlug}</td>
         <td>${agent.email}</td>
-        <td>${systemRoleName}</td>
-        <td>${agent.company_name || "N/A"}</td>
+        <td>${agent.company_id || "N/A"}</td>
         <td>${agent.phone_number || "N/A"}</td>
         <td>
             <span class="agentStatus ${
-              systemRoleActive ? "active" : "inactive"
+              isActive ? "active" : "inactive"
             }">
-                ${systemRoleActive ? "Active" : "Inactive"}
+                ${isActive ? "Active" : "Inactive"}
             </span>
         </td>
-        <td>${
-          agent.last_login
-            ? new Date(agent.last_login).toLocaleDateString()
-            : "Never"
-        }</td>
+        <td>${lastLoggedOn}</td>
         <td>
-            <button onclick="viewAgent(${agentId})" class="btn btnSecondary btnSmall">View</button>
-            <button onclick="editAgent(${agentId})" class="btn btnPrimary btnSmall">Edit</button>
+            <button onclick="viewAgent(${
+              agent.id
+            })" class="btn btnSecondary btnSmall">View</button>
+            <button onclick="editAgent(${
+              agent.id
+            })" class="btn btnPrimary btnSmall">Edit</button>
         </td>
     `;
         return row;
@@ -562,13 +504,6 @@
 
       // View agent details
       async function viewAgent(agentId) {
-        // Validate agentId
-        if (!agentId || agentId === 'null' || agentId === null || agentId === undefined) {
-          console.error('Invalid agent ID:', agentId);
-          showToast("Invalid agent ID", "error");
-          return;
-        }
-
         try {
           const response = await fetch(`/api/v1/users/${agentId}/`, {
             method: "GET",
@@ -584,63 +519,48 @@
           }
 
           const agent = await response.json();
-          currentAgentId = parseInt(agentId, 10);
+          currentAgentId = agentId;
 
-          // Find the agent's role in the current system to get system-specific is_active status
-          let systemRoleActive = false;
-          if (agent.system_roles && currentSystemSlug) {
-            const systemRole = agent.system_roles.find(role => role.system_slug === currentSystemSlug);
-            systemRoleActive = systemRole ? systemRole.is_active : false;
-          }
+          // Get system role info
+          const systemRole = agent.system_roles && agent.system_roles.length > 0
+            ? agent.system_roles[0]
+            : {};
+          const lastLoggedOnFull = formatFullDateTime(systemRole.last_logged_on);
 
           const detailsHtml = `
-                    <div class="detailItem">
-                        <label>Username:</label>
-                        <span>${agent.username}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Email:</label>
-                        <span>${agent.email}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>First Name:</label>
-                        <span>${agent.first_name || "N/A"}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Last Name:</label>
-                        <span>${agent.last_name || "N/A"}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Phone:</label>
-                        <span>${agent.phone_number || "N/A"}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Company:</label>
-                        <span>${agent.company_name || "N/A"}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>${currentSystemName} Status:</label>
-                        <span class="agentStatus ${
-                          systemRoleActive ? "active" : "inactive"
-                        }">
-                            ${systemRoleActive ? "Active" : "Inactive"}
-                        </span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Date Joined:</label>
-                        <span>${new Date(
-                          agent.date_joined
-                        ).toLocaleDateString()}</span>
-                    </div>
-                    <div class="detailItem">
-                        <label>Last Login:</label>
-                        <span>${
-                          agent.last_login
-                            ? new Date(agent.last_login).toLocaleDateString()
-                            : "Never"
-                        }</span>
-                    </div>
-                `;
+            <div class="agentProfileContainer">
+              <div class="agentProfileImage">
+                <img src="${
+                  agent.profile_picture ||
+                  "https://i.pinimg.com/1200x/a9/a8/c8/a9a8c8258957c8c7d6fcd320e9973203.jpg"
+                }" alt="${agent.username}">
+              </div>
+              <div class="agentProfileInfo">
+                <h3>${agent.first_name || ""} ${agent.middle_name || ""} ${agent.last_name || ""} ${agent.suffix || ""}</h3>
+                <p class="agentUsername">@${agent.username}</p>
+                <div class="agentInfoGrid">
+                  <div><strong>Email:</strong> ${agent.email}</div>
+                  <div><strong>Phone:</strong> ${
+                    agent.phone_number || "N/A"
+                  }</div>
+                  <div><strong>Company:</strong> ${
+                    agent.company_id || "N/A"
+                  }</div>
+                  <div><strong>Status:</strong> 
+                    <span class="agentStatus ${
+                      agent.is_active ? "active" : "inactive"
+                    }">
+                      ${agent.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div><strong>Date Joined:</strong> ${new Date(
+                    agent.date_joined
+                  ).toLocaleDateString()}</div>
+                  <div><strong>Last Login:</strong> ${lastLoggedOnFull}</div>
+                </div>
+              </div>
+            </div>
+          `;
 
           document.getElementById("agent-details").innerHTML = detailsHtml;
           document.getElementById("view-modal").classList.remove("hidden");
@@ -652,10 +572,13 @@
 
       // Edit agent
       async function editAgent(agentId) {
-        // Validate agentId
-        if (!agentId || agentId === 'null' || agentId === null || agentId === undefined) {
-          console.error('Invalid agent ID:', agentId);
-          showToast("Invalid agent ID", "error");
+        // check
+        if (!agentId) {
+          console.error("❌ editAgent called with null/undefined ID");
+          showToast(
+            "Invalid agent ID — please refresh and try again.",
+            "error"
+          );
           return;
         }
 
@@ -674,36 +597,37 @@
           }
 
           const agent = await response.json();
-          currentAgentId = parseInt(agentId, 10);
-
-          // Find the agent's role in the current system to get system-specific is_active status
-          let systemRoleActive = false;
-          let systemRoleId = null;
-          if (agent.system_roles && currentSystemSlug) {
-            const systemRole = agent.system_roles.find(role => role.system_slug === currentSystemSlug);
-            if (systemRole) {
-              systemRoleActive = systemRole.is_active;
-              systemRoleId = systemRole.id;
-            }
-          }
-
-          // Store the system role ID for the update request
-          document.getElementById("edit-form").setAttribute("data-system-role-id", systemRoleId);
+          currentAgentId = agentId;
 
           // Populate form
-          document.getElementById("edit-username").value = agent.username || "";
-          document.getElementById("edit-email").value = agent.email || "";
           document.getElementById("edit-first-name").value =
             agent.first_name || "";
+          document.getElementById("edit-middle-name").value =
+            agent.middle_name || "";
           document.getElementById("edit-last-name").value =
             agent.last_name || "";
+          document.getElementById("edit-suffix").value =
+            agent.suffix || "";
+          document.getElementById("edit-username").value = agent.username || "";
           document.getElementById("edit-phone").value =
             agent.phone_number || "";
-          document.getElementById("edit-company").value =
-            agent.company_name || "";
-          document.getElementById("edit-active").value = systemRoleActive
-            ? "true"
-            : "false";
+          document.getElementById("edit-email").value = agent.email || "";
+          document.getElementById("edit-company-id").value =
+            agent.company_id || agent.company_name || "";
+          document.getElementById("edit-department").value =
+            agent.department || "";
+
+          // Store the system role info for later use in form submission
+          currentAgentSystemRoleId = agent.system_roles && agent.system_roles.length > 0 
+            ? agent.system_roles[0].id 
+            : null;
+          
+          // Set the status based on the first system role's is_active status
+          const roleStatus = agent.system_roles && agent.system_roles.length > 0
+            ? agent.system_roles[0].is_active
+            : agent.is_active;
+          
+          document.getElementById("edit-active").value = roleStatus ? "true" : "false";
 
           document.getElementById("edit-modal").classList.remove("hidden");
         } catch (error) {
@@ -714,14 +638,16 @@
 
       // Edit from view modal
       function editFromView() {
+        const agentId = currentAgentId; // Save the ID before closing modal
         closeViewModal();
-        editAgent(currentAgentId);
+        editAgent(agentId);
       }
 
       // Close modals
       function closeEditModal() {
         document.getElementById("edit-modal").classList.add("hidden");
         currentAgentId = null;
+        currentAgentSystemRoleId = null;
       }
 
       function closeViewModal() {
@@ -735,30 +661,26 @@
         .addEventListener("submit", async function (e) {
           e.preventDefault();
 
-          if (!currentAgentId || currentAgentId === 'null' || isNaN(currentAgentId)) {
-            console.error('Invalid currentAgentId:', currentAgentId);
-            showToast("Invalid agent ID for update", "error");
-            return;
-          }
+          if (!currentAgentId) return;
 
           const formData = new FormData(this);
-          const systemRoleId = this.getAttribute("data-system-role-id");
-          
-          // Only send fields that are allowed by AdminUserProfileUpdateSerializer
           const data = {
             first_name: formData.get("first_name"),
+            middle_name: formData.get("middle_name"),
             last_name: formData.get("last_name"),
+            suffix: formData.get("suffix"),
+            username: formData.get("username"),
             phone_number: formData.get("phone_number"),
-            system_role_is_active: formData.get("is_active") === "true",
-            system_role_id: systemRoleId ? parseInt(systemRoleId, 10) : null
+            email: formData.get("email"),
+            department: formData.get("department"),
+            asset_department: formData.get("asset_department"),
           };
-          
-          // Remove any fields that are empty or null to avoid sending unnecessary data
-          Object.keys(data).forEach(key => {
-            if (data[key] === null || data[key] === undefined || data[key] === '') {
-              delete data[key];
-            }
-          });
+
+          // Add system role activation/deactivation if we have a system role ID
+          if (currentAgentSystemRoleId) {
+            data.system_role_is_active = formData.get("is_active") === "true";
+            data.system_role_id = currentAgentSystemRoleId;
+          }
 
           try {
             const response = await fetch(`/api/v1/users/${currentAgentId}/`, {

@@ -5,6 +5,8 @@ from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
 from drf_spectacular.openapi import OpenApiTypes
 from django.shortcuts import get_object_or_404
+from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from .models import UserSystemRole
 from .serializers import (
@@ -180,6 +182,88 @@ class UserSystemRoleViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
+        tags=['System Roles'],
+        summary="Edit user settings",
+        description="Edit settings for a user's role in a system. Only admins of the same system or superusers can edit.",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "user_id": {"type": "integer", "description": "ID of the user"},
+                    "settings": {"type": "object", "description": "JSON settings object"}
+                },
+                "required": ["user_id", "settings"]
+            }
+        }
+    )
+    @action(detail=False, methods=['post'], url_path='edit-settings')
+    def edit_settings(self, request):
+        """
+        Edit settings for a user's role assignment.
+        POST /system-roles/edit-settings/
+        
+        Request body:
+        {
+            "user_id": <int>,
+            "settings": {<json_object>}
+        }
+        """
+        user_id = request.data.get('user_id')
+        settings = request.data.get('settings')
+        
+        if user_id is None:
+            return Response(
+                {"error": "user_id is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if settings is None:
+            return Response(
+                {"error": "settings is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Get the user system role for the current user
+            admin_role = UserSystemRole.objects.get(
+                user=request.user,
+                role__name='Admin'
+            )
+            
+            # Get the target user's role assignment to edit
+            target_role = UserSystemRole.objects.get(
+                user_id=user_id,
+                system=admin_role.system
+            )
+            
+            # Check permissions: only admins of the same system or superusers
+            if not request.user.is_superuser:
+                # User must be an admin in the same system
+                if admin_role.system != target_role.system:
+                    return Response(
+                        {"error": "Access denied. You can only edit users in your system"}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            
+            # Update the settings
+            target_role.settings = settings
+            target_role.save()
+            
+            return Response({
+                "id": target_role.id,
+                "user_id": target_role.user_id,
+                "system": target_role.system.slug,
+                "role": target_role.role.name,
+                "settings": target_role.settings
+            }, status=status.HTTP_200_OK)
+        
+        except UserSystemRole.DoesNotExist:
+            return Response(
+                {"error": "User system role not found or access denied"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @extend_schema(
         parameters=[
             OpenApiParameter(
                 name='system_slug',
@@ -241,51 +325,69 @@ class AdminInviteUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-
+        serializer.is_valid(raise_exception=True)
+        
+        # Get the role to check system permissions
+        role_id = request.data.get('role_id')
         try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Get the role object from the serializer's validated data.
-        # The serializer's `validate_role_id` returns a Role instance (or raises),
-        # so prefer that instead of re-querying using the raw request value which
-        # may contain tokens like 'admin_hdts'.
-        role = serializer.validated_data.get('role_id')
-        if not isinstance(role, Role):
-            try:
-                role = Role.objects.select_related('system').get(id=role)
-            except Role.DoesNotExist:
-                return Response(
-                    {"error": "Invalid role specified"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        # Check if user can invite to this system
-        if not request.user.is_superuser:
-            if not UserSystemRole.objects.filter(
-                user=request.user,
-                system=role.system,
-                role__name='Admin'
-            ).exists():
-                return Response(
-                    {"error": "Access denied to this system"}, 
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
+            role = Role.objects.select_related('system').get(id=role_id)
+            
+            # Check if user can invite to this system
+            if not request.user.is_superuser:
+                if not UserSystemRole.objects.filter(
+                    user=request.user,
+                    system=role.system,
+                    role__name='Admin'
+                ).exists():
+                    return Response(
+                        {"error": "Access denied to this system"}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+        except Role.DoesNotExist:
+            return Response(
+                {"error": "Invalid role specified"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Handle serializer.save() with error handling
         try:
-            result = serializer.save()
-            return Response({
-                "user": result["user"].email,
-                "temporary_password": result["temporary_password"],
-                "role": result["assigned_role"].role.name,
-                "system": result["assigned_role"].system.slug
-            }, status=status.HTTP_201_CREATED)
+            with transaction.atomic():
+                result = serializer.save()
+        except IntegrityError as e:
+            # Handle database constraint violations gracefully
+            error_msg = str(e).lower()
+            if 'email' in error_msg or 'unique' in error_msg:
+                return Response(
+                    {"error": "This email is already registered in the system. Please use a different email or assign the user to a different role."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            elif 'username' in error_msg:
+                return Response(
+                    {"error": "Username already exists. Please contact support."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            else:
+                return Response(
+                    {"error": "Unable to complete the invitation due to a data conflict. Please try again or contact support."},
+                    status=status.HTTP_409_CONFLICT
+                )
         except Exception as e:
-            # Avoid exposing sensitive internals but return useful message for debugging in dev
-            import traceback
-            traceback.print_exc()
-            return Response({"error": str(e) or 'Internal error during invite'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Log the unexpected error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Unexpected error during user invitation: {str(e)}", exc_info=True)
+            
+            return Response(
+                {"error": "An unexpected error occurred. Please try again later or contact support."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        return Response({
+            "user": result["user"].email,
+            "temporary_password": result["temporary_password"],
+            "role": result["assigned_role"].role.name,
+            "system": result["assigned_role"].system.slug
+        }, status=status.HTTP_201_CREATED)
 
 
 @extend_schema_view(

@@ -2,8 +2,13 @@ import requests
 import logging
 from django.conf import settings
 from typing import Dict, Any, Optional
+from celery import Celery
 
 logger = logging.getLogger(__name__)
+
+# Initialize Celery app for task sending
+celery_app = Celery('auth')
+celery_app.config_from_object('django.conf:settings', namespace='CELERY')
 
 
 class NotificationClient:
@@ -199,6 +204,143 @@ class NotificationClient:
             )
             return response.status_code == 200
         except:
+            return False
+    
+    def send_password_reset_email_async(self, user, reset_token, request=None) -> bool:
+        """
+        Send password reset email via notification service Celery task
+        
+        Args:
+            user: User instance
+            reset_token: PasswordResetToken instance
+            request: HTTP request object (optional)
+        
+        Returns:
+            bool: True if task was enqueued successfully
+        """
+        try:
+            # Build the reset URL
+            if request:
+                base_url = f"{request.scheme}://{request.get_host()}"
+            else:
+                base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            
+            reset_url = f"{base_url}/api/v1/users/password/reset?token={reset_token.token}"
+            
+            # Send task to notification service queue
+            celery_app.send_task(
+                'notifications.send_password_reset_email',
+                kwargs={
+                    'user_email': user.email,
+                    'user_name': user.get_full_name() or user.username or user.email.split('@')[0],
+                    'reset_token': reset_token.token,
+                    'reset_url': reset_url,
+                    'user_id': str(user.id)
+                },
+                queue='NOTIFICATION_TASKS'
+            )
+            
+            logger.info(f"Password reset email task enqueued for {user.email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to enqueue password reset email task for {user.email}: {str(e)}")
+            return False
+    
+    def send_invitation_email_async(self, user, temp_password, system_name, role_name) -> bool:
+        """
+        Send invitation email via notification service Celery task
+        
+        Args:
+            user: User instance
+            temp_password: Temporary password
+            system_name: Name of the system
+            role_name: Name of the role
+        
+        Returns:
+            bool: True if task was enqueued successfully
+        """
+        try:
+            celery_app.send_task(
+                'notifications.send_invitation_email',
+                kwargs={
+                    'user_email': user.email,
+                    'user_name': user.get_full_name() or user.username or user.email.split('@')[0],
+                    'temp_password': temp_password,
+                    'system_name': system_name,
+                    'role_name': role_name,
+                    'user_id': str(user.id)
+                },
+                queue='NOTIFICATION_TASKS'
+            )
+            
+            logger.info(f"Invitation email task enqueued for {user.email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to enqueue invitation email task for {user.email}: {str(e)}")
+            return False
+    
+    def send_otp_email_async(self, user, otp_code) -> bool:
+        """
+        Send OTP email via notification service Celery task
+        
+        Args:
+            user: User instance
+            otp_code: OTP code
+        
+        Returns:
+            bool: True if task was enqueued successfully
+        """
+        try:
+            celery_app.send_task(
+                'notifications.send_otp_email',
+                kwargs={
+                    'user_email': user.email,
+                    'user_name': user.get_full_name() or user.username or user.email.split('@')[0],
+                    'otp_code': otp_code,
+                    'user_id': str(user.id)
+                },
+                queue='NOTIFICATION_TASKS'
+            )
+            
+            logger.info(f"OTP email task enqueued for {user.email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to enqueue OTP email task for {user.email}: {str(e)}")
+            return False
+    
+    def send_system_addition_email_async(self, user, system_name, role_name) -> bool:
+        """
+        Send system addition email via notification service Celery task
+        
+        Args:
+            user: User instance
+            system_name: Name of the system
+            role_name: Name of the role
+        
+        Returns:
+            bool: True if task was enqueued successfully
+        """
+        try:
+            celery_app.send_task(
+                'notifications.send_system_addition_email',
+                kwargs={
+                    'user_email': user.email,
+                    'user_name': user.get_full_name() or user.username or user.email.split('@')[0],
+                    'system_name': system_name,
+                    'role_name': role_name,
+                    'user_id': str(user.id)
+                },
+                queue='NOTIFICATION_TASKS'
+            )
+            
+            logger.info(f"System addition email task enqueued for {user.email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to enqueue system addition email task for {user.email}: {str(e)}")
             return False
 
 

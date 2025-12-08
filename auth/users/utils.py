@@ -30,7 +30,8 @@ def get_system_redirect_url(user, system_slug=None):
             # Verify user has access to this system
             has_access = UserSystemRole.objects.filter(
                 user=user,
-                system=system
+                system=system,
+                is_active=True
             ).exists()
             if not has_access:
                 system = None
@@ -40,7 +41,8 @@ def get_system_redirect_url(user, system_slug=None):
     if not system:
         # Get user's first available system
         user_systems = System.objects.filter(
-            user_roles__user=user
+            user_roles__user=user,
+            user_roles__is_active=True
         ).distinct()
         system = user_systems.first() if user_systems.exists() else None
     

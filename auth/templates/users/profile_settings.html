@@ -6,12 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile Settings</title>
     <link rel="stylesheet" href="{% static 'css/profile_settings.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body>
+    {% include "components/nav.html" %}
     <main class="manageProfilePage">
         <div class="manageProfileContainer">
-            <h1>Manage Profile</h1>
-
+            <div class="header">
+                <h2>Manage Profile</h2>
+            </div>
             {% if messages %}
                 <div class="toastContainer">
                     {% for message in messages %}
@@ -22,7 +25,7 @@
                 </div>
             {% endif %}
 
-            <form method="post" enctype="multipart/form-data" id="profile-form">
+            <form method="post" enctype="multipart/form-data" id="profile-form" data-is-admin="{% if user.is_superuser or user.is_staff %}true{% else %}false{% endif %}">
                 {% csrf_token %}
 
                 <div class="profileContent">
@@ -74,44 +77,28 @@
                   <div class="formGroup formGroupFile hidden">
                     {{ form.profile_picture.errors }} {{ form.profile_picture }}
                   </div>
+
+                  <div class="profileInfo">
+                    <h3>{% if user.first_name or user.last_name %}{{ user.first_name }} {{ user.last_name }}{% else %}{{ user.username }}{% endif %}</h3>
+                    <div class="profileInfoContainer">
+                      <p><strong>Username:</strong></p>
+                      <span>{{ user.username }}</span>
+                    </div>
+                    <div class="profileInfoContainer">
+                      <p><strong>Email:</strong></p>
+                      <span>{{ user.email }}</span>
+                    </div>
+                    <div class="profileInfoContainer">
+                      <p><strong>Company ID:</strong></p>
+                      <span>{{ user.company_id|default:'N/A'}}</span>
+                    </div>
+                    <div class="profileInfoContainer">
+                      <p><strong>Department:</strong></p>
+                      <span>{{ user.get_department_display|default:'N/A'}}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="profileInfo">
-                  <h3>{{ user.get_full_name|default:user.username }}</h3>
-                  <div class="profileInfoContainer">
-                    <p><strong>Username:</strong></p>
-                    <span>{{ user.username }}</span>
-                  </div>
-                  <div class="profileInfoContainer">
-                    <p><strong>Email:</strong></p>
-                    <span>{{ user.email }}</span>
-                  </div>
-                  <div class="profileInfoContainer">
-                    <p><strong>Company ID:</strong></p>
-                    <span>{{ user.company_id|default:'N/A'}}</span>
-                  </div>
-                  <div class="profileInfoContainer">
-                    <p><strong>Department:</strong></p>
-                    <span>{{ user.get_department_display|default:'N/A'}}</span>
-                  </div>
-                </div>
-
-                <div class="quickLinksCard">
-                  <h3>Quick Links</h3>
-                  <div id="admin-links">
-                    <a href="{% url 'agent-management' %}" class="linkItem1"
-                      >Manage Agents</a
-                    >
-                  </div>
-                    <div id="admin-links">
-                    <a href="{% url 'change-password-ui' %}" class="linkItem1"
-                      >Change Password</a
-                    >
-                  </div>
-                  <a href="{% url 'root_logout' %}" class="linkItem2"
-                    >Logout</a
-                  >
-                </div>
                         </div>
                     </div>
 
@@ -148,7 +135,7 @@
                                 <div class="formGroup">
                                     {{ form.phone_number.label_tag }}
                                     {{ form.phone_number.errors }}
-                                    {{ form.phone_number }}
+                                    {% include "components/phone_input.html" with field_id="id_phone_number" field_name="phone_number" default_country="+63" show_label=False %}
                                 </div>
                             </div>
 
@@ -180,9 +167,71 @@
                                     {{ form.otp_enabled }}
                                     {{ form.otp_enabled.label_tag }}
                                 </div>
+                                <div class="formGroup">
+                                    {{ form.last_login.label_tag }}
+                                    {{ form.last_login.errors }}
+                                    {{ form.last_login }}
+                                    <small>{{ form.last_login.help_text }}</small>
+                                </div>
+                                <div class="formGroup">
+                                    {{ form.date_joined.label_tag }}
+                                    {{ form.date_joined.errors }}
+                                    {{ form.date_joined }}
+                                    <small>{{ form.date_joined.help_text }}</small>
+                                </div>
                             </div>
 
-
+                            {% comment %}
+                                {% if user.is_superuser or user.is_staff %}
+                                <h2>Admin Information</h2>
+                                <div class="formGrid">
+                                    <div class="formGroup">
+                                        {{ form.status.label_tag }}
+                                        {{ form.status.errors }}
+                                        {{ form.status }}
+                                    </div>
+                                    <div class="formGroup">
+                                        {{ form.failed_login_attempts.label_tag }}
+                                        {{ form.failed_login_attempts.errors }}
+                                        {{ form.failed_login_attempts }}
+                                        <small>{{ form.failed_login_attempts.help_text }}</small>
+                                    </div>
+                                    <div class="formGroup">
+                                        {{ form.lockout_time.label_tag }}
+                                        {{ form.lockout_time.errors }}
+                                        {{ form.lockout_time }}
+                                        <small>{{ form.lockout_time.help_text }}</small>
+                                    </div>
+                                </div>
+                                <div class="formGrid formGridCheckboxes">
+                                    <div class="formGroup formGroupCheckbox">
+                                        {{ form.notified.errors }}
+                                        {{ form.notified }}
+                                        {{ form.notified.label_tag }}
+                                    </div>
+                                    <div class="formGroup formGroupCheckbox">
+                                        {{ form.is_active.errors }}
+                                        {{ form.is_active }}
+                                        {{ form.is_active.label_tag }}
+                                    </div>
+                                    <div class="formGroup formGroupCheckbox">
+                                        {{ form.is_staff.errors }}
+                                        {{ form.is_staff }}
+                                        {{ form.is_staff.label_tag }}
+                                    </div>
+                                    <div class="formGroup formGroupCheckbox">
+                                        {{ form.is_superuser.errors }}
+                                        {{ form.is_superuser }}
+                                        {{ form.is_superuser.label_tag }}
+                                    </div>
+                                    <div class="formGroup formGroupCheckbox">
+                                        {{ form.is_locked.errors }}
+                                        {{ form.is_locked }}
+                                        {{ form.is_locked.label_tag }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endcomment %}
                             
                             <div class="formActions">
                                 <button type="button" id="edit-profile-btn" class="editChangesBtn">EDIT PROFILE</button>
@@ -200,6 +249,9 @@
       document.addEventListener("DOMContentLoaded", function () {
         const profileForm = document.getElementById("profile-form");
         if (!profileForm) return;
+
+        // Get user admin status from form data attribute
+        const isAdmin = profileForm.dataset.isAdmin === "true";
 
         const formInputs = profileForm.querySelectorAll(
           ".profileSettingsCard input, .profileSettingsCard select"
@@ -222,30 +274,23 @@
         const unsaved = document.getElementById("unsaved-warning");
         const originalImageSrc = preview.src;
 
-        // Get admin status from Django template context
-        const isCurrentUserAdmin = {% if user.is_staff or user.is_superuser %}true{% else %}false{% endif %};
-
+        // Fields that are always read-only (non-editable by anyone)
         const permanentReadOnlyIds = [
-          // No permanently read-only fields since we removed the non-editable ones
+          "id_last_login",
+          "id_date_joined",
+          "id_failed_login_attempts",
+          "id_lockout_time",
         ];
 
-        // Fields that only admins can edit (matching API restrictions)
+        // Fields that only admins can edit (restricted for regular users)
         const adminOnlyIds = [
           "id_first_name",
           "id_middle_name",
           "id_last_name",
-          "id_suffix",  
+          "id_suffix",
           "id_email",
-          "id_company_id", 
+          "id_company_id",
           "id_department",
-          "id_status",
-        ];
-
-        // Fields that regular users (non-admin) can edit (matching API restrictions)
-        const userEditableIds = [
-          "id_username",
-          "id_phone_number"
-          // profile_picture is handled separately
         ];
 
         function setFormEnabled(enabled) {
@@ -253,14 +298,17 @@
             if (!input) return;
             if (input.type === "button" || input.type === "submit") return;
             
-            // Always keep these fields read-only
+            // Always keep these read-only
             if (permanentReadOnlyIds.includes(input.id)) {
               input.readOnly = true;
+              if (input.tagName.toLowerCase() === "select") {
+                input.disabled = true;
+              }
               return;
             }
-            
-            // Check admin-only fields for non-admin users
-            if (!isCurrentUserAdmin && adminOnlyIds.includes(input.id)) {
+
+            // For non-admin users, keep admin-only fields disabled
+            if (!isAdmin && adminOnlyIds.includes(input.id)) {
               if (input.tagName.toLowerCase() === "select" || input.type === "checkbox") {
                 input.disabled = true;
               } else {
@@ -268,7 +316,8 @@
               }
               return;
             }
-            
+
+            // For all other fields, enable/disable based on edit mode
             if (
               input.tagName.toLowerCase() === "select" ||
               input.type === "checkbox"
@@ -308,6 +357,36 @@
           });
         }
 
+        // Handle form submission - ensure disabled fields don't get submitted
+        if (profileForm) {
+          profileForm.addEventListener("submit", function(e) {
+            console.log("Form submitting. User is admin:", isAdmin);
+            
+            // For non-admin users, disable ALL restricted fields before submission
+            // Disabled fields are not included in form submission
+            if (!isAdmin) {
+              console.log("Non-admin user - disabling restricted fields:", adminOnlyIds);
+              adminOnlyIds.forEach((fieldId) => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                  console.log("Disabling field:", fieldId, "current value:", field.value);
+                  // Disable the field so it won't be submitted
+                  field.disabled = true;
+                  // Also remove readonly to ensure it's truly disabled
+                  field.readOnly = false;
+                }
+              });
+              
+              // Log what fields will be submitted
+              const formData = new FormData(profileForm);
+              console.log("Fields being submitted:");
+              for (let [key, value] of formData.entries()) {
+                console.log("  ", key, ":", value);
+              }
+            }
+          });
+        }
+
         if (profilePicInput) {
           profilePicInput.addEventListener("change", function () {
             const file = this.files[0];
@@ -340,6 +419,29 @@
 
         setFormEnabled(false);
         checkAdminPrivileges();
+
+        // Add visual indicators for restricted fields (non-admin users)
+        if (!isAdmin) {
+          adminOnlyIds.forEach((fieldId) => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+              const formGroup = field.closest(".formGroup");
+              if (formGroup) {
+                // Check if help text already exists
+                let helpText = formGroup.querySelector("small.admin-only-notice");
+                if (!helpText) {
+                  helpText = document.createElement("small");
+                  helpText.className = "admin-only-notice";
+                  helpText.style.color = "#999";
+                  helpText.style.fontSize = "12px";
+                  helpText.style.marginTop = "4px";
+                  helpText.textContent = "Only administrators can edit this field.";
+                  formGroup.appendChild(helpText);
+                }
+              }
+            }
+          });
+        }
 
         // --- Profile Image Overlay Menu ---
         const container = document.querySelector(".profileImageContainer");
@@ -403,5 +505,8 @@
         }
       });
     </script>
+
+    {% include "components/disable_otp_modal.html" %}
+    {% include "components/image_cropper_modal.html" %}
     </body>
 </html>

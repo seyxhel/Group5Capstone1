@@ -1,9 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Pending Registrations</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; color: #333; }
         .container { max-width: 1000px; margin: 0 auto; background-color: #fff; padding: 2em; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
@@ -27,6 +29,7 @@
     </style>
 </head>
 <body>
+    {% include "components/nav.html" %}
     <div class="container">
         <h1>Manage Pending Employee Registrations</h1>
 

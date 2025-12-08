@@ -7,6 +7,7 @@ from .models import *
 from .serializers import *
 from django.contrib.auth import get_user_model
 from permissions import IsSystemAdminOrSuperUser, filter_queryset_by_system_access, CanCreateForSystem
+from systems.models import System
 User = get_user_model()
 
 @extend_schema_view(
@@ -105,6 +106,12 @@ class SystemRolesViewset(viewsets.ModelViewSet):
     def list(self, request):
         """List system roles based on user permissions"""
         queryset = self.get_queryset()
+        
+        # Support filtering by system slug from query parameters
+        system_slug = request.query_params.get('system__slug')
+        if system_slug:
+            queryset = queryset.filter(system__slug=system_slug)
+        
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -192,4 +199,5 @@ class SystemRolesViewset(viewsets.ModelViewSet):
                 {"error": "Role not found or access denied"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+

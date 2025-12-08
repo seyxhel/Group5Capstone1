@@ -2,12 +2,28 @@ from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
+from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from .models import *
 from .serializers import *
 from django.contrib.auth import get_user_model
 from permissions import IsSystemAdminOrSuperUser, filter_queryset_by_system_access
 User = get_user_model()
+
+class PublicSystemsListView(APIView):
+    """
+    Public endpoint to list all systems (for login page)
+    No authentication required
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, format=None):
+        """Get all systems for the login page"""
+        systems = System.objects.all().values('id', 'name', 'slug')
+        return Response({
+            'results': list(systems),
+            'count': systems.count()
+        })
 
 @extend_schema_view(
     list=extend_schema(tags=['Systems'], summary="List all systems", description="Retrieve a list of all systems accessible to the authenticated user"),
@@ -41,6 +57,12 @@ class SystemViewset(viewsets.ModelViewSet):
     def list(self, request):
         """List systems based on user permissions"""
         queryset = self.get_queryset()
+        
+        # Support filtering by slug from query parameters
+        slug = request.query_params.get('slug')
+        if slug:
+            queryset = queryset.filter(slug=slug)
+        
         serializer = self.serializer_class(queryset, many=True)
         return Response(serializer.data)
     
