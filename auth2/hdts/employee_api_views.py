@@ -222,8 +222,8 @@ class EmployeeProfileView(generics.RetrieveUpdateAPIView):
     """
     API endpoint for employee profile management.
     GET: Retrieve profile information
-    PATCH: Partially update profile
-    PUT: Fully update profile
+    PATCH: Partially update only specified fields
+    PUT: Fully update all profile fields
     """
     permission_classes = (IsEmployeeAuthenticated,)
     serializer_class = EmployeeProfileSerializer
@@ -243,15 +243,44 @@ class EmployeeProfileView(generics.RetrieveUpdateAPIView):
         return EmployeeProfileSerializer
 
     def patch(self, request, *args, **kwargs):
-        """Partially update employee profile."""
+        """
+        Partially update employee profile.
+        Only fields provided in the request are updated (efficient partial updates).
+        """
         employee = self.get_object()
+        
+        # Track which fields are being updated
+        updated_fields = set(request.data.keys()) if request.data else set()
+        
         serializer = self.get_serializer(employee, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         
-        # Return updated profile
+        # Return updated profile with metadata about changes
         return Response(
-            EmployeeProfileSerializer(employee).data,
+            {
+                'employee': EmployeeProfileSerializer(employee).data,
+                'updated_fields': list(updated_fields),
+                'message': f'Successfully updated {len(updated_fields)} field(s)'
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def put(self, request, *args, **kwargs):
+        """
+        Fully update employee profile.
+        All profile fields should be provided.
+        """
+        employee = self.get_object()
+        serializer = self.get_serializer(employee, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response(
+            {
+                'employee': EmployeeProfileSerializer(employee).data,
+                'message': 'Profile fully updated successfully'
+            },
             status=status.HTTP_200_OK
         )
 

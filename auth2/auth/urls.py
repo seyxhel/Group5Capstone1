@@ -12,6 +12,15 @@ from drf_spectacular.utils import extend_schema
 from users.views import *
 from tts.views import assign_agent_to_role_form
 from hdts import views as hdts_views
+from hdts.employee_template_views import (
+    EmployeeLoginView,
+    EmployeeRegisterView,
+    EmployeeVerifyOTPView,
+    EmployeeForgotPasswordUIView,
+    EmployeeResetPasswordUIView,
+    EmployeeProfileSettingsView,
+    EmployeeChangePasswordView,
+)
 
 def root_redirect(request):
     """Redirect root URL to login page"""
@@ -72,13 +81,13 @@ urlpatterns = [
     path('role-management/', role_management_view, name='role_management_shortcut'),
     
     # Employee Portal shortcuts (clean URLs for templates - they POST to /api/v1/employees/ APIs)
-    path('employees/login/', hdts_views.EmployeeLoginView.as_view(), name='employee-login-shortcut'),
-    path('employees/register/', hdts_views.EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
-    path('employees/verify-otp/', hdts_views.EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
-    path('employees/profile-settings/', hdts_views.EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
-    path('employees/change-password/', hdts_views.EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
-    path('employees/forgot-password/', hdts_views.EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
-    path('employees/reset-password/', hdts_views.EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
+    path('employees/login/', EmployeeLoginView.as_view(), name='employee-login-shortcut'),
+    path('employees/register/', EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
+    path('employees/verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
+    path('employees/profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
+    path('employees/change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
+    path('employees/forgot-password/', EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
+    path('employees/reset-password/', EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
 ]
 
 # Include API documentation URLs only in DEBUG mode

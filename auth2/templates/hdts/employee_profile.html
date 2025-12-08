@@ -591,6 +591,16 @@
                             </div>
                         </div>
 
+                        <!-- Profile Picture -->
+                        <div class="form-section">
+                            <h2>Profile Picture</h2>
+                            <div class="form-group">
+                                <label for="id_profile_picture">Upload Picture:</label>
+                                <input type="file" id="id_profile_picture" name="profile_picture" accept="image/*">
+                                <small>Accepted formats: JPG, PNG, GIF (Max 5MB)</small>
+                            </div>
+                        </div>
+
                         <!-- Organization -->
                         <div class="form-section">
                             <h2>Organization</h2>
@@ -607,15 +617,7 @@
                             </div>
                         </div>
 
-                        <!-- Profile Picture -->
-                        <div class="form-section">
-                            <h2>Profile Picture</h2>
-                            <div class="form-group">
-                                <label for="id_profile_picture">Upload Picture:</label>
-                                <input type="file" id="id_profile_picture" name="profile_picture" accept="image/*">
-                                <small>Accepted formats: JPG, PNG, GIF (Max 5MB)</small>
-                            </div>
-                        </div>
+
 
                         <!-- Button Group -->
                         <div class="button-group">
@@ -661,6 +663,17 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script>
+        // Store original form values on page load for change detection
+        document.addEventListener('DOMContentLoaded', function() {
+            const formFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'phone_number', 'department'];
+            formFields.forEach(fieldName => {
+                const input = document.querySelector(`[name="${fieldName}"]`);
+                if (input) {
+                    // Store the original value as a data attribute
+                    input.dataset.originalValue = input.value || '';
+                }
+            });
+        });
         // Profile image menu functionality
         const profileImageInput = document.getElementById('id_profile_picture');
         const profileImagePreview = document.getElementById('profile-preview');
@@ -823,18 +836,55 @@
         document.getElementById('profile-form').addEventListener('submit', function(e) {
             e.preventDefault();  // Always prevent default form submission
             
-            // Create FormData from the form
-            const formData = new FormData(this);
+            // Create FormData with only fields that were actually changed
+            const formData = new FormData();
             
-            // If there's a cropped image, replace the profile_picture
+            // Track which fields have been modified
+            let hasChanges = false;
+            
+            // Only add profile_picture if user cropped an image
             if (window.croppedImageFormData) {
-                // Replace profile_picture with cropped version
-                formData.delete('profile_picture');
                 const croppedBlob = window.croppedImageFormData.get('profile_picture');
                 if (croppedBlob) {
                     formData.append('profile_picture', croppedBlob);
-                    console.log('Using cropped image for submission');
+                    console.log('Including cropped image in submission');
+                    hasChanges = true;
                 }
+            }
+            
+            // Get all form fields and only add if they differ from original values
+            const formFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'phone_number', 'department'];
+            formFields.forEach(fieldName => {
+                const input = document.querySelector(`[name="${fieldName}"]`);
+                if (input) {
+                    // Compare current value with data attribute (original value)
+                    const currentValue = input.value || '';
+                    const originalValue = input.dataset.originalValue || '';
+                    
+                    if (currentValue !== originalValue) {
+                        formData.append(fieldName, currentValue);
+                        console.log(`Field changed: ${fieldName} from "${originalValue}" to "${currentValue}"`);
+                        hasChanges = true;
+                    }
+                }
+            });
+            
+            // If no changes were made, show message and return
+            if (!hasChanges) {
+                const toastContainer = document.querySelector('.toastContainer');
+                if (toastContainer) {
+                    const toast = document.createElement('div');
+                    toast.className = 'toast';
+                    toast.textContent = 'No changes to save';
+                    toastContainer.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 2000);
+                }
+                return;
             }
             
             // Get access token from cookies
@@ -842,7 +892,7 @@
             
             // Build fetch options
             const fetchOptions = {
-                method: 'PATCH',
+                method: 'PATCH',  // Use PATCH for partial updates (only changed fields)
                 body: formData,
                 credentials: 'include'  // Include cookies in the request
             };
@@ -854,26 +904,55 @@
                 };
             }
             
-            // Submit the form via fetch
-            fetch('/api/v1/employees/profile/', fetchOptions)
+            // Submit the form via fetch to the API endpoint
+            fetch('/api/v1/hdts/employees/api/profile/', fetchOptions)
             .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                return response.json().then(data => ({ status: response.status, ok: response.ok, data }));
-            })
-            .then(result => {
-                console.log('Response data:', result.data);
-                if (result.ok) {
-                    console.log('Form submitted successfully with cropped image');
-                    window.location.reload();
+                if (response.ok) {
+                    return response.json();
                 } else {
-                    console.error('Form submission failed', result.status, result.data);
-                    alert(`Error: ${result.data?.detail || 'Failed to update profile'}`);
+                    return response.json().then(data => {
+                        throw new Error(data.detail || 'Failed to save profile');
+                    });
                 }
+            })
+            .then(data => {
+                console.log('Form submitted successfully:', data);
+                // Show success message
+                const toastContainer = document.querySelector('.toastContainer');
+                if (toastContainer) {
+                    const toast = document.createElement('div');
+                    toast.className = 'toast';
+                    toast.textContent = data.message || 'Profile updated successfully';
+                    toastContainer.appendChild(toast);
+                    
+                    // Auto-hide toast
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                }
+                
+                // Reload page after short delay
+                setTimeout(() => window.location.reload(), 1000);
             })
             .catch(error => {
                 console.error('Error submitting form:', error);
-                alert('Error submitting form: ' + error.message);
+                // Show error message to user
+                const toastContainer = document.querySelector('.toastContainer');
+                if (toastContainer) {
+                    const toast = document.createElement('div');
+                    toast.className = 'toast error';
+                    toast.textContent = 'Error: ' + error.message;
+                    toastContainer.appendChild(toast);
+                    
+                    // Auto-hide toast
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 5000);
+                }
             });
         });
     </script>

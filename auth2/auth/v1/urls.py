@@ -38,6 +38,4 @@ urlpatterns = [
     path('token/', include('auth.token_urls')),
     path('tts/', include('tts.urls')),
     path('hdts/', include('hdts.urls')),
-    # Direct employees endpoints (also available under hdts/)
-    path('employees/', include('hdts.employee_urls')),
 ]

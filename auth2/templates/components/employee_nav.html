@@ -290,10 +290,10 @@
     <!-- Profile Settings -->
     <div class="settingsMenuSection">
       <div class="settingsMenuLabel">Account</div>
-      <a href="{% url 'hdts:employee-profile-settings' %}" class="settingsLink" data-nav="profile">
+      <a href="{% url 'employee-profile-settings-shortcut' %}" class="settingsLink" data-nav="profile">
         <i class="fa fa-user"></i> Manage Profile
       </a>
-      <a href="{% url 'hdts:employee-change-password' %}" class="settingsLink" data-nav="password">
+      <a href="{% url 'employee-change-password-shortcut' %}" class="settingsLink" data-nav="password">
         <i class="fa fa-lock"></i> Change Password
       </a>
     </div>
@@ -309,7 +309,7 @@
   <!-- Sidebar Footer -->
   <div class="sidebarFooter">
     <div class="userInfo">
-      <a href="{% url 'hdts:employee-profile-settings' %}" style="display: inline-block; line-height: 0;">
+      <a href="{% url 'employee-profile-settings-shortcut' %}" style="display: inline-block; line-height: 0;">
         <img
           class="userAvatar"
           id="userAvatar"
@@ -372,7 +372,15 @@
     const currentPath = window.location.pathname;
     settingsLinks.forEach(link => {
       const href = link.getAttribute('href');
-      if (href && currentPath.includes(href.split('/').pop())) {
+      if (!href) return;
+      
+      // Extract the page identifier from href (last part of path)
+      const hrefIdentifier = href.split('/').filter(Boolean).pop();
+      // Extract the page identifier from current path (look for key identifiers)
+      const isActive = (hrefIdentifier === 'profile-settings' && currentPath.includes('profile-settings')) ||
+                       (hrefIdentifier === 'change-password' && currentPath.includes('change-password'));
+      
+      if (isActive) {
         link.classList.add('active');
       } else {
         link.classList.remove('active');
@@ -405,7 +413,7 @@
       
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
       
-      fetch('/api/v1/employees/logout/', {
+      fetch('/api/v1/hdts/employees/api/logout/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

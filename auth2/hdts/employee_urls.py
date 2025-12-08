@@ -18,15 +18,6 @@ from .employee_api_views import (
     EmployeeForgotPasswordView as EmployeeForgotPasswordAPIView,
     EmployeeResetPasswordView as EmployeeResetPasswordAPIView,
 )
-from .employee_template_views import (
-    EmployeeLoginView,
-    EmployeeRegisterView,
-    EmployeeVerifyOTPView,
-    EmployeeForgotPasswordView,
-    EmployeeResetPasswordView,
-    EmployeeProfileSettingsView,
-    EmployeeChangePasswordView,
-)
 
 
 
@@ -67,29 +58,20 @@ urlpatterns = [
     path('', employees_root, name='employees-root'),
     
     # ========== API ENDPOINTS (json responses) ==========
-    path('register/', EmployeeRegisterAPIView.as_view(), name='employee-register-api'),
-    path('login/', EmployeeTokenObtainPairView.as_view(), name='employee-login-api'),
-    path('token/refresh/', EmployeeTokenRefreshView.as_view(), name='employee-token-refresh'),
-    path('logout/', EmployeeLogoutView.as_view(), name='employee-logout'),
-    path('profile/', EmployeeProfileView.as_view(), name='employee-profile'),
-    path('profile/change-password/', EmployeeChangePasswordAPIView.as_view(), name='employee-change-password-api'),
+    path('api/register/', EmployeeRegisterAPIView.as_view(), name='employee-register-api'),
+    path('api/login/', EmployeeTokenObtainPairView.as_view(), name='employee-login-api'),
+    path('api/token/refresh/', EmployeeTokenRefreshView.as_view(), name='employee-token-refresh'),
+    path('api/logout/', EmployeeLogoutView.as_view(), name='employee-logout'),
+    path('api/profile/', EmployeeProfileView.as_view(), name='employee-profile'),
+    path('api/profile/change-password/', EmployeeChangePasswordAPIView.as_view(), name='employee-change-password-api'),
     
     # Password Reset API Endpoints
-    path('password/forgot/', EmployeeForgotPasswordAPIView.as_view(), name='employee-forgot-password-api'),
-    path('password/reset/', EmployeeResetPasswordAPIView.as_view(), name='employee-reset-password-api'),
+    path('api/password/forgot/', EmployeeForgotPasswordAPIView.as_view(), name='employee-forgot-password-api'),
+    path('api/password/reset/', EmployeeResetPasswordAPIView.as_view(), name='employee-reset-password-api'),
     
     # 2FA Endpoints
-    path('2fa/request-otp/', RequestEmployeeOTPView.as_view(), name='employee-request-otp'),
-    path('2fa/verify-otp/', VerifyEmployeeOTPView.as_view(), name='employee-verify-otp-api'),
-    path('2fa/enable/', Enable2FAView.as_view(), name='employee-enable-2fa'),
-    path('2fa/disable/', Disable2FAView.as_view(), name='employee-disable-2fa'),
-    
-    # ========== TEMPLATE VIEWS (serve HTML) ==========
-    path('login/', EmployeeLoginView.as_view(), name='employee-login'),
-    path('register/', EmployeeRegisterView.as_view(), name='employee-register'),
-    path('verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp'),
-    path('forgot-password/', EmployeeForgotPasswordView.as_view(), name='employee-forgot-password'),
-    path('reset-password/', EmployeeResetPasswordView.as_view(), name='employee-reset-password'),
-    path('profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings'),
-    path('change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password'),
+    path('api/2fa/request-otp/', RequestEmployeeOTPView.as_view(), name='employee-request-otp'),
+    path('api/2fa/verify-otp/', VerifyEmployeeOTPView.as_view(), name='employee-verify-otp-api'),
+    path('api/2fa/enable/', Enable2FAView.as_view(), name='employee-enable-2fa'),
+    path('api/2fa/disable/', Disable2FAView.as_view(), name='employee-disable-2fa'),
 ]

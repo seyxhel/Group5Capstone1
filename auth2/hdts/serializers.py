@@ -208,7 +208,10 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
 
 
 class EmployeeProfileUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating employee profile information."""
+    """
+    Serializer for updating employee profile information.
+    Supports partial updates - only provided fields are updated.
+    """
     
     class Meta:
         model = Employees
@@ -219,16 +222,34 @@ class EmployeeProfileUpdateSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self, value):
         """Validate phone number format."""
+        # Allow empty/null values for optional fields
+        if not value:
+            return value
         is_valid, error_message = validate_phone_number(value)
         if not is_valid:
             raise serializers.ValidationError(error_message)
         return value
 
+    def validate_first_name(self, value):
+        """Validate first name."""
+        if value and len(value.strip()) == 0:
+            raise serializers.ValidationError("First name cannot be empty.")
+        return value
+
+    def validate_last_name(self, value):
+        """Validate last name."""
+        if value and len(value.strip()) == 0:
+            raise serializers.ValidationError("Last name cannot be empty.")
+        return value
+
     def update(self, instance, validated_data):
-        """Update employee profile."""
+        """
+        Update only the fields that were actually provided (efficient partial update).
+        Only modifies fields present in validated_data.
+        """
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
+        instance.save(update_fields=list(validated_data.keys()))
         return instance
 
 
