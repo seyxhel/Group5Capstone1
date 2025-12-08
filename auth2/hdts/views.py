@@ -35,6 +35,9 @@ from .employee_template_views import (
     EmployeeVerifyOTPView,
     EmployeeProfileSettingsView,
     EmployeeChangePasswordView as TemplateChangePasswordView,
+    EmployeeLogoutView as TemplateLogoutView,
+    EmployeeForgotPasswordUIView,
+    EmployeeResetPasswordUIView,
 )
 
 

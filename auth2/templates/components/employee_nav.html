@@ -300,7 +300,7 @@
 
     <!-- Logout -->
     <div class="settingsMenuSection">
-      <a href="/api/v1/employees/logout/" class="settingsLink" data-nav="logout">
+      <a href="#" class="settingsLink" id="logoutBtn" data-nav="logout">
         <i class="fa fa-sign-out"></i> Logout
       </a>
     </div>
@@ -392,4 +392,42 @@
       sidebarOverlay?.classList.remove('active');
     }
   });
+
+  // Handle logout
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      if (!confirm('Are you sure you want to logout?')) {
+        return;
+      }
+      
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+      
+      fetch('/api/v1/employees/logout/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken || ''
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Clear stored tokens
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        
+        // Redirect to login
+        window.location.href = '/api/v1/employees/ui/login/';
+      })
+      .catch(error => {
+        console.error('Logout error:', error);
+        // Still clear tokens and redirect even if API call fails
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/api/v1/employees/ui/login/';
+      });
+    });
+  }
 </script>

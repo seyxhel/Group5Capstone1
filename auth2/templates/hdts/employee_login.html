@@ -168,7 +168,7 @@
 
             <!-- Register Link -->
             <div class="form-footer">
-                <a href="{% url 'hdts:register' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
+                <a href="{% url 'hdts-register-shortcut' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
             </div>
         </section>
     </main>
@@ -255,7 +255,7 @@
                     spinner.style.display = 'inline-block';
 
                     // Call the API endpoint for forgot password
-                    fetch('/api/v1/hdts/employees/password/forgot/', {
+                    fetch('/api/v1/employees/password/forgot/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -305,14 +305,19 @@
                 }
                 
                 const isTwoFactor = loginForm.getAttribute('data-two-factor') === 'True';
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                let payload = {};
                 
                 if (isTwoFactor) {
                     // OTP submission
                     const otpCode = document.querySelector('input[name="otp_code"]').value;
+                    const email = document.querySelector('input[name="email"]').value;
                     if (!otpCode) {
                         ToastNotification.error('Invalid Input', 'OTP code is required.');
                         return;
                     }
+                    payload = { email: email, otp_code: otpCode };
                 } else {
                     // Regular login
                     const email = document.querySelector('input[name="email"]').value;
@@ -322,6 +327,7 @@
                         ToastNotification.error('Invalid Input', 'Email and password are required.');
                         return;
                     }
+                    payload = { email: email, password: password };
                 }
                 
                 isFormSubmitting = true;
@@ -338,8 +344,56 @@
                     }
                 });
                 
-                // Submit the form normally (to the server)
-                loginForm.submit();
+                // Make API call to login endpoint
+                const apiEndpoint = isTwoFactor ? '/api/v1/employees/2fa/verify-otp/' : '/api/v1/employees/login/';
+                
+                fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.access || data.success) {
+                        // Store tokens if provided
+                        if (data.access) {
+                            localStorage.setItem('access_token', data.access);
+                            localStorage.setItem('refresh_token', data.refresh);
+                        }
+                        ToastNotification.success('Success', 'Logged in successfully!');
+                        // Redirect to profile settings
+                        setTimeout(() => {
+                            window.location.href = '/api/v1/employees/ui/profile-settings/';
+                        }, 1500);
+                    } else if (data.requires_otp) {
+                        // 2FA required
+                        ToastNotification.info('2FA Required', 'OTP sent to your email.');
+                        loginForm.setAttribute('data-two-factor', 'True');
+                        document.getElementById('loginMode').classList.remove('active');
+                        document.getElementById('otpMode').classList.add('active');
+                    } else {
+                        ToastNotification.error('Error', data.detail || data.message || 'Login failed. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    ToastNotification.error('Error', 'An error occurred. Please try again.');
+                })
+                .finally(() => {
+                    isFormSubmitting = false;
+                    [loginButton, otpButton].forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            const buttonText = btn.querySelector('.buttonText');
+                            const spinner = btn.querySelector('.spinner');
+                            buttonText.textContent = isTwoFactor ? 'Verify OTP' : 'Sign In';
+                            spinner.style.display = 'none';
+                        }
+                    });
+                });
             });
 
             // Toast auto-hide

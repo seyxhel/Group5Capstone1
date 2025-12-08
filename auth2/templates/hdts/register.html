@@ -56,7 +56,7 @@
                     </button>
 
                     <p class="back-to-login">
-                        Already have an account? <a href="{% url 'auth_login' %}"><i class="fas fa-sign-in-alt"></i>&nbsp;Log In</a>
+                        Already have an account? <a href="{% url 'employee-login-shortcut' %}"><i class="fas fa-sign-in-alt"></i>&nbsp;Log In</a>
                     </p>
                 </form>
             </div>
@@ -157,7 +157,7 @@
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp;&nbsp;Creating Account...';
             
-            fetch('/api/v1/hdts/employees/register/', {
+            fetch('/api/v1/employees/register/', {
                 method: 'POST',
                 body: formData
             })
@@ -166,7 +166,7 @@
                 if (data.success || data.company_id) {
                     // Success
                     alert('Account created successfully! Please log in with your credentials.');
-                    window.location.href = '{% url "hdts:employee-login" %}';
+                    window.location.href = '{% url "employee-login-shortcut" %}';
                 } else {
                     // Error
                     const errorMsg = data.error || data.message || 'Registration failed. Please try again.';
