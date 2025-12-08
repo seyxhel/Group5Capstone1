@@ -36,7 +36,7 @@
                     </p>
                 </header>
 
-                <form method="post" enctype="multipart/form-data" novalidate>
+                <form method="post" enctype="multipart/form-data" novalidate id="registerForm">
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
@@ -143,6 +143,44 @@
             } else {
                 console.error('Cropper.js failed to load');
             }
+        });
+        
+        // Handle API-based registration
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('.submit-button');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp;&nbsp;Creating Account...';
+            
+            fetch('/api/v1/hdts/employees/register/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.company_id) {
+                    // Success
+                    alert('Account created successfully! Please log in with your credentials.');
+                    window.location.href = '{% url "hdts:employee-login" %}';
+                } else {
+                    // Error
+                    const errorMsg = data.error || data.message || 'Registration failed. Please try again.';
+                    alert('Error: ' + errorMsg);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during registration. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
         });
     </script>
     <script src="{% static 'hdts/script.js' %}"></script>

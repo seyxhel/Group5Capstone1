@@ -71,8 +71,15 @@ urlpatterns = [
     # Shortcut: Role management
     path('role-management/', role_management_view, name='role_management_shortcut'),
     
-    # Shortcut: HDTS Register (direct access to /register/)
+    # Shortcuts: Employee Portal (direct access without /api/v1/)
+    path('login/employee', hdts_views.EmployeeLoginView.as_view(), name='employee-login-shortcut'),
+    # path('employee-register/', hdts_views.EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
     path('register/', hdts_views.register_user_view, name='hdts-register-shortcut'),
+    # path('login-ui/', hdts_views.EmployeeLoginView.as_view(), name='employee-login-ui-shortcut'),
+    path('verify-otp/', hdts_views.EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
+    path('profile-settings/', hdts_views.EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
+    path('profile-settings/employee', hdts_views.EmployeeProfileSettingsView.as_view(), name='employees-profile-settings-shortcut'),
+        path('profile-settings/employee', hdts_views.EmployeeChangePasswordView.as_view(), name='employees-profile-settings-shortcut'),
 ]
 
 # Include API documentation URLs only in DEBUG mode

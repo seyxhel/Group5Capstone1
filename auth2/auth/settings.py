@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'middleware.JWTAuthenticationMiddleware',  # Add JWT authentication middleware for cookies
 ]
 
 ROOT_URLCONF = 'auth.urls'
@@ -343,3 +344,11 @@ RECAPTCHA_SITE_KEY = config('RECAPTCHA_SITE_KEY', default='6LdbGyMsAAAAAKv5tivNN
 RECAPTCHA_SECRET_KEY = config('RECAPTCHA_SECRET_KEY', default='6LdbGyMsAAAAAMcf9a4PKGAWL0E4NtF9cdjInlth')
 RECAPTCHA_VERSION = '2'  # v2 uses checkbox verification
 
+# Email Configuration
+EMAIL_BACKEND = config('DJANGO_EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default='True', cast=lambda x: x.lower() in ('true', '1', 'yes') if isinstance(x, str) else x)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.com')

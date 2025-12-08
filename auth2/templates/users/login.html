@@ -18,6 +18,9 @@
 </head>
 
 <body>
+    <!-- Toast Notification Component -->
+    {% include "components/toast_notification.html" %}
+
     <main class="loginPage">
         <!-- Left Panel -->
         <section class="leftPanel">
@@ -35,17 +38,6 @@
                 </section>
                 <p>Welcome! Please provide your credentials to log in.</p>
             </header>
-
-            <!-- Django messages -->
-            <div id="toast-container">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="toast toast-{{ message.tags }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
 
             <!-- Login / OTP Form -->
             <!-- The view should set `two_factor_required` in the template context when the user's credentials were accepted but an OTP is required. -->
@@ -160,6 +152,29 @@
     <!-- JS -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Display Django messages using toast notifications
+            // Messages are injected by Django as data attributes on the body or via a meta tag
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check for logout success message in query params
+            if (urlParams.has('logout')) {
+                ToastNotification.success('Logged Out', 'You have been successfully logged out.', 3000);
+            }
+            
+            // Display any Django messages from the backend
+            const messagesData = document.querySelector('[data-messages]');
+            if (messagesData) {
+                try {
+                    const messages = JSON.parse(messagesData.getAttribute('data-messages'));
+                    messages.forEach(msg => {
+                        const type = msg.tags || 'info';
+                        ToastNotification[type](msg.message);
+                    });
+                } catch (e) {
+                    console.error('Failed to parse messages:', e);
+                }
+            }
+            
             // Password visibility toggle
             document.querySelectorAll('.showPassword').forEach(toggle => {
                 const targetId = toggle.getAttribute('data-target');
@@ -224,7 +239,7 @@
                 // Check if grecaptcha is available
                 if (typeof grecaptcha === 'undefined') {
                     console.error('reCAPTCHA not loaded');
-                    alert('Security verification failed to load. Please refresh the page.');
+                    ToastNotification.error('Security Error', 'Security verification failed to load. Please refresh the page.');
                     return false;
                 }
                 
@@ -232,7 +247,7 @@
                 const recaptchaResponse = grecaptcha.getResponse();
                 
                 if (!recaptchaResponse) {
-                    alert('Please complete the reCAPTCHA verification.');
+                    ToastNotification.warning('reCAPTCHA Required', 'Please complete the reCAPTCHA verification.');
                     return false;
                 }
                 
@@ -241,7 +256,7 @@
                 const password = document.querySelector('input[name="password"]').value;
                 
                 if (!email || !password) {
-                    alert('Email and password are required.');
+                    ToastNotification.error('Invalid Input', 'Email and password are required.');
                     return;
                 }
                 
@@ -288,8 +303,11 @@
                         document.cookie = `access_token=${result.data.access_token}; path=/`;
                         document.cookie = `refresh_token=${result.data.refresh_token}; path=/`;
                         
-                        // Redirect to system welcome page
-                        window.location.href = '/api/v1/users/welcome/';
+                        // Show success toast and redirect
+                        ToastNotification.success('Login Successful', 'Redirecting to your dashboard...', 1500);
+                        setTimeout(() => {
+                            window.location.href = '/api/v1/users/welcome/';
+                        }, 1500);
                     } else {
                         // Login failed - show error
                         const errorMsg = result.data.errors?.non_field_errors?.[0] || 
@@ -298,7 +316,7 @@
                                         result.data.errors?.g_recaptcha_response?.[0] ||
                                         'Login failed. Please try again.';
                         
-                        alert(errorMsg);
+                        ToastNotification.error('Login Failed', errorMsg);
                         isFormSubmitting = false;
                         
                         // Re-enable buttons
@@ -319,7 +337,7 @@
                 })
                 .catch(error => {
                     console.error('API error:', error);
-                    alert('Login failed: ' + error.message);
+                    ToastNotification.error('Login Error', 'Login failed: ' + error.message);
                     isFormSubmitting = false;
                     
                     // Re-enable buttons

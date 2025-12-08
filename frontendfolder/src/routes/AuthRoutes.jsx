@@ -11,6 +11,7 @@ const AuthRoutes = () => (
     <Route element={<ProtectedRoute requireAdmin={true} requireAgent={false} />}>
     {/* if logged in, instead of being stuck on root (login) and unauthorized, navigate to proper pages */}
       <Route path="/" element={<SmartSupportLogIn />} />
+      <Route path="/login" element={<SmartSupportLogIn />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
     </Route>
     <Route path="/hdts" element={<SSOCallback />} />

@@ -11,6 +11,8 @@ class APIV1RootSerializer(serializers.Serializer):
     system_roles = serializers.URLField(source='system-roles')
     token = serializers.URLField()
     tts = serializers.URLField()
+    hdts = serializers.URLField()
+    employees = serializers.URLField()
 
 @extend_schema(responses=APIV1RootSerializer)
 @api_view(['GET'])
@@ -23,6 +25,7 @@ def api_v1_root(request, format=None):
         "token": request.build_absolute_uri("token/"),
         "tts": request.build_absolute_uri("tts/"),
         "hdts": request.build_absolute_uri("hdts/"),
+        "employees": request.build_absolute_uri("employees/"),
     })
 
 urlpatterns = [
@@ -35,4 +38,6 @@ urlpatterns = [
     path('token/', include('auth.token_urls')),
     path('tts/', include('tts.urls')),
     path('hdts/', include('hdts.urls')),
+    # Direct employees endpoints (also available under hdts/)
+    path('employees/', include('hdts.employee_urls')),
 ]

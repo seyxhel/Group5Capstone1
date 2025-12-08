@@ -1,0 +1,367 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Employee Login - HDTS</title>
+
+        <!-- External stylesheet -->
+        <link rel="stylesheet" href="{% static 'css/login.css' %}">
+
+        <!-- Font Awesome for icons -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        
+        <!-- Google reCAPTCHA v2 -->
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+        
+        <style>
+            .formMode {
+                display: none;
+                width: 100%;
+            }
+            .formMode.active {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+                gap: 20px;
+            }
+            .infoBox {
+                background-color: #e7f3ff;
+                border: 1px solid #b3d9ff;
+                border-radius: 4px;
+                padding: 12px;
+                margin-bottom: 15px;
+                font-size: 13px;
+                color: #004085;
+                width: 100%;
+            }
+            .forgotLink {
+                text-align: center;
+                margin-top: 15px;
+            }
+            .forgotLink button {
+                background: none;
+                border: none;
+                color: #007bff;
+                text-decoration: none;
+                font-size: 14px;
+                cursor: pointer;
+                padding: 0;
+                transition: color 0.3s;
+            }
+            .forgotLink button:hover {
+                color: #0056b3;
+                text-decoration: underline;
+            }
+            #loginMode fieldset,
+            #forgotPasswordMode fieldset {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: start;
+                width: 100%;
+                gap: 8px;
+            }
+            #loginMode fieldset input,
+            #forgotPasswordMode fieldset input {
+                display: flex;
+                width: 100%;
+                height: 44px;
+                padding: 18px 16px;
+                border-radius: 40px;
+                border: 1px solid #d3d3d3;
+                background-color: #fcfcfc;
+            }
+        </style>
+    </head><body>
+    <!-- Toast Notification Component -->
+    {% include "components/toast_notification.html" %}
+
+    <main class="loginPage">
+        <!-- Left Panel -->
+        <section class="leftPanel">
+            <div class="leftImage">
+                <img src="{% static 'images/TTS_MAP_BG.png' %}" alt="Background" class="assetImage">
+            </div>
+        </section>
+
+        <!-- Right Panel -->
+        <section class="rightPanel">
+            <header class="formHeader">
+                <section class="logo">
+                    <img src="{% static 'images/map-logo.png' %}" alt="HDTS logo" />
+                    <h1 class="logoText">Employee Sign In</h1>
+                </section>
+                <p>Welcome! Please provide your credentials to log in.</p>
+            </header>
+
+            <!-- Login / OTP / Forgot Password Form -->
+            <form method="post" novalidate class="lpForm" data-two-factor="{{ requires_otp|default:False }}" id="loginFormMain">
+                {% csrf_token %}
+
+                <!-- Login Mode -->
+                <div id="loginMode" class="formMode active">
+                    {# If requires_otp is not True, show the normal credential inputs #}
+                    {% if not requires_otp %}
+                    <!-- Email -->
+                    <fieldset>
+                        <label for="id_email">Email:</label>
+                        <input type="email" id="id_email" name="email" required placeholder="Enter your email">
+                    </fieldset>
+
+                    <!-- Password -->
+                    <fieldset>
+                        <label for="id_password">Password:</label>
+                        <div class="passwordContainer">
+                            <input type="password" id="id_password" name="password" required placeholder="Enter your password">
+                            <span class="showPassword" data-target="id_password" title="Show password">
+                                <i class="fa-solid fa-eye"></i>
+                            </span>
+                        </div>
+                    </fieldset>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="logInButton" id="loginButton" data-original-text="Sign In">
+                        <span class="buttonText">Sign In</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
+                    <!-- Forgot Password Toggle -->
+                    <div class="forgotLink">
+                        <button type="button" id="toggleForgotPassword">
+                            <i class="fa-solid fa-question-circle"></i> Forgot Password?
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Forgot Password Mode -->
+                <div id="forgotPasswordMode" class="formMode">
+                    <!-- Reset Password Info -->
+                    <div class="infoBox">
+                        <i class="fa-solid fa-info-circle"></i> Enter your email address and we'll send you a link to reset your password.
+                    </div>
+
+                    <!-- Email for Reset -->
+                    <fieldset>
+                        <label for="reset_email">Email Address:</label>
+                        <input type="email" id="reset_email" name="reset_email" required placeholder="Enter your registered email">
+                    </fieldset>
+
+                    <!-- Reset Submit Button -->
+                    <button type="button" class="logInButton" id="resetButton" style="margin-top: 10px;">
+                        <span class="buttonText">Send Reset Link</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
+                    <!-- Back to Login Toggle -->
+                    <div class="forgotLink">
+                        <button type="button" id="backToLoginBtn">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Login
+                        </button>
+                    </div>
+                </div>
+
+            <!-- Register Link -->
+            <div class="form-footer">
+                <a href="{% url 'hdts:register' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
+            </div>
+        </section>
+    </main>
+
+    <!-- JS -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Password visibility toggle
+            document.querySelectorAll('.showPassword').forEach(toggle => {
+                const targetId = toggle.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                
+                // Function to show/hide eye icon based on input value
+                const updateIconVisibility = () => {
+                    if (passwordInput.value.length > 0) {
+                        toggle.style.display = 'flex';
+                    } else {
+                        toggle.style.display = 'none';
+                    }
+                };
+                
+                // Initial check
+                updateIconVisibility();
+                
+                // Update on input
+                passwordInput.addEventListener('input', updateIconVisibility);
+                
+                // Toggle visibility on click
+                toggle.addEventListener('click', function () {
+                    const icon = this.querySelector('i');
+
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        icon.classList.replace('fa-eye', 'fa-eye-slash');
+                        this.setAttribute('title', 'Hide password');
+                    } else {
+                        passwordInput.type = 'password';
+                        icon.classList.replace('fa-eye-slash', 'fa-eye');
+                        this.setAttribute('title', 'Show password');
+                    }
+                });
+            });
+
+            // Toggle between login and forgot password modes
+            const toggleForgotPassword = document.getElementById('toggleForgotPassword');
+            const backToLoginBtn = document.getElementById('backToLoginBtn');
+            const loginMode = document.getElementById('loginMode');
+            const forgotPasswordMode = document.getElementById('forgotPasswordMode');
+
+            if (toggleForgotPassword) {
+                toggleForgotPassword.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.remove('active');
+                    forgotPasswordMode.classList.add('active');
+                });
+            }
+
+            if (backToLoginBtn) {
+                backToLoginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.add('active');
+                    forgotPasswordMode.classList.remove('active');
+                    document.getElementById('reset_email').value = '';
+                });
+            }
+
+            // Handle forgot password submission
+            const resetButton = document.getElementById('resetButton');
+            if (resetButton) {
+                resetButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('reset_email').value.trim();
+                    
+                    if (!email) {
+                        ToastNotification.error('Invalid Input', 'Email address is required.');
+                        return;
+                    }
+
+                    resetButton.disabled = true;
+                    const buttonText = resetButton.querySelector('.buttonText');
+                    const spinner = resetButton.querySelector('.spinner');
+                    buttonText.textContent = 'Sending...';
+                    spinner.style.display = 'inline-block';
+
+                    // Call the API endpoint for forgot password
+                    fetch('/api/v1/hdts/employees/password/forgot/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({ email: email })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success || data.message) {
+                            ToastNotification.success('Email Sent', 'Check your email for password reset instructions.');
+                            document.getElementById('reset_email').value = '';
+                            
+                            // After 2 seconds, switch back to login
+                            setTimeout(() => {
+                                loginMode.classList.add('active');
+                                forgotPasswordMode.classList.remove('active');
+                            }, 2000);
+                        } else {
+                            ToastNotification.error('Error', data.error || 'Failed to send reset email.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        ToastNotification.error('Error', 'An error occurred. Please try again.');
+                    })
+                    .finally(() => {
+                        resetButton.disabled = false;
+                        buttonText.textContent = 'Send Reset Link';
+                        spinner.style.display = 'none';
+                    });
+                });
+            }
+
+            // Handle form submission
+            const loginForm = document.querySelector('.lpForm');
+            const loginButton = document.getElementById('loginButton');
+            const otpButton = document.getElementById('otpButton');
+            
+            let isFormSubmitting = false;
+            
+            loginForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                
+                if (isFormSubmitting) {
+                    return false;
+                }
+                
+                const isTwoFactor = loginForm.getAttribute('data-two-factor') === 'True';
+                
+                if (isTwoFactor) {
+                    // OTP submission
+                    const otpCode = document.querySelector('input[name="otp_code"]').value;
+                    if (!otpCode) {
+                        ToastNotification.error('Invalid Input', 'OTP code is required.');
+                        return;
+                    }
+                } else {
+                    // Regular login
+                    const email = document.querySelector('input[name="email"]').value;
+                    const password = document.querySelector('input[name="password"]').value;
+                    
+                    if (!email || !password) {
+                        ToastNotification.error('Invalid Input', 'Email and password are required.');
+                        return;
+                    }
+                }
+                
+                isFormSubmitting = true;
+                
+                // Disable submit buttons and show loading state
+                [loginButton, otpButton].forEach(btn => {
+                    if (btn) {
+                        btn.disabled = true;
+                        const buttonText = btn.querySelector('.buttonText');
+                        const spinner = btn.querySelector('.spinner');
+                        
+                        buttonText.textContent = isTwoFactor ? 'Verifying...' : 'Signing in...';
+                        spinner.style.display = 'inline-block';
+                    }
+                });
+                
+                // Submit the form normally (to the server)
+                loginForm.submit();
+            });
+
+            // Toast auto-hide
+            const toasts = document.querySelectorAll('.toast');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 300);
+                }, 5000);
+            });
+
+            // Handle Back to Login button for OTP mode
+            const backToLoginBtn2 = document.querySelector('.backToLogin');
+            if (backToLoginBtn2) {
+                backToLoginBtn2.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    isFormSubmitting = false;
+                    window.location.href = this.href + '?clear_otp=1&t=' + Date.now();
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

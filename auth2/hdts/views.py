@@ -17,6 +17,26 @@ from users.serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from system_roles.models import UserSystemRole
 
+# Import employee views from separated modules
+from .employee_api_views import (
+    EmployeeRegisterView,
+    EmployeeTokenObtainPairView,
+    EmployeeTokenRefreshView,
+    EmployeeLogoutView,
+    EmployeeProfileView,
+    EmployeeChangePasswordView,
+    RequestEmployeeOTPView,
+    VerifyEmployeeOTPView,
+    Enable2FAView,
+    Disable2FAView,
+)
+from .employee_template_views import (
+    EmployeeLoginView,
+    EmployeeVerifyOTPView,
+    EmployeeProfileSettingsView,
+    EmployeeChangePasswordView as TemplateChangePasswordView,
+)
+
 
 def register_user_view(request):
     if request.method == 'POST':
@@ -43,8 +63,8 @@ def register_user_view(request):
                     )
                 
                 messages.success(request, 'Registration successful! Your account is pending approval.')
-                # Redirect to a login page or a success page
-                return redirect('/token') # Assumes a 'login' URL name exists
+                # Redirect to login page
+                return redirect('/login/')
 
             except System.DoesNotExist:
                 messages.error(request, "Configuration error: The 'HDTS' system does not exist.")
