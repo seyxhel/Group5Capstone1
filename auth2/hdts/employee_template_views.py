@@ -1,18 +1,87 @@
 """
-Simple template views for employee templates.
-These views serve HTML templates without any logic.
+Template views for employee portal with protective routing.
+These views serve HTML templates with automatic redirects based on authentication state.
 All API calls are made via JavaScript from the client side.
+
+Protected routing:
+- Unauthenticated users accessing protected routes → redirect to /login/
+- Authenticated users accessing /login/ → redirect to /profile-settings/
+- Authenticated users accessing /staff/* → redirect to /profile-settings/
 """
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.conf import settings
+from django.urls import reverse
 from rest_framework.permissions import AllowAny
 from .models import Employees
 
 
-class EmployeeLoginView(TemplateView):
-    """Serve the employee login template."""
+# ==================== Authentication Mixins ====================
+
+class EmployeeAuthenticationMixin:
+    """
+    Mixin to check if employee is authenticated.
+    Sets self.is_authenticated_employee on the view instance.
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Check if employee is attached to request by middleware
+        self.is_authenticated_employee = hasattr(request, 'employee') and request.employee
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EmployeeLoginRequiredMixin(EmployeeAuthenticationMixin):
+    """
+    Mixin that requires employee to be authenticated.
+    If not authenticated, redirects to /login/
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        
+        if not self.is_authenticated_employee:
+            return redirect('employee-login-shortcut')
+        
+        return super(EmployeeAuthenticationMixin, self).dispatch(request, *args, **kwargs)
+
+
+class EmployeeNotAuthenticatedMixin(EmployeeAuthenticationMixin):
+    """
+    Mixin that redirects authenticated employees away from public pages.
+    If already authenticated, redirects to /profile-settings/
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        
+        if self.is_authenticated_employee:
+            return redirect('employee-profile-settings-shortcut')
+        
+        return super(EmployeeAuthenticationMixin, self).dispatch(request, *args, **kwargs)
+
+
+class EmployeeStaffBlockerMixin(EmployeeAuthenticationMixin):
+    """
+    Mixin that blocks authenticated employees from accessing /staff/* endpoints.
+    Redirects to /profile-settings/ if they somehow access these pages.
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        super().dispatch(request, *args, **kwargs)
+        
+        if self.is_authenticated_employee:
+            return redirect('employee-profile-settings-shortcut')
+        
+        return super(EmployeeAuthenticationMixin, self).dispatch(request, *args, **kwargs)
+
+
+class EmployeeLoginView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Serve the employee login template.
+    - If not authenticated: show login page
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/employee_login.html'
     permission_classes = [AllowAny]
 
@@ -23,8 +92,12 @@ class EmployeeLoginView(TemplateView):
         return context
 
 
-class EmployeeRegisterView(TemplateView):
-    """Serve the employee registration template."""
+class EmployeeRegisterView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Serve the employee registration template.
+    - If not authenticated: show registration page
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/register.html'
     permission_classes = [AllowAny]
 
@@ -35,8 +108,12 @@ class EmployeeRegisterView(TemplateView):
         return context
 
 
-class EmployeeVerifyOTPView(TemplateView):
-    """Serve the OTP verification template."""
+class EmployeeVerifyOTPView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Serve the OTP verification template.
+    - If not authenticated: show OTP verification page
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/employee_verify_otp.html'
     permission_classes = [AllowAny]
 
@@ -45,8 +122,12 @@ class EmployeeVerifyOTPView(TemplateView):
         return context
 
 
-class EmployeeForgotPasswordView(TemplateView):
-    """Serve the forgot password template."""
+class EmployeeForgotPasswordView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Serve the forgot password template.
+    - If not authenticated: show forgot password page
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/forgot_password.html'
     permission_classes = [AllowAny]
 
@@ -55,8 +136,12 @@ class EmployeeForgotPasswordView(TemplateView):
         return context
 
 
-class EmployeeResetPasswordView(TemplateView):
-    """Serve the reset password template."""
+class EmployeeResetPasswordView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Serve the reset password template.
+    - If not authenticated: show reset password page (with token)
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/reset_password.html'
     permission_classes = [AllowAny]
 
@@ -69,8 +154,12 @@ class EmployeeResetPasswordView(TemplateView):
         return context
 
 
-class EmployeeDashboardView(TemplateView):
-    """Serve the employee dashboard template."""
+class EmployeeDashboardView(EmployeeLoginRequiredMixin, TemplateView):
+    """
+    Serve the employee dashboard template.
+    - If authenticated: show dashboard
+    - If not authenticated: redirect to /login/
+    """
     template_name = 'hdts/employee_dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -78,8 +167,12 @@ class EmployeeDashboardView(TemplateView):
         return context
 
 
-class EmployeeProfileSettingsView(TemplateView):
-    """Serve the employee profile settings template with employee data."""
+class EmployeeProfileSettingsView(EmployeeLoginRequiredMixin, TemplateView):
+    """
+    Serve the employee profile settings template with employee data.
+    - If authenticated: show profile settings
+    - If not authenticated: redirect to /login/
+    """
     template_name = 'hdts/employee_profile.html'
 
     def get_context_data(self, **kwargs):
@@ -99,8 +192,12 @@ class EmployeeProfileSettingsView(TemplateView):
         return context
 
 
-class EmployeeChangePasswordView(TemplateView):
-    """Serve the employee change password template."""
+class EmployeeChangePasswordView(EmployeeLoginRequiredMixin, TemplateView):
+    """
+    Serve the employee change password template.
+    - If authenticated: show change password page
+    - If not authenticated: redirect to /login/
+    """
     template_name = 'hdts/employee_change_password.html'
 
     def get_context_data(self, **kwargs):
@@ -109,7 +206,10 @@ class EmployeeChangePasswordView(TemplateView):
 
 
 class EmployeeLogoutView(TemplateView):
-    """Handle employee logout and redirect to login."""
+    """
+    Handle employee logout and redirect to login.
+    Shows login template after logout.
+    """
     template_name = 'hdts/employee_login.html'
 
     def get(self, request, *args, **kwargs):
@@ -117,8 +217,12 @@ class EmployeeLogoutView(TemplateView):
         return super().get(request, *args, **kwargs)
 
 
-class EmployeeForgotPasswordUIView(TemplateView):
-    """Alias for EmployeeForgotPasswordView for backward compatibility."""
+class EmployeeForgotPasswordUIView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Alias for EmployeeForgotPasswordView for backward compatibility.
+    - If not authenticated: show forgot password page
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/forgot_password.html'
 
     def get_context_data(self, **kwargs):
@@ -126,8 +230,12 @@ class EmployeeForgotPasswordUIView(TemplateView):
         return context
 
 
-class EmployeeResetPasswordUIView(TemplateView):
-    """Alias for EmployeeResetPasswordView for backward compatibility."""
+class EmployeeResetPasswordUIView(EmployeeNotAuthenticatedMixin, TemplateView):
+    """
+    Alias for EmployeeResetPasswordView for backward compatibility.
+    - If not authenticated: show reset password page (with token)
+    - If authenticated: redirect to profile settings
+    """
     template_name = 'hdts/reset_password.html'
 
     def get_context_data(self, **kwargs):

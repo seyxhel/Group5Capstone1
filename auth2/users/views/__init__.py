@@ -10,6 +10,7 @@ This package organizes views into logical modules:
 - login_views: Login flow, OTP for login, and system welcome
 - captcha_views: CAPTCHA generation, verification, and requirement checks
 - role_management_views: Role creation, viewing, and assignment management
+- staff_routing_mixins: Protective routing mixins for staff portal pages
 """
 
 # Authentication and Token Management
@@ -77,6 +78,15 @@ from .role_management_views import (
     role_management_view,
 )
 
+# Staff Portal Routing
+from .staff_routing_mixins import (
+    StaffAuthenticationMixin,
+    StaffLoginRequiredMixin,
+    StaffNotAuthenticatedMixin,
+    StaffEmployeeBlockerMixin,
+    StaffSystemRedirectMixin,
+)
+
 __all__ = [
     # Auth
     'LogoutSerializer',
@@ -119,4 +129,10 @@ __all__ = [
     'CreateRoleView',
     'UpdateAssignmentView',
     'role_management_view',
+    # Staff Portal Routing
+    'StaffAuthenticationMixin',
+    'StaffLoginRequiredMixin',
+    'StaffNotAuthenticatedMixin',
+    'StaffEmployeeBlockerMixin',
+    'StaffSystemRedirectMixin',
 ]

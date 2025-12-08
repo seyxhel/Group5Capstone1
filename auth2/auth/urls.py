@@ -3,13 +3,26 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
+from django.views.generic import TemplateView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework import serializers
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from drf_spectacular.utils import extend_schema
-from users.views import *
+from users.views import (
+    LoginView,
+    request_otp_for_login,
+    profile_settings_view,
+    agent_management_view,
+    invite_agent_view,
+    ChangePasswordUIView,
+    CustomTokenObtainPairView,
+    UILogoutView,
+    StaffNotAuthenticatedMixin,
+    StaffLoginRequiredMixin,
+    StaffEmployeeBlockerMixin,
+)
 from tts.views import assign_agent_to_role_form
 from hdts import views as hdts_views
 from hdts.employee_template_views import (
@@ -20,12 +33,53 @@ from hdts.employee_template_views import (
     EmployeeResetPasswordUIView,
     EmployeeProfileSettingsView,
     EmployeeChangePasswordView,
+    EmployeeStaffBlockerMixin,
 )
 from hdts.employee_api_views import MeView
+from users.views.role_management_views import role_management_view
 
 def root_redirect(request):
     """Redirect root URL to login page"""
     return redirect('auth_login')
+
+# ==================== Staff Blocker Views ====================
+# These views block authenticated employees from accessing /staff/* endpoints
+class StaffBlockerView(EmployeeStaffBlockerMixin, TemplateView):
+    """Generic view that blocks authenticated employees from staff endpoints."""
+    template_name = 'users/login.html'
+    
+    def get(self, request, *args, **kwargs):
+        # If we get here, the employee is not authenticated
+        # Let them pass through to the actual staff login view
+        view = StaffNotAuthenticatedLoginView.as_view()
+        return view(request, *args, **kwargs)
+
+
+# ==================== Protected Staff Views ====================
+# Wrap the existing LoginView with authentication mixins
+class StaffNotAuthenticatedLoginView(StaffNotAuthenticatedMixin, LoginView):
+    """
+    Staff login page with protective routing.
+    - If not authenticated: show login page
+    - If authenticated (single system): redirect to system dashboard
+    - If authenticated (multiple systems): redirect to system selection
+    - If authenticated (no systems): redirect to welcome page
+    """
+    pass
+
+
+class StaffProfileSettingsProtectedView(StaffLoginRequiredMixin, TemplateView):
+    """
+    Wrap profile settings view with authentication requirement.
+    - If not authenticated: redirect to /staff/login/
+    - If authenticated: show profile settings
+    """
+    template_name = 'users/profile_settings.html'
+    
+    def get(self, request, *args, **kwargs):
+        # Delegate to original profile_settings_view
+        return profile_settings_view(request)
+
 
 class APIRootSerializer(serializers.Serializer):
     api_v1 = serializers.URLField()
@@ -57,32 +111,37 @@ urlpatterns = [
     path('api/', api_root, name='api-root'),  # API root moved to /api/
     path('admin/', admin.site.urls),
     path('api/v1/', include('auth.v1.urls')),
-    # Remove this duplicate inclusion - TTS URLs are already included in v1/urls.py
-    # path('api/v1/tts/', include('tts.urls')),
 
-    # UI Login endpoint (supports ?system=<slug> parameter)
-    path('staff/login/', LoginView.as_view(), name='auth_login'),
+    # ==================== STAFF Portal (Protected & Guarded) ====================
+    # Staff portal with protective routing:
+    # - Unauthenticated → show login page
+    # - Authenticated (1 system) → redirect to system dashboard
+    # - Authenticated (>1 system) → redirect to system selection
+    # - Employees → blocked, redirected to /login/
+    
+    path('staff/login/', StaffNotAuthenticatedLoginView.as_view(), name='auth_login'),
     path('staff/request-otp/', request_otp_for_login, name='auth_request_otp'),
 
-    # Profile and Settings shortcuts (direct access without /api/v1/users/)
+    # Protected staff pages (require staff authentication)
     path('staff/settings/profile/', profile_settings_view, name='profile-settings'),
     path('staff/agent-management/', agent_management_view, name='agent-management'),
     path('staff/invite-agent/', invite_agent_view, name='invite-agent'),
     path('staff/password-change/', ChangePasswordUIView.as_view(), name='password-change-shortcut'),
-    # Shortcut: Role management
     path('staff/role-management/', role_management_view, name='role_management_shortcut'),
 
-    # Shortcut: Token obtain and logout at root level
+    # Token and Logout (shared between staff and API)
     path('token/', CustomTokenObtainPairView.as_view(), name='root_token_obtain'),
     path('logout/', UILogoutView.as_view(), name='root_logout'),
-    # path('logout/', CookieLogoutView.as_view(), name='root_logout'),
     
-    # Shortcut: Assign role form
+    # Assign role form
     path('assign-role/', assign_agent_to_role_form, name='assign_role'),
-    
 
+    # ==================== EMPLOYEE Portal (Protected & Guarded) ====================
+    # Employee portal with protective routing:
+    # - Unauthenticated → show login/register/etc pages
+    # - Authenticated → redirect to /profile-settings/
+    # - Staff → blocked, redirected to /staff/login/ (via API permissions)
     
-    # Employee Portal shortcuts (clean URLs for templates - they POST to /api/v1/employees/ APIs)
     path('login/', EmployeeLoginView.as_view(), name='employee-login-shortcut'),
     path('register/', EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
     path('verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
