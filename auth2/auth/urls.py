@@ -71,17 +71,14 @@ urlpatterns = [
     # Shortcut: Role management
     path('role-management/', role_management_view, name='role_management_shortcut'),
     
-    # Shortcuts: Employee Portal (direct access without /api/v1/)
-    path('login/employee', hdts_views.EmployeeLoginView.as_view(), name='employee-login-shortcut'),
-    # path('employee-register/', hdts_views.EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
-    path('register/', hdts_views.register_user_view, name='hdts-register-shortcut'),
-    # path('login-ui/', hdts_views.EmployeeLoginView.as_view(), name='employee-login-ui-shortcut'),
-    path('verify-otp/', hdts_views.EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
-    path('employee/profile-settings/', hdts_views.EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
-    path('employee/change-password/', hdts_views.EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
-    path('employee/logout/', hdts_views.EmployeeLogoutView.as_view(), name='employee-logout-shortcut'),
-    path('employee/forgot-password/', hdts_views.EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
-    path('employee/reset-password/', hdts_views.EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
+    # Employee Portal shortcuts (clean URLs for templates - they POST to /api/v1/employees/ APIs)
+    path('employees/login/', hdts_views.EmployeeLoginView.as_view(), name='employee-login-shortcut'),
+    path('employees/register/', hdts_views.EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
+    path('employees/verify-otp/', hdts_views.EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
+    path('employees/profile-settings/', hdts_views.EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
+    path('employees/change-password/', hdts_views.EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
+    path('employees/forgot-password/', hdts_views.EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
+    path('employees/reset-password/', hdts_views.EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
 ]
 
 # Include API documentation URLs only in DEBUG mode

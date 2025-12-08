@@ -168,7 +168,7 @@
 
             <!-- Register Link -->
             <div class="form-footer">
-                <a href="{% url 'hdts-register-shortcut' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
+                <a href="{% url 'employee-register' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
             </div>
         </section>
     </main>
@@ -366,7 +366,7 @@
                         ToastNotification.success('Success', 'Logged in successfully!');
                         // Redirect to profile settings
                         setTimeout(() => {
-                            window.location.href = '/api/v1/employees/ui/profile-settings/';
+                            window.location.href = '/employees/profile-settings/';
                         }, 1500);
                     } else if (data.requires_otp) {
                         // 2FA required

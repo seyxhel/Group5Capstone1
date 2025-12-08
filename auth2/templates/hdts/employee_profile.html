@@ -821,12 +821,13 @@
 
         // Intercept form submission to handle cropped image
         document.getElementById('profile-form').addEventListener('submit', function(e) {
+            e.preventDefault();  // Always prevent default form submission
+            
+            // Create FormData from the form
+            const formData = new FormData(this);
+            
+            // If there's a cropped image, replace the profile_picture
             if (window.croppedImageFormData) {
-                e.preventDefault();
-                
-                // Create FormData from the form
-                const formData = new FormData(this);
-                
                 // Replace profile_picture with cropped version
                 formData.delete('profile_picture');
                 const croppedBlob = window.croppedImageFormData.get('profile_picture');
@@ -834,24 +835,46 @@
                     formData.append('profile_picture', croppedBlob);
                     console.log('Using cropped image for submission');
                 }
-                
-                // Submit the form via fetch
-                fetch(this.action || window.location.href, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log('Form submitted successfully with cropped image');
-                        window.location.reload();
-                    } else {
-                        console.error('Form submission failed');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error submitting form:', error);
-                });
             }
+            
+            // Get access token from cookies
+            const accessToken = document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1];
+            
+            // Build fetch options
+            const fetchOptions = {
+                method: 'PATCH',
+                body: formData,
+                credentials: 'include'  // Include cookies in the request
+            };
+            
+            // Add Authorization header if we have a token
+            if (accessToken) {
+                fetchOptions.headers = {
+                    'Authorization': `Bearer ${accessToken}`
+                };
+            }
+            
+            // Submit the form via fetch
+            fetch('/api/v1/employees/profile/', fetchOptions)
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                return response.json().then(data => ({ status: response.status, ok: response.ok, data }));
+            })
+            .then(result => {
+                console.log('Response data:', result.data);
+                if (result.ok) {
+                    console.log('Form submitted successfully with cropped image');
+                    window.location.reload();
+                } else {
+                    console.error('Form submission failed', result.status, result.data);
+                    alert(`Error: ${result.data?.detail || 'Failed to update profile'}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting form:', error);
+                alert('Error submitting form: ' + error.message);
+            });
         });
     </script>
 </body>

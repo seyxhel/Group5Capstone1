@@ -7,6 +7,7 @@ from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.permissions import AllowAny
+from .models import Employees
 
 
 class EmployeeLoginView(TemplateView):
@@ -73,11 +74,23 @@ class EmployeeDashboardView(TemplateView):
 
 
 class EmployeeProfileSettingsView(TemplateView):
-    """Serve the employee profile settings template."""
+    """Serve the employee profile settings template with employee data."""
     template_name = 'hdts/employee_profile.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Get the employee from the authorization header or session
+        try:
+            # Try to get from the request's employee (if set by middleware)
+            if hasattr(self.request, 'employee'):
+                context['employee'] = self.request.employee
+            else:
+                # Try to get from user if available
+                context['employee'] = None
+        except Exception:
+            context['employee'] = None
+            
         return context
 
 

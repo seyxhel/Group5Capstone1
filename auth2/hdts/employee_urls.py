@@ -24,7 +24,6 @@ from .employee_template_views import (
     EmployeeVerifyOTPView,
     EmployeeForgotPasswordView,
     EmployeeResetPasswordView,
-    EmployeeDashboardView,
     EmployeeProfileSettingsView,
     EmployeeChangePasswordView,
 )
@@ -51,15 +50,14 @@ def employees_root(request, format=None):
             'enable': request.build_absolute_uri('2fa/enable/'),
             'disable': request.build_absolute_uri('2fa/disable/'),
         },
-        'ui': {
-            'login': request.build_absolute_uri('ui/login/'),
-            'register': request.build_absolute_uri('ui/register/'),
-            'verify_otp': request.build_absolute_uri('ui/verify-otp/'),
-            'forgot_password': request.build_absolute_uri('ui/forgot-password/'),
-            'reset_password': request.build_absolute_uri('ui/reset-password/'),
-            'dashboard': request.build_absolute_uri('ui/dashboard/'),
-            'profile_settings': request.build_absolute_uri('ui/profile-settings/'),
-            'change_password': request.build_absolute_uri('ui/change-password/'),
+        'templates': {
+            'login': request.build_absolute_uri('login/'),
+            'register': request.build_absolute_uri('register/'),
+            'verify_otp': request.build_absolute_uri('verify-otp/'),
+            'forgot_password': request.build_absolute_uri('forgot-password/'),
+            'reset_password': request.build_absolute_uri('reset-password/'),
+            'profile_settings': request.build_absolute_uri('profile-settings/'),
+            'change_password': request.build_absolute_uri('change-password/'),
         }
     })
 
@@ -67,16 +65,6 @@ def employees_root(request, format=None):
 
 urlpatterns = [
     path('', employees_root, name='employees-root'),
-    
-    # ========== TEMPLATE VIEWS (serve HTML) ==========
-    path('ui/login/', EmployeeLoginView.as_view(), name='employee-login'),
-    path('ui/register/', EmployeeRegisterView.as_view(), name='employee-register'),
-    path('ui/verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp'),
-    path('ui/forgot-password/', EmployeeForgotPasswordView.as_view(), name='employee-forgot-password'),
-    path('ui/reset-password/', EmployeeResetPasswordView.as_view(), name='employee-reset-password'),
-    path('ui/dashboard/', EmployeeDashboardView.as_view(), name='employee-dashboard'),
-    path('ui/profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings'),
-    path('ui/change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password'),
     
     # ========== API ENDPOINTS (json responses) ==========
     path('register/', EmployeeRegisterAPIView.as_view(), name='employee-register-api'),
@@ -95,4 +83,13 @@ urlpatterns = [
     path('2fa/verify-otp/', VerifyEmployeeOTPView.as_view(), name='employee-verify-otp-api'),
     path('2fa/enable/', Enable2FAView.as_view(), name='employee-enable-2fa'),
     path('2fa/disable/', Disable2FAView.as_view(), name='employee-disable-2fa'),
+    
+    # ========== TEMPLATE VIEWS (serve HTML) ==========
+    path('login/', EmployeeLoginView.as_view(), name='employee-login'),
+    path('register/', EmployeeRegisterView.as_view(), name='employee-register'),
+    path('verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp'),
+    path('forgot-password/', EmployeeForgotPasswordView.as_view(), name='employee-forgot-password'),
+    path('reset-password/', EmployeeResetPasswordView.as_view(), name='employee-reset-password'),
+    path('profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings'),
+    path('change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password'),
 ]
