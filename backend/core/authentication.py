@@ -54,21 +54,14 @@ class CookieJWTAuthentication(JWTAuthentication):
             # First, check if this is an employee token (custom format)
             employee_user = self._try_decode_employee_token(raw_token)
             if employee_user:
-                print(f"DEBUG: Employee token authenticated: {employee_user.email}")
                 return (employee_user, raw_token)
             
             # Not an employee token, try standard DRF simplejwt
             validated_token = self.get_validated_token(raw_token)
             
-            # Debug logging
-            print(f"DEBUG: Token type: {type(validated_token)}")
-            print(f"DEBUG: Token dir: {[x for x in dir(validated_token) if not x.startswith('_')]}")
-            
             # Try to access 'roles' field - if it exists, treat as external token
             try:
-                print(f"DEBUG: Attempting to access 'roles' field")
                 roles = validated_token['roles']
-                print(f"DEBUG: Successfully accessed roles: {roles}")
                 
                 # External token with roles - create ExternalUser
                 if not isinstance(roles, list):
@@ -83,23 +76,18 @@ class CookieJWTAuthentication(JWTAuthentication):
                 if hdts_role is None:
                     raise ValueError('No valid role found for system hdts')
                 
-                # Fetch complete user profile from auth service
-                user_profile = self._fetch_user_profile(raw_token)
-                
                 user = ExternalUser(
                     user_id=validated_token['user_id'],
                     email=validated_token['email'],
                     role=hdts_role,
-                    first_name=user_profile.get('first_name'),
-                    last_name=user_profile.get('last_name'),
-                    department=user_profile.get('department'),
-                    company_id=user_profile.get('company_id'),
+                    first_name=validated_token.get('first_name'),
+                    last_name=validated_token.get('last_name'),
+                    # department=validated_token.get('department'),
+                    # company_id=validated_token.get('company_id'),
                     user_type='user'
                 )
-                print(f"DEBUG: Created ExternalUser with profile: {user.first_name} {user.last_name} ({user.company_id})")
             except (KeyError, AttributeError, TypeError) as e:
                 # No 'roles' field - simple token, use standard user from DB
-                print(f"DEBUG: Exception accessing roles: {type(e).__name__}: {e}")
                 user = self.get_user(validated_token)
             
             return (user, validated_token)
@@ -136,10 +124,8 @@ class CookieJWTAuthentication(JWTAuthentication):
                     company_id=company_id,
                     user_type='employee'
                 )
-                print(f"DEBUG: Created ExternalUser from employee token: {user.email} (employee_id={employee_id})")
                 return user
             except Exception as e:
-                print(f"DEBUG: Error creating ExternalUser from employee token: {e}")
                 raise self.user_model.DoesNotExist(f"Invalid employee token: {str(e)}")
 
         # Check if this token comes from the external auth service
@@ -230,38 +216,16 @@ class CookieJWTAuthentication(JWTAuthentication):
                     company_id=company_id,
                     user_type='employee'
                 )
-                print(f"DEBUG: Created ExternalUser from employee token: {user.email} (employee_id={employee_id})")
                 return user
                 
         except jwt.ExpiredSignatureError:
-            print(f"DEBUG: Employee token expired")
+            pass
         except jwt.InvalidSignatureError:
-            print(f"DEBUG: Employee token has invalid signature")
-        except (jwt.DecodeError, ValueError) as e:
-            print(f"DEBUG: Employee token decode error: {e}")
-        except Exception as e:
-            print(f"DEBUG: Unexpected error decoding employee token: {e}")
+            pass
+        except (jwt.DecodeError, ValueError):
+            pass
+        except Exception:
+            pass
         
         return None
 
-    def _fetch_user_profile(self, access_token):
-        """
-        Fetch complete user profile from the auth service
-        """
-        try:
-            # Try the profile endpoint that should return current user's profile
-            response = requests.get(
-                'http://localhost:8003/api/v1/users/profile/',
-                headers={'Authorization': f'Bearer {access_token}'},
-                timeout=5
-            )
-            if response.status_code == 200:
-                profile_data = response.json()
-                print(f"DEBUG: Fetched profile data: {profile_data}")
-                return profile_data
-            else:
-                print(f"DEBUG: Profile fetch failed with status {response.status_code}")
-                return {}
-        except Exception as e:
-            print(f"DEBUG: Error fetching user profile: {e}")
-            return {}

@@ -167,18 +167,65 @@ def get_pending_users_api(request):
 @permission_classes([IsAuthenticated])
 def get_all_hdts_users_api(request):
     """
-    API endpoint to get all HDTS system users.
+    API endpoint to get all HDTS users (both system users and employees).
     Returns JSON data for frontend consumption.
+    Includes:
+    - System users with HDTS roles (Admin, Ticket Coordinator, etc.)
+    - HDTS Employees (role: 'Employee')
+    All data follows uniform shape matching the User model serialization.
     """
+    from django.utils import timezone
+    from .models import Employees
+    
     # Find all users who have any role in the 'hdts' system
     hdts_users = User.objects.filter(
         system_roles__system__slug='hdts'
     ).distinct()
     
     serializer = UserProfileSerializer(hdts_users, many=True)
+    users_data = serializer.data
+    
+    # Include HDTS employees in the same format
+    hdts_employees = Employees.objects.all()
+    
+    employees_data = []
+    for emp in hdts_employees:
+        employees_data.append({
+            'id': emp.id,
+            'email': emp.email,
+            'username': emp.username,
+            'first_name': emp.first_name,
+            'middle_name': emp.middle_name or None,
+            'last_name': emp.last_name,
+            'suffix': emp.suffix,
+            'phone_number': emp.phone_number,
+            'company_id': emp.company_id,
+            'department': emp.department,
+            'status': emp.status,
+            'notified': emp.notified,
+            'is_active': True,  # Employees can login by default
+            'profile_picture': str(emp.profile_picture.url) if emp.profile_picture else None,
+            'date_joined': emp.created_at.isoformat() if emp.created_at else None,
+            'otp_enabled': emp.otp_enabled,
+            'system_roles': [
+                {
+                    'id': emp.id,
+                    'system_name': 'Help Desk and Ticketing System',
+                    'system_slug': 'hdts',
+                    'role_name': 'Employee',
+                    'assigned_at': emp.created_at.isoformat() if emp.created_at else None,
+                    'last_logged_on': emp.last_login.isoformat() if emp.last_login else None,
+                    'is_active': True  # Employee role is active
+                }
+            ]
+        })
+    
     return Response({
-        'count': hdts_users.count(),
-        'users': serializer.data
+        'count': len(users_data) + len(employees_data),
+        'system_users_count': len(users_data),
+        'employees_count': len(employees_data),
+        'users': users_data,
+        'all_users': users_data + employees_data
     })
 
     user_to_update.save(update_fields=['status']) # Only save the status field

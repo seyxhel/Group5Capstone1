@@ -547,17 +547,57 @@ class LoginAPIView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
+        from rest_framework import status
+        from system_roles.models import UserSystemRole
+        from django.utils.timezone import now
+        
         from ..serializers import LoginWithRecaptchaSerializer
         
         serializer = LoginWithRecaptchaSerializer(data=request.data)
+        email = request.data.get('email', '').lower()
         
         if serializer.is_valid():
             user = serializer.validated_data['user']
             
-            # Generate tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
+            # Check HDTS Employee approval status
+            is_hdts_employee = UserSystemRole.objects.filter(
+                user=user,
+                system__slug='hdts',
+                role__name='Employee'
+            ).exists()
+            
+            if is_hdts_employee and user.status != 'Approved':
+                error_message = 'Your account is pending approval by the HDTS system administrator.'
+                if user.status == 'Rejected':
+                    error_message = 'Your account has been rejected by the HDTS system administrator.'
+                
+                record_failed_login_attempt(request, user_email=user.email)
+                return Response(
+                    {'detail': error_message},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Generate tokens using CustomTokenObtainPairSerializer for rich data
+            serializer_data = {
+                'email': user.email,
+                'password': request.data.get('password', ''),
+                'otp_code': ''
+            }
+            
+            token_serializer = CustomTokenObtainPairSerializer(
+                data=serializer_data,
+                context={'request': request}
+            )
+            
+            if token_serializer.is_valid():
+                tokens = token_serializer.validated_data
+                access_token = tokens['access']
+                refresh_token = tokens['refresh']
+            else:
+                # Fallback: create tokens manually
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
             
             # Reset failed login attempts
             user.failed_login_attempts = 0
@@ -565,24 +605,76 @@ class LoginAPIView(APIView):
             user.lockout_time = None
             user.save(update_fields=["failed_login_attempts", "is_locked", "lockout_time"])
             
+            # Log the user into Django's session framework
+            login(request, user)
+            
+            # Update last_logged_on for all user system roles
+            UserSystemRole.objects.filter(user=user).update(last_logged_on=now())
+            
+            # Get system roles for the user
+            system_roles_data = []
+            user_system_roles = UserSystemRole.objects.filter(user=user).select_related('system', 'role')
+            for role_assignment in user_system_roles:
+                system_roles_data.append({
+                    'system_name': role_assignment.system.name,
+                    'system_slug': role_assignment.system.slug,
+                    'role_name': role_assignment.role.name,
+                    'assigned_at': role_assignment.assigned_at,
+                })
+            
+            # Determine the primary system and redirect URL
+            primary_system = None
+            redirect_url = settings.DEFAULT_SYSTEM_URL
+            
+            if system_roles_data:
+                primary_system = system_roles_data[0]['system_slug']
+                redirect_url = settings.SYSTEM_TEMPLATE_URLS.get(primary_system, settings.DEFAULT_SYSTEM_URL)
+            
+            # Prepare available system URLs for frontend
+            available_systems = {}
+            for role_data in system_roles_data:
+                system_slug = role_data['system_slug']
+                available_systems[system_slug] = settings.SYSTEM_TEMPLATE_URLS.get(system_slug, settings.DEFAULT_SYSTEM_URL)
+            
             # Record successful login
             record_successful_login(request, user_email=user.email)
             
-            return Response({
+            response_data = {
                 'success': True,
+                'message': 'Authentication successful',
                 'access_token': access_token,
                 'refresh_token': refresh_token,
                 'user': {
                     'id': user.id,
                     'email': user.email,
                     'first_name': user.first_name,
+                    'middle_name': user.middle_name,
                     'last_name': user.last_name,
+                    'suffix': user.suffix,
+                    'username': user.username,
+                    'phone_number': user.phone_number,
+                    'company_id': user.company_id,
+                    'department': user.department,
+                    'status': user.status,
+                    'notified': user.notified,
+                    'is_staff': user.is_staff,
+                    'is_superuser': user.is_superuser,
+                    'otp_enabled': user.otp_enabled,
+                    'date_joined': user.date_joined,
+                    'system_roles': system_roles_data,
+                },
+                'redirect': {
+                    'primary_system': primary_system,
+                    'url': redirect_url,
+                    'available_systems': available_systems
                 }
-            })
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
         else:
-            record_failed_login_attempt(request, user_email=request.data.get('email'))
+            record_failed_login_attempt(request, user_email=email)
             
             return Response({
                 'success': False,
                 'errors': serializer.errors
-            }, status=400)
+            }, status=status.HTTP_400_BAD_REQUEST)
