@@ -8,6 +8,7 @@ import EmployeeNotification from '../popups/EmployeeNotification';
 import authService from '../../../utilities/service/authService';
 import { backendAuthService } from '../../../services/backend/authService';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
+import { navigateToVerifiedEndpoint } from '../../../utilities/helpers/verifyEndpoint';
 import { API_CONFIG } from '../../../config/environment';
 import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
 import { convertToSecureUrl, isSecureUrl } from '../../../utilities/secureMedia';
@@ -669,6 +670,14 @@ const EmployeeNavBar = () => {
                       }}
                     >
                       Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        const AUTH_URL = import.meta.env.VITE_AUTH_URL || 'http://localhost:8003';
+                        navigateToVerifiedEndpoint(`${AUTH_URL}/profile-settings/`, () => setShowProfileMenu(false));
+                      }}
+                    >
+                      Profile Settings
                     </button>
                     <button
                       className={styles['logout-btn']}

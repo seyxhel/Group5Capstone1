@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { backendEmployeeService } from '../../../services/backend/employeeService';
 import { API_CONFIG } from '../../../config/environment';
 import { resolveMediaUrl } from '../../../utilities/helpers/mediaUrl';
+import { navigateToVerifiedEndpoint } from '../../../utilities/helpers/verifyEndpoint';
 
 const ArrowDownIcon = ({ flipped }) => (
   <svg
@@ -565,6 +566,10 @@ const CoordinatorAdminNavBar = () => {
               </div>
               <div className={styles['profile-menu']}>
                 <button onClick={() => handleNavigate('/admin/settings')}>Settings</button>
+                <button onClick={() => {
+                  const AUTH_URL = import.meta.env.VITE_AUTH_URL || 'http://localhost:8003';
+                  navigateToVerifiedEndpoint(`${AUTH_URL}/staff/settings/profile`, () => toggleDropdown(null));
+                }}>Profile Settings</button>
                 <button className={styles['logout-btn']} onClick={handleLogout}>Log Out</button>
               </div>
             </div>

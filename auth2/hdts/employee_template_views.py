@@ -6,6 +6,7 @@ All API calls are made via JavaScript from the client side.
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.conf import settings
 from rest_framework.permissions import AllowAny
 from .models import Employees
 
@@ -17,6 +18,8 @@ class EmployeeLoginView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Get HDTS system URL from settings
+        context['hdts_system_url'] = settings.SYSTEM_TEMPLATE_URLS.get('hdts', 'http://localhost:3000/hdts')
         return context
 
 

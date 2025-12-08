@@ -59,6 +59,12 @@ class JWTAuthenticationMiddleware:
                 logger.debug(f"Invalid JWT token in cookie: {str(e)}")
                 # Clear invalid token
                 request.COOKIES.pop('access_token', None)
+        else:
+            # No JWT token present - invalidate Django session to prevent session-only authentication
+            # This ensures API endpoints require JWT tokens, not just valid sessions
+            if request.session and request.session.session_key:
+                logger.debug("No JWT token found - invalidating Django session")
+                request.session.flush()
         
         response = self.get_response(request)
         return response
