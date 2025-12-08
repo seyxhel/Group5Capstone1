@@ -69,6 +69,41 @@ def auto_close_resolved_tickets():
     return f"Auto-closed {closed_count} tickets"
 
 
+@shared_task(name='hdts.tasks.sync_hdts_employee')
+def sync_hdts_employee(employee_data):
+    """
+    Sync employee information to backend external employees table via message broker.
+    Handles create, update, and delete actions for employee synchronization.
+    
+    This task receives employee data from auth2 service and processes it.
+    
+    Args:
+        employee_data (dict): The employee data to sync including action type
+    
+    Returns:
+        dict: Status of the sync operation
+    """
+    try:
+        action = employee_data.get('action', 'update')
+        employee_id = employee_data.get('employee_id')
+        email = employee_data.get('email')
+        
+        logger.info(f"Processing HDTS employee sync: employee_id={employee_id}, email={email}, action={action}")
+        
+        # Call the actual processing function
+        result = process_hdts_employee_sync(employee_data)
+        return result
+    
+    except Exception as e:
+        logger.error(f"Error in sync_hdts_employee task: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "employee_id": employee_data.get('employee_id'),
+        }
+
+
+
 @shared_task(name='hdts.tasks.sync_hdts_user')
 def sync_hdts_user(user_data):
     """
@@ -157,4 +192,90 @@ def sync_hdts_user(user_data):
             "status": "error",
             "error": str(e),
             "user_id": user_data.get('user_id'),
+        }
+
+
+@shared_task(name='core.tasks.process_hdts_employee_sync')
+def process_hdts_employee_sync(employee_data):
+    """
+    Process employee sync from auth2 HDTS service and save to ExternalEmployee model.
+    Handles create, update, and delete actions for external employee synchronization.
+    
+    Args:
+        employee_data (dict): The employee data to sync including action type
+            - employee_id, user_id, email, username, first_name, last_name
+            - middle_name, suffix, phone_number, company_id, department
+            - status, notified, profile_picture, role, action
+    """
+    from .models import ExternalEmployee
+    
+    try:
+        action = employee_data.get('action', 'update')
+        employee_id = employee_data.get('employee_id')
+        email = employee_data.get('email')
+        
+        logger.info(f"Processing HDTS employee sync: employee_id={employee_id}, email={email}, action={action}")
+        
+        if action == 'delete':
+            # Delete the employee record
+            deleted_count, _ = ExternalEmployee.objects.filter(email=email).delete()
+            logger.info(f"Deleted {deleted_count} external employee record(s) for {email}")
+            return {
+                "status": "success",
+                "action": "delete",
+                "employee_id": employee_id,
+                "deleted_count": deleted_count,
+            }
+        
+        elif action in ['create', 'update']:
+            # Create or update the external employee record
+            # company_id can be None (unlike the regular Employee model)
+            external_employee, created = ExternalEmployee.objects.update_or_create(
+                external_employee_id=employee_id,
+                defaults={
+                    'email': email,
+                    'username': employee_data.get('username') or '',
+                    'first_name': employee_data.get('first_name') or '',
+                    'last_name': employee_data.get('last_name') or '',
+                    'middle_name': employee_data.get('middle_name'),
+                    'suffix': employee_data.get('suffix'),
+                    'phone_number': employee_data.get('phone_number'),
+                    'company_id': employee_data.get('company_id'),  # Can be None
+                    'department': employee_data.get('department'),
+                    'role': employee_data.get('role') or 'Employee',
+                    'status': employee_data.get('status') or 'Pending',
+                    'notified': employee_data.get('notified', False),
+                    'external_user_id': employee_data.get('user_id'),
+                }
+            )
+            
+            action_verb = "Created" if created else "Updated"
+            logger.info(f"{action_verb} external employee: {email} with role {employee_data.get('role')}")
+            
+            return {
+                "status": "success",
+                "action": action,
+                "employee_id": employee_id,
+                "created": created,
+                "external_employee": {
+                    "id": external_employee.id,
+                    "email": external_employee.email,
+                    "role": external_employee.role,
+                }
+            }
+        
+        else:
+            logger.warning(f"Unknown action '{action}' for employee_id={employee_id}")
+            return {
+                "status": "warning",
+                "message": f"Unknown action: {action}",
+                "employee_id": employee_id,
+            }
+    
+    except Exception as e:
+        logger.error(f"Error processing HDTS employee sync: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "employee_id": employee_data.get('employee_id'),
         }

@@ -54,6 +54,31 @@ def _prepare_hdts_user_data(user, action='update'):
     }
 
 
+def _prepare_hdts_employee_data(employee, action='update'):
+    """
+    Helper function to prepare employee data for HDTS sync.
+    Sends employee data as-is with role set to 'employee'.
+    """
+    return {
+        "employee_id": employee.id,
+        "user_id": employee.user.id if employee.user else None,
+        "email": employee.email,
+        "username": employee.username,
+        "first_name": employee.first_name,
+        "last_name": employee.last_name,
+        "middle_name": employee.middle_name or '',
+        "suffix": employee.suffix or '',
+        "phone_number": employee.phone_number,
+        "company_id": employee.company_id,
+        "department": employee.department,
+        "status": employee.status,
+        "notified": employee.notified,
+        "profile_picture": employee.profile_picture.url if employee.profile_picture else None,
+        "role": "employee",
+        "action": action,
+    }
+
+
 @receiver(post_save, sender='users.User')
 def user_post_save(sender, instance, created, **kwargs):
     """
@@ -209,6 +234,75 @@ def user_system_role_post_delete(sender, instance, **kwargs):
                 )
         except Exception as e:
             logger.error(f"Error in user_system_role_post_delete signal: {str(e)}")
+    
+    # Send in background thread to prevent blocking the response
+    thread = Thread(target=send_sync_task, daemon=True)
+    thread.start()
+
+
+@receiver(post_save, sender='hdts.Employees')
+def employee_post_save(sender, instance, created, **kwargs):
+    """
+    Signal handler for when an Employee is created or updated.
+    Syncs employee data with role set to 'employee' to separate queue.
+    Runs in background thread to prevent blocking.
+    """
+    def send_sync_task():
+        try:
+            action = 'create' if created else 'update'
+            logger.info(f"Employee {instance.id} ({instance.email}) {action}d, syncing to external employee subscribers")
+            
+            from celery import current_app
+            
+            # Prepare employee data with role set to 'employee'
+            employee_data = _prepare_hdts_employee_data(instance, action=action)
+            
+            # Send to SEPARATE queue for employees (hdts.employee.sync)
+            # Task will be processed by backend Celery worker
+            try:
+                current_app.send_task(
+                    'core.tasks.process_hdts_employee_sync',
+                    args=[employee_data],
+                    queue='hdts.employee.sync',
+                    routing_key='hdts.employee.sync',
+                    retry=False,
+                    time_limit=10,
+                )
+            except Exception as celery_error:
+                logger.warning(f"Celery task send failed (non-blocking): {str(celery_error)}")
+        except Exception as e:
+            logger.error(f"Error in employee_post_save signal: {str(e)}")
+    
+    # Send in background thread to prevent blocking the response
+    thread = Thread(target=send_sync_task, daemon=True)
+    thread.start()
+
+
+@receiver(post_delete, sender='hdts.Employees')
+def employee_post_delete(sender, instance, **kwargs):
+    """
+    Signal handler for when an Employee is deleted.
+    Syncs employee deletion to separate queue for external employee subscribers.
+    """
+    def send_sync_task():
+        try:
+            logger.info(f"Employee {instance.id} ({instance.email}) deleted, syncing to external employee subscribers")
+            
+            from celery import current_app
+            
+            # Prepare employee data for deletion
+            employee_data = _prepare_hdts_employee_data(instance, action='delete')
+            
+            # Send to SEPARATE queue for employees (hdts.employee.sync)
+            # Task will be processed by backend Celery worker
+            current_app.send_task(
+                'core.tasks.process_hdts_employee_sync',
+                args=[employee_data],
+                queue='hdts.employee.sync',
+                routing_key='hdts.employee.sync',
+            )
+        except Exception as e:
+            logger.error(f"Error in employee_post_delete signal: {str(e)}")
     
     # Send in background thread to prevent blocking the response
     thread = Thread(target=send_sync_task, daemon=True)

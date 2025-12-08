@@ -63,3 +63,55 @@ def sync_hdts_user(user_data):
         logger.error(f"Error syncing HDTS user: {str(e)}")
         return {"status": "error", "error": str(e)}
 
+
+@shared_task(name='hdts.tasks.sync_hdts_employee')
+def sync_hdts_employee(employee_data):
+    """
+    Sync employee information to backend external employees table via message broker.
+    Handles create, update, and delete actions for employee synchronization.
+    
+    Args:
+        employee_data (dict): The employee data to sync including action type
+    
+    Returns:
+        dict: Status of the sync operation
+    """
+    from celery import current_app
+    
+    try:
+        action = employee_data.get('action', 'update')
+        employee_id = employee_data.get('employee_id')
+        
+        # For delete action, we have the full data in employee_data
+        # For create/update, verify employee exists (except for deletes)
+        if action != 'delete':
+            from hdts.models import Employees
+            try:
+                employee = Employees.objects.get(id=employee_id)
+            except Employees.DoesNotExist:
+                logger.error(f"Employee {employee_id} not found for {action} action")
+                return {"status": "error", "error": "Employee not found"}
+        
+        logger.info(f"Syncing HDTS employee {employee_id} ({employee_data.get('email')}) to backend external employees with action: {action}")
+        logger.debug(f"Employee data: {employee_data}")
+        
+        # Send message to backend via separate employee sync queue
+        # This will be picked up by backend service listening to hdts.employee.sync queue
+        current_app.send_task(
+            'core.tasks.process_hdts_employee_sync',
+            args=[employee_data],
+            queue='hdts.employee.sync',
+            routing_key='hdts.employee.sync',
+        )
+        
+        logger.info(f"HDTS employee {employee_id} sync message sent to backend with action: {action}")
+        return {
+            "status": "success",
+            "employee_id": employee_id,
+            "action": action,
+        }
+    
+    except Exception as e:
+        logger.error(f"Error syncing HDTS employee: {str(e)}")
+        return {"status": "error", "error": str(e)}
+

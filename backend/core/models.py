@@ -85,6 +85,47 @@ class Employee(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name}"
 
 
+class ExternalEmployee(models.Model):
+    """
+    External employee model synced from HDTS auth service.
+    Similar to Employee model but company_id is not required (allows NULL).
+    Used to store employee data from the auth2 service via Celery task.
+    """
+    email = models.EmailField(unique=True, db_index=True)
+    username = models.CharField(max_length=150, blank=True, null=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True, null=True)
+    suffix = models.CharField(max_length=10, blank=True, null=True, choices=SUFFIX_CHOICES)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    company_id = models.CharField(max_length=6, unique=True, blank=True, null=True, db_index=True)
+    department = models.CharField(max_length=100, choices=DEPARTMENT_CHOICES, blank=True, null=True)
+    image = models.ImageField(upload_to='external_employee_images/', blank=True, null=True)
+    
+    role = models.CharField(max_length=20, default='Employee')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
+    notified = models.BooleanField(default=False)
+    
+    # Tracking fields
+    external_employee_id = models.IntegerField(unique=True, db_index=True, null=True)
+    external_user_id = models.IntegerField(null=True, blank=True, db_index=True)
+    last_synced_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'External Employee'
+        verbose_name_plural = 'External Employees'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['external_employee_id']),
+            models.Index(fields=['email']),
+            models.Index(fields=['company_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
+
+
 class EmployeeLog(models.Model):
     ACTION_CHOICES = [
         ('created', 'Created'),
