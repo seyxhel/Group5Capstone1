@@ -95,22 +95,27 @@ class EmployeeRegisterView(generics.CreateAPIView):
 
 class EmployeeTokenObtainPairView(generics.GenericAPIView):
     """
-    API endpoint for employee login.
+    API endpoint for employee login with reCAPTCHA verification.
     POST: Login with email and password, returns JWT tokens
     """
-    serializer_class = EmployeeTokenObtainPairSerializer
+    serializer_class = None  # Will be set dynamically
     permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
         """Authenticate employee and return JWT tokens."""
-        serializer = self.get_serializer(data=request.data)
+        # Use the reCAPTCHA serializer for login
+        from .serializers import EmployeeTokenObtainPairWithRecaptchaSerializer
         
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
+        serializer = EmployeeTokenObtainPairWithRecaptchaSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            # Return properly formatted error response
             return Response(
-                {'detail': str(e)},
-                status=status.HTTP_401_UNAUTHORIZED
+                {
+                    'success': False,
+                    'errors': serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         # If 2FA is required
@@ -135,7 +140,10 @@ class EmployeeTokenObtainPairView(generics.GenericAPIView):
             except Exception as e:
                 logger.error(f"Failed to send OTP for {email}: {str(e)}")
                 return Response(
-                    {'detail': 'Failed to send OTP. Please try again.'},
+                    {
+                        'success': False,
+                        'errors': {'detail': 'Failed to send OTP. Please try again.'}
+                    },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
@@ -144,6 +152,7 @@ class EmployeeTokenObtainPairView(generics.GenericAPIView):
         employee = tokens.get('employee')
         response = Response(
             {
+                'success': True,
                 'access': tokens['access'],
                 'refresh': tokens['refresh'],
                 'employee': EmployeeProfileSerializer(employee).data

@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from django.utils import timezone
+from django.conf import settings
 import re
 import logging
 import jwt
+import requests
 from .models import Employees, EmployeeOTP
 from notification_client import notification_client
 
@@ -153,6 +155,134 @@ class EmployeeTokenObtainPairSerializer(serializers.Serializer):
         employee.save(update_fields=['last_login'])
 
         # Manually create JWT tokens without RefreshToken model dependency
+        now = timezone.now()
+        access_exp = now + timedelta(minutes=15)
+        refresh_exp = now + timedelta(days=7)
+        
+        access_payload = {
+            'employee_id': employee.id,
+            'email': employee.email,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'company_id': employee.company_id,
+            'token_type': 'access',
+            'exp': access_exp.timestamp(),
+            'iat': now.timestamp(),
+        }
+        
+        refresh_payload = {
+            'employee_id': employee.id,
+            'email': employee.email,
+            'token_type': 'refresh',
+            'exp': refresh_exp.timestamp(),
+            'iat': now.timestamp(),
+        }
+        
+        algorithm = getattr(settings, 'SIMPLE_JWT', {}).get('ALGORITHM', 'HS256')
+        secret = settings.SECRET_KEY
+        
+        access_token = jwt.encode(access_payload, secret, algorithm=algorithm)
+        refresh_token = jwt.encode(refresh_payload, secret, algorithm=algorithm)
+        
+        return {
+            'refresh': refresh_token,
+            'access': access_token,
+            'employee': employee,
+        }
+
+
+class EmployeeTokenObtainPairWithRecaptchaSerializer(serializers.Serializer):
+    """
+    Custom token serializer for employee login using email with reCAPTCHA v2 verification.
+    Includes reCAPTCHA validation before authentication.
+    """
+    
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    g_recaptcha_response = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        """Authenticate employee using email and password after reCAPTCHA verification."""
+        from datetime import timedelta
+        
+        email = attrs.get('email')
+        password = attrs.get('password')
+        recaptcha_response = attrs.get('g_recaptcha_response')
+
+        # Verify reCAPTCHA v2 response first (MANDATORY)
+        if recaptcha_response:
+            verify_url = 'https://www.google.com/recaptcha/api/siteverify'
+            secret_key = settings.RECAPTCHA_SECRET_KEY
+            
+            try:
+                response = requests.post(
+                    verify_url,
+                    data={'secret': secret_key, 'response': recaptcha_response},
+                    timeout=5
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                is_valid = result.get('success', False)
+                
+                if not is_valid:
+                    raise serializers.ValidationError('reCAPTCHA verification failed.')
+                    
+            except requests.RequestException as e:
+                raise serializers.ValidationError('Failed to verify reCAPTCHA. Please try again.')
+        else:
+            raise serializers.ValidationError('reCAPTCHA verification is required.')
+
+        # Validate email and password are provided
+        if not email or not password:
+            raise serializers.ValidationError('Email and password are required.')
+
+        # Attempt to authenticate employee
+        try:
+            employee = Employees.objects.get(email=email)
+        except Employees.DoesNotExist:
+            raise serializers.ValidationError('Invalid email or password.')
+
+        # Check if employee account is locked
+        if employee.is_locked:
+            if employee.lockout_time and timezone.now() < employee.lockout_time:
+                raise serializers.ValidationError('Account is temporarily locked. Please try again later.')
+            else:
+                # Unlock account if lockout duration has passed
+                employee.is_locked = False
+                employee.failed_login_attempts = 0
+                employee.lockout_time = None
+                employee.save(update_fields=['is_locked', 'failed_login_attempts', 'lockout_time'])
+
+        # Verify password
+        if not employee.check_password(password):
+            employee.failed_login_attempts += 1
+            
+            # Lock account after 5 failed attempts
+            if employee.failed_login_attempts >= 5:
+                employee.is_locked = True
+                employee.lockout_time = timezone.now() + timedelta(minutes=30)
+                employee.save(update_fields=['failed_login_attempts', 'is_locked', 'lockout_time'])
+                raise serializers.ValidationError('Account locked due to too many failed login attempts. Try again in 30 minutes.')
+            
+            employee.save(update_fields=['failed_login_attempts'])
+            raise serializers.ValidationError('Invalid email or password.')
+
+        # Reset failed attempts on successful login
+        if employee.failed_login_attempts > 0:
+            employee.failed_login_attempts = 0
+            employee.save(update_fields=['failed_login_attempts'])
+
+        # Check if 2FA is enabled
+        if employee.otp_enabled:
+            # Return a flag indicating OTP is required
+            return {'requires_otp': True, 'email': email}
+
+        # Update last login
+        employee.last_login = timezone.now()
+        employee.save(update_fields=['last_login'])
+
+        # Manually create JWT tokens
         now = timezone.now()
         access_exp = now + timedelta(minutes=15)
         refresh_exp = now + timedelta(days=7)

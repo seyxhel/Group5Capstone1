@@ -134,6 +134,9 @@
                         </div>
                     </fieldset>
 
+                    <!-- reCAPTCHA v2 Checkbox -->
+                    <div class="g-recaptcha" data-sitekey="6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT"></div>
+
                     <!-- Submit Button -->
                     <button type="submit" class="logInButton" id="loginButton" data-original-text="Sign In">
                         <span class="buttonText">Sign In</span>
@@ -316,6 +319,21 @@
                     return false;
                 }
                 
+                // Check if grecaptcha is available
+                if (typeof grecaptcha === 'undefined') {
+                    console.error('reCAPTCHA not loaded');
+                    ToastNotification.error('Security Error', 'Security verification failed to load. Please refresh the page.');
+                    return false;
+                }
+                
+                // Get reCAPTCHA response from the checkbox widget
+                const recaptchaResponse = grecaptcha.getResponse();
+                
+                if (!recaptchaResponse) {
+                    ToastNotification.warning('reCAPTCHA Required', 'Please complete the reCAPTCHA verification.');
+                    return false;
+                }
+                
                 const isTwoFactor = loginForm.getAttribute('data-two-factor') === 'True';
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                 
@@ -339,7 +357,11 @@
                         ToastNotification.error('Invalid Input', 'Email and password are required.');
                         return;
                     }
-                    payload = { email: email, password: password };
+                    payload = { 
+                        email: email, 
+                        password: password,
+                        g_recaptcha_response: recaptchaResponse
+                    };
                 }
                 
                 isFormSubmitting = true;
@@ -378,7 +400,7 @@
                         ToastNotification.success('Success', 'Logged in successfully!');
                         // Redirect to profile settings
                         setTimeout(() => {
-                            window.location.href = '/employees/profile-settings/';
+                            window.location.href = '/profile-settings/';
                         }, 1500);
                     } else if (data.requires_otp) {
                         // 2FA required
@@ -386,13 +408,40 @@
                         loginForm.setAttribute('data-two-factor', 'True');
                         document.getElementById('loginMode').classList.remove('active');
                         document.getElementById('otpMode').classList.add('active');
+                    } else if (data.errors) {
+                        // Handle structured error response
+                        const errorMessages = [];
+                        for (const [field, messages] of Object.entries(data.errors)) {
+                            if (Array.isArray(messages)) {
+                                errorMessages.push(messages[0]);
+                            } else if (typeof messages === 'string') {
+                                errorMessages.push(messages);
+                            }
+                        }
+                        const errorMsg = errorMessages.length > 0 ? errorMessages[0] : 'Login failed. Please try again.';
+                        ToastNotification.error('Login Failed', errorMsg);
+                        
+                        // Reset reCAPTCHA for retry
+                        if (typeof grecaptcha !== 'undefined') {
+                            grecaptcha.reset();
+                        }
                     } else {
                         ToastNotification.error('Error', data.detail || data.message || 'Login failed. Please try again.');
+                        
+                        // Reset reCAPTCHA for retry
+                        if (typeof grecaptcha !== 'undefined') {
+                            grecaptcha.reset();
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     ToastNotification.error('Error', 'An error occurred. Please try again.');
+                    
+                    // Reset reCAPTCHA for retry
+                    if (typeof grecaptcha !== 'undefined') {
+                        grecaptcha.reset();
+                    }
                 })
                 .finally(() => {
                     isFormSubmitting = false;
