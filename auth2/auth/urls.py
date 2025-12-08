@@ -60,14 +60,16 @@ urlpatterns = [
     # path('api/v1/tts/', include('tts.urls')),
 
     # UI Login endpoint (supports ?system=<slug> parameter)
-    path('login/', LoginView.as_view(), name='auth_login'),
-    path('request-otp/', request_otp_for_login, name='auth_request_otp'),
+    path('staff/login/', LoginView.as_view(), name='auth_login'),
+    path('staff/request-otp/', request_otp_for_login, name='auth_request_otp'),
 
     # Profile and Settings shortcuts (direct access without /api/v1/users/)
-    path('settings/profile/', profile_settings_view, name='profile-settings'),
-    path('agent-management/', agent_management_view, name='agent-management'),
-    path('invite-agent/', invite_agent_view, name='invite-agent'),
-    path('password-change/', ChangePasswordUIView.as_view(), name='password-change-shortcut'),
+    path('staff/settings/profile/', profile_settings_view, name='profile-settings'),
+    path('staff/agent-management/', agent_management_view, name='agent-management'),
+    path('staff/invite-agent/', invite_agent_view, name='invite-agent'),
+    path('staff/password-change/', ChangePasswordUIView.as_view(), name='password-change-shortcut'),
+    # Shortcut: Role management
+    path('staff/role-management/', role_management_view, name='role_management_shortcut'),
 
     # Shortcut: Token obtain and logout at root level
     path('token/', CustomTokenObtainPairView.as_view(), name='root_token_obtain'),
@@ -77,17 +79,16 @@ urlpatterns = [
     # Shortcut: Assign role form
     path('assign-role/', assign_agent_to_role_form, name='assign_role'),
     
-    # Shortcut: Role management
-    path('role-management/', role_management_view, name='role_management_shortcut'),
+
     
     # Employee Portal shortcuts (clean URLs for templates - they POST to /api/v1/employees/ APIs)
-    path('employees/login/', EmployeeLoginView.as_view(), name='employee-login-shortcut'),
-    path('employees/register/', EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
-    path('employees/verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
-    path('employees/profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
-    path('employees/change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
-    path('employees/forgot-password/', EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
-    path('employees/reset-password/', EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
+    path('login/', EmployeeLoginView.as_view(), name='employee-login-shortcut'),
+    path('register/', EmployeeRegisterView.as_view(), name='employee-register-shortcut'),
+    path('verify-otp/', EmployeeVerifyOTPView.as_view(), name='employee-verify-otp-shortcut'),
+    path('profile-settings/', EmployeeProfileSettingsView.as_view(), name='employee-profile-settings-shortcut'),
+    path('change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
+    path('forgot-password/', EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
+    path('reset-password/', EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
 ]
 
 # Include API documentation URLs only in DEBUG mode

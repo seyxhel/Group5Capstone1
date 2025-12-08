@@ -26,7 +26,9 @@ class EmployeeRegisterView(TemplateView):
     permission_classes = [AllowAny]
 
     def get_context_data(self, **kwargs):
+        from .forms import UserRegistrationForm
         context = super().get_context_data(**kwargs)
+        context['form'] = UserRegistrationForm()
         return context
 
 

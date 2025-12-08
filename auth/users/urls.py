@@ -95,7 +95,7 @@ urlpatterns = [
     path('profile/reset-password/', ProfilePasswordResetView.as_view(), name='profile-password-reset'),
     
     # Template-based Profile Settings URL
-    path('settings/profile/', profile_settings_view, name='profile-settings'),
+    path('/settings/profile/', profile_settings_view, name='profile-settings'),
     
     # Agent Management URL - MUST come before router includes
     path('agent-management/', agent_management_view, name='agent-management'),

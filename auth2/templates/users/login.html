@@ -15,6 +15,72 @@
     
     <!-- Google reCAPTCHA v2 -->
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    
+    <style>
+        .formMode {
+            display: none;
+            width: 100%;
+        }
+        .formMode.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            gap: 20px;
+        }
+        .infoBox {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #004085;
+            width: 100%;
+        }
+        .forgotLink {
+            text-align: center;
+        }
+        .forgotLink button {
+            background: none;
+            border: none;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.3s;
+        }
+        .forgotLink button:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+        #loginMode fieldset,
+        #forgotPasswordMode fieldset {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: start;
+            width: 100%;
+            gap: 8px;
+        }
+        #loginMode fieldset input,
+        #forgotPasswordMode fieldset input {
+            display: flex;
+            width: 100%;
+            height: 44px;
+            padding: 18px 16px;
+            border-radius: 40px;
+            border: 1px solid #d3d3d3;
+            background-color: #fcfcfc;
+        }
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
 </head>
 
 <body>
@@ -39,112 +105,84 @@
                 <p>Welcome! Please provide your credentials to log in.</p>
             </header>
 
-            <!-- Login / OTP Form -->
-            <!-- The view should set `two_factor_required` in the template context when the user's credentials were accepted but an OTP is required. -->
+            <!-- Login / OTP / Forgot Password Form -->
             <form method="post" novalidate class="lpForm" data-two-factor="{{ two_factor_required|default:False }}" id="loginFormMain">
                 {% csrf_token %}
 
-                {# If two_factor_required is not True, show the normal credential inputs #}
-                {% if not two_factor_required %}
-                <!-- Email -->
-                <fieldset>
-                    <label for="{{ form.email.id_for_label }}">Email:</label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                        <p class="errorMsg fieldError">Email address is required.</p>
-                    {% endif %}
-                </fieldset>
+                <!-- Login Mode -->
+                <div id="loginMode" class="formMode active">
+                    {# If two_factor_required is not True, show the normal credential inputs #}
+                    {% if not two_factor_required %}
+                    <!-- Email -->
+                    <fieldset>
+                        <label for="id_email">Email:</label>
+                        <input type="email" id="id_email" name="email" required placeholder="Enter your email">
+                    </fieldset>
 
-                <!-- Password -->
-                <fieldset>
-                    <label for="{{ form.password.id_for_label }}">Password:</label>
-                    <div class="passwordContainer">
-                        {{ form.password }}
-                        <span class="showPassword" data-target="{{ form.password.id_for_label }}" title="Show password">
-                            <i class="fa-solid fa-eye"></i>
-                        </span>
-                    </div>
-                    {% if form.password.errors %}
-                        <p class="errorMsg fieldError">Password is required.</p>
-                    {% endif %}
-                </fieldset>
- 
-                <!-- Non-field errors -->
-                 <!-- Non-field errors 
-                {% if form.non_field_errors %}
-                    <p class="error">
-                        {% for error in form.non_field_errors %}
-                            {{ error }}
-                        {% endfor %}
-                    </p>
-                {% endif %}
-                -->
-
-                <!-- Captcha Field (reCAPTCHA v3 - invisible) -->
-                <input type="hidden" id="id_captcha" name="captcha" value="">
-                {% if form.captcha.errors %}
-                    <div class="errorMsg" style="margin-top: 0.5rem; text-align: center;">
-                        {% for error in form.captcha.errors %}
-                            {{ error }}
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                <!-- Remember Me -->
-                <div class="remember-me">
-                    {{ form.remember_me }}
-                    <label for="{{ form.remember_me.id_for_label }}">{{ form.remember_me.label }}</label>
-                </div>
-
-                <!-- reCAPTCHA v2 Checkbox -->
-                <div class="g-recaptcha" data-sitekey="6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT"></div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="logInButton" id="loginButton" data-original-text="Log In">
-                    <span class="buttonText">Log In</span>
-                    <span class="spinner" style="display:none;"></span>
-                </button>
-
-                {% else %}
-                {# Two-factor step: show OTP field only. The view should have validated credentials and can either keep the user's identity in session or include hidden inputs as needed. #}
-                <p class="infoMsg">Two-Factor Authentication is enabled on your account. Enter the code from your email to continue.</p>
-
-                <!-- Hidden fields (optional) - include if your view expects to receive them again. Remove if using session-based state. -->
-                {% if email_value %}
-                    <input type="hidden" name="email" value="{{ email_value }}">
-                {% endif %}
-
-                <!-- OTP Field -->
-                <div class="form-group otp-field">
-                    <label for="{{ form.otp_code.id_for_label }}" class="form-label">Two-Factor Authentication Code:</label>
-                    {{ form.otp_code }}
-                    {% if form.otp_code.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.otp_code.errors %}
-                                {{ error }}
-                            {% endfor %}
+                    <!-- Password -->
+                    <fieldset>
+                        <label for="id_password">Password:</label>
+                        <div class="passwordContainer">
+                            <input type="password" id="id_password" name="password" required placeholder="Enter your password">
+                            <span class="showPassword" data-target="id_password" title="Show password">
+                                <i class="fa-solid fa-eye"></i>
+                            </span>
                         </div>
+                    </fieldset>
+
+                    <!-- Remember Me -->
+                    <div class="remember-me">
+                        <input type="checkbox" id="id_remember_me" name="remember_me">
+                        <label for="id_remember_me">Remember me</label>
+                    </div>
+
+                    <!-- reCAPTCHA v2 Checkbox -->
+                    <div class="g-recaptcha" data-sitekey="6LdbGyMsAAAAAKv5tivNNE-g-fVz1a5Pc7EueLZT"></div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="logInButton" id="loginButton" data-original-text="Log In">
+                        <span class="buttonText">Log In</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
                     {% endif %}
-                    <div class="form-text">{{ form.otp_code.help_text }}</div>
                 </div>
 
-                <button type="submit" class="logInButton" id="otpButton">
-                    <span class="buttonText">Verify Code</span>
-                    <span class="spinner" style="display:none;"></span>
-                </button>
-                
-                <!-- Back to Login Button -->
-                <a href="{% url 'auth_login' %}" class="backToLogin" id="backToLoginBtn" style="display: block; text-align: center; margin-top: 15px; color: #666; text-decoration: none; font-size: 14px;">
-                    <i class="fa fa-arrow-left"></i> Back to Login
-                </a>
+                <!-- Forgot Password Mode -->
+                <div id="forgotPasswordMode" class="formMode">
+                    <!-- Reset Password Info -->
+                    <div class="infoBox">
+                        <i class="fa-solid fa-info-circle"></i> Enter your email address and we'll send you a link to reset your password.
+                    </div>
 
-                {% endif %}
-            </form>
+                    <!-- Email for Reset -->
+                    <fieldset>
+                        <label for="reset_email">Email Address:</label>
+                        <input type="email" id="reset_email" name="reset_email" required placeholder="Enter your registered email">
+                    </fieldset>
 
-            <!-- Forgot Password & Register -->
+                    <!-- Reset Submit Button -->
+                    <button type="button" class="logInButton" id="resetButton" style="margin-top: 10px;">
+                        <span class="buttonText">Send Reset Link</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
+                    <!-- Back to Login Toggle -->
+                    <div class="forgotLink">
+                        <button type="button" id="backToLoginFromForgot">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Login
+                        </button>
+                    </div>
+                </div>
+
+            <!-- Register & Navigation -->
             <div class="form-footer">
-                <a href="{{ forgot_password_url }}" class="forgotPassword">Forgot Password?</a>
-                <a href="{% url 'hdts-register-shortcut' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Help Desk Account</a>
+                <div class="forgotLink">
+                    <button type="button" id="toggleForgotPassword">
+                        <i class="fa-solid fa-question-circle"></i> Forgot Password?
+                    </button>
+                </div>
+                <a href="{% url 'employee-login-shortcut' %}" style="color: #666; text-decoration: none; font-size: 14px; display: block; text-align: center; transition: color 0.3s;" onmouseover="this.style.color='#007bff'" onmouseout="this.style.color='#666';"><i class="fa-solid fa-headset"></i> Login to Help Desk </a>
             </div>
         </section>
     </main>
@@ -210,6 +248,84 @@
                     }
                 });
             });
+
+            // Toggle between login and forgot password modes
+            const toggleForgotPassword = document.getElementById('toggleForgotPassword');
+            const backToLoginBtn = document.getElementById('backToLoginFromForgot');
+            const loginMode = document.getElementById('loginMode');
+            const forgotPasswordMode = document.getElementById('forgotPasswordMode');
+
+            if (toggleForgotPassword) {
+                toggleForgotPassword.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.remove('active');
+                    forgotPasswordMode.classList.add('active');
+                });
+            }
+
+            if (backToLoginBtn) {
+                backToLoginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loginMode.classList.add('active');
+                    forgotPasswordMode.classList.remove('active');
+                    document.getElementById('reset_email').value = '';
+                });
+            }
+
+            // Handle forgot password submission
+            const resetButton = document.getElementById('resetButton');
+            if (resetButton) {
+                resetButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('reset_email').value.trim();
+                    
+                    if (!email) {
+                        ToastNotification.error('Invalid Input', 'Email address is required.');
+                        return;
+                    }
+
+                    resetButton.disabled = true;
+                    const buttonText = resetButton.querySelector('.buttonText');
+                    const spinner = resetButton.querySelector('.spinner');
+                    buttonText.textContent = 'Sending...';
+                    spinner.style.display = 'inline-block';
+
+                    // Call the API endpoint for forgot password
+                    fetch('/api/v1/users/api/password/forgot/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({ email: email })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success || data.message) {
+                            ToastNotification.success('Email Sent', 'Check your email for password reset instructions.');
+                            document.getElementById('reset_email').value = '';
+                            
+                            // After 2 seconds, switch back to login
+                            setTimeout(() => {
+                                loginMode.classList.add('active');
+                                forgotPasswordMode.classList.remove('active');
+                            }, 2000);
+                        } else {
+                            ToastNotification.error('Error', data.error || 'Failed to send reset email.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        ToastNotification.error('Error', 'An error occurred. Please try again.');
+                    })
+                    .finally(() => {
+                        resetButton.disabled = false;
+                        buttonText.textContent = 'Send Reset Link';
+                        spinner.style.display = 'none';
+                    });
+                });
+            }
 
             // Auto-hide alerts
             document.querySelectorAll('.alert').forEach(alert => {
@@ -388,9 +504,9 @@
             });
 
             // Handle Back to Login button - force server request to clear session
-            const backToLoginBtn = document.getElementById('backToLoginBtn');
-            if (backToLoginBtn) {
-                backToLoginBtn.addEventListener('click', function(e) {
+            const backToLoginOtpBtn = document.querySelector('.backToLogin');
+            if (backToLoginOtpBtn) {
+                backToLoginOtpBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     // Reset form submission state
                     isFormSubmitting = false;

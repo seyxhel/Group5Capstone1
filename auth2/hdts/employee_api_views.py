@@ -506,7 +506,7 @@ class EmployeeForgotPasswordView(APIView):
             
             # Send reset email via notification service
             reset_link = request.build_absolute_uri(
-                f"/hdts/employee-reset-password/?token={reset_token.token}"
+                f"/employees/reset-password/?token={reset_token.token}"
             )
             
             send_password_reset_email(employee, reset_link)

@@ -41,7 +41,6 @@
             }
             .forgotLink {
                 text-align: center;
-                margin-top: 15px;
             }
             .forgotLink button {
                 background: none;
@@ -76,6 +75,17 @@
                 border: 1px solid #d3d3d3;
                 background-color: #fcfcfc;
             }
+            .form-footer {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            .links-row {
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+            }
         </style>
     </head><body>
     <!-- Toast Notification Component -->
@@ -94,7 +104,7 @@
             <header class="formHeader">
                 <section class="logo">
                     <img src="{% static 'images/map-logo.png' %}" alt="HDTS logo" />
-                    <h1 class="logoText">Employee Sign In</h1>
+                    <h1 class="logoText">Help Desk Sign In</h1>
                 </section>
                 <p>Welcome! Please provide your credentials to log in.</p>
             </header>
@@ -130,12 +140,6 @@
                         <span class="spinner" style="display:none;"></span>
                     </button>
 
-                    <!-- Forgot Password Toggle -->
-                    <div class="forgotLink">
-                        <button type="button" id="toggleForgotPassword">
-                            <i class="fa-solid fa-question-circle"></i> Forgot Password?
-                        </button>
-                    </div>
                     {% endif %}
                 </div>
 
@@ -166,9 +170,17 @@
                     </div>
                 </div>
 
-            <!-- Register Link -->
+            <!-- Register Link & Navigation -->
             <div class="form-footer">
-                <a href="{% url 'employee-register-shortcut' %}" class="registerButton" style="background-color: #007bff; color: white; padding: 10px 16px; border-radius: 4px; font-weight: 600; display: inline-block; text-decoration: none; transition: background-color 0.3s;">Create Employee Account</a>
+                <div class="links-row">
+                    <div class="forgotLink">
+                        <button type="button" id="toggleForgotPassword">
+                            <i class="fa-solid fa-question-circle"></i> Forgot Password?
+                        </button>
+                    </div>
+                    <a href="{% url 'auth_login' %}" style="color: #666; text-decoration: none; font-size: 14px; display: block; text-align: center; transition: color 0.3s;" onmouseover="this.style.color='#007bff'" onmouseout="this.style.color='#666';"><i class="fa-solid fa-user-tie"></i> Login as Staff</a>
+                </div>
+                <a href="{% url 'employee-register-shortcut' %}" style="color: #666; text-decoration: none; font-size: 14px; display: block; text-align: center; transition: color 0.3s;" onmouseover="this.style.color='#007bff'" onmouseout="this.style.color='#666';"><i class="fa-solid fa-user-plus"></i> Create an account</a>
             </div>
         </section>
     </main>
