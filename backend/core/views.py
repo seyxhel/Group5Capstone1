@@ -4,6 +4,35 @@ from .authentication import CookieJWTAuthentication, ExternalUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 import requests
 
+# Helper function to get external employee data from the synced model
+def get_external_employee_data(user_id):
+    """
+    Get external employee data from the ExternalEmployee model (synced from auth2).
+    Returns employee data dict or empty dict if not found.
+    """
+    try:
+        from .models import ExternalEmployee
+        employee = ExternalEmployee.objects.filter(
+            external_user_id=user_id
+        ).first() or ExternalEmployee.objects.filter(
+            company_id=str(user_id)
+        ).first()
+        
+        if employee:
+            return {
+                'id': employee.external_user_id or employee.company_id,
+                'first_name': employee.first_name,
+                'last_name': employee.last_name,
+                'email': employee.email,
+                'company_id': employee.company_id,
+                'department': employee.department,
+                'image': str(employee.image.url) if employee.image else None,
+            }
+    except Exception as e:
+        print(f"DEBUG: Error querying ExternalEmployee for user_id {user_id}: {e}")
+    
+    return {}
+
 # Permission classes
 class IsSystemAdmin(BasePermission):
     def has_permission(self, request, view):
@@ -15,6 +44,47 @@ class IsAdminOrSystemAdmin(BasePermission):
         if not hasattr(request.user, 'role'):
             return False
         return request.user.role in ["Admin", "System Admin"]
+
+class IsAdminOrCoordinator(BasePermission):
+    """Permission class that allows Admin, System Admin, and Ticket Coordinator"""
+    def has_permission(self, request, view):
+        if not hasattr(request.user, 'role'):
+            return False
+        return request.user.role in ["Admin", "System Admin", "Ticket Coordinator"]
+
+class IsEmployee(BasePermission):
+    """Permission class for HDTS employees (JWT employees or local Employee objects)"""
+    def has_permission(self, request, view):
+        if not hasattr(request.user, 'is_authenticated') or not request.user.is_authenticated:
+            return False
+        
+        # Allow ExternalUser with user_type='employee'
+        if isinstance(request.user, ExternalUser):
+            return getattr(request.user, 'user_type', None) == 'employee'
+        
+        # Allow local Employee objects
+        from .models import Employee
+        return isinstance(request.user, Employee)
+
+class IsEmployeeOrAdmin(BasePermission):
+    """Permission class that allows employees and admins/coordinators"""
+    def has_permission(self, request, view):
+        if not hasattr(request.user, 'is_authenticated') or not request.user.is_authenticated:
+            return False
+        
+        # Allow ExternalUser employees
+        if isinstance(request.user, ExternalUser):
+            user_type = getattr(request.user, 'user_type', None)
+            role = getattr(request.user, 'role', None)
+            return user_type == 'employee' or role in ["Admin", "System Admin", "Ticket Coordinator"]
+        
+        # Allow local Employee or admin staff
+        from .models import Employee
+        if isinstance(request.user, Employee):
+            return True
+        
+        # Allow staff/admin
+        return request.user.is_staff or getattr(request.user, 'role', None) in ['System Admin', 'Ticket Coordinator', 'Admin']
 
 def get_user_display_name(user):
     """
@@ -52,9 +122,9 @@ def _actor_display_name(request):
         last = getattr(user, 'last_name', '') or ''
         full = f"{first} {last}".strip()
         if not full:
-            # Attempt to fetch profile on-demand
+            # Attempt to fetch profile from ExternalEmployee model
             try:
-                profile = _fetch_external_user_profile(request, user.id)
+                profile = get_external_employee_data(user.id)
             except Exception:
                 profile = {}
             first = (profile or {}).get('first_name') or ''
@@ -65,7 +135,8 @@ def _actor_display_name(request):
     return get_user_display_name(user)
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsSystemAdmin])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def deny_employee(request, pk):
     try:
         employee = Employee.objects.get(pk=pk)
@@ -266,9 +337,9 @@ class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     authentication_classes = [
         CookieJWTAuthentication, 
-        # JWTAuthentication
-        ]
-    permission_classes = [permissions.IsAuthenticated]
+        JWTAuthentication
+    ]
+    permission_classes = [IsEmployeeOrAdmin]
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # Accept JSON and form uploads
 
     
@@ -516,46 +587,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
-    def _fetch_external_user_profile(self, request, user_id):
-        """
-        Fetch user profile from auth service by user ID.
-        Forward client's cookies (access_token, csrftoken, refresh_token) for authentication.
-        Prefer the HDTS-scoped endpoint that allows authenticated users to read HDTS members.
-        """
-        try:
-            cookies = {}
-            headers = {}
-            try:
-                for name in ['access_token', 'csrftoken', 'refresh_token']:
-                    val = request.COOKIES.get(name)
-                    if val:
-                        cookies[name] = val
-                if cookies.get('access_token'):
-                    headers['Authorization'] = f"Bearer {cookies['access_token']}"
-            except Exception:
-                pass
-
-            # Try HDTS-scoped endpoint first
-            url_hdts = f'http://localhost:8003/api/v1/hdts/users/{user_id}/'
-            resp = requests.get(url_hdts, cookies=cookies, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                print(f"DEBUG: Fetched HDTS profile for user {user_id}: {data}")
-                return data
-
-            # Fallback to general users endpoint (may require admin perms)
-            url_users = f'http://localhost:8003/api/v1/users/{user_id}/'
-            resp2 = requests.get(url_users, cookies=cookies, headers=headers, timeout=5)
-            if resp2.status_code == 200:
-                data2 = resp2.json()
-                print(f"DEBUG: Fetched profile (fallback) for user {user_id}: {data2}")
-                return data2
-
-            print(f"DEBUG: Profile fetch failed for user {user_id} with statuses {resp.status_code} / {resp2.status_code}")
-            return {}
-        except Exception as e:
-            print(f"DEBUG: Error fetching profile for user {user_id}: {e}")
-            return {}
 
 def generate_company_id():
     last_employee = Employee.objects.filter(company_id__startswith='MA').order_by('company_id').last()
@@ -588,6 +619,7 @@ def create_employee_admin_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'PATCH'])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def employee_profile_view(request):
@@ -649,8 +681,8 @@ def employee_profile_view(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def get_ticket_detail(request, ticket_id):
     """
     Get detailed information about a specific ticket including employee data and comments
@@ -709,8 +741,8 @@ def get_ticket_detail(request, ticket_id):
                 'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
             }
         elif getattr(ticket, 'employee_cookie_id', None):
-            # Try to fetch profile from auth service for external users
-            profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+            # Get profile from synced ExternalEmployee model
+            profile = get_external_employee_data(ticket.employee_cookie_id)
             employee_data = {
                 'id': ticket.employee_cookie_id,
                 'first_name': profile.get('first_name'),
@@ -760,7 +792,7 @@ def get_ticket_detail(request, ticket_id):
                     user_payload['role'] = 'Support'
                 else:
                     # Ticket owner (external) — resolve profile for proper First/Last
-                    profile = _fetch_external_user_profile(request, comment.user_cookie_id)
+                    profile = get_external_employee_data(comment.user_cookie_id)
                     user_payload['first_name'] = profile.get('first_name') or ''
                     user_payload['last_name'] = profile.get('last_name') or ''
                     user_payload['role'] = 'Employee'
@@ -857,7 +889,7 @@ def get_ticket_detail(request, ticket_id):
                             'email': getattr(u, 'email', ''),
                         }
                     else:
-                        prof = _fetch_external_user_profile(request, staff_comment.user_cookie_id)
+                        prof = get_external_employee_data(staff_comment.user_cookie_id)
                         ticket_data['coordinator'] = {
                             'id': staff_comment.user_cookie_id,
                             'first_name': prof.get('first_name') or '',
@@ -922,7 +954,7 @@ def get_user_activity_logs(request, user_id):
 
 @api_view(['GET'])
 @authentication_classes([CookieJWTAuthentication, JWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def get_ticket_by_number(request, ticket_number):
     """
     Lookup ticket by its ticket_number (string) and return the same payload as get_ticket_detail.
@@ -981,8 +1013,8 @@ def get_ticket_by_number(request, ticket_number):
                 'employee_cookie_id': getattr(ticket, 'employee_cookie_id', None)
             }
         elif getattr(ticket, 'employee_cookie_id', None):
-            # Try to fetch profile from auth service for external users
-            profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+            # Get profile from synced ExternalEmployee model
+            profile = get_external_employee_data(ticket.employee_cookie_id)
             employee_data = {
                 'id': ticket.employee_cookie_id,
                 'first_name': profile.get('first_name'),
@@ -1026,7 +1058,7 @@ def get_ticket_by_number(request, ticket_number):
                     user_payload['last_name'] = ''
                     user_payload['role'] = 'Support'
                 else:
-                    profile = _fetch_external_user_profile(request, comment.user_cookie_id)
+                    profile = get_external_employee_data(comment.user_cookie_id)
                     user_payload['first_name'] = profile.get('first_name') or ''
                     user_payload['last_name'] = profile.get('last_name') or ''
                     user_payload['role'] = 'Employee'
@@ -1121,7 +1153,7 @@ def get_ticket_by_number(request, ticket_number):
                             'email': getattr(u, 'email', ''),
                         }
                     else:
-                        prof = _fetch_external_user_profile(request, staff_comment.user_cookie_id)
+                        prof = get_external_employee_data(staff_comment.user_cookie_id)
                         ticket_data['coordinator'] = {
                             'id': staff_comment.user_cookie_id,
                             'first_name': prof.get('first_name') or '',
@@ -1139,7 +1171,8 @@ def get_ticket_by_number(request, ticket_number):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def add_ticket_comment(request, ticket_id):
     """
     Add a comment to a ticket. Expects JSON { "comment": "...", "is_internal": false }
@@ -1187,7 +1220,7 @@ def add_ticket_comment(request, ticket_id):
             if not (first or last):
                 # Fallback: fetch profile to populate names for immediate response
                 try:
-                    prof = _fetch_external_user_profile(request, request.user.id)
+                    prof = get_external_employee_data(request.user.id)
                 except Exception:
                     prof = {}
                 first = (prof or {}).get('first_name') or ''
@@ -1228,7 +1261,8 @@ def add_ticket_comment(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def approve_ticket(request, ticket_id):
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
@@ -1292,7 +1326,8 @@ def approve_ticket(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def reject_ticket(request, ticket_id):
     """
     Reject a ticket with a reason (only if status is 'New')
@@ -1354,7 +1389,8 @@ def reject_ticket(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def claim_ticket(request, ticket_id):
     try:
         ticket = get_object_or_404(Ticket, id=ticket_id)
@@ -1391,7 +1427,8 @@ def claim_ticket(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def update_ticket_status(request, ticket_id):
     """
     Update ticket status with optional comment
@@ -1495,7 +1532,8 @@ def update_ticket_status(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def withdraw_ticket(request, ticket_id):
     """
     Allow employees to withdraw their own tickets
@@ -1558,7 +1596,8 @@ def withdraw_ticket(request, ticket_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def submit_csat_rating(request, ticket_id):
     """
     Submit CSAT rating and feedback for a closed ticket
@@ -1650,9 +1689,9 @@ def get_csat_feedback(request):
             if ticket.employee:
                 employee_name = f"{ticket.employee.first_name} {ticket.employee.last_name}"
             elif ticket.employee_cookie_id:
-                # Try to fetch external user profile
+                # Get profile from synced ExternalEmployee model
                 try:
-                    profile = _fetch_external_user_profile(request, ticket.employee_cookie_id)
+                    profile = get_external_employee_data(ticket.employee_cookie_id)
                     first = profile.get('first_name', '')
                     last = profile.get('last_name', '')
                     employee_name = f"{first} {last}".strip() or 'External User'
@@ -1676,7 +1715,8 @@ def get_csat_feedback(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def get_new_tickets(request):
     """
     Get all tickets with 'New' status for admin review
@@ -1707,7 +1747,8 @@ def get_new_tickets(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def get_open_tickets(request):
     try:
         if not request.user.is_staff and request.user.role not in ['System Admin', 'Ticket Coordinator']:
@@ -1721,7 +1762,8 @@ def get_open_tickets(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsAdminOrCoordinator])
 def get_my_tickets(request):
     """
     Get all tickets assigned to the current admin user
@@ -1756,7 +1798,8 @@ def get_my_tickets(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([CookieJWTAuthentication, JWTAuthentication])
+@permission_classes([IsAuthenticated, IsEmployeeOrAdmin])
 def download_attachment(request, ticket_id):
     """
     Secure file download endpoint
@@ -2358,45 +2401,6 @@ def serve_protected_media(request, file_path):
         return response
     except Exception as e:
         raise Http404(f"Error serving file: {str(e)}")
-
-
-def _fetch_external_user_profile(request, user_id):
-    """
-    Fetch user profile from auth service by user ID.
-    Forward client's cookies for authentication. Prefer HDTS-scoped endpoint.
-    """
-    try:
-        cookies = {}
-        headers = {}
-        try:
-            for name in ['access_token', 'csrftoken', 'refresh_token']:
-                val = request.COOKIES.get(name)
-                if val:
-                    cookies[name] = val
-            if cookies.get('access_token'):
-                headers['Authorization'] = f"Bearer {cookies['access_token']}"
-        except Exception:
-            pass
-
-        url_hdts = f'http://localhost:8003/api/v1/hdts/users/{user_id}/'
-        r = requests.get(url_hdts, cookies=cookies, headers=headers, timeout=5)
-        if r.status_code == 200:
-            data = r.json()
-            print(f"DEBUG: Fetched HDTS profile for user {user_id}: {data}")
-            return data
-
-        url_users = f'http://localhost:8003/api/v1/users/{user_id}/'
-        r2 = requests.get(url_users, cookies=cookies, headers=headers, timeout=5)
-        if r2.status_code == 200:
-            data2 = r2.json()
-            print(f"DEBUG: Fetched profile (fallback) for user {user_id}: {data2}")
-            return data2
-
-        print(f"DEBUG: Profile fetch failed for user {user_id} with statuses {r.status_code} / {r2.status_code}")
-        return {}
-    except Exception as e:
-        print(f"DEBUG: Error fetching profile for user {user_id}: {e}")
-        return {}
 
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes

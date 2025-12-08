@@ -146,6 +146,36 @@
                     {% endif %}
                 </div>
 
+                <!-- OTP Mode -->
+                <div id="otpMode" class="formMode">
+                    <!-- OTP Info -->
+                    <div class="infoBox">
+                        <i class="fa-solid fa-mobile"></i> Enter the One-Time Password (OTP) sent to your email.
+                    </div>
+
+                    <!-- Hidden email input for OTP submission -->
+                    <input type="hidden" name="email" id="otp_email">
+
+                    <!-- OTP Code Input -->
+                    <fieldset>
+                        <label for="otp_code">OTP Code:</label>
+                        <input type="text" id="otp_code" name="otp_code" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" required>
+                    </fieldset>
+
+                    <!-- Verify OTP Submit Button -->
+                    <button type="submit" class="logInButton" id="otpButton">
+                        <span class="buttonText">Verify OTP</span>
+                        <span class="spinner" style="display:none;"></span>
+                    </button>
+
+                    <!-- Back to Login Toggle -->
+                    <div class="forgotLink">
+                        <button type="button" id="backToLoginFromOtp">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Login
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Forgot Password Mode -->
                 <div id="forgotPasswordMode" class="formMode">
                     <!-- Reset Password Info -->
@@ -230,8 +260,10 @@
             // Toggle between login and forgot password modes
             const toggleForgotPassword = document.getElementById('toggleForgotPassword');
             const backToLoginBtn = document.getElementById('backToLoginBtn');
+            const backToLoginFromOtp = document.getElementById('backToLoginFromOtp');
             const loginMode = document.getElementById('loginMode');
             const forgotPasswordMode = document.getElementById('forgotPasswordMode');
+            const otpMode = document.getElementById('otpMode');
 
             if (toggleForgotPassword) {
                 toggleForgotPassword.addEventListener('click', function(e) {
@@ -247,6 +279,20 @@
                     loginMode.classList.add('active');
                     forgotPasswordMode.classList.remove('active');
                     document.getElementById('reset_email').value = '';
+                });
+            }
+
+            if (backToLoginFromOtp) {
+                backToLoginFromOtp.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    otpMode.classList.remove('active');
+                    loginMode.classList.add('active');
+                    document.getElementById('otp_code').value = '';
+                    document.getElementById('id_email').focus();
+                    // Reset reCAPTCHA for retry
+                    if (typeof grecaptcha !== 'undefined') {
+                        grecaptcha.reset();
+                    }
                 });
             }
 
@@ -342,7 +388,7 @@
                 if (isTwoFactor) {
                     // OTP submission
                     const otpCode = document.querySelector('input[name="otp_code"]').value;
-                    const email = document.querySelector('input[name="email"]').value;
+                    const email = document.querySelector('input#otp_email').value;
                     if (!otpCode) {
                         ToastNotification.error('Invalid Input', 'OTP code is required.');
                         return;
@@ -403,11 +449,14 @@
                             window.location.href = '/profile-settings/';
                         }, 1500);
                     } else if (data.requires_otp) {
-                        // 2FA required
+                        // 2FA required - store email and switch to OTP mode
+                        const userEmail = document.querySelector('input[name="email"]').value;
+                        document.getElementById('otp_email').value = userEmail;
                         ToastNotification.info('2FA Required', 'OTP sent to your email.');
                         loginForm.setAttribute('data-two-factor', 'True');
-                        document.getElementById('loginMode').classList.remove('active');
-                        document.getElementById('otpMode').classList.add('active');
+                        loginMode.classList.remove('active');
+                        otpMode.classList.add('active');
+                        document.getElementById('otp_code').focus();
                     } else if (data.errors) {
                         // Handle structured error response
                         const errorMessages = [];

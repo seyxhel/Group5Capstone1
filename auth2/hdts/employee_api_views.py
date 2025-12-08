@@ -364,6 +364,10 @@ class VerifyEmployeeOTPView(APIView):
 
     def post(self, request):
         """Verify OTP and return tokens."""
+        from datetime import timedelta
+        import jwt
+        from django.conf import settings
+        
         serializer = VerifyEmployeeOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -391,13 +395,40 @@ class VerifyEmployeeOTPView(APIView):
         employee.last_login = timezone.now()
         employee.save(update_fields=['last_login'])
 
-        # Generate tokens
-        refresh = RefreshToken.for_user(employee)
+        # Generate tokens manually (same as serializer) to avoid RefreshToken.for_user() issue
+        now = timezone.now()
+        access_exp = now + timedelta(minutes=15)
+        refresh_exp = now + timedelta(days=7)
+        
+        access_payload = {
+            'employee_id': employee.id,
+            'email': employee.email,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'company_id': employee.company_id,
+            'token_type': 'access',
+            'exp': access_exp.timestamp(),
+            'iat': now.timestamp(),
+        }
+        
+        refresh_payload = {
+            'employee_id': employee.id,
+            'email': employee.email,
+            'token_type': 'refresh',
+            'exp': refresh_exp.timestamp(),
+            'iat': now.timestamp(),
+        }
+        
+        algorithm = getattr(settings, 'SIMPLE_JWT', {}).get('ALGORITHM', 'HS256')
+        secret = settings.SECRET_KEY
+        
+        access_token = jwt.encode(access_payload, secret, algorithm=algorithm)
+        refresh_token = jwt.encode(refresh_payload, secret, algorithm=algorithm)
         
         response = Response(
             {
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
+                'access': access_token,
+                'refresh': refresh_token,
                 'employee': EmployeeProfileSerializer(employee).data
             },
             status=status.HTTP_200_OK
@@ -406,7 +437,7 @@ class VerifyEmployeeOTPView(APIView):
         # Set secure cookies
         response.set_cookie(
             'access_token',
-            str(refresh.access_token),
+            access_token,
             httponly=True,
             secure=True,
             samesite='Strict',
@@ -414,7 +445,7 @@ class VerifyEmployeeOTPView(APIView):
         )
         response.set_cookie(
             'refresh_token',
-            str(refresh),
+            refresh_token,
             httponly=True,
             secure=True,
             samesite='Strict',
@@ -566,3 +597,113 @@ class EmployeeResetPasswordView(APIView):
         except Exception as e:
             logger.error(f"Error resetting password: {str(e)}")
             return Response({'error': 'An error occurred while resetting password.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MeView(APIView):
+    """
+    API endpoint to get current authenticated user's profile.
+    Works with both User (staff) and Employee (HDTS employee) JWT tokens.
+    Requires authentication - returns 401 if not authenticated.
+    
+    Supports authentication via:
+    - Cookies (access_token)
+    - Authorization header (Bearer token)
+    
+    GET: Returns the authenticated user's profile information
+    """
+    permission_classes = (AllowAny,)  # Allow unauthenticated to check, but will return 401 if not authed
+    
+    def get(self, request):
+        """Retrieve current user profile based on JWT authentication."""
+        # Check if employee is authenticated (HDTS employee) - from middleware
+        if hasattr(request, 'employee') and request.employee:
+            employee = request.employee
+            serializer = EmployeeProfileSerializer(employee, context={'request': request})
+            return Response(
+                {
+                    'type': 'employee',
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        
+        # Check if user is authenticated (staff user) - from middleware or DRF authentication
+        if request.user and request.user.is_authenticated:
+            from users.serializers import UserProfileSerializer
+            user = request.user
+            serializer = UserProfileSerializer(user, context={'request': request})
+            return Response(
+                {
+                    'type': 'user',
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        
+        # Try to extract token from Authorization header for manual verification
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token_str = auth_header[7:]  # Remove 'Bearer ' prefix
+            
+            # Try employee token
+            employee_payload = self._decode_custom_token(token_str)
+            if employee_payload:
+                employee_id = employee_payload.get('employee_id')
+                if employee_id:
+                    try:
+                        employee = Employees.objects.get(id=employee_id)
+                        serializer = EmployeeProfileSerializer(employee, context={'request': request})
+                        return Response(
+                            {
+                                'type': 'employee',
+                                'data': serializer.data
+                            },
+                            status=status.HTTP_200_OK
+                        )
+                    except Employees.DoesNotExist:
+                        pass
+            
+            # Try DRF simplejwt token for staff users
+            try:
+                from rest_framework_simplejwt.tokens import AccessToken as DRFAccessToken
+                token = DRFAccessToken(token_str)
+                user_id = token.get('user_id')
+                if user_id:
+                    try:
+                        from users.models import User
+                        user = User.objects.get(id=user_id)
+                        from users.serializers import UserProfileSerializer
+                        serializer = UserProfileSerializer(user, context={'request': request})
+                        return Response(
+                            {
+                                'type': 'user',
+                                'data': serializer.data
+                            },
+                            status=status.HTTP_200_OK
+                        )
+                    except User.DoesNotExist:
+                        pass
+            except Exception:
+                pass
+        
+        # Not authenticated
+        return Response(
+            {'detail': 'Authentication credentials were not provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    def _decode_custom_token(self, token_str):
+        """Decode custom employee JWT token (not DRF simplejwt format)."""
+        try:
+            import jwt
+            from django.conf import settings
+            payload = jwt.decode(
+                token_str,
+                settings.SECRET_KEY,
+                algorithms=['HS256']
+            )
+            if payload.get('token_type') == 'access':
+                return payload
+        except Exception:
+            pass
+        return None

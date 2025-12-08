@@ -245,6 +245,7 @@ def process_hdts_employee_sync(employee_data):
                     'role': employee_data.get('role') or 'Employee',
                     'status': employee_data.get('status') or 'Pending',
                     'notified': employee_data.get('notified', False),
+                    'image': employee_data.get('profile_picture'),  # Map profile_picture to image field
                     'external_user_id': employee_data.get('user_id'),
                 }
             )

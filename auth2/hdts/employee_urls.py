@@ -17,6 +17,7 @@ from .employee_api_views import (
     Disable2FAView,
     EmployeeForgotPasswordView as EmployeeForgotPasswordAPIView,
     EmployeeResetPasswordView as EmployeeResetPasswordAPIView,
+    MeView,
 )
 
 
@@ -58,6 +59,7 @@ urlpatterns = [
     path('', employees_root, name='employees-root'),
     
     # ========== API ENDPOINTS (json responses) ==========
+    path('api/me/', MeView.as_view(), name='me'),
     path('api/register/', EmployeeRegisterAPIView.as_view(), name='employee-register-api'),
     path('api/login/', EmployeeTokenObtainPairView.as_view(), name='employee-login-api'),
     path('api/token/refresh/', EmployeeTokenRefreshView.as_view(), name='employee-token-refresh'),

@@ -2,6 +2,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.conf import settings
 import requests
+import jwt
 
 
 class ExternalUser:
@@ -9,7 +10,7 @@ class ExternalUser:
     Represents an external user from cookie authentication.
     Mimics basic user attributes for DRF compatibility.
     """
-    def __init__(self, user_id, email, role, first_name=None, last_name=None, department=None, company_id=None):
+    def __init__(self, user_id, email, role, first_name=None, last_name=None, department=None, company_id=None, user_type='user'):
         self.id = user_id
         self.email = email
         self.role = role
@@ -17,6 +18,7 @@ class ExternalUser:
         self.last_name = last_name
         self.department = department
         self.company_id = company_id
+        self.user_type = user_type  # 'user' or 'employee'
         self.is_authenticated = True
         self.is_staff = False
         self.is_superuser = False
@@ -49,7 +51,13 @@ class CookieJWTAuthentication(JWTAuthentication):
             return super().authenticate(request)
 
         try:
-            # Validate the token from cookie
+            # First, check if this is an employee token (custom format)
+            employee_user = self._try_decode_employee_token(raw_token)
+            if employee_user:
+                print(f"DEBUG: Employee token authenticated: {employee_user.email}")
+                return (employee_user, raw_token)
+            
+            # Not an employee token, try standard DRF simplejwt
             validated_token = self.get_validated_token(raw_token)
             
             # Debug logging
@@ -85,7 +93,8 @@ class CookieJWTAuthentication(JWTAuthentication):
                     first_name=user_profile.get('first_name'),
                     last_name=user_profile.get('last_name'),
                     department=user_profile.get('department'),
-                    company_id=user_profile.get('company_id')
+                    company_id=user_profile.get('company_id'),
+                    user_type='user'
                 )
                 print(f"DEBUG: Created ExternalUser with profile: {user.first_name} {user.last_name} ({user.company_id})")
             except (KeyError, AttributeError, TypeError) as e:
@@ -103,8 +112,37 @@ class CookieJWTAuthentication(JWTAuthentication):
         """
         Returns the user based on the validated token.
         Ensures correct type conversion for user_id.
+        
+        Handles three types of tokens:
+        1. Employee tokens from auth2 (have employee_id)
+        2. External user tokens with roles from auth service (have roles claim)
+        3. Local Employee tokens from backend DB (standard JWT)
         """
-        # First, check if this token comes from the external auth service
+        # Check if this is an employee token from auth2 (has employee_id field)
+        if 'employee_id' in validated_token:
+            try:
+                employee_id = validated_token.get('employee_id')
+                email = validated_token.get('email', '')
+                first_name = validated_token.get('first_name', '')
+                last_name = validated_token.get('last_name', '')
+                company_id = validated_token.get('company_id')
+                
+                user = ExternalUser(
+                    user_id=employee_id,
+                    email=email,
+                    role='Employee',
+                    first_name=first_name,
+                    last_name=last_name,
+                    company_id=company_id,
+                    user_type='employee'
+                )
+                print(f"DEBUG: Created ExternalUser from employee token: {user.email} (employee_id={employee_id})")
+                return user
+            except Exception as e:
+                print(f"DEBUG: Error creating ExternalUser from employee token: {e}")
+                raise self.user_model.DoesNotExist(f"Invalid employee token: {str(e)}")
+
+        # Check if this token comes from the external auth service
         # which includes a `roles` claim. If so, construct and return an
         # ExternalUser rather than attempting a DB lookup.
         try:
@@ -138,7 +176,7 @@ class CookieJWTAuthentication(JWTAuthentication):
                 except Exception:
                     email = None
 
-                return ExternalUser(user_id=user_id, email=email, role=hdts_role)
+                return ExternalUser(user_id=user_id, email=email, role=hdts_role, user_type='user')
 
         # Fallback: token corresponds to local DB user — perform normal lookup
         try:
@@ -149,6 +187,62 @@ class CookieJWTAuthentication(JWTAuthentication):
 
         except (self.user_model.DoesNotExist, ValueError, KeyError) as e:
             raise self.user_model.DoesNotExist(f"No user found with the given token: {str(e)}")
+    
+    def _try_decode_employee_token(self, token_str):
+        """
+        Try to decode and validate an employee JWT token.
+        Returns ExternalUser if valid, None otherwise.
+        
+        Employee tokens have shape:
+        {
+          "employee_id": 3,
+          "email": "robert.johnson@example.com",
+          "first_name": "Robert",
+          "last_name": "Johnson",
+          "company_id": null,
+          "token_type": "access",
+          "exp": 1765193018.211683,
+          "iat": 1765192118.211683
+        }
+        """
+        try:
+            payload = jwt.decode(
+                token_str,
+                settings.SECRET_KEY,
+                algorithms=['HS256']
+            )
+            
+            # Check if this is an employee token (has employee_id and token_type)
+            if 'employee_id' in payload and payload.get('token_type') == 'access':
+                employee_id = payload.get('employee_id')
+                email = payload.get('email')
+                first_name = payload.get('first_name', '')
+                last_name = payload.get('last_name', '')
+                company_id = payload.get('company_id')
+                
+                # Create ExternalUser for employee
+                user = ExternalUser(
+                    user_id=employee_id,
+                    email=email,
+                    role='Employee',
+                    first_name=first_name,
+                    last_name=last_name,
+                    company_id=company_id,
+                    user_type='employee'
+                )
+                print(f"DEBUG: Created ExternalUser from employee token: {user.email} (employee_id={employee_id})")
+                return user
+                
+        except jwt.ExpiredSignatureError:
+            print(f"DEBUG: Employee token expired")
+        except jwt.InvalidSignatureError:
+            print(f"DEBUG: Employee token has invalid signature")
+        except (jwt.DecodeError, ValueError) as e:
+            print(f"DEBUG: Employee token decode error: {e}")
+        except Exception as e:
+            print(f"DEBUG: Unexpected error decoding employee token: {e}")
+        
+        return None
 
     def _fetch_user_profile(self, access_token):
         """

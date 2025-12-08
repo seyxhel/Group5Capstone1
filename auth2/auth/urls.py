@@ -21,6 +21,7 @@ from hdts.employee_template_views import (
     EmployeeProfileSettingsView,
     EmployeeChangePasswordView,
 )
+from hdts.employee_api_views import MeView
 
 def root_redirect(request):
     """Redirect root URL to login page"""
@@ -89,6 +90,9 @@ urlpatterns = [
     path('change-password/', EmployeeChangePasswordView.as_view(), name='employee-change-password-shortcut'),
     path('forgot-password/', EmployeeForgotPasswordUIView.as_view(), name='employee-forgot-password-shortcut'),
     path('reset-password/', EmployeeResetPasswordUIView.as_view(), name='employee-reset-password-shortcut'),
+    
+    # API shortcut for current user profile (works for both staff and employees)
+    path('api/me/', MeView.as_view(), name='api-me'),
 ]
 
 # Include API documentation URLs only in DEBUG mode
