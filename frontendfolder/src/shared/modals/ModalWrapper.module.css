@@ -5,7 +5,8 @@
   width: 100vw;
   height: 100vh;
   background-color: rgba(0, 0, 0, 0.3); /* spec: rgba(0,0,0,0.3) */
-  z-index: 9999; /* keep very high to cover everything */
+  backdrop-filter: blur(4px); /* subtle background blur when modal open */
+  z-index: 1000; /* spec: overlay z-index 1000 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,18 +17,21 @@
 /* === Modal Content Box === */
 .modal-content {
   position: relative;
-  z-index: 10000; /* sits above the overlay */
-  width: 100%;
-  max-width: 450px; /* spec: 400–450px fixed width */
+  z-index: 1001; /* spec: content above overlay */
+  width: fit-content; /* width determined by content, clamped by inline maxWidth */
+  max-width: 95vw;
   background-color: #ffffff; /* spec: white background */
   border: 1px solid #d3d3d3; /* spec: 1px light border */
-  border-radius: 25px; /* spec: 25px */
-  padding: 24px; /* spec: 24px inside */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* spec: softer shadow */
+  border-radius: 40px; /* spec: 40px */
+  padding: 20px; /* spec: ~20px padding */
+  box-sizing: border-box; /* ensure padding included in width calculations */
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); /* spec: stronger shadow */
   animation: fadeIn 0.25s ease-in-out;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* spec: 20px gap between stacked elements */
+  gap: 20px; /* spacing between stacked elements */
+  max-height: 80vh; /* spec: content should not exceed 80% of viewport */
+  overflow-y: auto; /* scrollable vertically if content is tall */
 }
 
 /* === Title & Message === */
@@ -43,6 +47,26 @@
   margin: 0;
   color: #212529;
 }
+
+/* Close button (top-right) */
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: #0C0C0C;
+}
+.modal-close:hover { background: rgba(0,0,0,0.04); }
 
 /* === Button Row === */
 .modal-actions {
@@ -88,9 +112,18 @@
 /* === Responsive Modal Adjustments === */
 @media (max-width: 768px) {
   .modal-content {
-    max-width: 90%; /* spec: nearly full-width on mobile */
+    max-width: 100%; /* full width on mobile */
+    width: 100%;
     padding: 20px;
-    border-radius: 16px;
+    box-sizing: border-box;
+    border-radius: 16px 16px 0 0; /* bottom-sheet style */
+    max-height: 100vh;
+  }
+  /* align overlay items to bottom on small screens for bottom-sheet behaviour */
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
   }
   .modal-actions {
     flex-direction: column;

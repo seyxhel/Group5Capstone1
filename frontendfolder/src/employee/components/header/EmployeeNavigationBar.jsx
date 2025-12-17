@@ -165,7 +165,6 @@ const EmployeeNavBar = () => {
           <img src={MapLogo} alt="Logo" className={styles['logo-image']} />
           <div className={styles['brand-wrapper']}>
             <span className={styles['brand-name']}>SmartSupport</span>
-            <span className={styles['role-badge']}>{currentUser?.role}</span>
           </div>
         </div>
       </section>
@@ -179,7 +178,6 @@ const EmployeeNavBar = () => {
             </div>
             <div className={styles['mobile-profile-info']}>
               <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
-              <span className={styles['role-badge']}>{currentUser?.role}</span>
               <div className={styles['mobile-profile-actions']}>
                 <button className={styles['mobile-settings-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/employee/settings'); }}>Settings</button>
                 <button className={styles['mobile-logout-btn']} onClick={() => { setIsMobileMenuOpen(false); navigate('/'); }}>Log Out</button>
@@ -275,7 +273,6 @@ const EmployeeNavBar = () => {
                     </div>
                     <div className={styles['profile-info']}>
                       <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
-                      <span className={styles['role-badge']}>{currentUser?.role}</span>
                     </div>
                   </div>
                   <div className={styles['profile-menu']}>

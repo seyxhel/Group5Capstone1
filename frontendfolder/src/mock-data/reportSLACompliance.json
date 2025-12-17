@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "reportName": "January 2025 - Daily SLA Compliance Report",
+    "period": "Daily",
+    "dateGenerated": "2025-01-28",
+    "status": "Completed",
+    "generatedBy": "System Auto-Generate",
+    "totalTickets": 52,
+    "onTime": 48,
+    "dueSoon": 3,
+    "overdue": 1
+  },
+  {
+    "id": 2,
+    "reportName": "January 2025 - Week 4 SLA Compliance Report",
+    "period": "Weekly",
+    "dateGenerated": "2025-01-27",
+    "status": "Completed",
+    "generatedBy": "John Smith",
+    "totalTickets": 312,
+    "onTime": 295,
+    "dueSoon": 12,
+    "overdue": 5
+  },
+  {
+    "id": 3,
+    "reportName": "January 2025 Monthly SLA Compliance Report",
+    "period": "Monthly",
+    "dateGenerated": "2025-01-25",
+    "status": "Completed",
+    "generatedBy": "Sarah Johnson",
+    "totalTickets": 1245,
+    "onTime": 1180,
+    "dueSoon": 45,
+    "overdue": 20
+  },
+  {
+    "id": 4,
+    "reportName": "2024 Annual SLA Compliance Report",
+    "period": "Yearly",
+    "dateGenerated": "2025-01-15",
+    "status": "Completed",
+    "generatedBy": "Mike Chen",
+    "totalTickets": 15678,
+    "onTime": 14890,
+    "dueSoon": 578,
+    "overdue": 210
+  },
+  {
+    "id": 5,
+    "reportName": "January 2025 - Daily SLA Compliance Report",
+    "period": "Daily",
+    "dateGenerated": "2025-01-27",
+    "status": "Completed",
+    "generatedBy": "System Auto-Generate",
+    "totalTickets": 48,
+    "onTime": 46,
+    "dueSoon": 1,
+    "overdue": 1
+  }
+]

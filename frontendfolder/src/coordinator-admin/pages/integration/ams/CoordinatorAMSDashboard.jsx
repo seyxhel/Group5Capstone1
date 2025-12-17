@@ -173,6 +173,7 @@ const CoordinatorAMSDashboard = () => {
 			{showFilter && (
 				<FilterPanel
 					preset="assetManagement"
+					fields={['status','priority','category','subCategory','slaStatus','startDate','endDate']}
 					onApply={(f) => { setActiveFilters(f); setCurrentPage(1); }}
 					onReset={() => { setActiveFilters({}); setCurrentPage(1); }}
 					initialFilters={activeFilters}

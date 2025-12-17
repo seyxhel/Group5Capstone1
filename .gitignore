@@ -10,3 +10,7 @@ node_modules/
 dist
 dist-ssr
 *.local
+
+# Ignore auth and backend folders
+auth/
+backend/

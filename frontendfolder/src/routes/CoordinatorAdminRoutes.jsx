@@ -7,16 +7,24 @@ import CoordinatorAdminUserAccess from '../coordinator-admin/pages/user-manageme
 import CoordinatorAdminUserProfileView from '../coordinator-admin/pages/user-profile/SysAdminUserProfileView';
 import CoordinatorAdminSettings from '../coordinator-admin/pages/settings/CoordinatorAdminSettings';
 import CoordinatorAdminAccountRegister from '../coordinator-admin/pages/account-register/CoordinatorAdminAccountRegister';
-import CoordinatorAdminTicketReports from '../coordinator-admin/pages/reports/CoordinatorAdminTicketReports';
-import CoordinatorAdminSLAReports from '../coordinator-admin/pages/reports/CoordinatorAdminSLAReports';
+import CoordinatorAdminTicketReports from '../coordinator-admin/pages/reports/ticket/CoordinatorAdminTicketReports';
+import CoordinatorAdminTicketReportView from '../coordinator-admin/pages/reports-viewer/ticket/CoordinatorAdminTicketReportView';
+import CoordinatorAdminSLAReports from '../coordinator-admin/pages/reports/sla-compliance/CoordinatorAdminSLAComplianceReports';
+import CoordinatorAdminCSATPerformance from '../coordinator-admin/pages/reports/csat-performance/CoordinatorAdminCSATPerformanceReports';
+
+import SysAdminCSAT from '../coordinator-admin/pages/csat/CoordinatorAdminCSAT';
+
 // Knowledgebase admin pages
 import KnowledgeCreate from '../coordinator-admin/pages/knowledgebase/KnowledgeCreate';
 import KnowledgeEdit from '../coordinator-admin/pages/knowledgebase/KnowledgeEdit';
 import KnowledgeArticles from '../coordinator-admin/pages/knowledgebase/KnowledgeArticles';
 import KnowledgeArchived from '../coordinator-admin/pages/knowledgebase/KnowledgeArchived';
 import KnowledgeArticleView from '../coordinator-admin/pages/knowledgebase-article/KnowledgeArticleView';
+// Coordinator-specific Knowledge Base placeholder
+import CoordinatorKnowledgebase from '../coordinator-admin/pages/ticketCoordinator-knowledgebase/CoordinatorKnowledgebase';
 import CoordinatorAMSDashboard from '../coordinator-admin/pages/integration/ams/CoordinatorAMSDashboard';
 import CoordinatorAMSTickets from '../coordinator-admin/pages/integration/ams/CoordinatorAMSTickets';
+import CoordinatorBMSTickets from '../coordinator-admin/pages/integration/bms/CoordinatorBMSTickets';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const CoordinatorAdminRoutes = () => (
@@ -36,16 +44,27 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Account Register */}
       <Route path="account-register" element={<CoordinatorAdminAccountRegister />} />
-  {/* User Profile View */}
-  <Route path="user-profile/:companyId" element={<CoordinatorAdminUserProfileView />} />
+      {/* User Profile View */}
+      <Route path="user-profile/:companyId" element={<CoordinatorAdminUserProfileView />} />
 
-      {/* Reports */}
-      <Route path="reports/tickets" element={<CoordinatorAdminTicketReports />} />
-      <Route path="reports/sla" element={<CoordinatorAdminSLAReports />} />
+      {/* Reports */}     
+      <Route path="reports/ticket" element={<CoordinatorAdminTicketReports />} />
+      <Route path="reports/ticket/view" element={<CoordinatorAdminTicketReportView />} />
+      <Route path="reports/sla-compliance" element={<CoordinatorAdminSLAReports />} />
+      <Route path="reports/csat-performance" element={<CoordinatorAdminCSATPerformance />} />
 
       {/* Settings */}
       <Route path="settings" element={<CoordinatorAdminSettings />} />
+      {/* CSAT (System Admin) */}
+      <Route path="csat" element={<SysAdminCSAT />} />
+      <Route path="csat/all" element={<SysAdminCSAT />} />
+      <Route path="csat/excellent" element={<SysAdminCSAT />} />
+      <Route path="csat/good" element={<SysAdminCSAT />} />
+      <Route path="csat/neutral" element={<SysAdminCSAT />} />
+      <Route path="csat/poor" element={<SysAdminCSAT />} />
+      <Route path="csat/very-poor" element={<SysAdminCSAT />} />
       {/* Knowledgebase */}
+      <Route path="coordinator-knowledgebase" element={<CoordinatorKnowledgebase />} />
       <Route path="knowledge">
         <Route path="articles" element={<KnowledgeArticles />} />
         <Route path="view/:id" element={<KnowledgeArticleView />} />
@@ -57,6 +76,10 @@ const CoordinatorAdminRoutes = () => (
       <Route path="ams">
         <Route path="dashboard" element={<CoordinatorAMSDashboard />} />
         <Route path="tickets" element={<CoordinatorAMSTickets />} />
+      </Route>
+      {/* BMS integration routes */}
+      <Route path="bms">
+        <Route path="tickets" element={<CoordinatorBMSTickets />} />
       </Route>
       
       <Route path="*" element={<NotFoundPage />} />

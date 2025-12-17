@@ -90,14 +90,6 @@
   transition: font-size 180ms ease;
 }
 
-.role-badge {
-  font-size: 0.75rem;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background-color: var(--primary-color);
-  color: white;
-}
-
 /* --- Nav Links --- */
 .nav-list {
   display: flex;
@@ -477,11 +469,6 @@
 
   .brand-name {
     font-size: 1rem;
-  }
-
-  .role-badge {
-    font-size: 10px;
-    padding: 2px 6px;
   }
 
   .nav-list {
