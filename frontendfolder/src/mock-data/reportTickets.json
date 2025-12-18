@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "reportName": "January 2025 - Daily Ticket Report",
+    "period": "Daily",
+    "dateGenerated": "2025-01-28",
+    "status": "Completed",
+    "generatedBy": "System Auto-Generate",
+    "totalTickets": 52,
+    "resolved": 45,
+    "pending": 7
+  },
+  {
+    "id": 2,
+    "reportName": "January 2025 - Week 4 Ticket Report",
+    "period": "Weekly",
+    "dateGenerated": "2025-01-27",
+    "status": "Completed",
+    "generatedBy": "John Smith",
+    "totalTickets": 312,
+    "resolved": 287,
+    "pending": 25
+  },
+  {
+    "id": 3,
+    "reportName": "January 2025 Monthly Ticket Report",
+    "period": "Monthly",
+    "dateGenerated": "2025-01-25",
+    "status": "Completed",
+    "generatedBy": "Sarah Johnson",
+    "totalTickets": 1245,
+    "resolved": 1089,
+    "pending": 156
+  },
+  {
+    "id": 4,
+    "reportName": "2024 Annual Ticket Report",
+    "period": "Yearly",
+    "dateGenerated": "2025-01-15",
+    "status": "Completed",
+    "generatedBy": "Mike Chen",
+    "totalTickets": 15678,
+    "resolved": 14234,
+    "pending": 1444
+  },
+  {
+    "id": 5,
+    "reportName": "January 2025 - Daily Ticket Report",
+    "period": "Daily",
+    "dateGenerated": "2025-01-27",
+    "status": "Completed",
+    "generatedBy": "System Auto-Generate",
+    "totalTickets": 48,
+    "resolved": 42,
+    "pending": 6
+  }
+]

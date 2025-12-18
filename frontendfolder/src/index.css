@@ -24,6 +24,14 @@
   --warning-hover: #FDC04E;            /* Warning Yellow Tint */
   --info-color: #175CD3;               /* Info Blue */
 
+  /* === CSAT Rating Colors (used by Coordinator CSAT views) === */
+  --csat-excellent: #10b981; /* green */
+  --csat-good: #3b82f6; /* blue */
+  --csat-neutral: #f59e0b; /* amber */
+  --csat-poor: #ef4444; /* red */
+  --csat-very-poor: #dc2626; /* dark red */
+  --csat-default: #6b7280; /* gray fallback */
+
   /* === Ticket Status Colors === */
   /* Ticket status colors (text color + subtle background) */
   --new-text: #1E90FF; /* New Tickets — Blue */

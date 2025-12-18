@@ -307,6 +307,7 @@ const CoordinatorAdminNavBar = () => {
       { label: 'Open Tickets', path: '/admin/ticket-management/open-tickets' },
       { label: 'In Progress Tickets', path: '/admin/ticket-management/in-progress-tickets' },
       { label: 'On Hold Tickets', path: '/admin/ticket-management/on-hold-tickets' },
+      { label: 'Resolved Tickets', path: '/admin/ticket-management/resolved-tickets' },
       { label: 'Withdrawn Tickets', path: '/admin/ticket-management/withdrawn-tickets' },
       { label: 'Closed Tickets', path: '/admin/ticket-management/closed-tickets' },
       { label: 'Rejected Tickets', path: '/admin/ticket-management/rejected-tickets' }
@@ -332,8 +333,9 @@ const CoordinatorAdminNavBar = () => {
     label: 'Reports',
     basePath: '/admin/reports',
     links: [
-      { label: 'Ticket Reports', path: '/admin/reports/tickets' },
-      { label: 'SLA Compliance', path: '/admin/reports/sla' }
+      { label: 'Ticket Reports', path: '/admin/reports/ticket' },
+      { label: 'SLA Compliance', path: '/admin/reports/sla-compliance' },
+      { label: 'CSAT Performance', path: '/admin/reports/csat-performance' }
     ]
   };
 
@@ -344,6 +346,33 @@ const CoordinatorAdminNavBar = () => {
     links: [
       { label: 'Articles', path: '/admin/knowledge/articles' },
       { label: 'Archived Articles', path: '/admin/knowledge/archived' }
+    ]
+  };
+
+  // Coordinator-specific KB (placeholder page for Ticket Coordinators)
+  const kbCoordinatorSection = {
+    key: 'kb-coordinator',
+    label: 'Knowledge Base',
+    basePath: '/admin/coordinator-knowledgebase',
+    links: [
+      { label: 'Knowledge Base', path: '/admin/coordinator-knowledgebase' }
+    ]
+  };
+
+  // CSAT section (System Admin only)
+  const csatSection = {
+    key: 'csat',
+    label: 'CSAT',
+    basePath: '/admin/csat',
+    // Provide category links for filtering CSAT
+    disableActiveBold: true, // prevent bold/active styling for this dropdown
+    links: [
+      { label: 'All Ratings', path: '/admin/csat/all' },
+      { label: 'Excellent Ratings', path: '/admin/csat/excellent' },
+      { label: 'Good Ratings', path: '/admin/csat/good' },
+      { label: 'Neutral Ratings', path: '/admin/csat/neutral' },
+      { label: 'Poor Ratings', path: '/admin/csat/poor' },
+      { label: 'Very Poor Ratings', path: '/admin/csat/very-poor' }
     ]
   };
 
@@ -371,10 +400,11 @@ const CoordinatorAdminNavBar = () => {
   let navSections = [];
   if (role === 'Ticket Coordinator') {
     // Ticket coordinator: Ticket Management, AMS, BMS, Reports
-    navSections = [ticketsSection, amsSection, bmsSection, reportsSection];
+    // Use coordinator-specific Knowledge Base placeholder
+    navSections = [ticketsSection, amsSection, bmsSection, reportsSection, kbCoordinatorSection];
   } else if (role === 'System Admin') {
-    // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB
-    navSections = [ticketsSection, usersSection, reportsSection, kbSection];
+    // System Admin: Dashboard (all), Ticket Management (view-only), User Access, Reports, KB, CSAT
+    navSections = [ticketsSection, usersSection, reportsSection, kbSection, csatSection];
   } else {
     // Default: show everything
     navSections = [ticketsSection, usersSection, reportsSection, kbSection];
@@ -399,7 +429,6 @@ const CoordinatorAdminNavBar = () => {
         <img src={MapLogo} alt="SmartSupport Logo" className={styles['logo-image']} />
         <div className={styles['brand-wrapper']}>
           <span className={styles['brand-name']}>SmartSupport</span>
-          <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
         </div>
       </section>
 
@@ -416,17 +445,8 @@ const CoordinatorAdminNavBar = () => {
                 className={styles['avatar-image']} 
               />
             </div>
-              <div className={styles['mobile-profile-info']}>
-                {(() => {
-                  const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
-                  const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
-                  return (
-                    <>
-                      <h3>{`${first} ${last}`.trim()}</h3>
-                      <span className={styles['admin-badge']}>{getDisplayRole(currentUser)}</span>
-                    </>
-                  );
-                })()}
+            <div className={styles['mobile-profile-info']}>
+              <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
               <div className={styles['mobile-profile-actions']}>
                 <button 
                   className={styles['mobile-settings-btn']}
@@ -455,15 +475,16 @@ const CoordinatorAdminNavBar = () => {
           </li>
 
           {/* Navigation Sections with Dropdowns */}
-          {visibleNavSections.map(({ key, label, links, basePath }) => {
-            const isActiveSection = location.pathname.startsWith(basePath);
+          {navSections.map(({ key, label, links, basePath, disableActiveBold }) => {
+            const isActiveSection = basePath && location.pathname.startsWith(basePath);
+            const activeClass = isActiveSection && !disableActiveBold ? styles.clicked : '';
             return (
               <li
                 key={key}
                 className={`${styles['dropdown-container']} ${openDropdown === key ? styles['open'] : ''}`}
               >
                 <div
-                  className={`${styles['dropdown-trigger']} ${isActiveSection ? styles.clicked : ''}`}
+                  className={`${styles['dropdown-trigger']} ${activeClass}`}
                   onClick={() => toggleDropdown(key)}
                 >
                   <span className={styles['dropdown-text']}>{label}</span>
@@ -541,17 +562,7 @@ const CoordinatorAdminNavBar = () => {
                   <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
                 </div>
                 <div className={styles['profile-info']}>
-                  {(() => {
-                    const first = currentUser?.first_name || currentUser?.firstName || currentUser?.first || currentUser?.username || (currentUser?.email ? currentUser.email.split('@')[0] : '');
-                    const last = currentUser?.last_name || currentUser?.lastName || currentUser?.last || '';
-                    const roleDisplay = getDisplayRole(currentUser);
-                    return (
-                      <>
-                        <h3>{`${first} ${last}`.trim()}</h3>
-                        <span className={styles['admin-badge']}>{roleDisplay}</span>
-                      </>
-                    );
-                  })()}
+                  <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
                 </div>
               </div>
               <div className={styles['profile-menu']}>

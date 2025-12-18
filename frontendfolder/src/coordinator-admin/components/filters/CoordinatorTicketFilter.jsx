@@ -67,7 +67,16 @@ export default function CoordinatorTicketFilter({
     <FilterPanel
       // Use base FilterPanel with custom configuration
       hideToggleButton={hideToggleButton}
-      showStatus={showStatus}
+      // Explicitly list fields to render for Ticket Management (exclude 'rating')
+      fields={[
+        'status',
+        'priority',
+        'category',
+        'subCategory',
+        'slaStatus',
+        'startDate',
+        'endDate',
+      ]}
       onApply={onApply}
       onReset={onReset}
       initialFilters={initialFilters}

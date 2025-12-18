@@ -285,6 +285,7 @@
   align-self: stretch !important;
   display: flex !important;
   flex-direction: column !important;
+  
   height: 100% !important; /* match the grid row's computed height */
   min-height: 0 !important; /* allow children with overflow to work */
 }

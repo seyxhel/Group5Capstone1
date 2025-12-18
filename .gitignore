@@ -11,30 +11,6 @@ dist
 dist-ssr
 *.local
 
-# Ignore Gmail OAuth client secret and token files
-# These files contain sensitive credentials and should never be committed.
-client_secret_*.json
-backend/client_secret_*.json
-token.json
-backend/token.json
-backend/.secrets/
-
-# Python cache files
-# Ignore any __pycache__ directories anywhere in the repository
-**/__pycache__/
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Ticket attachments (media folder)
-# Ignore any ticket_attachments folders under media or elsewhere
-media/ticket_attachments/
-**/ticket_attachments/
-# Explicit backend cache folders (make sure these specific paths are ignored on Windows dev machines)
-backend/backend/__pycache__/
-backend/core/__pycache__/
-backend/core/migrations/__pycache__/
-
-# Local environment variables - do NOT commit
-# This project keeps a `.env` at repository root for local dev; ensure it's ignored
-.env
+# Ignore auth and backend folders
+auth/
+backend/

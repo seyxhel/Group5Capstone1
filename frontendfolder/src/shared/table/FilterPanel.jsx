@@ -260,8 +260,8 @@ export default function FilterPanel({
   showDateFilters,
   showSLAStatus,
   categoryFirst = false,
-  // Control rendering of the status dropdown (useful for pages pre-filtered by URL)
-  showStatus = true,
+  // Optional array of fields to render (e.g. ['rating','startDate','endDate']). If omitted, render defaults.
+  fields = null,
 }) {
   // Apply preset configuration if provided
   const presetConfig = preset ? FILTER_PRESETS[preset] : {};
@@ -293,7 +293,14 @@ export default function FilterPanel({
     assignedAgent: initialFilters.assignedAgent || null,
     startDate: initialFilters.startDate || "",
     endDate: initialFilters.endDate || "",
+    rating: initialFilters.rating || null,
   });
+
+  const fieldsSet = fields ? new Set(fields) : null;
+  const shouldRender = (field) => {
+    if (!fieldsSet) return true;
+    return fieldsSet.has(field);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -325,6 +332,7 @@ export default function FilterPanel({
       assignedAgent: null,
       startDate: "",
       endDate: "",
+      rating: null,
     };
     setFilters(resetFilters);
     if (onReset) onReset(resetFilters);
@@ -347,53 +355,55 @@ export default function FilterPanel({
           {categoryFirst ? (
             <>
               {/* Category Dropdown - FIRST */}
-              <div className={styles.filterGroup}>
-                <label htmlFor="category">{finalCategoryLabel}</label>
-                <select
-                  name="category"
-                  className={styles.dropdown}
-                  value={filters.category?.label || ""}
-                  onChange={(e) => {
-                    const selected = finalCategoryOptions.find(opt => opt.label === e.target.value);
-                    handleDropdownChange("category", selected);
-                  }}
-                >
-                  <option value="">Select {finalCategoryLabel.toLowerCase()}</option>
-                  {finalCategoryOptions.map((option) => (
-                    <option key={option.label} value={option.label}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {finalShowStatus && (
-                <>
-                  {/* Status Dropdown - SECOND */}
-                  <div className={styles.filterGroup}>
-                    <label htmlFor="status">{finalStatusLabel}</label>
-                    <select
-                      name="status"
-                      className={styles.dropdown}
-                      value={filters.status?.label || ""}
-                      onChange={(e) => {
-                        const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
-                        handleDropdownChange("status", selected);
-                      }}
-                    >
-                      <option value="">Select {finalStatusLabel.toLowerCase()}</option>
-                      {finalStatusOptions.map((option) => (
-                        <option key={option.label} value={option.label}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
+              {shouldRender('category') && (
+                <div className={styles.filterGroup}>
+                  <label htmlFor="category">{finalCategoryLabel}</label>
+                  <select
+                    name="category"
+                    className={styles.dropdown}
+                    value={filters.category?.label || ""}
+                    onChange={(e) => {
+                      const selected = finalCategoryOptions.find(opt => opt.label === e.target.value);
+                      handleDropdownChange("category", selected);
+                    }}
+                  >
+                    <option value="">Select {finalCategoryLabel.toLowerCase()}</option>
+                    {finalCategoryOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Status Dropdown - SECOND */}
+              {shouldRender('status') && (
+                <div className={styles.filterGroup}>
+                  <label htmlFor="status">{finalStatusLabel}</label>
+                  <select
+                    name="status"
+                    className={styles.dropdown}
+                    value={filters.status?.label || ""}
+                    onChange={(e) => {
+                      const selected = finalStatusOptions.find(opt => opt.label === e.target.value);
+                      handleDropdownChange("status", selected);
+                    }}
+                  >
+                    <option value="">Select {finalStatusLabel.toLowerCase()}</option>
+                    {finalStatusOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
             </>
           ) : (
             <>
-              {finalShowStatus && (
+              {/* Status Dropdown - FIRST */}
+              {shouldRender('status') && (
                 <div className={styles.filterGroup}>
                   <label htmlFor="status">{finalStatusLabel}</label>
                   <select
@@ -416,30 +426,52 @@ export default function FilterPanel({
               )}
 
               {/* Category Dropdown - SECOND */}
-              <div className={styles.filterGroup}>
-                <label htmlFor="category">{finalCategoryLabel}</label>
-                <select
-                  name="category"
-                  className={styles.dropdown}
-                  value={filters.category?.label || ""}
-                  onChange={(e) => {
-                    const selected = finalCategoryOptions.find(opt => opt.label === e.target.value);
-                    handleDropdownChange("category", selected);
-                  }}
-                >
-                  <option value="">Select {finalCategoryLabel.toLowerCase()}</option>
-                  {finalCategoryOptions.map((option) => (
-                    <option key={option.label} value={option.label}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {shouldRender('category') && (
+                <div className={styles.filterGroup}>
+                  <label htmlFor="category">{finalCategoryLabel}</label>
+                  <select
+                    name="category"
+                    className={styles.dropdown}
+                    value={filters.category?.label || ""}
+                    onChange={(e) => {
+                      const selected = finalCategoryOptions.find(opt => opt.label === e.target.value);
+                      handleDropdownChange("category", selected);
+                    }}
+                  >
+                    <option value="">Select {finalCategoryLabel.toLowerCase()}</option>
+                    {finalCategoryOptions.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </>
           )}
 
+          {/* Rating field (optional) */}
+          {shouldRender('rating') && (
+            <div className={styles.filterGroup}>
+              <label htmlFor="rating">Rating</label>
+              <select
+                name="rating"
+                className={styles.dropdown}
+                value={filters.rating || ""}
+                onChange={(e) => handleChange(e)}
+              >
+                <option value="">All</option>
+                <option value="5">Excellent</option>
+                <option value="4">Good</option>
+                <option value="3">Neutral</option>
+                <option value="2">Poor</option>
+                <option value="1">Very Poor</option>
+              </select>
+            </div>
+          )}
+
           {/* Priority Dropdown - THIRD (optional) */}
-          {finalPriorityOptions && finalPriorityOptions.length > 0 && finalPriorityLabel && (
+          {shouldRender('priority') && finalPriorityOptions && finalPriorityOptions.length > 0 && finalPriorityLabel && (
             <div className={styles.filterGroup}>
               <label htmlFor="priority">{finalPriorityLabel}</label>
               <select
@@ -462,7 +494,7 @@ export default function FilterPanel({
           )}
 
           {/* Sub-Category Dropdown - FOURTH */}
-          {finalSubCategoryOptions && finalSubCategoryOptions.length > 0 && finalSubCategoryLabel && (
+          {shouldRender('subCategory') && finalSubCategoryOptions && finalSubCategoryOptions.length > 0 && finalSubCategoryLabel && (
             <div className={styles.filterGroup}>
               <label htmlFor="subCategory">{finalSubCategoryLabel}</label>
               <select
@@ -492,7 +524,7 @@ export default function FilterPanel({
           )}
 
           {/* SLA Status Dropdown - FIFTH (only for Coordinator/Admin) */}
-          {finalShowSLAStatus && finalSLAStatusOptions && finalSLAStatusOptions.length > 0 && (
+          {shouldRender('slaStatus') && finalShowSLAStatus && finalSLAStatusOptions && finalSLAStatusOptions.length > 0 && (
             <div className={styles.filterGroup}>
               <label htmlFor="slaStatus">SLA Status</label>
               <select
@@ -514,8 +546,8 @@ export default function FilterPanel({
             </div>
           )}
 
-          {/* Start Date - SIXTH (only if enabled) */}
-          {finalShowDateFilters && (
+          {/* Start Date - (optional via fields or showDateFilters) */}
+          {shouldRender('startDate') && finalShowDateFilters && (
             <div className={styles.filterGroup}>
               <label htmlFor="startDate">Start Date</label>
               <input
@@ -529,8 +561,8 @@ export default function FilterPanel({
             </div>
           )}
 
-          {/* End Date - SEVENTH (only if enabled) */}
-          {finalShowDateFilters && (
+          {/* End Date - (optional via fields or showDateFilters) */}
+          {shouldRender('endDate') && finalShowDateFilters && (
             <div className={styles.filterGroup}>
               <label htmlFor="endDate">End Date</label>
               <input

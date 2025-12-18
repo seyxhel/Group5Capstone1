@@ -73,15 +73,6 @@
   transition: font-size 180ms ease, transform 180ms ease;
 }
 
-.admin-badge {
-  margin-top: 4px;
-  padding: 3px 10px;
-  font-size: 12px;
-  color: white;
-  background: var(--primary-color);
-  border-radius: 999px;
-}
-
 /* === Hamburger Menu (hidden on desktop) === */
 .hamburger {
   display: none;
@@ -486,11 +477,6 @@
     font-size: 1rem;
   }
 
-  .admin-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-
   /* Mobile sidebar menu */
   .nav-list {
     display: none;
@@ -532,7 +518,7 @@
     color: var(--text-color);
   }
 
-  .mobile-profile-info .admin-badge {
+  .mobile-profile-info {
     margin-top: 4px;
   }
 

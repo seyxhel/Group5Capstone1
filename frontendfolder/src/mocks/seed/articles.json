@@ -147,5 +147,50 @@
         "content": "List of official company holidays for 2025 including observed dates and guidance on floating holidays and time-off requests."
       }
     ]
+  },
+  {
+    "id": 201,
+    "title": "Ticket Coordinator Role Overview",
+    "content": "Role: Ticket Coordinator\n\nResponsibilities:\n- Review and prioritize incoming support tickets\n- Assign tickets to appropriate departments or specialists\n- Monitor ticket escalations and SLA compliance\n- Coordinate communication between employees and support teams\n- Generate reports on ticket metrics and trends\n\nKey Skills Required:\n- Excellent communication and organizational abilities\n- Knowledge of ticket management systems\n- Problem-solving and decision-making\n- Customer service focus\n- Ability to work under pressure\n\nFor questions or clarifications, contact your manager or the HR department.",
+    "category_id": 2,
+    "categoryId": 2,
+    "visibility": "Ticket Coordinator",
+    "author": "Alice Thompson",
+    "date_created": "2025-10-15",
+    "dateCreated": "2025-10-15",
+    "date_modified": "2025-10-15",
+    "dateModified": "2025-10-15",
+    "archived": false,
+    "tags": ["Role", "Coordinator", "Responsibilities", "Guidelines"]
+  },
+  {
+    "id": 202,
+    "title": "Ticket Triage and Priority Assignment",
+    "content": "Guidelines for ticket triage and priority assignment:\n\n**Priority Levels:**\n\nCritical (P1):\n- System outages affecting multiple users\n- Security incidents\n- Data loss or corruption\n- Response time: 30 minutes\n\nHigh (P2):\n- Major functionality unavailable\n- Performance severely degraded\n- Workaround not available\n- Response time: 2 hours\n\nMedium (P3):\n- Minor functionality issues\n- Workaround available\n- Single user affected\n- Response time: 8 hours\n\nLow (P4):\n- Feature requests\n- Documentation updates\n- General inquiries\n- Response time: 24 hours\n\nAlways include justification for priority assignment in ticket comments.",
+    "category_id": 1,
+    "categoryId": 1,
+    "visibility": "Ticket Coordinator",
+    "author": "Bob Williams",
+    "date_created": "2025-10-10",
+    "dateCreated": "2025-10-10",
+    "date_modified": "2025-10-12",
+    "dateModified": "2025-10-12",
+    "archived": false,
+    "tags": ["Triage", "Priority", "Assignment", "SLA"]
+  },
+  {
+    "id": 203,
+    "title": "Handling Escalations and Customer Communication",
+    "content": "Best practices for escalation management:\n\n**Escalation Process:**\n1. Identify tickets requiring escalation (unresolved after 24 hours, customer dissatisfaction, etc.)\n2. Document escalation reason clearly in ticket\n3. Assign to senior specialist or management\n4. Set escalation flag and add priority tag\n5. Notify relevant parties via email\n\n**Customer Communication:**\n- Respond to all ticket updates within 2 hours\n- Use professional and empathetic language\n- Provide clear status updates and expected timelines\n- Confirm customer satisfaction before closing tickets\n- Request feedback on resolution quality\n\n**SLA Management:**\n- Monitor ticket aging continuously\n- Flag tickets approaching SLA breach\n- Coordinate with teams on stuck tickets\n- Document all escalation attempts and resolutions\n\nRemember: Clear communication prevents most escalations.",
+    "category_id": 1,
+    "categoryId": 1,
+    "visibility": "Ticket Coordinator",
+    "author": "Carol Martinez",
+    "date_created": "2025-10-08",
+    "dateCreated": "2025-10-08",
+    "date_modified": "2025-10-14",
+    "dateModified": "2025-10-14",
+    "archived": false,
+    "tags": ["Escalation", "Communication", "Customer Service", "SLA"]
   }
 ]

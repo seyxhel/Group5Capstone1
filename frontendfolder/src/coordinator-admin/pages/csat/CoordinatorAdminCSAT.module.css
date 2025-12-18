@@ -1,0 +1,213 @@
+.pageContainer {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.topBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.showFilterButton {
+  padding: 8px 16px;
+  background-color: transparent;
+  border: none;
+  color: #007acc;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.showFilterButton:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+.tableSection {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #cccccc;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+}
+
+.tableHeader h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.tableActions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0c0c0c;
+  border-top: 1px solid #cccccc;
+  border-bottom: 1px solid #cccccc;
+  background-color: #f0f1f2;
+  height: 50px;
+}
+
+.table td {
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  color: #0c0c0c;
+  border-bottom: 1px solid #cccccc;
+  height: 50px;
+}
+
+tr:hover {
+  background-color: #fcfcfc;
+}
+
+.subjectCell {
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.profileCell {
+  text-align: center;
+}
+
+.profileHeader {
+  width: 60px;
+  text-align: center;
+}
+
+.profileImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #cccccc;
+}
+
+/* initials fallback avatar */
+.avatarInitials {
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 50%;
+  background-color: #e6eef9;
+  color: #0c3b73;
+  font-weight: 700;
+  user-select: none;
+}
+
+.ratingBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.feedbackCell {
+  max-width: 250px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.actionHeader {
+  width: 100px;
+  text-align: center;
+}
+
+.actionCell {
+  text-align: center;
+}
+
+.viewButton {
+  border: 1px solid #cccccc;
+  background-color: #f9f9f9;
+  padding: 5px 10px;
+  border-radius: 4px;
+  color: #555555;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewButton svg {
+  font-size: 0.75rem;
+  color: #555555;
+}
+
+.viewButton:hover {
+  background-color: #f0f0f0;
+  color: #333333;
+  border-color: #999999;
+}
+
+.viewButton:hover svg {
+  color: #333333;
+}
+
+.tablePagination {
+  padding: 20px 30px;
+}
+
+/* Inline filter panel used on CSAT page (Rating + date range) */
+.inlineFilter {
+  background: #ffffff;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
+  margin: 0 18px 12px 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Inline filter form controls */
+.inlineFilter select,
+.inlineFilter input[type="date"],
+.inlineFilter input[type="text"] {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.inlineFilter label { display: block; margin-bottom: 6px; font-size: 0.75rem; color: #6b7280; font-weight: 600; }
+
+.inlineFilter > div { display: flex; flex-direction: column; }

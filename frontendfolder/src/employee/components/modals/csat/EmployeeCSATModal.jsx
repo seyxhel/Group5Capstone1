@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AiOutlineStar, AiFillStar } from "react-icons/ai";
 import { FiThumbsUp } from "react-icons/fi";
 import { MdConfirmationNumber } from "react-icons/md";
@@ -6,42 +6,37 @@ import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./EmployeeCSATModal.module.css";
 
 const EmployeeCSATModal = ({ ticket, onClose }) => {
-  const [step, setStep] = useState("rating"); // 'rating' or 'thankyou'
+  const [step, setStep] = useState("rating"); // 'rating', 'feedback', or 'thankyou'
   const [selectedRating, setSelectedRating] = useState(null);
   const [hoveredRating, setHoveredRating] = useState(null);
   const [selectedFeedback, setSelectedFeedback] = useState([]);
-  const [countdown, setCountdown] = useState(12);
+  const [comment, setComment] = useState("");
+  const [resolution, setResolution] = useState(null); // 'resolved' | 'partial' | 'not_resolved'
+  const [wantsFollowUp, setWantsFollowUp] = useState(null); // true | false | null
+  const [wantsReopen, setWantsReopen] = useState(null); // true | false | null
 
-  // Auto-close countdown on thank you screen — submit CSAT then close
-  useEffect(() => {
-    if (step === "thankyou") {
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            // ensure we call the submission handler so rating/feedback get saved
-            try {
-              handleClose();
-            } catch (e) {
-              // fallback to simple close if submission handler fails
-              onClose();
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [step]);
+  // MVP feedback tags for helpdesk context
+  const feedbackOptions = [
+    "Fast response",
+    "Helpful / Knowledgeable",
+    "Professional / Courteous",
+    "Clear instructions",
+    "Problem resolved",
+    "Followed up proactively",
+    "Too slow / Delayed",
+    "Solution unclear",
+    "Needed escalation",
+    "Reopened later",
+    "Partial fix / Workaround only",
+    "System-related / Bug still exists",
+  ];
 
   const handleRatingClick = (rating) => {
     setSelectedRating(rating);
-    // Auto-advance to thank you screen after selecting rating
+    // Move to feedback step after rating selection
     setTimeout(() => {
-      setStep("thankyou");
-    }, 500);
+      setStep("feedback");
+    }, 300);
   };
 
   const handleFeedbackClick = (feedback) => {
@@ -52,45 +47,43 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
     );
   };
 
+  const handleSubmit = () => {
+    // Save CSAT data (API call)
+    const csatData = {
+      ticketNumber: ticket.ticketNumber,
+      rating: selectedRating,
+      feedback: selectedFeedback,
+      comment: comment.trim(),
+      resolution: resolution,
+      wantsFollowUp: wantsFollowUp,
+      wantsReopen: wantsReopen,
+      // Derived metadata if available on ticket
+      meta: {
+        timeToResolution: ticket.timeToResolution ?? ticket.time_to_resolution ?? null,
+        interactions: ticket.interactions ?? ticket.messageCount ?? null,
+        agent: ticket.assignedTo ?? ticket.assignedAgent ?? ticket.agent ?? null,
+      },
+      timestamp: new Date().toISOString(),
+    };
+    console.log("CSAT Data:", csatData);
+    // TODO: Send to API
+    // await saveCsatFeedback(csatData);
+    setStep("thankyou");
+  };
+
   const handleClose = () => {
-    // Save CSAT data to backend
-    const ticketId = ticket.id || ticket.ticketId;
-    const feedbackString = selectedFeedback.join(', ');
-    
-    if (selectedRating && ticketId) {
-      // Call backend API to submit CSAT rating
-      fetch(`http://localhost:8000/api/tickets/${ticketId}/csat/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          rating: selectedRating,
-          feedback: feedbackString
-        })
-      })
-      .then(response => {
-        if (!response.ok) {
-          console.error('Failed to submit CSAT rating');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('CSAT submitted:', data);
-      })
-      .catch(error => {
-        console.error('Error submitting CSAT:', error);
-      });
-    }
-    
     onClose();
   };
 
   return (
-    <ModalWrapper onClose={onClose} className={styles.csatModalWrapper}>
+    <ModalWrapper
+      onClose={onClose}
+      className={styles.csatModalWrapper}
+      disableEscClose={step !== "thankyou"}
+      disableOutsideClick={step !== "thankyou"}
+    >
       {step === "rating" ? (
+        // STEP 1: Rating
         <div className={styles.csatContent}>
           {/* Ticket Icon */}
           <div className={styles.ticketIcon}>
@@ -99,7 +92,7 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
 
           {/* Heading */}
           <h2 className={styles.heading}>How was your experience?</h2>
-          
+
           {/* Ticket Info */}
           <p className={styles.ticketInfo}>
             Ticket {ticket.ticketNumber || ticket.ticket_number} - {ticket.subject}
@@ -127,8 +120,161 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
               </button>
             ))}
           </div>
+
+          <p className={styles.ratingHint}>
+            {selectedRating
+              ? `You rated this ${selectedRating} star${selectedRating !== 1 ? "s" : ""}`
+              : "Click a star to rate"}
+          </p>
+        </div>
+      ) : step === "feedback" ? (
+        // STEP 2: Feedback & Comment
+        <div className={styles.feedbackContent}>
+          {/* Progress */}
+          <div className={styles.progressBar}>
+            <div className={styles.progressFill} style={{ width: "66%" }}></div>
+          </div>
+
+          {/* Heading */}
+          <h2 className={styles.feedbackHeading}>Help us improve</h2>
+          <p className={styles.feedbackSubtext}>Your feedback helps us serve you better</p>
+
+          {/* Quick Feedback Section */}
+          <div className={styles.feedbackSection}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>💭</span>
+              <span className={styles.sectionTitle}>Quick Feedback</span>
+              <span className={styles.sectionBadge}>Optional</span>
+            </div>
+            <div className={styles.feedbackTags}>
+              {feedbackOptions.map((feedback) => (
+                <button
+                  key={feedback}
+                  type="button"
+                  className={`${styles.feedbackTag} ${
+                    selectedFeedback.includes(feedback) ? styles.selected : ""
+                  }`}
+                  onClick={() => handleFeedbackClick(feedback)}
+                >
+                  {feedback}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Structured Fields: Resolution + Follow-up + Reopen */}
+          <div className={styles.structuredFields}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>✓</span>
+              <span className={styles.sectionTitle}>Resolution Status</span>
+              <span className={styles.sectionBadge}>Optional</span>
+            </div>
+            <div className={styles.sectionGroup}>
+                <div className={styles.sectionLabel}>Was your issue resolved?</div>
+                <div className={styles.sectionOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.feedbackTag} ${resolution === 'resolved' ? styles.selected : ''}`}
+                    onClick={() => setResolution('resolved')}
+                  >
+                    Resolved
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.feedbackTag} ${resolution === 'partial' ? styles.selected : ''}`}
+                    onClick={() => setResolution('partial')}
+                  >
+                    Partially resolved
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.feedbackTag} ${resolution === 'not_resolved' ? styles.selected : ''}`}
+                    onClick={() => setResolution('not_resolved')}
+                  >
+                    Not resolved
+                  </button>
+                </div>
+              </div>
+
+            <div className={styles.sectionGroup}>
+                <div className={styles.sectionLabel}>Would you like a follow-up?</div>
+                <div className={styles.sectionOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.optionButton} ${wantsFollowUp === true ? styles.selected : ''}`}
+                    onClick={() => setWantsFollowUp(true)}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.optionButton} ${wantsFollowUp === false ? styles.selected : ''}`}
+                    onClick={() => setWantsFollowUp(false)}
+                  >
+                    No
+                  </button>
+                </div>
+              </div>
+
+            <div className={styles.sectionGroup}>
+                <div className={styles.sectionLabel}>Do you need to reopen this ticket?</div>
+                <div className={styles.sectionOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.optionButton} ${wantsReopen === true ? styles.selected : ''}`}
+                    onClick={() => setWantsReopen(true)}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.optionButton} ${wantsReopen === false ? styles.selected : ''}`}
+                    onClick={() => setWantsReopen(false)}
+                  >
+                    No
+                  </button>
+                </div>
+            </div>
+          </div>
+
+          {/* Comment Field */}
+          <div className={styles.commentSection}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionIcon}>💬</span>
+              <span className={styles.sectionTitle}>Additional Comments</span>
+              <span className={styles.sectionBadge}>Optional</span>
+            </div>
+            <textarea
+              id="comment"
+              className={styles.commentInput}
+              placeholder="Any additional details or suggestions?"
+              value={comment}
+              onChange={(e) => setComment(e.target.value.slice(0, 300))}
+              rows={3}
+            />
+            <p className={styles.charCount}>{comment.length}/300</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className={styles.actionButtons}>
+            <button
+              type="button"
+              onClick={() => setStep("rating")}
+              className={styles.backButton}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className={styles.submitButton}
+            >
+              Submit Feedback
+            </button>
+          </div>
         </div>
       ) : (
+        // STEP 3: Thank You
         <div className={styles.thankYouContent}>
           {/* Thumbs Up Icon */}
           <div className={styles.thumbsUpIcon}>
@@ -138,33 +284,10 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
           </div>
 
           {/* Thank You Message */}
-          <h2 className={styles.thankYouHeading}>Thank you!</h2>
+          <h2 className={styles.thankYouHeading}>Thank you for your feedback!</h2>
           <p className={styles.thankYouSubtext}>
-            Your feedback helps us improve our service.
+            We appreciate your time and will use this to improve our service.
           </p>
-
-          {/* Quick Feedback Section */}
-          <div className={styles.quickFeedback}>
-            <p className={styles.quickFeedbackLabel}>
-              <strong>Quick feedback?</strong> What did we do well?
-            </p>
-            <div className={styles.feedbackButtons}>
-              {["Fast response", "Very helpful", "Professional", "Problem solved"].map(
-                (feedback) => (
-                  <button
-                    key={feedback}
-                    type="button"
-                    className={`${styles.feedbackButton} ${
-                      selectedFeedback.includes(feedback) ? styles.selected : ""
-                    }`}
-                    onClick={() => handleFeedbackClick(feedback)}
-                  >
-                    {feedback}
-                  </button>
-                )
-              )}
-            </div>
-          </div>
 
           {/* Close Button */}
           <button
@@ -174,11 +297,6 @@ const EmployeeCSATModal = ({ ticket, onClose }) => {
           >
             Close
           </button>
-
-          {/* Auto-close Message */}
-          <p className={styles.autoCloseText}>
-            Closing automatically in {countdown} seconds...
-          </p>
         </div>
       )}
     </ModalWrapper>

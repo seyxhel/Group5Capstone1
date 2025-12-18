@@ -1,0 +1,158 @@
+/* CSAT View Modal - single-column stacked layout */
+.container {
+  min-width: 520px;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 14px 0;
+  color: #212529;
+}
+
+.profileSection {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.profileImage {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.profileInfo h3 { margin: 0 0 4px 0; font-size: 1rem; color: #212529; }
+.profileInfo { flex: 1 1 auto; }
+.subtext { margin: 0; font-size: 0.875rem; color: #6c757d; }
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* left and right columns equal width */
+  gap: 8px 24px;
+  align-items: stretch; /* make both columns stretch to same height */
+  margin-bottom: 18px;
+}
+
+/* Column containers */
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+}
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Make left column visually match Ticket Tracker details card */
+.leftColCard {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* fill column height */
+}
+
+/* Right column card mirrors the left one but keeps its interior clean (no bottom separators) */
+.rightColCard {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px; /* match left card padding so cards look symmetric */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* fill column height */
+}
+
+.rightColCard .detailField {
+  display: flex;
+  flex-direction: row; /* place label and value on the same row */
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: none; /* keep no horizontal separators for the right card */
+  padding: 8px 0;
+}
+
+/* allow the main content inside cards to expand so both cards match heights even when content differs */
+.leftColCard > .detailItem,
+.leftColCard > .singleColumnGroup,
+.rightColCard > .detailField,
+.rightColCard > .attachmentList {
+  flex: 1 1 auto;
+}
+
+/* Right card: keep label and value on the same line */
+.rightColCard .detailField label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #667eea; /* match left-column label color */
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0;
+}
+.rightColCard .detailField .fieldValue,
+.rightColCard .detailField p {
+  margin: 0;
+  font-size: 14px;
+  color: #212529;
+  font-weight: 600;
+}
+
+/* stacked label above value for each field */
+.detailField { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+.detailField.fullWidth { width: 100%; }
+.detailField label { font-size: 12px; font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: 0.6px; }
+.detailField .fieldValue, .detailField p { margin: 0; font-size: 14px; color: #212529; line-height: 1.5; font-weight: 600; }
+
+.ratingDisplay { display: flex; align-items: center; }
+.ratingBadge { display: inline-block; padding: 6px 14px; border-radius: 16px; font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
+
+.feedbackBox { background-color: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e9ecef; }
+.feedbackBox p { margin: 0; font-size: 14px; color: #212529; line-height: 1.6; white-space: pre-wrap; }
+
+/* Column titles */
+.columnTitle { font-size: 0.95rem; font-weight: 700; margin: 0 0 10px 0; color: #212529; }
+
+/* visual-only attachment placeholder area (gray rows) */
+.attachmentList { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.attachmentRow { background: #f8fafc; border-radius: 8px; padding: 10px; border: 1px solid #eef3fb; color: #6c757d; }
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 0; /* remove extra top padding before buttons */
+  border-top: none; /* remove dividing line */
+  margin-top: auto; /* allow actions to align to bottom when modal has extra vertical space */
+}
+.closeButton { padding: 10px 18px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; }
+.openTicketButton { padding: 10px 18px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .container { min-width: 96vw; padding: 16px; }
+  .detailsGrid { grid-template-columns: 1fr; }
+  .rightCol { order: 2; }
+  .leftCol { order: 1; }
+}

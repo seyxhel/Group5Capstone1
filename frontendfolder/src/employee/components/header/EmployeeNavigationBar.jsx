@@ -566,7 +566,6 @@ const EmployeeNavBar = () => {
           <img src={MapLogo} alt="Logo" className={styles['logo-image']} />
           <div className={styles['brand-wrapper']}>
             <span className={styles['brand-name']}>SmartSupport</span>
-            <span className={styles['role-badge']}>{currentUser?.role}</span>
           </div>
         </div>
       </section>
@@ -579,8 +578,7 @@ const EmployeeNavBar = () => {
               <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} />
             </div>
             <div className={styles['mobile-profile-info']}>
-              <h3>{getFullName()}</h3>
-              <span className={styles['role-badge']}>{currentUser?.role}</span>
+              <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
               <div className={styles['mobile-profile-actions']}>
                 <button className={styles['mobile-settings-btn']} onClick={() => { setIsMobileMenuOpen(false); setTimeout(() => navigate('/employee/settings'), 0); }}>Settings</button>
                 <button className={styles['mobile-logout-btn']} onClick={handleLogout}>Log Out</button>
@@ -675,8 +673,7 @@ const EmployeeNavBar = () => {
                       />
                     </div>
                     <div className={styles['profile-info']}>
-                      <h3>{getFullName()}</h3>
-                      <span className={styles['role-badge']}>{currentUser?.role}</span>
+                      <h3>{`${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`}</h3>
                     </div>
                   </div>
                   <div className={styles['profile-menu']}>
