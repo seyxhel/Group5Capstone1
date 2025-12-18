@@ -168,6 +168,15 @@ const CoordinatorAdminNavBar = () => {
     window.addEventListener('profile:updated', onProfileUpdated);
     return () => window.removeEventListener('profile:updated', onProfileUpdated);
   }, []);
+  // Helper to build full name supporting camelCase and snake_case fields
+  const getFullName = () => {
+    const u = currentUser || (() => { try { return JSON.parse(localStorage.getItem('user')||'null'); } catch { return null; } })();
+    if (!u) return '';
+    const first = u.firstName || u.first_name || u.first || '';
+    const middle = u.middleName || u.middle_name || u.middle || '';
+    const last = u.lastName || u.last_name || u.last || '';
+    return `${first}${middle ? ' ' + middle : ''} ${last}`.trim();
+  };
   const [openDropdown, setOpenDropdown] = useState(null);
   const [notifCount, setNotifCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -446,7 +455,7 @@ const CoordinatorAdminNavBar = () => {
               />
             </div>
             <div className={styles['mobile-profile-info']}>
-              <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
+              <h3>{getFullName()}</h3>
               <div className={styles['mobile-profile-actions']}>
                 <button 
                   className={styles['mobile-settings-btn']}
@@ -562,7 +571,7 @@ const CoordinatorAdminNavBar = () => {
                   <img src={profileImageUrl} alt="Profile" className={styles['avatar-image']} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_SVG; }} />
                 </div>
                 <div className={styles['profile-info']}>
-                  <h3>{`${currentUser?.firstName} ${currentUser?.lastName}`}</h3>
+                  <h3>{getFullName()}</h3>
                 </div>
               </div>
               <div className={styles['profile-menu']}>

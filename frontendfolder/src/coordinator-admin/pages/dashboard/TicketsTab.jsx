@@ -480,7 +480,7 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
 
     const timer = setTimeout(() => { doLoad(); }, 150);
     return () => { mounted = false; clearTimeout(timer); };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Recompute derived data (stats, pie, line, table, timeline) whenever
   // the raw tickets or selected ranges change. This avoids re-fetching
@@ -590,7 +590,7 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       pieData: pie,
       lineData: line
     });
-  }, [rawTickets, chartRange, pieRange, currentUser]);
+  }, [rawTickets, chartRange, pieRange, currentUser?.id, currentUser?.role]);
 
   return (
     <>

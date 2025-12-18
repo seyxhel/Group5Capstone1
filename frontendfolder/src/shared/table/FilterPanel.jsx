@@ -245,6 +245,7 @@ export default function FilterPanel({
   // Existing props (can override preset values)
   onApply,
   onReset,
+  showStatus,
   statusOptions,
   priorityOptions,
   categoryOptions,
@@ -378,7 +379,7 @@ export default function FilterPanel({
               )}
 
               {/* Status Dropdown - SECOND */}
-              {shouldRender('status') && (
+              {shouldRender('status') && finalShowStatus && (
                 <div className={styles.filterGroup}>
                   <label htmlFor="status">{finalStatusLabel}</label>
                   <select
@@ -403,7 +404,7 @@ export default function FilterPanel({
           ) : (
             <>
               {/* Status Dropdown - FIRST */}
-              {shouldRender('status') && (
+              {shouldRender('status') && finalShowStatus && (
                 <div className={styles.filterGroup}>
                   <label htmlFor="status">{finalStatusLabel}</label>
                   <select
