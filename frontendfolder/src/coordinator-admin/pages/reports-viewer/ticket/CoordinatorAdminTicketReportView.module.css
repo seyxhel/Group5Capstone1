@@ -1,0 +1,423 @@
+/* TicketReportView.module.css */
+
+/* Main Container */
+.reportContainer {
+  padding: 24px;
+  background: transparent;
+  min-height: auto;
+}
+
+/* Unified Report Content */
+.reportContent {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Header Card */
+.headerCard {
+  background: linear-gradient(135deg, #1E40AF 0%, #1E3A8A 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.headerTitle {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.headerMeta {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.headerPeriod {
+  text-align: center;
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.periodLabel {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.periodValue {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* Section Styling */
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stat Cards */
+.statCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.statCard {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 160px;
+  background: #E0E7FF;
+  text-align: center;
+}
+
+.statCardLabel {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.statCardValue {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4F46E5;
+}
+
+/* Two Column Layout */
+.twoColumnGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+/* Card Containers */
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1f2937;
+}
+
+/* Tables */
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tableHeader {
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.tableHeaderCell {
+  text-align: left;
+  padding: 8px 0;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.tableHeaderCellCenter {
+  text-align: center;
+  padding: 8px 0;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.tableRow {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tableCell {
+  padding: 10px 0;
+  color: #1f2937;
+}
+
+.tableCellCenter {
+  padding: 10px 0;
+  text-align: center;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tableCellPercentage {
+  padding: 10px 0;
+  text-align: center;
+  color: #6b7280;
+}
+
+/* Priority Badge */
+.priorityBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* Progress Bar */
+.progressBarContainer {
+  width: 100%;
+  height: 8px;
+  background-color: #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progressBarFill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Coordinator Productivity */
+.coordinatorGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.coordinatorCard {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.coordinatorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coordinatorName {
+  font-weight: 700;
+  color: #111827;
+}
+
+.coordinatorStats {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.coordinatorStat {
+  flex: 1;
+}
+
+.coordinatorStatLabel {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.coordinatorStatValue {
+  font-weight: 700;
+}
+
+/* Aging Analysis */
+.agingGrid {
+  display: flex;
+  gap: 16px;
+}
+
+.agingCard {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  flex: 1;
+}
+
+.agingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agingDays {
+  font-weight: 700;
+}
+
+.agingCount {
+  font-weight: 700;
+}
+
+.agingMessage {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Info Box */
+.infoBox {
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Footer Metadata */
+.footerSection {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  text-align: center;
+}
+
+.footerItem {
+  font-size: 12px;
+  color: #6B7280;
+  margin-bottom: 4px;
+}
+
+.footerValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* PDF Controls */
+.pdfControls {
+  margin-top: 32px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.generateButton {
+  padding: 10px 20px;
+  background: #3B82F6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.generateButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.downloadButton {
+  padding: 10px 20px;
+  background: #10B981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.downloadButton:hover {
+  background: #059669;
+}
+
+/* PDF Preview */
+.pdfPreviewSection {
+  margin-top: 32px;
+}
+
+.pdfPreviewTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.pdfPreviewContainer {
+  height: 75vh;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pdfIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Export Controls */
+.exportControls {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  background: transparent;
+  margin: 0;
+  border-radius: 0;
+  border-bottom: none;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: none;
+}
+
+.exportButton {
+  padding: 10px 16px;
+  background: #3B82F6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.exportButton:hover:not(:disabled) {
+  background: #2563EB;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.exportButton:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.2);
+}
+
+.exportButton:disabled {
+  background: #9CA3AF;
+  cursor: not-allowed;
+  opacity: 0.6;
+}

@@ -1,0 +1,136 @@
+/* === Modal Overlay === */
+.modal-overlay {
+  position: fixed;
+  inset: 0; /* shorthand for top, right, bottom, left = 0 */
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.3); /* spec: rgba(0,0,0,0.3) */
+  backdrop-filter: blur(4px); /* subtle background blur when modal open */
+  z-index: 1000; /* spec: overlay z-index 1000 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem; /* small padding to avoid edge collision on mobile */
+  overflow-y: auto;
+}
+
+/* === Modal Content Box === */
+.modal-content {
+  position: relative;
+  z-index: 1001; /* spec: content above overlay */
+  width: fit-content; /* width determined by content, clamped by inline maxWidth */
+  max-width: 95vw;
+  background-color: #ffffff; /* spec: white background */
+  border: 1px solid #d3d3d3; /* spec: 1px light border */
+  border-radius: 40px; /* spec: 40px */
+  padding: 20px; /* spec: ~20px padding */
+  box-sizing: border-box; /* ensure padding included in width calculations */
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); /* spec: stronger shadow */
+  animation: fadeIn 0.25s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* spacing between stacked elements */
+  max-height: 80vh; /* spec: content should not exceed 80% of viewport */
+  overflow-y: auto; /* scrollable vertically if content is tall */
+}
+
+/* === Title & Message === */
+.modal-title {
+  font-size: 18px;
+  font-weight: 600; /* semi-bold */
+  margin: 0;
+}
+
+.modal-message {
+  font-size: 14px;
+  font-weight: 400;
+  margin: 0;
+  color: #212529;
+}
+
+/* Close button (top-right) */
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: #0C0C0C;
+}
+.modal-close:hover { background: rgba(0,0,0,0.04); }
+
+/* === Button Row === */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+/* Cancel Button */
+.modal-btn-cancel {
+  background: #f8f9fa;
+  border: 1px solid #d3d3d3;
+  color: #212529;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Confirm Button (contextual colors) */
+.modal-btn-confirm {
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+}
+.modal-btn-confirm.delete { background-color: #dc3545; }
+.modal-btn-confirm.activate { background-color: #28a745; }
+.modal-btn-confirm.confirm { background-color: #007bff; }
+
+/* === Animation === */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Responsive Modal Adjustments === */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 100%; /* full width on mobile */
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 16px 16px 0 0; /* bottom-sheet style */
+    max-height: 100vh;
+  }
+  /* align overlay items to bottom on small screens for bottom-sheet behaviour */
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .modal-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-btn-cancel,
+  .modal-btn-confirm {
+    width: 100%; /* bigger touch targets */
+  }
+}
