@@ -4,13 +4,13 @@ import styles from './KnowledgeArticleRestoreModal.module.css';
 import kbService from '../../../../services/kbService';
 import ModalWrapper from '../../../../shared/modals/ModalWrapper';
 
-const KnowledgeArticleRestoreModal = ({ version, article, onClose, onRestoreSuccess }) => {
+const KnowledgeArticleRestoreModal = ({ version, article, onClose, onRestoreSuccess, versionIndex, totalVersions }) => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [error, setError] = useState(null);
 
-  const versionNumber = version?.number ?? version?.version ?? 'Unknown';
+  const versionNumber = `1.1.${totalVersions - versionIndex}`;
   const modifiedDate = version?.date || version?.updated_at || version?.dateModified || 'Unknown';
-  const author = version?.author || version?.editor || 'Unknown';
+  const authorName = article?.created_by_external_name || article?.created_by_name || 'Unknown';
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -34,7 +34,12 @@ const KnowledgeArticleRestoreModal = ({ version, article, onClose, onRestoreSucc
       const newContent = version?.content || version?.body || version?.text || version?.html || version?.raw || '';
       if (!kbService.updateArticle) throw new Error('kbService.updateArticle is not available');
 
-      await kbService.updateArticle(article.id, { content: newContent });
+      // Update article content with restore metadata and target version number
+      await kbService.updateArticle(article.id, { 
+        content: newContent,
+        summary: `Restored from version ${versionNumber}`,
+        restore_version_number: versionNumber
+      });
 
       if (onRestoreSuccess) {
         onRestoreSuccess();
@@ -55,20 +60,12 @@ const KnowledgeArticleRestoreModal = ({ version, article, onClose, onRestoreSucc
   };
 
   return (
-    <ModalWrapper onClose={handleCancel} className={styles.modalContent} contentProps={{ role: 'dialog', 'aria-modal': true }}>
+    <ModalWrapper onClose={null} className={styles.modalContent} contentProps={{ role: 'dialog', 'aria-modal': true }}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>
             <FaExclamationTriangle style={{ marginRight: 8, color: '#F59E0B' }} />
             Restore Version
           </h2>
-          <button
-            className={styles.closeButton}
-            onClick={handleCancel}
-            disabled={isRestoring}
-            aria-label="Close modal"
-          >
-            <FaTimes />
-          </button>
         </div>
 
         <div className={styles.modalBody}>
@@ -90,7 +87,7 @@ const KnowledgeArticleRestoreModal = ({ version, article, onClose, onRestoreSucc
             </div>
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>Author</span>
-              <span className={styles.detailValue}>{author}</span>
+              <span className={styles.detailValue}>{authorName}</span>
             </div>
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>Article</span>

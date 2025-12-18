@@ -371,6 +371,7 @@ class KnowledgeArticleVersion(models.Model):
     article = models.ForeignKey(KnowledgeArticle, on_delete=models.CASCADE, related_name='versions')
     version_number = models.CharField(max_length=64, blank=True, null=True)
     editor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    content = models.TextField(blank=True, null=True, help_text="Snapshot of article description at this version")
     changes = models.TextField(blank=True, null=True)
     metadata = models.JSONField(blank=True, null=True)
     modified_at = models.DateTimeField(auto_now_add=True)

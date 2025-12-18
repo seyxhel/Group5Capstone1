@@ -186,6 +186,9 @@ export const getArticle = (id) => {
           archived: !!a.archived || !!a.is_archived,
           // include tags if backend provides them (array or comma-separated)
           tags: Array.isArray(a.tags) ? a.tags : (typeof a.tags === 'string' ? a.tags.split(',').map(s => s.trim()).filter(Boolean) : (Array.isArray(a.tag_list) ? a.tag_list : [])),
+          // include creator info
+          created_by_external_name: a.created_by_external_name || a.created_by_name || null,
+          created_by_external_id: a.created_by_external_id || null,
           versions: Array.isArray(a.versions) ? a.versions : (a.versions || []),
         };
     })

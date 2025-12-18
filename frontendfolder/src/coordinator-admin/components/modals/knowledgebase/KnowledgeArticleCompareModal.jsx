@@ -57,7 +57,7 @@ const renderDiffSide = (leftText, rightText, side) => {
   });
 };
 
-const KnowledgeArticleCompareModal = ({ leftVersion = {}, rightVersion = {}, leftLabel, rightLabel, onClose }) => {
+const KnowledgeArticleCompareModal = ({ leftVersion = {}, rightVersion = {}, leftLabel, rightLabel, onClose, article }) => {
   // keep Escape handling; ModalWrapper locks background scroll
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -67,32 +67,41 @@ const KnowledgeArticleCompareModal = ({ leftVersion = {}, rightVersion = {}, lef
 
   const leftContent = leftVersion.content || leftVersion.body || leftVersion.text || leftVersion.html || leftVersion.raw || '';
   const rightContent = rightVersion.content || rightVersion.body || rightVersion.text || rightVersion.html || rightVersion.raw || '';
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d)) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const authorName = article?.created_by_external_name || article?.created_by_name || 'Unknown';
 
   return (
     <ModalWrapper onClose={onClose} className={styles.modal} contentProps={{ role: 'dialog', 'aria-modal': true }}>
         <div className={styles.header}>
           <div className={styles.title}>Compare Versions</div>
-          <div>
-            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-          </div>
         </div>
 
         <div className={styles.body}>
           <div className={styles.column}>
-            <div className={styles.colHeader}>Version {leftLabel}</div>
-            <div className={styles.colMeta}>{leftVersion.author || leftVersion.editor || 'Unknown'} • {leftVersion.date || leftVersion.updated_at || leftVersion.dateModified || leftVersion.modified || ''}</div>
+            <div className={styles.colHeader}>Version 1.1.{leftLabel}</div>
+            <div className={styles.colMeta}>{authorName} • {formatDate(leftVersion.date || leftVersion.updated_at || leftVersion.dateModified || leftVersion.modified)}</div>
             <div className={styles.colBody}>{renderDiffSide(leftContent, rightContent, 'left')}</div>
           </div>
 
           <div className={styles.column}>
-            <div className={styles.colHeader}>Version {rightLabel}</div>
-            <div className={styles.colMeta}>{rightVersion.author || rightVersion.editor || 'Unknown'} • {rightVersion.date || rightVersion.updated_at || rightVersion.dateModified || rightVersion.modified || ''}</div>
+            <div className={styles.colHeader}>Version 1.1.{rightLabel}</div>
+            <div className={styles.colMeta}>{authorName} • {formatDate(rightVersion.date || rightVersion.updated_at || rightVersion.dateModified || rightVersion.modified)}</div>
             <div className={styles.colBody}>{renderDiffSide(leftContent, rightContent, 'right')}</div>
           </div>
-        </div>
-
-        <div className={styles.footer}>
-          <Button type="button" variant="nav" onClick={onClose}>Done</Button>
         </div>
     </ModalWrapper>
   );

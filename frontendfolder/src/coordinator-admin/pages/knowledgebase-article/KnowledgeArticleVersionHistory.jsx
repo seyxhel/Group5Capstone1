@@ -116,6 +116,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
   const [compareModalPair, setCompareModalPair] = useState(null);
   const [compareModalData, setCompareModalData] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [restoreVersionIndex, setRestoreVersionIndex] = useState(null);
 
   // Note: inline compare UI removed; side-by-side modal retained via `compareModalPair` state.
 
@@ -136,13 +137,14 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
     });
   };
 
-  const doRestore = async (v) => {
+  const doRestore = async (v, idx) => {
     if (!canRestore()) {
       alert('You do not have permission to restore versions.');
       return;
     }
     // Open restore confirmation modal instead of inline confirm
     setRestoreVersion(v);
+    setRestoreVersionIndex(idx);
   };
 
   const startEdit = (i) => {
@@ -236,8 +238,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
                 <div className={styles.ticketHeader}>
                   <div className={styles.ticketHeaderLeft}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div className={styles.ticketNumber}>Version {versionNumber}</div>
-                      <div className={styles.versionBadge}>MINOR</div>
+                      <div className={styles.ticketNumber}>Version 1.1.{sortedVersions.length - idx}</div>
                     </div>
                     <div className={styles.modifiedDate}>{formatDate(modifiedDate)}</div>
                   </div>
@@ -303,15 +304,13 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
                 <div className={styles.ticketDetailsGrid}>
                   <div>
                     <div className={styles.ticketLabel}>Author</div>
-                    <div className={styles.ticketValue}>John Smith</div>
+                    <div className={styles.ticketValue}>{article.created_by_external_name || 'Unknown'}</div>
                   </div>
                   <div>
                     <div className={styles.ticketLabel}>Status</div>
-                    <div className={styles.ticketValue}>Published</div>
+                    <div className={styles.ticketValue}>{article.archived || article.is_archived ? 'Archived' : 'Active'}</div>
                   </div>
                 </div>
-
-                <div className={styles.versionSummary} style={{ marginTop: 8 }}>Minor clarifications to instructions.</div>
 
                 {/* Modal preview opens when user clicks "View This Version" */}
 
@@ -322,7 +321,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
                 <div className={styles.actionButtons}>
                   <Button type="button" variant="nav" onClick={() => openModal(idx)} title={isCurrent ? 'This is the current version' : 'View this version'} disabled={isCurrent}><FaEye style={{marginRight:8}}/> View This Version</Button>
                   {canRestore() && (
-                    <Button type="button" variant="primary" className={viewStyles.actionButton} onClick={() => doRestore(v)} title="Restore this version" disabled={idx === 0}><FaUndo /> Restore</Button>
+                    <Button type="button" variant="primary" className={viewStyles.actionButton} onClick={() => doRestore(v, idx)} title="Restore this version" disabled={idx === 0}><FaUndo /> Restore</Button>
                   )}
                 </div>
               </div>
@@ -390,6 +389,7 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
             rightVersion={compareModalData.rightVersion}
             leftLabel={compareModalData.leftLabel}
             rightLabel={compareModalData.rightLabel}
+            article={article}
             onClose={() => setCompareModalData(null)}
           />
         )}
@@ -399,9 +399,15 @@ const KnowledgeArticleVersionHistory = ({ article, category }) => {
           <KnowledgeArticleRestoreModal
             version={restoreVersion}
             article={article}
-            onClose={() => setRestoreVersion(null)}
+            versionIndex={restoreVersionIndex}
+            totalVersions={sortedVersions.length}
+            onClose={() => {
+              setRestoreVersion(null);
+              setRestoreVersionIndex(null);
+            }}
             onRestoreSuccess={() => {
               setRestoreVersion(null);
+              setRestoreVersionIndex(null);
               alert('Article restored successfully. Reloading...');
               window.location.reload();
             }}

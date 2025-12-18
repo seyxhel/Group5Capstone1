@@ -34,16 +34,16 @@ const KnowledgeArticleViewVersion = ({
 
   // overlay click handled by ModalWrapper
 
-  const versionLabel = version?.number ?? version?.version ?? index + 1;
-  const content = version?.content || version?.body || version?.text || version?.html || version?.raw || 'No content available for this version.';
-  
+  const versionLabel = `1.1.${total - index}`;
+  const content = version?.content || article?.content || article?.description || version?.body || version?.text || version?.html || version?.raw || 'No content available for this version.';
+  const authorName = article?.created_by_external_name || article?.created_by_name || 'Unknown';
 
   return (
-    <ModalWrapper onClose={onClose} className={styles.modalContent} contentProps={{ role: 'dialog', 'aria-modal': true }}>
+    <ModalWrapper onClose={null} className={styles.modalContent} contentProps={{ role: 'dialog', 'aria-modal': true }}>
         <div className={styles.header}>
           <div className={styles.versionInfo}>
             <h2 className={styles.versionTitle}>Version {versionLabel}</h2>
-            <div className={styles.authorInfo}>{version?.author || version?.editor || article?.author || 'Unknown'}</div>
+            <div className={styles.authorInfo}>{authorName}</div>
           </div>
           <div className={styles.navigationButtons}>
             <Button type="button" variant="nav" onClick={onPrev} disabled={index >= total - 1} title="Previous version (Left Arrow)"><FaChevronLeft /> <span style={{marginLeft:6}}>Prev</span></Button>

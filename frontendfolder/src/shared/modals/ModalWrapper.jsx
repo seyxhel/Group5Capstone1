@@ -62,9 +62,11 @@ const ModalWrapper = ({ children, onClose, className, contentProps = {}, size, m
   return ReactDOM.createPortal(
     <div className={styles["modal-overlay"]} onClick={handleOverlayClick}>
       <div className={contentClass} {...mergedContentProps}>
-        <button aria-label="Close modal" className={styles['modal-close']} onClick={() => onClose?.()}>
-          ×
-        </button>
+        {onClose && (
+          <button aria-label="Close modal" className={styles['modal-close']} onClick={() => onClose?.()}>
+            ×
+          </button>
+        )}
         {children}
       </div>
     </div>,

@@ -387,6 +387,7 @@ class KnowledgeArticleSerializer(serializers.ModelSerializer):
                 'number': v.version_number,
                 'author': getattr(v.editor, 'company_id', None) or getattr(v.editor, 'id', None),
                 'date': v.modified_at.isoformat() if v.modified_at else None,
+                'content': v.content,
                 'changes': v.changes,
                 'metadata': v.metadata,
             }

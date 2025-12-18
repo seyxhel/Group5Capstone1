@@ -369,7 +369,9 @@ const KnowledgeArticleView = () => {
                     </div>
                     <h2 className={styles.ticketSubject}>{article.title}</h2>
                   </div>
-                  <div className={localStyles.currentBadge}>CURRENT VERSION: 1.1.2</div>
+                  <div className={localStyles.currentBadge}>
+                    CURRENT VERSION: 1.1.{article.versions?.length || 1}
+                  </div>
                 </div>
 
                 {/* Meta Information */}

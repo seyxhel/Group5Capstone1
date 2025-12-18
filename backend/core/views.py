@@ -2273,6 +2273,7 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
                 article=article,
                 version_number='1',
                 editor=None if isinstance(user, ExternalUser) else user,
+                content=article.description,
                 changes='Created article',
                 metadata={'subject': article.subject}
             )
@@ -2300,13 +2301,25 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
 
         article = serializer.save()
         try:
-            # Determine next version number (simple increment based on count)
-            count = article.versions.count() if hasattr(article, 'versions') else 0
-            version_number = str(count + 1)
+            # Check if this is a restore operation
+            restore_version_number = request.data.get('restore_version_number') if request else None
+            
+            if restore_version_number:
+                # Extract the actual version number from semantic version format (1.1.X -> X)
+                if isinstance(restore_version_number, str) and '.' in restore_version_number:
+                    version_number = restore_version_number.split('.')[-1]  # Get last part
+                else:
+                    version_number = str(restore_version_number)
+            else:
+                # Determine next version number (simple increment based on count)
+                count = article.versions.count() if hasattr(article, 'versions') else 0
+                version_number = str(count + 1)
+            
             KnowledgeArticleVersion.objects.create(
                 article=article,
                 version_number=version_number,
                 editor=None if isinstance(user, ExternalUser) else user,
+                content=article.description,
                 changes=request.data.get('summary') or 'Updated article',
                 metadata={'before': None, 'after': None}
             )
