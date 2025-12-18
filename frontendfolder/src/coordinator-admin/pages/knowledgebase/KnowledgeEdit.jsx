@@ -9,6 +9,7 @@ import SelectField from '../../../shared/components/SelectField';
 import { FiX } from 'react-icons/fi';
 import createEditStyles from './KnowledgeCreateEdit.module.css';
 import kbService from '../../../services/kbService';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 
 const KnowledgeEdit = () => {
@@ -22,23 +23,54 @@ const KnowledgeEdit = () => {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([kbService.listCategories(), kbService.getArticle(id)])
-      .then(([cats, article]) => {
+    const load = async () => {
+      try {
+        const [cats, article] = await Promise.all([kbService.listCategories(), kbService.getArticle(id)]);
         if (!mounted) return;
         setCategories(cats || []);
+
+        const normalizeTags = (raw) => {
+          if (!raw) return [];
+          let list = [];
+          if (Array.isArray(raw)) list = raw.slice();
+          else if (typeof raw === 'string') {
+            if (raw.includes(',')) list = raw.split(',');
+            else list = raw.split('\n').join(' ').split(' ').filter(Boolean);
+          } else {
+            try { list = Array.from(raw); } catch (e) { list = []; }
+          }
+          const titleCase = (s) => String(s).trim().split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '').join(' ');
+          return list.map(t => t ? titleCase(t) : '').filter(Boolean);
+        };
+
+        const visibilityKey = (v) => {
+          if (!v) return 'employee';
+          const s = String(v).toLowerCase();
+          if (s.includes('ticket')) return 'ticket_coordinator';
+          if (s.includes('system') || s.includes('admin')) return 'system_admin';
+          return 'employee';
+        };
+
         if (article) {
           setEditorData({
             title: article.title || '',
             content: article.content || '',
             category_id: article.category_id || null,
-            visibility: article.visibility || 'employee',
+            visibility: visibilityKey(article.visibility || article.access || article.visibility),
             status: article.archived ? 'archived' : (article.status || 'active'),
-            tags: (article.tags || []).map(t => (t ? String(t).split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '').join(' ') : t))
+            tags: normalizeTags(article.tags)
           });
+          setLoading(false);
+        } else {
+          console.warn(`No article data returned for id=${id}; keeping skeleton visible.`);
         }
-      })
-      .catch((err) => console.error('Failed to load edit data:', err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Failed to load edit data:', err);
+        setLoading(false);
+      }
+    };
+
+    load();
 
     return () => { mounted = false; };
   }, [id]);
@@ -67,9 +99,50 @@ const KnowledgeEdit = () => {
   if (loading) {
     return (
       <div className={createEditStyles.container}>
-        <FormCard>
-          <div className={createEditStyles.loadingInner}>Loading article for edit…</div>
-        </FormCard>
+        <Breadcrumb root="Knowledge Base" currentPage="Edit Article" rootNavigatePage="/admin/knowledge/articles" title="Edit Knowledge Article" />
+        <section>
+          <FormCard>
+            <form>
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Title</label>
+                <Skeleton width="60%" height={34} />
+              </div>
+
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Category</label>
+                <Skeleton width="40%" height={34} />
+              </div>
+
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Visibility</label>
+                <Skeleton width="30%" height={34} />
+              </div>
+
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Tags</label>
+                <Skeleton width="100%" height={36} />
+                <div style={{ marginTop: 8 }}>
+                  <Skeleton width="100%" height={34} />
+                </div>
+              </div>
+
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Article Content</label>
+                <Skeleton width="100%" height={200} />
+              </div>
+
+              <div className={createEditStyles.formFieldLg}>
+                <label className={createEditStyles.formLabel}>Status</label>
+                <Skeleton width="20%" height={34} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
+                <Skeleton width={120} height={36} />
+                <Skeleton width={140} height={36} />
+              </div>
+            </form>
+          </FormCard>
+        </section>
       </div>
     );
   }

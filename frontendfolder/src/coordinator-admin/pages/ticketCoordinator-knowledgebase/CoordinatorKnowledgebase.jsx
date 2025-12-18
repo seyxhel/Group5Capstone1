@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
-import ARTICLES from '../../../mocks/seed/articles.json';
+import kbService from '../../../services/kbService';
 import styles from './CoordinatorKnowledgebase.module.css';
 import ViewCard from '../../../shared/components/ViewCard';
 import InputField from '../../../shared/components/InputField';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
+import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const CoordinatorKnowledgebase = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,9 +15,32 @@ const CoordinatorKnowledgebase = () => {
     setExpandedIndex(expandedIndex === index ? null : index);
   };
 
-  // Only show articles visible to Ticket Coordinators
-  const visibleArticles = ARTICLES.filter((article) => {
-    return (article.visibility || '').toLowerCase() === 'ticket coordinator';
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const list = await kbService.listArticles();
+        if (!mounted) return;
+        setArticles(Array.isArray(list) ? list : (list.results || []));
+      } catch (e) {
+        if (!mounted) return;
+        setArticles([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  // Only show articles visible to Ticket Coordinators and not archived
+  const visibleArticles = (articles || []).filter((article) => {
+    const vis = (article.visibility || '').toLowerCase();
+    const archived = !!article.is_archived || !!article.archived;
+    return vis === 'ticket coordinator' && !archived;
   });
 
   const filteredArticles = visibleArticles.filter((article) => {
@@ -52,7 +76,14 @@ const CoordinatorKnowledgebase = () => {
           </div>
 
           <ul className={styles.kbList}>
-            {filteredArticles.length > 0 ? (
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className={styles.kbItem}>
+                  <Skeleton width="60%" height="18px" />
+                  <Skeleton width="100%" height="12px" style={{ marginTop: '8px' }} />
+                </li>
+              ))
+            ) : filteredArticles.length > 0 ? (
               filteredArticles.map((article, index) => (
                 <li key={article.id || index} className={styles.kbItem}>
                   <div

@@ -1,6 +1,7 @@
 // Knowledge Base Service - Backend Adapter
 // This adapts the backend article API to match the expected kbService interface
 import { backendArticleService } from './backend/articleService';
+import { authUserService } from './auth/userService';
 import { TICKET_CATEGORIES } from '../shared/constants/ticketCategories';
 
 // Helper to capitalize visibility string
@@ -115,7 +116,7 @@ export const listArticles = (filters = {}) => {
   const isServerRequest = Boolean(filters.page || filters.page_size || filters.serverSide);
 
   return backendArticleService.getAllArticles(params)
-    .then((articles) => {
+    .then(async (articles) => {
       // Support multiple backend shapes: array OR paginated object { results: [...] } OR { data: [...] }
       let rawList = [];
       let meta = null;
@@ -124,6 +125,7 @@ export const listArticles = (filters = {}) => {
       else if (articles && Array.isArray(articles.data)) { rawList = articles.data; meta = articles; }
       else rawList = [];
 
+      // Map base article fields and include tags + author placeholders
       let results = rawList.length ? rawList.map(a => ({
         id: a.id,
         title: a.title || a.name || a.subject,
@@ -133,13 +135,17 @@ export const listArticles = (filters = {}) => {
         date_created: a.date_created || a.created_at || a.created || new Date().toISOString(),
         date_modified: a.date_modified || a.updated_at || a.updated || new Date().toISOString(),
         archived: !!a.archived || !!a.is_archived || false,
+        // Tags: try common backend shapes (tags array or comma-separated string)
+        tags: Array.isArray(a.tags) ? a.tags : (typeof a.tags === 'string' ? a.tags.split(',').map(s => s.trim()).filter(Boolean) : (Array.isArray(a.tag_list) ? a.tag_list : [])),
+        // Author: prefer backend-provided author fields
+        author: a.created_by_name || a.created_by_external_name || a.author || null,
       })) : [...mockArticles];
 
       // If backend returned meta (count/next/previous) and caller explicitly
       // requested server-side pagination (passed page/page_size or serverSide flag),
       // return the wrapped shape so callers can use meta.count for total items.
       if (meta && isServerRequest) {
-        return { results, meta };
+        return { results: results, meta };
       }
       return results;
 
@@ -178,6 +184,8 @@ export const getArticle = (id) => {
           date_created: a.date_created || a.created_at,
           date_modified: a.date_modified || a.updated_at,
           archived: !!a.archived || !!a.is_archived,
+          // include tags if backend provides them (array or comma-separated)
+          tags: Array.isArray(a.tags) ? a.tags : (typeof a.tags === 'string' ? a.tags.split(',').map(s => s.trim()).filter(Boolean) : (Array.isArray(a.tag_list) ? a.tag_list : [])),
           versions: Array.isArray(a.versions) ? a.versions : (a.versions || []),
         };
     })

@@ -184,14 +184,17 @@ class TicketAdmin(admin.ModelAdmin):
 
 @admin.register(KnowledgeArticle)
 class KnowledgeArticleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'subject', 'category', 'visibility', 'is_archived', 'created_by', 'created_at')
+    list_display = (
+        'id', 'subject', 'category', 'visibility', 'is_archived', 'created_by_external_name', 'created_at'
+    )
     list_filter = ('category', 'visibility', 'is_archived')
     search_fields = ('subject', 'description')
-    readonly_fields = ('created_at', 'updated_at')
-    autocomplete_fields = ('created_by',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by_external_name')
     fieldsets = (
         (None, {
-            'fields': ('subject', 'category', 'visibility', 'description', 'is_archived', 'created_by')
+            'fields': (
+                'subject', 'category', 'visibility', 'description', 'is_archived', 'created_by_external_name'
+            )
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at')

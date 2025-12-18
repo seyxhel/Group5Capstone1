@@ -344,13 +344,13 @@ class KnowledgeArticle(models.Model):
     category = models.CharField(max_length=100, choices=ARTICLE_CATEGORY_CHOICES)
     visibility = models.CharField(max_length=50, choices=VISIBILITY_CHOICES)
     description = models.TextField()
+    # Tags for categorization/search — stored as JSON array of strings
+    tags = models.JSONField(blank=True, null=True, default=list)
     is_archived = models.BooleanField(default=False)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='created_articles'
-    )
+    # Store external/authenticated creator info (id + display name).
+    # We no longer keep a FK to local Employee; all creator info is stored here.
+    created_by_external_id = models.IntegerField(null=True, blank=True)
+    created_by_external_name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

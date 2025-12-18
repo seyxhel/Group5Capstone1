@@ -347,21 +347,20 @@ class KnowledgeArticleSerializer(serializers.ModelSerializer):
         model = KnowledgeArticle
         fields = [
             'id', 'subject', 'category', 'visibility', 'description',
-            'is_archived', 'created_by', 'created_by_name', 'created_at', 'updated_at', 'versions'
+            'is_archived', 'tags', 'created_by_name', 'created_by_external_id', 'created_by_external_name', 'created_at', 'updated_at', 'versions'
         ]
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by_external_id', 'created_by_external_name']
 
     def get_created_by_name(self, obj):
-        # If the article has a local Employee linked, return their full name
-        if obj.created_by:
-            return f"{obj.created_by.first_name} {obj.created_by.last_name}"
+        # Prefer explicit external name stored on the article
+        if getattr(obj, 'created_by_external_name', None):
+            return obj.created_by_external_name
 
-        # If there is no local user (created_by is None) the article may have
-        # been created by an external user authenticated via the external
-        # auth service (represented by ExternalUser). The serializer has
-        # access to the request via context; check the request user and if
-        # their role indicates an admin, return a friendly "System Admin"
-        # display name so the frontend shows the expected owner.
+        # If external id is present but no name, try to return a placeholder
+        if getattr(obj, 'created_by_external_id', None):
+            return f"User {obj.created_by_external_id}"
+
+        # Fallback: if request user is a System Admin, return 'System Admin'
         request = self.context.get('request') if hasattr(self, 'context') else None
         if request is not None:
             try:
@@ -372,11 +371,8 @@ class KnowledgeArticleSerializer(serializers.ModelSerializer):
                     if 'system admin' in rl or rl == 'admin' or rl == 'system_admin':
                         return 'System Admin'
             except Exception:
-                # If anything goes wrong while inspecting the request user,
-                # fall through to the default behavior below.
                 pass
 
-        # Default: no creator information available
         return None
 
     def get_versions(self, obj):

@@ -2251,11 +2251,21 @@ class KnowledgeArticleViewSet(viewsets.ModelViewSet):
         field is nullable so we store `None` in that case.
         """
         user = self.request.user
-        if isinstance(user, ExternalUser):
-            # external users aren't Employee instances stored locally
-            article = serializer.save(created_by=None)
-        else:
-            article = serializer.save(created_by=user)
+        # Persist creator info into external fields for all users (no FK)
+        try:
+            creator_id = int(getattr(user, 'id', None)) if getattr(user, 'id', None) is not None else None
+        except Exception:
+            creator_id = None
+        creator_name = None
+        try:
+            if getattr(user, 'first_name', None) or getattr(user, 'last_name', None):
+                creator_name = f"{getattr(user,'first_name','') or ''} {getattr(user,'last_name','') or ''}".strip()
+            else:
+                creator_name = getattr(user, 'email', None) or getattr(user, 'username', None) or None
+        except Exception:
+            creator_name = getattr(user, 'email', None) or getattr(user, 'username', None) or None
+
+        article = serializer.save(created_by_external_id=creator_id, created_by_external_name=creator_name)
         # Create initial version entry
         try:
             from .models import KnowledgeArticleVersion
