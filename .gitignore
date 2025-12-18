@@ -10,6 +10,8 @@ node_modules/
 dist
 dist-ssr
 *.local
+/venv
+/auth2
 
 # Ignore auth and backend folders
 auth/
