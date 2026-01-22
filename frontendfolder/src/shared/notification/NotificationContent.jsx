@@ -3,7 +3,7 @@ import styles from './NotificationContent.module.css';
 import PropTypes from 'prop-types';
 import { MdDeleteOutline } from 'react-icons/md';
 
-const Notification = ({ items = [], open, onClose, onDelete, onClear, className }) => {
+const Notification = ({ items = [], open, onClose, onDelete, onClear, className, title = 'Notifications', portalStyle = null }) => {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     if (open) {
@@ -19,8 +19,11 @@ const Notification = ({ items = [], open, onClose, onDelete, onClear, className 
 
   if (!open) return null;
 
+  // If `portalStyle` is provided by the wrapper, apply it to the overlay
+  const overlayProps = portalStyle ? { style: portalStyle } : {};
+
   return (
-    <div className={styles['notification-overlay']} onClick={onClose}>
+    <div {...overlayProps} className={styles['notification-overlay']} onClick={onClose}>
       <div
         className={`${styles['notification-container']} ${className || ''}`}
         onClick={(e) => e.stopPropagation()}
@@ -28,7 +31,7 @@ const Notification = ({ items = [], open, onClose, onDelete, onClear, className 
         aria-label="Notifications"
       >
         <div className={styles['notification-header']}>
-          <h2>Notifications</h2>
+          <h2>{title}</h2>
           <button
             className={styles['clear-all-btn']}
             onClick={(e) => { e.stopPropagation(); onClear?.(); }}
@@ -73,6 +76,7 @@ Notification.propTypes = {
   onDelete: PropTypes.func,
   onClear: PropTypes.func,
   className: PropTypes.string,
+  portalStyle: PropTypes.object,
 };
 
 export default Notification;

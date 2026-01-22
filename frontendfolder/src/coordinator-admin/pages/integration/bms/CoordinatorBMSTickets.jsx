@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { FaEdit, FaTimes, FaEye } from "react-icons/fa";
 
-import styles from "./CoordinatorBMSTickets.module.css";
-import TablePagination from "../../../../shared/table/TablePagination";
+import Table from "../../../../shared/table/Table";
 import { getAllTickets } from "../../../../utilities/storages/ticketStorage";
 import authService from "../../../../utilities/service/authService";
-import InputField from '../../../../shared/components/InputField';
-import Skeleton from '../../../../shared/components/Skeleton/Skeleton';
+import getTicketActions from "../../../../shared/table/TicketActions";
 
-import CoordinatorAdminOpenTicketModal from "../../../components/modals/CoordinatorOpenTicketModal";
-import CoordinatorAdminRejectTicketModal from "../../../components/modals/CoordinatorRejectTicketModal";
-import CoordinatorTicketFilter from "../../../components/filters/CoordinatorTicketFilter";
+import CoordinatorAdminOpenTicketModal from "../../../components/modals/ticket-management/CoordinatorOpenTicketModal";
+import CoordinatorAdminRejectTicketModal from "../../../components/modals/ticket-management/CoordinatorRejectTicketModal";
+import CoordinatorTicketFilter from "../../../components/filters/CoordinatorAdminTicketManagementFilter";
 import "react-toastify/dist/ReactToastify.css";
 
 // Helper function to calculate SLA status
@@ -112,14 +109,6 @@ const CoordinatorBMSTickets = () => {
 
 		let result = decorated;
 
-		// Apply status filter only when a specific status is selected
-		if (statusFilter) {
-			result = result.filter(ticket => {
-				const status = ticket.__effectiveStatus?.toLowerCase() || '';
-				return status === statusFilter.toLowerCase();
-			});
-		}
-
 		// Apply search filter
 		if (searchTerm.trim()) {
 			const term = searchTerm.toLowerCase();
@@ -130,8 +119,68 @@ const CoordinatorBMSTickets = () => {
 			);
 		}
 
+		// Apply filter panel selections (if any)
+		if (activeFilters && Object.keys(activeFilters).length > 0) {
+			const normalize = (f) => {
+				if (f == null || f === undefined) return null;
+				if (Array.isArray(f)) return f.map((x) => (typeof x === "string" ? x : x.label || x.value || "")).filter(Boolean);
+				if (typeof f === "object") return [f.label || f.value || ""];
+				return [String(f)];
+			};
+
+			const statusSel = normalize(activeFilters.status);
+			const prioritySel = normalize(activeFilters.priority);
+			const categorySel = normalize(activeFilters.category);
+			const subCategorySel = normalize(activeFilters.subCategory);
+			const slaSel = normalize(activeFilters.slaStatus);
+
+			const startDate = activeFilters.startDate ? new Date(activeFilters.startDate) : null;
+			const endDate = activeFilters.endDate ? new Date(activeFilters.endDate) : null;
+
+			result = result.filter((ticket) => {
+				// Check status filter
+				if (statusSel && statusSel.length > 0 && !statusSel.includes(ticket.__effectiveStatus)) {
+					return false;
+				}
+
+				// Check priority filter
+				if (prioritySel && prioritySel.length > 0 && !prioritySel.includes(ticket.priorityLevel)) {
+					return false;
+				}
+
+				// Check category filter
+				if (categorySel && categorySel.length > 0 && !categorySel.includes(ticket.category)) {
+					return false;
+				}
+
+				// Check subCategory filter
+				if (subCategorySel && subCategorySel.length > 0 && !subCategorySel.includes(ticket.subCategory)) {
+					return false;
+				}
+
+				// Check SLA filter
+				if (slaSel && slaSel.length > 0) {
+					const sla = calculateSLAStatus(ticket);
+					if (!slaSel.includes(sla)) return false;
+				}
+
+				// Check date range filter
+				if ((startDate || endDate) && ticket.dateCreated) {
+					const created = new Date(ticket.dateCreated);
+					if (startDate && created < startDate) return false;
+					if (endDate) {
+						const endOfDay = new Date(endDate);
+						endOfDay.setHours(23, 59, 59, 999);
+						if (created > endOfDay) return false;
+					}
+				}
+
+				return true;
+			});
+		}
+
 		return result;
-	}, [allTickets, statusFilter, searchTerm]);
+	}, [allTickets, searchTerm, activeFilters]);
 
 	const paginatedTickets = useMemo(() => {
 		const start = (currentPage - 1) * itemsPerPage;
@@ -140,7 +189,7 @@ const CoordinatorBMSTickets = () => {
 
 	useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm, statusFilter]);
+	}, [searchTerm, activeFilters]);
 
 	const openModal = (type, ticket) => {
 		setSelectedTicket(ticket);
@@ -170,191 +219,138 @@ const CoordinatorBMSTickets = () => {
 		return s === "new" || s === "submitted" || s === "pending";
 	};
 
+	const FilterComponent = () => (
+		<CoordinatorTicketFilter
+			key={showFilter ? "filter-shown" : "filter-hidden"}
+			preset="ticketManagement"
+			initialShow={showFilter}
+			hideToggleButton={true}
+			onApply={setActiveFilters}
+			onReset={() => {
+				setActiveFilters({
+					status: null,
+					priority: null,
+					category: null,
+					subCategory: null,
+					slaStatus: null,
+					startDate: "",
+					endDate: "",
+				});
+				setCurrentPage(1);
+			}}
+			initialFilters={activeFilters}
+		/>
+	);
+
 	return (
 		<>
 			<ToastContainer />
-			<div className={styles.pageContainer}>
-				<div className={styles.topBar}>
-					<button 
-						className={styles.showFilterButton}
-						onClick={() => setShowFilter(!showFilter)}
-					>
-						{showFilter ? 'Hide Filter' : 'Show Filter'}
-					</button>
-				</div>
+			<Table
+				variant="ticketManagement"
+				data={paginatedTickets}
+				columns={[
+					{ 
+						key: "ticketNumber", 
+						label: "Ticket No.", 
+						skeletonWidth: "100px", 
+						render: (value) => value || "-" 
+					},
+					{
+						key: "subject",
+						label: "Subject",
+						skeletonWidth: "200px",
+						render: (value) => value || "-",
+					},
+					{ 
+						key: "__effectiveStatus", 
+						label: "Status",
+						skeletonWidth: "80px",
+						render: (value, ticket) => {
+							const status = value || ticket.status;
+							const statusKey = status.replace(/\s+/g, "-").toLowerCase();
+							return <span className={`status-${statusKey}`}>{status}</span>;
+						}
+					},
+					{ key: "category", label: "Category", skeletonWidth: "100px", render: (value) => value || "-" },
+					{ key: "subCategory", label: "Sub Category", skeletonWidth: "100px", render: (value) => value || "-" },
+					{ 
+						key: "priorityLevel", 
+						label: "Priority",
+						skeletonWidth: "80px",
+						render: (value) => {
+							if (!value) return <span className="priority-not-set">Not Set</span>;
+							return <span className={`priority-${value.toLowerCase()}`}>{value}</span>;
+						}
+					},
+					{ 
+						key: "slaStatus", 
+						label: "SLA Status",
+						skeletonWidth: "100px",
+						render: (_, ticket) => {
+							const slaStatus = calculateSLAStatus(ticket);
+							const slaKey = slaStatus.replace(/\s+/g, "-").toLowerCase();
+							return <span className={`sla-${slaKey}`}>{slaStatus}</span>;
+						}
+					},
+					{ 
+						key: "assignedAgent", 
+						label: "Assigned Agent",
+						skeletonWidth: "120px",
+						render: (value) => value || "Unassigned"
+					},
+					{
+						key: "actions",
+						label: "Actions",
+						skeletonWidth: "80px",
+						render: (_, ticket) => (
+							<>
+								{getTicketActions("view", ticket, { 
+									onView: () => navigate(`/admin/ticket-tracker/${ticket.ticketNumber}`) 
+								})}
+								{isActionable(ticket.__effectiveStatus || ticket.status) && 
+									getTicketActions("edit", ticket, { 
+										onEdit: () => openModal("open", ticket) 
+									})}
+								{isActionable(ticket.__effectiveStatus || ticket.status) && 
+									getTicketActions("delete", ticket, { 
+										onDelete: () => openModal("reject", ticket) 
+									})}
+							</>
+						)
+					},
+				]}
+				filterComponent={FilterComponent}
+				showFilter={showFilter}
+				onShowFilterChange={setShowFilter}
+				title="BMS Tickets"
+				searchable
+				searchPlaceholder="Search..."
+				searchValue={searchTerm}
+				onSearchChange={(e) => setSearchTerm(e.target.value)}
+				currentPage={currentPage}
+				pageSize={itemsPerPage}
+				totalItems={filteredTickets.length}
+				onPageChange={setCurrentPage}
+				onPageSizeChange={setItemsPerPage}
+				isLoading={isLoading}
+				emptyMessage="No BMS tickets found for this status or search."
+			/>
 
-				{showFilter && (
-					<CoordinatorTicketFilter
-						onApply={setActiveFilters}
-						onReset={() => {
-							setActiveFilters({
-								status: null,
-								priority: null,
-								category: null,
-								subCategory: null,
-								slaStatus: null,
-								startDate: "",
-								endDate: "",
-							});
-							setCurrentPage(1);
-						}}
-						initialFilters={activeFilters}
-					/>
-				)}
+			{modalType === "open" && selectedTicket && (
+				<CoordinatorAdminOpenTicketModal
+					ticket={selectedTicket}
+					onClose={closeModal}
+					onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Open")}
+				/>
+			)}
 
-				<div className={styles.tableSection}>
-					<div className={styles.tableHeader}>
-						<h2>BMS Tickets</h2>
-						<div className={styles.tableActions}>
-							<InputField
-								placeholder="Search..."
-								value={searchTerm}
-								onChange={e => setSearchTerm(e.target.value)}
-								inputStyle={{ width: '260px' }}
-							/>
-						</div>
-					</div>
-        
-					<div className={styles.tableWrapper}>
-						<table className={styles.table}>
-							<thead>
-								<tr>
-									<th>Ticket No.</th>
-									<th>Subject</th>
-									<th>Status</th>
-									<th>Category</th>
-									<th>Sub Category</th>
-									<th>Priority</th>
-									<th>SLA Status</th>
-									<th>Assigned Agent</th>
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{isLoading ? (
-									Array.from({ length: 5 }).map((_, i) => (
-										<tr key={i}>
-											<td><Skeleton /></td>
-											<td><Skeleton /></td>
-											<td><Skeleton width="80px" /></td>
-											<td><Skeleton /></td>
-											<td><Skeleton /></td>
-											<td><Skeleton width="80px" /></td>
-											<td><Skeleton width="100px" /></td>
-											<td><Skeleton /></td>
-											<td><Skeleton width="80px" /></td>
-										</tr>
-									))
-								) : paginatedTickets.length === 0 ? (
-									<tr>
-										<td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#6b7280", fontStyle: "italic" }}>
-											No BMS tickets found for this status or search.
-										</td>
-									</tr>
-								) : (
-									paginatedTickets.map((ticket, idx) => {
-										const effective = ticket.__effectiveStatus || ticket.status || '';
-										const displayStatus = effective;
-										const statusClass = displayStatus.replace(/\s+/g, '-').toLowerCase();
-                    
-										return (
-											<tr key={ticket.ticketNumber || idx}>
-												<td>{ticket.ticketNumber}</td>
-												<td>
-													<div className={styles.subjectCell} title={ticket.subject}>
-														{ticket.subject}
-													</div>
-												</td>
-												<td>
-													<div className={styles[`status-${statusClass}`]}>
-														{displayStatus}
-													</div>
-												</td>
-												<td>{ticket.category}</td>
-												<td>{ticket.subCategory || "—"}</td>
-												<td>
-													{ticket.priorityLevel ? (
-														<div className={styles[`priority-${ticket.priorityLevel.toLowerCase()}`]}>
-															{ticket.priorityLevel}
-														</div>
-													) : (
-														<div className={styles['priority-not-set']}>
-															Not Set
-														</div>
-													)}
-												</td>
-												<td>
-													<div className={styles[`sla-${calculateSLAStatus(ticket).toLowerCase().replace(' ', '-')}`]}>
-														{calculateSLAStatus(ticket)}
-													</div>
-												</td>
-												<td>{ticket.assignedAgent || "Unassigned"}</td>
-												<td>
-													<div className={styles.actionButtonCont}>
-														<button
-															title="View"
-															className={styles.actionButton}
-															onClick={() => navigate(`/admin/ticket-tracker/${ticket.ticketNumber}`)}
-														>
-															<FaEye />
-														</button>
-														{isActionable(ticket.status) && (
-															<button
-																title="Edit"
-																className={styles.actionButton}
-																onClick={() => openModal("open", ticket)}
-															>
-																<FaEdit />
-															</button>
-														)}
-														{isActionable(ticket.status) && (
-															<button
-																title="Delete"
-																className={styles.actionButton}
-																onClick={() => openModal("reject", ticket)}
-															>
-																<FaTimes />
-															</button>
-														)}
-													</div>
-												</td>
-											</tr>
-										);
-									})
-								)}
-							</tbody>
-						</table>
-					</div>
-					<div className={styles.tablePagination}>
-						{!isLoading && (
-							<TablePagination
-								currentPage={currentPage}
-								totalItems={filteredTickets.length}
-								initialItemsPerPage={itemsPerPage}
-								onPageChange={setCurrentPage}
-								onItemsPerPageChange={setItemsPerPage}
-								alwaysShow={true}
-							/>
-						)}
-					</div>
-				</div>
-
-				{modalType === "open" && selectedTicket && (
-					<CoordinatorAdminOpenTicketModal
-						ticket={selectedTicket}
-						onClose={closeModal}
-						onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Open")}
-					/>
-				)}
-
-				{modalType === "reject" && selectedTicket && (
-					<CoordinatorAdminRejectTicketModal
-						ticket={selectedTicket}
-						onClose={closeModal}
-						onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Rejected")}
-					/>
-				)}
-			</div>
+			{modalType === "reject" && selectedTicket && (
+				<CoordinatorAdminRejectTicketModal
+					ticket={selectedTicket}
+					onClose={closeModal}
+					onSuccess={(ticketNumber) => handleSuccess(ticketNumber, "Rejected")}
+				/>
+			)}
 		</>
 	);
 };

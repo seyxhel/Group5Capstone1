@@ -2,13 +2,13 @@
 .chartsGrid {
   display: grid;
   grid-template-columns: 1fr; /* ✅ Mobile: single column */
-  gap: 24px; /* ✅ consistent vertical spacing */
+  gap: 16px; /* Compact spacing */
 }
 
 @media (min-width: 1024px) {
   .chartsGrid {
     grid-template-columns: 2fr 1fr; /* ✅ main chart + side chart/feed */
-    gap: 24px;
+    gap: 16px; /* Compact spacing */
     align-items: start;
   }
 }
@@ -16,21 +16,22 @@
 /* === Chart Container === */
 .chartContainer {
   background-color: #fff;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 220px;
 }
 
 /* === Chart Title === */
 .chartTitle {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-color);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 /* === Chart Content: Pie + Timeline Side-by-Side === */
@@ -39,8 +40,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
-  padding: 1rem 0;
+  min-height: 200px;
+  padding: 0.5rem 0;
   position: relative;
 }
 
@@ -48,7 +49,7 @@
 .chartContentRow {
   display: flex;
   flex-direction: row; /* side-by-side for desktop */
-  gap: 2rem;
+  gap: 1.25rem;
   align-items: flex-start;
   justify-content: center;
   width: 100%;
@@ -56,24 +57,24 @@
 
 /* Left status column (single column list) */
 .statusColumn {
-  width: 180px;
+  width: 140px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
 }
 
 .statusItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.95rem;
+  gap: 8px;
+  font-size: 0.875rem;
   color: var(--text-color);
 }
 
 .statusSwatch {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
@@ -82,7 +83,7 @@
 /* Timeline list styling */
 .timelineList {
   width: 100%; /* full width on mobile */
-  max-height: 200px; /* scrollable if too many items */
+  max-height: 160px; /* scrollable if too many items */
   overflow-y: auto;
   padding-left: 0;
   list-style: none;
@@ -92,19 +93,19 @@
 .timelineItem {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0;
+  gap: 0.2rem;
+  padding: 0.4rem 0;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .timelineTime {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: #6b7280;
 }
 
 .timelineAction {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: #111827;
 }
@@ -160,11 +161,16 @@
   }
 
   .timelineList {
-    width: 40%; /* takes the right side */
+    width: 35%; /* takes the right side */
     max-height: none; /* let it expand */
   }
 
   .chartContentRow > .recharts-wrapper {
-    width: 60%; /* Pie chart takes left side */
+    width: 65%; /* Pie/chart area takes remaining space */
+  }
+
+  /* Pie area helper if using a div instead of recharts wrapper */
+  .chartContentRow > div[data-pie-area] {
+    width: 65%;
   }
 }

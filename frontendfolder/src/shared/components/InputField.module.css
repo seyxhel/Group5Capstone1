@@ -1,14 +1,14 @@
 .inputFieldContainer {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   width: 100%; /* Full width within container */
 }
 
 .label {
   display: block;
-  font-size: 14px;
+  font-size: 0.7rem; /* ~11.2px - matching input/placeholder/value */
   color: #666;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 5px; /* Reduced spacing */
 }
 
 .required {
@@ -17,11 +17,11 @@
 
 .input {
   width: 100%; /* Full width within container */
-  min-height: 40px; /* Use min-height so input can match selects/textareas */
-  padding: 13px 16px; /* Padding: H: 13px | W: 16px */
+  min-height: 34px; /* Increased from 28px */
+  padding: 10px 12px; /* Increased from 8px 10px */
   border: 1px solid #E0E0E0; /* Border: Gray 300 #E0E0E0 */
-  border-radius: 25px; /* Border-radius: 25px */
-  font-size: 14px;
+  border-radius: 18px; /* Increased from 16px */
+  font-size: 0.8rem; /* ~12.8px - increased for better readability */
   font-family: inherit;
   background-color: #F8F8F8; /* Background: Light #F8F8F8 */
   color: #0C0C0C; /* Text: Base #0C0C0C */
@@ -35,6 +35,7 @@
 .input::placeholder {
   color: #9ca3af; /* Muted gray for better contrast */
   opacity: 1;
+  font-size: 0.8rem; /* Match input font size */
 }
 
 /* Focus state - border-primary blue */
@@ -73,4 +74,115 @@
   font-size: 12px;
   color: #6b7280;
   margin-top: 6px;
+}
+/* Currency Field Variant */
+.currencyFieldWrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  overflow: hidden;
+  background-color: #ffffff;
+  height: 42px;
+  transition: all 0.15s ease;
+}
+
+.currencyLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px 0 16px;
+  background-color: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+  min-width: 55px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  user-select: none;
+  border-radius: 0 !important;
+  height: 100%;
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.currencyInput {
+  flex: 1;
+  padding: 0 18px;
+  border: none;
+  border-radius: 0 !important;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #111827;
+  background: transparent;
+  text-align: right;
+  outline: none;
+  box-sizing: border-box;
+  height: 100%;
+  line-height: 42px;
+  caret-color: #3b82f6;
+  cursor: text;
+}
+
+.currencyInput::placeholder {
+  color: #d1d5db;
+  font-weight: 400;
+  opacity: 1;
+}
+
+.currencyInput::selection {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #111827;
+}
+
+.currencyFieldWrapper:hover:not(:focus-within) {
+  border-color: #9ca3af;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.currencyFieldWrapper:focus-within {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.currencyFieldWrapper:focus-within .currencyLabel {
+  color: #3b82f6;
+  border-right-color: #bfdbfe;
+}
+
+.currencyInput:focus {
+  outline: none;
+}
+
+.currencyInput:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  color: #9ca3af;
+}
+
+.currencyFieldWrapper:has(.inputDisabled) {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.currencyFieldWrapper:has(.inputDisabled) .currencyLabel {
+  color: #9ca3af;
+}
+
+.currencyInput.inputError {
+  color: #dc2626;
+}
+
+.currencyFieldWrapper:has(.inputError) {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.currencyFieldWrapper:has(.inputError):focus-within {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }

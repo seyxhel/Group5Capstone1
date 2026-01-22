@@ -252,6 +252,8 @@ export default function FilterPanel({
   slaStatusOptions,
   assignedAgentOptions,
   initialFilters = {},
+  // Control whether the filter panel is visible by default when the toggle exists
+  initialShow = false,
   hideToggleButton = false,
   statusLabel,
   priorityLabel,
@@ -262,6 +264,7 @@ export default function FilterPanel({
   categoryFirst = false,
   // Optional array of fields to render (e.g. ['rating','startDate','endDate']). If omitted, render defaults.
   fields = null,
+  sortOptions,
 }) {
   // Apply preset configuration if provided
   const presetConfig = preset ? FILTER_PRESETS[preset] : {};
@@ -274,6 +277,7 @@ export default function FilterPanel({
   const finalSubCategoryOptions = subCategoryOptions || presetConfig.subCategoryOptions || defaultSubCategoryOptions;
   const finalSLAStatusOptions = slaStatusOptions !== undefined ? slaStatusOptions : (presetConfig.slaStatusOptions || defaultSLAStatusOptions);
   const finalAssignedAgentOptions = assignedAgentOptions !== undefined ? assignedAgentOptions : (presetConfig.assignedAgentOptions || defaultAssignedAgentOptions);
+  const finalSortOptions = sortOptions !== undefined ? sortOptions : (presetConfig.sortOptions || []);
   
   const finalStatusLabel = statusLabel || presetConfig.statusLabel || "Status";
   const finalPriorityLabel = priorityLabel !== undefined ? priorityLabel : (presetConfig.priorityLabel || "Priority");
@@ -282,7 +286,7 @@ export default function FilterPanel({
   const finalShowDateFilters = showDateFilters !== undefined ? showDateFilters : (presetConfig.showDateFilters !== undefined ? presetConfig.showDateFilters : true);
   const finalShowSLAStatus = showSLAStatus !== undefined ? showSLAStatus : (presetConfig.showSLAStatus !== undefined ? presetConfig.showSLAStatus : false);
 
-  const [showFilter, setShowFilter] = useState(false);
+  const [showFilter, setShowFilter] = useState(initialShow);
   const [filters, setFilters] = useState({
     status: initialFilters.status || null,
     priority: initialFilters.priority || null,
@@ -293,6 +297,7 @@ export default function FilterPanel({
     startDate: initialFilters.startDate || "",
     endDate: initialFilters.endDate || "",
     rating: initialFilters.rating || null,
+    sort: initialFilters.sort || null,
   });
 
   const fieldsSet = fields ? new Set(fields) : null;
@@ -326,6 +331,7 @@ export default function FilterPanel({
       startDate: "",
       endDate: "",
       rating: null,
+      sort: null,
     };
     setFilters(resetFilters);
     if (onReset) onReset(resetFilters);
@@ -441,6 +447,27 @@ export default function FilterPanel({
                 </div>
               )}
             </>
+          )}
+
+          {/* Sort field (optional) */}
+          {shouldRender('sort') && finalSortOptions && finalSortOptions.length > 0 && (
+            <div className={styles.filterGroup}>
+              <label htmlFor="sort">Sort</label>
+              <select
+                name="sort"
+                className={styles.dropdown}
+                value={filters.sort?.value || ""}
+                onChange={(e) => {
+                  const selected = finalSortOptions.find(opt => opt.value === e.target.value);
+                  handleDropdownChange("sort", selected);
+                }}
+              >
+                <option value="">Select sort</option>
+                {finalSortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           )}
 
           {/* Rating field (optional) */}

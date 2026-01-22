@@ -24,7 +24,7 @@ ChartJS.register(
 );
 
 import styles from './CoordinatorAdminDashboard.module.css';
-import Tabs from '../../../shared/components/Tabs';
+import { GeneralTabs } from '../../../shared/components/Tabs';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from '../../../utilities/service/authService';
 
@@ -33,6 +33,7 @@ import TicketsTab from './TicketsTab';
 import UsersTab from './UsersTab';
 import KnowledgeBaseTab from './KnowledgeBaseTab';
 import CSATTab from './CSATTab';
+import MyTickets from './MyTicketsTab';
 
 // === Main Component ===
 const CoordinatorAdminDashboard = () => {
@@ -44,9 +45,11 @@ const CoordinatorAdminDashboard = () => {
 
   // Ticket Coordinators should see a reduced dashboard (no CSAT tab)
   const isTicketCoordinator = currentUser?.role === 'Ticket Coordinator';
+  const isSystemAdmin = currentUser?.role === 'System Admin';
   const dashboardTabs = isTicketCoordinator
     ? [
       { label: 'Tickets', value: 'tickets' },
+      { label: 'My Tickets', value: 'mytickets' },
     ]
     : [
       { label: 'Tickets', value: 'tickets' },
@@ -63,10 +66,24 @@ const CoordinatorAdminDashboard = () => {
     return () => clearTimeout(timer);
   }, []);
 
+
   return (
     <div className={styles.dashboardContainer}>
       <div className={styles.dashboardContent}>
-        <h1 className={styles.title}>Dashboard</h1>
+        {/* Compact welcome for Coordinator and System Admin roles */}
+        {isSystemAdmin ? (
+          <h1 className={styles.welcomeHeader}>
+            Good to see you, <span className={styles.welcomeName}>{currentUser?.firstName || 'there'}</span>.
+            <p className={styles.welcomeSubtext}>Review system health and pending actions.</p>
+          </h1>
+        ) : isTicketCoordinator ? (
+          <h1 className={styles.welcomeHeader}>
+            Hi, <span className={styles.welcomeName}>{currentUser?.firstName || 'there'}</span>.
+            <p className={styles.welcomeSubtext}>Review, assign, and track support tickets.</p>
+          </h1>
+        ) : (
+          <h1 className={styles.title}>Dashboard</h1>
+        )}
 
         {isLoading ? (
           <div style={{ padding: '24px' }}>
@@ -108,10 +125,10 @@ const CoordinatorAdminDashboard = () => {
           </div>
         ) : (
           <>
-            <Tabs
+            <GeneralTabs
               tabs={dashboardTabs}
               active={activeTab}
-              onChange={setActiveTab}
+              onChange={(val) => setActiveTab(val)}
             />
             <div className={styles.tabContent}>
               {activeTab === 'tickets' && (
@@ -121,6 +138,9 @@ const CoordinatorAdminDashboard = () => {
                   pieRange={pieRange}
                   setPieRange={setPieRange}
                 />
+              )}
+              {activeTab === 'mytickets' && (
+                <MyTickets />
               )}
               {activeTab === 'users' && (
                 <UsersTab

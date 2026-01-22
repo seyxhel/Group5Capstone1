@@ -17,3 +17,8 @@
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Card content wrapper for responsive scaling of form children */
+.cardContent {
+  line-height: 1.35;
+}

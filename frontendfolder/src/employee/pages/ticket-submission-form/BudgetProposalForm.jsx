@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { FaDollarSign, FaPlus } from 'react-icons/fa';
 import Button from '../../../shared/components/Button';
+import InputField from '../../../shared/components/InputField';
+import SelectField from '../../../shared/components/SelectField';
 import styles from './BudgetProposalForm.module.css';
 
 const budgetSubCategories = [
@@ -8,6 +11,13 @@ const budgetSubCategories = [
   'Reimbursement Claim (Liabilities)',
   'Charging Department (Cost Center)'
 ];
+
+const BudgetProposalMetadata = {
+  categoryName: 'New Budget Proposal',
+  icon: FaDollarSign,
+  description: 'Submit budget proposals and financial requests',
+  subCategories: budgetSubCategories
+};
 
 // Cost elements based on sub-category
 const costElements = {
@@ -34,14 +44,7 @@ const costElements = {
   ]
 };
 
-const costRanges = [
-  '₱0 - ₱10,000',
-  '₱10,001 - ₱50,000',
-  '₱50,001 - ₱100,000',
-  '₱100,001 - ₱500,000',
-  '₱500,001 - ₱1,000,000',
-  '₱1,000,001 and above'
-];
+// Removed costRanges - now using direct peso input
 
 export default function BudgetProposalForm({ 
   formData, 
@@ -52,6 +55,25 @@ export default function BudgetProposalForm({
   budgetItems,
   setBudgetItems 
 }) {
+  // Compute local YYYY-MM-DD (avoid UTC offset from toISOString)
+  const getLocalDateString = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const today = getLocalDateString(new Date());
+
+  // Return YYYY-MM-DD for date + days using local calendar (no UTC)
+  const addDays = (dateStr, days) => {
+    const parts = dateStr.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() + days);
+    return getLocalDateString(d);
+  };
+
+  const tomorrow = addDays(today, 1);
   const addBudgetItem = () => {
     setBudgetItems([...budgetItems, { costElement: '', estimatedCost: '' }]);
   };
@@ -69,24 +91,11 @@ export default function BudgetProposalForm({
     setBudgetItems(newItems);
   };
 
-  // Calculate total budget
+  // Calculate total budget from numeric input values
   const calculateTotalBudget = () => {
     return budgetItems.reduce((total, item) => {
-      if (!item.estimatedCost) return total;
-      
-      const range = item.estimatedCost;
-      let maxValue = 0;
-
-      if (range === '₱1,000,001 and above') {
-        maxValue = 1000001;
-      } else {
-        const numbers = range.match(/\d+/g);
-        if (numbers && numbers.length > 1) {
-          maxValue = parseInt(numbers[1].replace(/,/g, ''));
-        }
-      }
-
-      return total + maxValue;
+      const amount = parseFloat(item.estimatedCost) || 0;
+      return total + amount;
     }, 0);
   };
 
@@ -101,25 +110,7 @@ export default function BudgetProposalForm({
 
   return (
     <>
-      {/* Sub-Category */}
-      <FormField
-        id="subCategory"
-        label="Sub-Category"
-        required
-        error={errors.subCategory}
-        render={() => (
-          <select
-            value={formData.subCategory}
-            onChange={onChange('subCategory')}
-            onBlur={onBlur('subCategory')}
-          >
-            <option value="">Select Budget Category</option>
-            {budgetSubCategories.map(sub => (
-              <option key={sub} value={sub}>{sub}</option>
-            ))}
-          </select>
-        )}
-      />
+      {/* Sub-Category selection is handled in Step 2 and shown in the banner */}
 
       {/* Budget Items */}
       <fieldset className={styles.budgetItemsFieldset}>
@@ -128,40 +119,22 @@ export default function BudgetProposalForm({
         {budgetItems.map((item, index) => (
           <div key={index} className={styles.budgetItem}>
             {/* Cost Element */}
-            <FormField
-              id={`costElement-${index}`}
+            <SelectField
               label="Cost Element"
-              render={() => (
-                <select
-                  disabled={!formData.subCategory}
-                  value={item.costElement}
-                  onChange={(e) => updateBudgetItem(index, 'costElement', e.target.value)}
-                >
-                  <option value="">
-                    {formData.subCategory ? 'Select Cost Element' : 'Select Sub-Category first'}
-                  </option>
-                  {formData.subCategory && costElements[formData.subCategory]?.map(element => (
-                    <option key={element} value={element}>{element}</option>
-                  ))}
-                </select>
-              )}
+              placeholder={formData.subCategory ? 'Select Cost Element' : 'Select Sub-Category first'}
+              value={item.costElement}
+              onChange={(e) => updateBudgetItem(index, 'costElement', e.target.value)}
+              disabled={!formData.subCategory}
+              options={formData.subCategory ? (costElements[formData.subCategory]?.map(element => ({ value: element, label: element })) || []) : []}
             />
 
             {/* Estimated Cost */}
-            <FormField
-              id={`estimatedCost-${index}`}
+            <InputField
+              variant="currency"
               label="Estimated Cost"
-              render={() => (
-                <select
-                  value={item.estimatedCost}
-                  onChange={(e) => updateBudgetItem(index, 'estimatedCost', e.target.value)}
-                >
-                  <option value="">Select Cost Range</option>
-                  {costRanges.map(range => (
-                    <option key={range} value={range}>{range}</option>
-                  ))}
-                </select>
-              )}
+              placeholder="0.00"
+              value={item.estimatedCost}
+              onChange={(e) => updateBudgetItem(index, 'estimatedCost', e.target.value)}
             />
 
             {/* Remove Button */}
@@ -179,10 +152,12 @@ export default function BudgetProposalForm({
 
         {/* Add Item Button */}
         <Button
-          variant="primary"
+          variant="secondary"
+          size="medium"
           onClick={addBudgetItem}
           className={styles.addButton}
         >
+          <FaPlus size={14} className={styles.iconLeft} />
           Add Item
         </Button>
 
@@ -196,54 +171,42 @@ export default function BudgetProposalForm({
       </fieldset>
 
       {/* Performance Start Date */}
-      <FormField
-        id="performanceStartDate"
+      <InputField
+        type="date"
         label="Performance Start Date"
+        value={formData.performanceStartDate || ''}
+        onChange={onChange('performanceStartDate')}
+        onBlur={onBlur('performanceStartDate')}
         required
         error={errors.performanceStartDate}
-        render={() => (
-          <input
-            type="date"
-            value={formData.performanceStartDate || ''}
-            onChange={onChange('performanceStartDate')}
-            onBlur={onBlur('performanceStartDate')}
-          />
-        )}
+        min={today}
       />
 
       {/* Performance End Date */}
-      <FormField
-        id="performanceEndDate"
+      <InputField
+        type="date"
         label="Performance End Date"
+        value={formData.performanceEndDate || ''}
+        onChange={onChange('performanceEndDate')}
+        onBlur={onBlur('performanceEndDate')}
         required
         error={errors.performanceEndDate}
-        render={() => (
-          <input
-            type="date"
-            value={formData.performanceEndDate || ''}
-            onChange={onChange('performanceEndDate')}
-            onBlur={onBlur('performanceEndDate')}
-            min={formData.performanceStartDate || ''}
-          />
-        )}
+        min={tomorrow}
       />
 
       {/* Prepared By */}
-      <FormField
-        id="preparedBy"
+      <InputField
+        type="text"
         label="Prepared By"
+        placeholder="Enter name of preparer"
+        value={formData.preparedBy || ''}
+        onChange={onChange('preparedBy')}
+        onBlur={onBlur('preparedBy')}
         required
         error={errors.preparedBy}
-        render={() => (
-          <input
-            type="text"
-            placeholder="Enter name of preparer"
-            value={formData.preparedBy || ''}
-            onChange={onChange('preparedBy')}
-            onBlur={onBlur('preparedBy')}
-          />
-        )}
       />
     </>
   );
 }
+
+export { BudgetProposalMetadata };

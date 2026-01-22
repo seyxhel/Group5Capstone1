@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import Notification from '../../../shared/notification/NotificationContent';
 import { HiOutlineDocumentAdd } from 'react-icons/hi';
 import { MdUpdate } from 'react-icons/md';
+import { createRoleNotifications } from '../../../shared/notification/Notification';
 
 const initialNotifications = [
   {
@@ -27,28 +26,9 @@ const initialNotifications = [
   },
 ];
 
-const CoordinatorAdminNotifications = ({ show, onClose, onCountChange }) => {
-  const [notifications, setNotifications] = useState(initialNotifications);
-
-  useEffect(() => {
-    if (onCountChange) onCountChange(notifications.length);
-  }, [notifications, onCountChange]);
-
-  const handleDelete = (id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const handleClearAll = () => setNotifications([]);
-
-  return (
-    <Notification
-      items={notifications}
-      open={show}
-      onClose={onClose}
-      onDelete={handleDelete}
-      onClear={handleClearAll}
-    />
-  );
-};
+const CoordinatorAdminNotifications = createRoleNotifications(
+  initialNotifications,
+  'Coordinator Notifications'
+);
 
 export default CoordinatorAdminNotifications;

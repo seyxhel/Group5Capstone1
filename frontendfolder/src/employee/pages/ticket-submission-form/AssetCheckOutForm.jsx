@@ -1,3 +1,7 @@
+import { FaBox } from 'react-icons/fa';
+import InputField from '../../../shared/components/InputField';
+import SelectField from '../../../shared/components/SelectField';
+
 const assetSubCategories = [
   'Laptop',
   'Printer',
@@ -6,15 +10,13 @@ const assetSubCategories = [
   'Keyboard'
 ];
 
-const locations = [
-  'Main Office - 1st Floor',
-  'Main Office - 2nd Floor',
-  'Main Office - 3rd Floor',
-  'Branch Office - North',
-  'Branch Office - South',
-  'Warehouse',
-  'Remote/Home Office'
-];
+const AssetCheckOutMetadata = {
+  categoryName: 'Asset Check Out',
+  icon: FaBox,
+  description: 'Request to check out company assets',
+  subCategories: assetSubCategories
+};
+
 
 // Mock assets data - this would come from your AMS in production
 const mockAssets = {
@@ -44,104 +46,34 @@ const mockAssets = {
 export default function AssetCheckOutForm({ formData, onChange, onBlur, errors, FormField }) {
   return (
     <>
-      {/* Sub-Category (Type of Product) */}
-      <FormField
-        id="subCategory"
-        label="Sub-Category (Type of Product)"
-        required
-        error={errors.subCategory}
-        render={() => (
-          <select
-            value={formData.subCategory}
-            onChange={onChange('subCategory')}
-            onBlur={onBlur('subCategory')}
-          >
-            <option value="">Select Product Type</option>
-            {assetSubCategories.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        )}
-      />
+      {/* Sub-Category selection is handled in Step 2 and shown in the banner */}
 
       {/* Asset Name */}
-      <FormField
-        id="assetName"
+      <SelectField
         label="Asset Name"
+        placeholder="Select Asset"
+        value={formData.assetName}
+        onChange={onChange('assetName')}
+        onBlur={onBlur('assetName')}
         required
+        disabled={!formData.subCategory}
         error={errors.assetName}
-        render={() => (
-          <select
-            disabled={!formData.subCategory}
-            value={formData.assetName}
-            onChange={onChange('assetName')}
-            onBlur={onBlur('assetName')}
-          >
-            <option value="">Select Asset</option>
-            {formData.subCategory &&
-              mockAssets[formData.subCategory]?.map(asset => (
-                <option key={asset.name} value={asset.name}>
-                  {asset.name}
-                </option>
-              ))}
-          </select>
-        )}
+        options={formData.subCategory ? mockAssets[formData.subCategory]?.map(asset => ({ value: asset.name, label: asset.name })) || [] : []}
       />
 
       {/* Serial Number (Auto-filled) */}
-      <FormField
-        id="serialNumber"
+      <InputField
+        type="text"
         label="Serial Number"
-        render={() => (
-          <input
-            type="text"
-            placeholder="Auto-filled when asset is selected"
-            readOnly
-            value={formData.serialNumber}
-            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-          />
-        )}
+        placeholder="Auto-filled when asset is selected"
+        value={formData.serialNumber}
+        disabled
+        readOnly
       />
 
-      {/* Location */}
-      <FormField
-        id="location"
-        label="Location"
-        required
-        error={errors.location}
-        render={() => (
-          <select
-            value={formData.location}
-            onChange={onChange('location')}
-            onBlur={onBlur('location')}
-          >
-            <option value="">Select Location</option>
-            {locations.map(location => (
-              <option key={location} value={location}>{location}</option>
-            ))}
-          </select>
-        )}
-      />
-
-      {/* Expected Return Date */}
-      <FormField
-        id="expectedReturnDate"
-        label="Expected Return Date"
-        required
-        error={errors.expectedReturnDate}
-        render={() => (
-          <input
-            type="date"
-            value={formData.expectedReturnDate}
-            onChange={onChange('expectedReturnDate')}
-            onBlur={onBlur('expectedReturnDate')}
-            min={new Date().toISOString().split('T')[0]}
-          />
-        )}
-      />
     </>
   );
 }
 
 // Export the mock assets for use in parent component
-export { mockAssets };
+export { mockAssets, AssetCheckOutMetadata };

@@ -4,17 +4,20 @@
   padding: 12px 16px;
   border-radius: 6px;
   font-size: 14px;
-  width: 100%;
+  width: auto; /* allow buttons to size to content */
+  min-width: 110px; /* ensure reasonable tappable target */
   font-weight: 600;
   box-sizing: border-box;
 }
 
 .actionContainer {
   display: flex;
+  justify-content: space-between; /* place cancel left and submit right */
+  align-items: center;
   gap: 12px;
   margin-top: 24px;
 }
 
 .actionFlexChild {
-  flex: 1;
+  flex: 0 0 auto; /* don't stretch to full width */
 }

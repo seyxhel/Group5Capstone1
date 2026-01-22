@@ -15,16 +15,21 @@ import styles from '../styles/formActions.module.css';
 export default function FormActions({
   onCancel,
   cancelLabel = 'Cancel',
+  cancelVariant = 'outline',
   submitLabel = 'Submit',
   submitDisabled = false,
-  submitVariant = 'primary'
+  submitVariant = 'primary',
+  onSubmit,
+  cancelSize,
+  submitSize
 }) {
   return (
     <div className={styles.actionContainer}>
       <div className={styles.actionFlexChild}>
         <Button
           type="button"
-          variant="outline"
+          variant={typeof cancelVariant !== 'undefined' ? cancelVariant : 'outline'}
+          size={cancelSize}
           className={styles.formAction}
           onClick={onCancel}
         >
@@ -34,12 +39,14 @@ export default function FormActions({
 
       <div className={styles.actionFlexChild}>
         <Button
-          type="submit"
+          type={onSubmit ? 'button' : 'submit'}
           variant={submitVariant}
+          size={submitSize}
           className={styles.formAction}
           disabled={submitDisabled}
+          onClick={onSubmit}
         >
-          {submitDisabled ? 'Please wait...' : submitLabel}
+          {submitDisabled ? 'Please complete the form' : submitLabel}
         </Button>
       </div>
     </div>

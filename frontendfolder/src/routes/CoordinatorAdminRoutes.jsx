@@ -15,16 +15,18 @@ import CoordinatorAdminCSATPerformance from '../coordinator-admin/pages/reports/
 import SysAdminCSAT from '../coordinator-admin/pages/csat/CoordinatorAdminCSAT';
 
 // Knowledgebase admin pages
-import KnowledgeCreate from '../coordinator-admin/pages/knowledgebase/KnowledgeCreate';
-import KnowledgeEdit from '../coordinator-admin/pages/knowledgebase/KnowledgeEdit';
-import KnowledgeArticles from '../coordinator-admin/pages/knowledgebase/KnowledgeArticles';
-import KnowledgeArchived from '../coordinator-admin/pages/knowledgebase/KnowledgeArchived';
-import KnowledgeArticleView from '../coordinator-admin/pages/knowledgebase-article/KnowledgeArticleView';
+import KnowledgeCreate from '../coordinator-admin/pages/systemAdmin-knowledgebase/KnowledgeCreate';
+import KnowledgeEdit from '../coordinator-admin/pages/systemAdmin-knowledgebase/KnowledgeEdit';
+import KnowledgeArticles from '../coordinator-admin/pages/systemAdmin-knowledgebase/KnowledgeArticles';
+import KnowledgeArchived from '../coordinator-admin/pages/systemAdmin-knowledgebase/KnowledgeArchived';
+import KnowledgeArticleView from '../coordinator-admin/pages/systemAdmin-knowledgebase-article/KnowledgeArticleView';
 // Coordinator-specific Knowledge Base placeholder
 import CoordinatorKnowledgebase from '../coordinator-admin/pages/ticketCoordinator-knowledgebase/CoordinatorKnowledgebase';
 import CoordinatorAMSDashboard from '../coordinator-admin/pages/integration/ams/CoordinatorAMSDashboard';
 import CoordinatorAMSTickets from '../coordinator-admin/pages/integration/ams/CoordinatorAMSTickets';
 import CoordinatorBMSTickets from '../coordinator-admin/pages/integration/bms/CoordinatorBMSTickets';
+import CoordinatorMyTickets from '../coordinator-admin/pages/ticketCoordinator-my-tickets/CoordinatorMyTickets';
+import CoordinatorMyTicketsView from '../coordinator-admin/pages/ticketCoordinator-my-tickets-view/CoordinatorMyTicketsView';
 import NotFoundPage from '../shared/not-found-page/NotFoundPage';
 
 const CoordinatorAdminRoutes = () => (
@@ -35,6 +37,12 @@ const CoordinatorAdminRoutes = () => (
 
       {/* Ticket Management (Dynamic by Status) */}
       <Route path="ticket-management/:status" element={<CoordinatorAdminTicketManagement />} />
+
+      {/* My Tickets - static coordinator view */}
+      <Route path="my-tickets" element={<CoordinatorMyTickets />} />
+      <Route path="my-tickets/:status" element={<CoordinatorMyTickets />} />
+      <Route path="my-tickets-view/:ticketNumber" element={<CoordinatorMyTicketsView />} />
+      <Route path="owned-tickets/:ticketNumber" element={<CoordinatorMyTicketsView />} />
 
       {/* Ticket Tracker (Dynamic by Ticket ID) */}
       <Route path="ticket-tracker/:ticketNumber" element={<CoordinatorAdminTicketTracker />} />

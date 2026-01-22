@@ -4,8 +4,8 @@ import styles from '../../../employee/pages/ticket-tracker/EmployeeTicketTracker
 import { getAllTickets, getTicketByNumber } from '../../../utilities/storages/ticketStorage';
 import authService from '../../../utilities/service/authService';
 import Skeleton from '../../../shared/components/Skeleton/Skeleton';
-import CoordinatorAdminOpenTicketModal from '../../components/modals/CoordinatorOpenTicketModal';
-import CoordinatorAdminRejectTicketModal from '../../components/modals/CoordinatorRejectTicketModal';
+import CoordinatorAdminOpenTicketModal from '../../components/modals/ticket-management/CoordinatorOpenTicketModal';
+import CoordinatorAdminRejectTicketModal from '../../components/modals/ticket-management/CoordinatorRejectTicketModal';
 import ViewCard from '../../../shared/components/ViewCard';
 import Breadcrumb from '../../../shared/components/Breadcrumb';
 import Tabs from '../../../shared/components/Tabs';

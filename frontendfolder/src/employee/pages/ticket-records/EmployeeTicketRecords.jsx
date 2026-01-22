@@ -4,12 +4,9 @@ import { getEmployeeTickets } from "../../../utilities/storages/ticketStorage";
 import { toEmployeeStatus } from "../../../utilities/helpers/statusMapper";
 import authService from "../../../utilities/service/authService";
 import getTicketActions from "../../../shared/table/TicketActions";
-import Skeleton from "../../../shared/components/Skeleton/Skeleton";
-
-import TablePagination from "../../../shared/table/TablePagination";
+import Table from "../../../shared/table/Table";
+import tableStyles from "../../../shared/table/Table.module.css";
 import EmployeeTicketFilter, { TICKET_RECORD_STATUS_OPTIONS } from "../../components/filters/EmployeeTicketFilter";
-import styles from './EmployeeTicketRecords.module.css';
-import InputField from '../../../shared/components/InputField';
 
 const headingMap = {
   "all-ticket-records": "All Ticket Records",
@@ -74,7 +71,7 @@ function TableItem({ ticket, onView }) {
       <td>{ticket.subCategory}</td>
       <td>{ticket.dateCreated?.slice(0, 10)}</td>
       <td>
-        <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+        <div className={tableStyles.actionsCell}>
           {getTicketActions("view", ticket, { onView })}
         </div>
       </td>
@@ -189,110 +186,118 @@ const EmployeeTicketRecords = () => {
     navigate(`/employee/ticket-tracker/${ticket.ticketNumber}`);
   };
 
-  const [showFilter, setShowFilter] = useState(false);
+  const [showFilter, setShowFilter] = useState(true);
+
+  // Define table columns
+  const columns = [
+    { 
+      key: 'ticketNumber', 
+      label: 'Ticket No.',
+      skeletonWidth: '100px',
+      render: (value) => value
+    },
+    { 
+      key: 'subject', 
+      label: 'Subject',
+      skeletonWidth: '200px',
+      render: (value) => (
+        <div className="subjectCell" title={value}>
+          {value}
+        </div>
+      )
+    },
+    { 
+      key: 'status', 
+      label: 'Status',
+      skeletonWidth: '80px',
+      render: (value) => {
+        const displayStatus = toEmployeeStatus(value);
+        return (
+          <div className={`status-${displayStatus.replace(/\s+/g, "-").toLowerCase()}`}>
+            {displayStatus}
+          </div>
+        );
+      }
+    },
+    { 
+      key: 'priorityLevel', 
+      label: 'Priority',
+      skeletonWidth: '80px',
+      render: (value) => {
+        return value ? (
+          <div className={`priority-${value.toLowerCase()}`}>
+            {value}
+          </div>
+        ) : (
+          <div className="priority-not-set">
+            Not Set
+          </div>
+        );
+      }
+    },
+    { key: 'category', label: 'Category', skeletonWidth: '100px' },
+    { key: 'subCategory', label: 'Sub Category', skeletonWidth: '100px' },
+    { 
+      key: 'dateCreated', 
+      label: 'Date Created',
+      skeletonWidth: '100px',
+      render: (value) => value?.slice(0, 10)
+    },
+    { 
+      key: 'actions', 
+      label: 'Actions',
+      skeletonWidth: '80px',
+      render: (_, ticket) => (
+        <>
+          {getTicketActions("view", ticket, { onView: handleView })}
+        </>
+      )
+    }
+  ];
+
+  // Filter component wrapper
+  const FilterComponent = () => (
+    <EmployeeTicketFilter
+      preset="ticketRecords"
+      initialShow={showFilter}
+      statusOptions={TICKET_RECORD_STATUS_OPTIONS}
+      onApply={setActiveFilters}
+      onReset={() => {
+        setActiveFilters({
+          status: null,
+          priority: null,
+          category: null,
+          subCategory: null,
+          startDate: "",
+          endDate: "",
+        });
+        setCurrentPage(1);
+      }}
+      initialFilters={activeFilters}
+    />
+  );
 
   return (
-    <div className={styles.pageContainer}>
-      {/* Top bar with Show Filter button */}
-      <div className={styles.topBar}>
-        <button 
-          className={styles.showFilterButton}
-          onClick={() => setShowFilter(!showFilter)}
-        >
-          {showFilter ? 'Hide Filter' : 'Show Filter'}
-        </button>
-      </div>
-
-      {/* Filter Panel - outside table section */}
-      {showFilter && (
-        <EmployeeTicketFilter
-          statusOptions={TICKET_RECORD_STATUS_OPTIONS}
-          onApply={setActiveFilters}
-          onReset={() => {
-            setActiveFilters({
-              status: null,
-              priority: null,
-              category: null,
-              subCategory: null,
-              startDate: "",
-              endDate: "",
-            });
-            setCurrentPage(1);
-          }}
-          initialFilters={activeFilters}
-        />
-      )}
-
-      <div className={styles.tableSection}>
-
-        {/* Table header */}
-        <div className={styles.tableHeader}>
-          <h2>{headingMap[filter] || "Ticket Records"}</h2>
-          <div className={styles.tableActions}>
-            <InputField
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              inputStyle={{ width: '260px' }}
-            />
-          </div>
-        </div>
-        
-        {/* Table wrapper */}
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <TableHeader />
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td><Skeleton /></td>
-                    <td><Skeleton /></td>
-                    <td><Skeleton width="80px" /></td>
-                    <td><Skeleton width="80px" /></td>
-                    <td><Skeleton /></td>
-                    <td><Skeleton /></td>
-                    <td><Skeleton width="100px" /></td>
-                    <td><Skeleton width="80px" /></td>
-                  </tr>
-                ))
-              ) : displayedTickets.length > 0 ? (
-                displayedTickets.map((ticket, index) => (
-                  <TableItem 
-                    key={index} 
-                    ticket={ticket}
-                    onView={handleView}
-                  />
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className={styles.emptyMessage}>
-                    No ticket records found for this filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {!isLoading && (
-          <div className={styles.tablePagination}>
-            <TablePagination
-              currentPage={currentPage}
-              totalItems={filteredTickets.length}
-              initialItemsPerPage={pageSize}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={setPageSize}
-              alwaysShow={true}
-            />
-          </div>
-        )}
-
-      </div>
-    </div>
+    <Table
+      variant="ticketRecords"
+      data={displayedTickets}
+      columns={columns}
+      title={headingMap[filter] || "Ticket Records"}
+      searchable
+      searchPlaceholder="Search..."
+      searchValue={searchTerm}
+      onSearchChange={(e) => setSearchTerm(e.target.value)}
+      filterComponent={FilterComponent}
+      showFilter={showFilter}
+      onShowFilterChange={setShowFilter}
+      currentPage={currentPage}
+      pageSize={pageSize}
+      totalItems={filteredTickets.length}
+      onPageChange={setCurrentPage}
+      onPageSizeChange={setPageSize}
+      isLoading={isLoading}
+      emptyMessage="No ticket records found for this filter."
+    />
   );
 };
 

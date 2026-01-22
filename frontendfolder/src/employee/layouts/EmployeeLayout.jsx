@@ -27,18 +27,8 @@ const getHeaderConfig = (path) => {
   }
 
   const staticHeaders = {
-    '/employee/submit-ticket': {
-      root: 'Home',
-      currentPage: 'Submit Ticket',
-      rootNavigatePage: '/employee/home',
-      title: 'Ticket Submission Form',
-    },
-    '/employee/frequently-asked-questions': {
-      root: 'Home',
-      currentPage: 'Frequently Asked Questions',
-      rootNavigatePage: '/employee/home',
-      title: 'Frequently Asked Questions',
-    },
+    // breadcrumb intentionally omitted for immersive pages
+    // FAQ intentionally omitted to prevent breadcrumb rendering on the FAQ page
   };
 
   return staticHeaders[path] || null;

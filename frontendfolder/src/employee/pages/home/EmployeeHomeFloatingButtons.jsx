@@ -50,14 +50,14 @@ const EmployeeHomeFloatingButtons = () => {
             onClick={() => navigate('/employee/frequently-asked-questions')}
             title="FAQs"
           >
-            <IoHelpCircleOutline size={24} />
+            <IoHelpCircleOutline size={20} />
           </button>
           <button
             className={styles.floatButton}
             onClick={openModal}
             title="Chat"
           >
-            <IoChatbubblesOutline size={24} />
+            <IoChatbubblesOutline size={20} />
           </button>
         </div>
 
@@ -67,9 +67,9 @@ const EmployeeHomeFloatingButtons = () => {
           aria-label="Toggle floating menu"
         >
           {isExpanded ? (
-            <IoClose size={24} className={styles.icon} />
+            <IoClose size={20} className={styles.icon} />
           ) : (
-            <IoMenu size={24} className={styles.icon} />
+            <IoMenu size={20} className={styles.icon} />
           )}
         </button>
       </div>

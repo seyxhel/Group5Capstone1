@@ -3,6 +3,7 @@ export const ReportsTabContext = React.createContext('all');
 import Tabs from '../../../shared/components/Tabs';
 import styles from './CoordinatorAdminReportsLayout.module.css';
 import ticketStyles from '../ticket-management/CoordinatorAdminTicketManagement.module.css';
+import tableStyles from '../../../shared/table/Table.module.css';
 
 const defaultTabs = [
   { label: 'All', value: 'all' },
@@ -35,7 +36,11 @@ const CoordinatorAdminReportsLayout = ({ title = 'Reports', tabs = defaultTabs, 
       </div>
 
       {/* Filter panel (render filter directly so it looks like Ticket Management) */}
-      {showFilter && (filter || <div style={{ padding: 12, color: '#374151' }}>No filter configured for this report.</div>)}
+      {showFilter && (
+        <div className={tableStyles.filterSection}>
+          {filter || <div style={{ padding: 12, color: '#374151' }}>No filter configured for this report.</div>}
+        </div>
+      )}
 
       {/* Table/content (last) */}
       {['all', 'daily', 'weekly', 'monthly', 'yearly'].includes(active) && (

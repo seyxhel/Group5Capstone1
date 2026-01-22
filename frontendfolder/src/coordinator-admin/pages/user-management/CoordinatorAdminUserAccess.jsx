@@ -3,12 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaCheck, FaTimes, FaEye } from "react-icons/fa";
 
 import styles from "./CoordinatorAdminUserAccess.module.css";
-import ViewCard from "../../../shared/components/ViewCard";
-import Button from "../../../shared/components/Button";
-import TablePagination from "../../../shared/table/TablePagination";
+import Table from "../../../shared/table/Table";
 import FilterPanel from "../../../shared/table/FilterPanel";
-import InputField from '../../../shared/components/InputField';
-import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import authService from "../../../utilities/service/authService";
 import { getEmployeeUsers } from "../../../utilities/storages/employeeUserStorage";
 
@@ -40,8 +36,6 @@ const CoordinatorAdminUserAccess = () => {
     category: null,
     status: null,
   });
-
-  // 👇 Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +43,20 @@ const CoordinatorAdminUserAccess = () => {
   const normalizedStatus = status.toLowerCase();
   const statusConfig = userAccessConfig.find((cfg) => cfg.key === normalizedStatus);
   const title = statusConfig?.label || "User Access";
+
+  const FilterComponent = () => (
+    <FilterPanel
+      key={showFilter ? "filter-shown" : "filter-hidden"}
+      preset="userManagement"
+      initialShow={showFilter}
+      onApply={setActiveFilters}
+      onReset={() => {
+        setActiveFilters({ category: null, status: null });
+        setCurrentPage(1);
+      }}
+      initialFilters={activeFilters}
+    />
+  );
 
   // 👇 Fetch users and current user
   useEffect(() => {
@@ -74,6 +82,58 @@ const CoordinatorAdminUserAccess = () => {
 
     return () => clearTimeout(timer);
   }, []);
+
+  const columns = [
+    { key: 'companyId', label: 'Company ID', skeletonWidth: '120px' },
+    { key: 'lastName', label: 'Last Name', skeletonWidth: '120px' },
+    { key: 'firstName', label: 'First Name', skeletonWidth: '120px' },
+    { key: 'department', label: 'Department', skeletonWidth: '120px' },
+    { key: 'role', label: 'Role', skeletonWidth: '120px' },
+    {
+      key: 'status',
+      label: 'Status',
+      skeletonWidth: '100px',
+      render: (val) => (
+        <div className={styles[`status-${(val || 'active').replace(/\s+/g, '-').toLowerCase()}`]}>
+          {val}
+        </div>
+      ),
+    },
+    {
+      key: 'companyId',
+      label: 'Actions',
+      skeletonWidth: '120px',
+      render: (val, user) => (
+        <div className={styles.actionButtonCont}>
+          {user.status?.toLowerCase() === "pending" && (
+            <>
+              <button
+                title="Approve"
+                className={styles.actionButton}
+                onClick={() => openModal("approve", user)}
+              >
+                <FaCheck />
+              </button>
+              <button
+                title="Reject"
+                className={styles.actionButton}
+                onClick={() => openModal("reject", user)}
+              >
+                <FaTimes />
+              </button>
+            </>
+          )}
+          <button
+            title="View"
+            className={styles.actionButton}
+            onClick={() => navigate(`/admin/user-profile/${user.companyId}`)}
+          >
+            <FaEye />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   // 👇 Combined filtering logic
   const filteredUsers = useMemo(() => {
@@ -108,13 +168,6 @@ const CoordinatorAdminUserAccess = () => {
     return users;
   }, [allUsers, statusConfig, searchTerm, activeFilters]);
 
-  // 👇 Paginate
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredUsers.slice(start, start + itemsPerPage);
-  }, [filteredUsers, currentPage, itemsPerPage]);
-
-  // 👇 Reset pagination on filter/search change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, normalizedStatus, activeFilters]);
@@ -131,185 +184,30 @@ const CoordinatorAdminUserAccess = () => {
 
   return (
     <>
-      <div className={styles.pageContainer}>
-        {/* Header Section */}
-        <div className={styles.topBar}>
-          <button
-            className={styles.showFilterButton}
-            onClick={() => setShowFilter((prev) => !prev)}
-          >
-            {showFilter ? "Hide Filter" : "Show Filter"}
-          </button>
-        </div>
-
-        {/* Filter Panel */}
-        {showFilter && (
-          <FilterPanel
-            hideToggleButton
-            showDateFilters={false}
-            categoryLabel="Department"
-            statusLabel="Status"
-            onApply={setActiveFilters}
-            onReset={() => {
-              setActiveFilters({ category: null, status: null });
-              setCurrentPage(1);
-            }}
-            categoryOptions={[
-              { label: "Human Resources" },
-              { label: "Information Technology" },
-              { label: "Finance" },
-              { label: "Operations" },
-              { label: "Marketing" },
-            ]}
-            statusOptions={[
-              { label: "Active" },
-              { label: "Pending" },
-              { label: "Rejected" },
-              { label: "Inactive" },
-            ]}
-            priorityOptions={[]}
-            slaStatusOptions={[]}
-            assignedAgentOptions={[]}
-            initialFilters={activeFilters}
-          />
-        )}
-
-        {/* Table Section */}
-        <ViewCard>
-          <div className={styles.tableSection}>
-            <div className={styles.tableHeader}>
-              <h2>{title}</h2>
-              <div className={styles.tableActions}>
-                <InputField
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  inputStyle={{ width: '260px' }}
-                />
-                <Button
-                  variant="primary"
-                  onClick={() => navigate("/admin/account-register")}
-                  className={styles.registerButton}
-                >
-                  Register User
-                </Button>
-              </div>
-            </div>
-
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Company ID</th>
-                    <th>Last Name</th>
-                    <th>First Name</th>
-                    <th>Department</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}>
-                        <td><Skeleton /></td>
-                        <td><Skeleton /></td>
-                        <td><Skeleton /></td>
-                        <td><Skeleton /></td>
-                        <td><Skeleton /></td>
-                        <td><Skeleton width="80px" /></td>
-                        <td><Skeleton width="80px" /></td>
-                      </tr>
-                    ))
-                  ) : paginatedUsers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        style={{
-                          textAlign: "center",
-                          padding: 40,
-                          color: "#6b7280",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        No users found for this category or search.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedUsers.map((user, idx) => (
-                      <tr key={user.companyId || idx}>
-                        <td>{user.companyId}</td>
-                        <td>{user.lastName}</td>
-                        <td>{user.firstName}</td>
-                        <td>{user.department}</td>
-                        <td>{user.role}</td>
-                        <td>
-                          <div
-                            className={
-                              styles[
-                                `status-${(user.status || "active")
-                                  .replace(/\s+/g, "-")
-                                  .toLowerCase()}`
-                              ]
-                            }
-                          >
-                            {user.status}
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.actionButtonCont}>
-                            {user.status?.toLowerCase() === "pending" && (
-                              <>
-                                <button
-                                  title="Approve"
-                                  className={styles.actionButton}
-                                  onClick={() => openModal("approve", user)}
-                                >
-                                  <FaCheck />
-                                </button>
-                                <button
-                                  title="Reject"
-                                  className={styles.actionButton}
-                                  onClick={() => openModal("reject", user)}
-                                >
-                                  <FaTimes />
-                                </button>
-                              </>
-                            )}
-                            <button
-                              title="View"
-                              className={styles.actionButton}
-                              onClick={() =>
-                                navigate(`/admin/user-profile/${user.companyId}`)
-                              }
-                            >
-                              <FaEye />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className={styles.tablePagination}>
-              {!isLoading && (
-                <TablePagination
-                  currentPage={currentPage}
-                  totalItems={filteredUsers.length}
-                  initialItemsPerPage={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                  onItemsPerPageChange={setItemsPerPage}
-                  alwaysShow
-                />
-              )}
-            </div>
-          </div>
-        </ViewCard>
-      </div>
+      <Table
+        variant="default"
+        data={filteredUsers
+          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+          .map((user) => ({
+            ...user,
+            status: user.status || "Active",
+          }))}
+        columns={columns}
+        title={title}
+        searchable
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        filterComponent={FilterComponent}
+        showFilter={showFilter}
+        onShowFilterChange={setShowFilter}
+        currentPage={currentPage}
+        pageSize={itemsPerPage}
+        totalItems={filteredUsers.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setItemsPerPage}
+        isLoading={isLoading}
+        emptyMessage="No users found."
+      />
 
       {/* Modals */}
       {modalType === "approve" && selectedUser && (

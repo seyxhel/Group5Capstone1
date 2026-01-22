@@ -54,7 +54,7 @@ export default function Tabs({ tabs = [], active, activeTab, onChange, onTabChan
               onKeyDown={(e) => handleKeyDown(e, idx)}
               type="button"
             >
-              {tab.label}
+              <span className={styles.tabLabel}>{tab.label}</span>
             </button>
           );
         })}
@@ -68,5 +68,17 @@ export default function Tabs({ tabs = [], active, activeTab, onChange, onTabChan
         </div>
       )}
     </div>
+  );
+}
+
+// GeneralTabs: a thin, named wrapper that preserves the exact look
+// and behavior of `Tabs` while providing a semantic import for pages
+// that want the "general tabs" variant.
+export function GeneralTabs({ className = '', ...rest }) {
+  return (
+    <Tabs
+      {...rest}
+      className={`${className}`.trim()}
+    />
   );
 }

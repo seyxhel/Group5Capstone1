@@ -1,18 +1,15 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FaEye } from 'react-icons/fa';
+
 import styles from './CoordinatorAdminCSAT.module.css';
 import CSAT_MOCK from '../../../mock-data/csatData';
-
-import TablePagination from '../../../shared/table/TablePagination';
+import Table from '../../../shared/table/Table';
 import FilterPanel from '../../../shared/table/FilterPanel';
+import Tabs from '../../../shared/components/Tabs';
 import authService from '../../../utilities/service/authService';
 import { getTicketById } from '../../../utilities/storages/ticketStorage';
-// simple inline filter will be used (Rating + Start/End dates)
-import InputField from '../../../shared/components/InputField';
-import Button from '../../../shared/components/Button';
-import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 import CoordinatorAdminCSATViewModal from '../../components/modals/csat/CoordinatorAdminCSATViewModal';
-import { FaEye } from 'react-icons/fa';
 
 // Using mock data only — no API base URL
 
@@ -78,23 +75,16 @@ const getRatingText = (rating) => {
 
 const SysAdminCSAT = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
   const [activeFilters, setActiveFilters] = useState({
     rating: null,
     startDate: '',
     endDate: '',
   });
-
-  const handleFilterApply = (filters) => {
-    setActiveFilters(filters);
-    setCurrentPage(1);
-  };
-
-  const handleFilterReset = () => {
-    setActiveFilters({ rating: null, startDate: '', endDate: '' });
-    setCurrentPage(1);
-  };
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -136,6 +126,32 @@ const SysAdminCSAT = () => {
   const key = last === 'csat' || last === 'admin' ? 'all' : (categoryLabels[last] ? last : 'all');
   const title = categoryLabels[key] || 'All Ratings';
 
+  const tabs = [
+    { key: 'all', label: 'All Ratings' },
+    { key: 'excellent', label: 'Excellent' },
+    { key: 'good', label: 'Good' },
+    { key: 'neutral', label: 'Neutral' },
+    { key: 'poor', label: 'Poor' },
+    { key: 'very-poor', label: 'Very Poor' },
+  ];
+
+  const FilterComponent = () => (
+    <FilterPanel
+      key={showFilter ? "filter-shown" : "filter-hidden"}
+      fields={['rating', 'startDate', 'endDate']}
+      filters={activeFilters}
+      onApply={(filters) => {
+        setActiveFilters(filters);
+        setCurrentPage(1);
+      }}
+      onReset={() => {
+        setActiveFilters({ rating: null, startDate: '', endDate: '' });
+        setCurrentPage(1);
+      }}
+      hideToggleButton={true}
+    />
+  );
+
   const filtered = useMemo(() => {
     let rows = CSAT_MOCK.slice();
 
@@ -150,9 +166,9 @@ const SysAdminCSAT = () => {
       });
     }
 
-    // route-based rating filter
-    if (key !== 'all') {
-      const rating = ratingMap[key];
+    // Tab-based rating filter
+    if (activeTab !== 'all') {
+      const rating = ratingMap[activeTab];
       rows = rows.filter((r) => r.rating === rating);
     }
 
@@ -184,156 +200,129 @@ const SysAdminCSAT = () => {
     }
 
     return rows;
-  }, [key, searchTerm, activeFilters]);
+  }, [activeTab, searchTerm, activeFilters]);
 
-  const navigate = useNavigate();
-
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  const columns = [
+    {
+      key: 'profilePic',
+      label: '',
+      render: (val, row) => (
+        <Avatar
+          src={val || ''}
+          name={row.employeeName}
+          size={40}
+        />
+      ),
+      skeletonWidth: '40px',
+    },
+    {
+      key: 'employeeName',
+      label: 'Employee',
+      skeletonWidth: '120px',
+    },
+    {
+      key: 'ticketNumber',
+      label: 'Ticket No.',
+      skeletonWidth: '100px',
+    },
+    {
+      key: 'subject',
+      label: 'Subject',
+      skeletonWidth: '150px',
+      render: (val) => (
+        <div title={val} style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {val}
+        </div>
+      ),
+    },
+    {
+      key: 'rating',
+      label: 'Rating',
+      skeletonWidth: '80px',
+      render: (val) => (
+        <span
+          style={{
+            backgroundColor: getRatingColor(val),
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '13px',
+            fontWeight: 600,
+          }}
+          title={getRatingText(val)}
+        >
+          {val} ★
+        </span>
+      ),
+    },
+    {
+      key: 'comment',
+      label: 'Feedback',
+      skeletonWidth: '150px',
+      render: (val) => (
+        <div title={val} style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {val}
+        </div>
+      ),
+    },
+    {
+      key: 'date',
+      label: 'Date Rated',
+      skeletonWidth: '130px',
+      render: (val) => formatDate(val),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      skeletonWidth: '80px',
+      render: (val, row) => (
+        <button
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+          onClick={() => setSelectedCSAT(row)}
+          title="View details"
+          aria-label={`View CSAT ${row.ticketNumber}`}
+        >
+          <FaEye />
+        </button>
+      ),
+    },
+  ];
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, key, activeFilters]);
+  }, [searchTerm, activeTab, activeFilters]);
 
   return (
     <>
-      <div className={styles.pageContainer}>
-        {/* Single Hide/Show Filter button */}
-        <div className={styles.topBar}>
-          <button 
-            className={styles.showFilterButton}
-            onClick={() => setShowFilter(!showFilter)}
-          >
-            {showFilter ? 'Hide Filter' : 'Show Filter'}
-          </button>
-        </div>
-
-        {/* Filter Panel (Rating + Start/End Date) */}
-        {showFilter && (
-          <FilterPanel
-            fields={['rating', 'startDate', 'endDate']}
-            filters={activeFilters}
-            onApply={handleFilterApply}
-            onReset={handleFilterReset}
-            hideToggleButton={true}
-          />
-        )}
-
-        <div className={styles.tableSection}>
-          <div className={styles.tableHeader}>
-            <h2>{title}</h2>
-            <div className={styles.tableActions}>
-              <InputField
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                inputStyle={{ width: '260px' }}
-              />
-            </div>
-          </div>
-
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.profileHeader}></th>
-                  <th>Employee</th>
-                  <th>Ticket No.</th>
-                  <th>Subject</th>
-                  <th>Rating</th>
-                  <th>Feedback</th>
-                  <th>Date Rated</th>
-                  <th className={styles.actionHeader}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className={styles.profileCell}><Skeleton circle width="40px" height="40px" /></td>
-                      <td><Skeleton /></td>
-                      <td><Skeleton width="100px" /></td>
-                      <td><Skeleton /></td>
-                      <td><Skeleton width="100px" /></td>
-                      <td><Skeleton /></td>
-                      <td><Skeleton width="130px" /></td>
-                      <td><Skeleton width="80px" /></td>
-                    </tr>
-                  ))
-                ) : paginatedRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#6b7280', fontStyle: 'italic' }}>
-                      No CSAT entries found.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((r) => (
-                    <tr key={r.id}>
-                      <td className={styles.profileCell}>
-                        <Avatar
-                          src={r.profilePic || ''}
-                          name={r.employeeName}
-                          size={40}
-                        />
-                      </td>
-                      <td>{r.employeeName}</td>
-                      <td>{r.ticketNumber}</td>
-                      <td>
-                        <div className={styles.subjectCell} title={r.subject}>
-                          {r.subject}
-                        </div>
-                      </td>
-                      <td>
-                        <span
-                          className={styles.ratingBadge}
-                          style={{
-                            backgroundColor: getRatingColor(r.rating),
-                            color: '#fff',
-                          }}
-                          title={getRatingText(r.rating)}
-                        >
-                          {r.rating} ★
-                        </span>
-                      </td>
-                      <td>
-                        <div className={styles.feedbackCell} title={r.comment}>
-                          {r.comment}
-                        </div>
-                      </td>
-                      <td>{formatDate(r.date)}</td>
-                      <td className={styles.actionCell}>
-                        <button
-                          className={styles.viewButton}
-                          onClick={() => setSelectedCSAT(r)}
-                          title="View details"
-                          aria-label={`View CSAT ${r.ticketNumber}`}
-                        >
-                          <FaEye />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className={styles.tablePagination}>
-            {!isLoading && (
-              <TablePagination
-                currentPage={currentPage}
-                totalItems={filtered.length}
-                initialItemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={setItemsPerPage}
-                alwaysShow={true}
-              />
-            )}
-          </div>
-        </div>
+      <div style={{ marginTop: 12, marginBottom: 8 }}>
+        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
       </div>
+      <Table
+        variant="default"
+        data={filtered
+          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)}
+        columns={columns}
+        title="CSAT Ratings"
+        searchable
+        searchValue={searchTerm}
+        onSearchChange={(q) => {
+          setSearchTerm(q);
+          setCurrentPage(1);
+        }}
+        filterComponent={FilterComponent}
+        showFilter={showFilter}
+        onShowFilterChange={setShowFilter}
+        currentPage={currentPage}
+        pageSize={itemsPerPage}
+        totalItems={filtered.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(n) => {
+          setItemsPerPage(n);
+          setCurrentPage(1);
+        }}
+        isLoading={isLoading}
+        emptyMessage="No CSAT entries found."
+      />
 
       {selectedCSAT && (
         <CoordinatorAdminCSATViewModal

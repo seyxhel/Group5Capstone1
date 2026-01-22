@@ -1,10 +1,12 @@
 import FilterPanel from "../../../shared/table/FilterPanel";
 
-export default function CoordinatorTicketFilter({
+export default function CoordinatorMyTicketsFilter({
   onApply,
   onReset,
   initialFilters = {},
   hideToggleButton = true,
+  initialShow = false,
+  preset = "ticketManagement",
   // Allow customization if needed
   statusOptions,
   priorityOptions,
@@ -63,38 +65,41 @@ export default function CoordinatorTicketFilter({
 
   return (
     <FilterPanel
+      // Apply preset for consistent styling
+      preset={preset}
+      initialShow={initialShow}
       // Use base FilterPanel with custom configuration
       hideToggleButton={hideToggleButton}
       // Explicitly list fields to render for Ticket Management (exclude 'rating')
       fields={[
-        'status',
-        'priority',
-        'category',
-        'subCategory',
-        'slaStatus',
-        'startDate',
-        'endDate',
+        "status",
+        "priority",
+        "category",
+        "subCategory",
+        "slaStatus",
+        "startDate",
+        "endDate",
       ]}
       onApply={onApply}
       onReset={onReset}
       initialFilters={initialFilters}
-      
+
       // Filter order: Status, Priority, Category, Sub-Category, SLA Status, Start Date, End Date
       statusLabel="Status"
       priorityLabel="Priority"
       categoryLabel="Category"
       subCategoryLabel="Sub-Category"
-      
+
       // Options (can be overridden by props)
       statusOptions={statusOptions || defaultStatusOptions}
       priorityOptions={priorityOptions || defaultPriorityOptions}
       categoryOptions={categoryOptions || defaultCategoryOptions}
       subCategoryOptions={subCategoryOptions || defaultSubCategoryOptions}
       slaStatusOptions={slaStatusOptions || defaultSLAStatusOptions}
-      
+
       // Show date filters
       showDateFilters={true}
-      
+
       // Show SLA Status (Coordinator/Admin needs this)
       showSLAStatus={true}
     />
@@ -102,7 +107,7 @@ export default function CoordinatorTicketFilter({
 }
 
 // Export status options for convenience
-export const COORDINATOR_TICKET_STATUS_OPTIONS = [
+export const COORDINATOR_MY_TICKET_STATUS_OPTIONS = [
   { label: "New", category: "New" },
   { label: "Open", category: "Active" },
   { label: "In Progress", category: "Active" },

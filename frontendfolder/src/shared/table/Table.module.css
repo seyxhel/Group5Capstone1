@@ -1,0 +1,316 @@
+/* === CENTRALIZED TABLE COMPONENT STYLES === */
+
+/* Page container - matches EmployeeActiveTickets approach */
+.pageContainer {
+  /* PageLayout already provides all necessary padding: 36px 38px 38px 38px */
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Top bar with Show Filter button */
+.topBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.showFilterButton {
+  padding: 6px 12px;
+  background-color: transparent;
+  border: none;
+  color: #007acc;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.showFilterButton:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+/* Filter section - container for filter components */
+.filterSection {
+  margin-bottom: 12px;
+}
+
+/* Table section - following reference structure */
+.tableSection {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #cccccc;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid #cccccc;
+}
+
+.tableHeader h2 {
+  font-size: 1.1rem; /* 17.6px */
+  margin: 0;
+}
+
+.tableActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0; /* Remove gap above pagination */
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0; /* Remove spacing so pagination sits directly under table */
+}
+
+.table::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table::-webkit-scrollbar-thumb {
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.table th {
+  padding: 0.5rem; /* 8px */
+  text-align: left;
+  font-size: 0.7rem; /* 11.2px */
+  font-weight: 600;
+  color: #0c0c0c;
+  border-top: 1px solid #cccccc;
+  border-bottom: 1px solid #cccccc;
+  background-color: #f0f1f2;
+  height: 36px;
+}
+
+.table td {
+  padding: 0.5rem;
+  font-size: 0.75rem; /* 12px */
+  color: #0c0c0c;
+  border-bottom: 1px solid #cccccc;
+  height: 36px;
+}
+
+/* Remove bottom border for the last visible row so the table looks closed
+   when pagination or other elements follow directly after the table */
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Actions column: ensure action buttons align to the left */
+.actionsCell {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.table tr:hover {
+  background-color: #fcfcfc;
+}
+
+/* Empty message */
+.emptyMessage {
+  text-align: center;
+  padding: 24px !important;
+  color: #6b7280;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* === STATUS AND PRIORITY BADGES === */
+/* Subject cell styling */
+:global(.subjectCell) {
+  max-width: 200px; 
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Priority badges - original styling preserved */
+:global(.priority-critical),
+:global(.priority-high),
+:global(.priority-medium),
+:global(.priority-low),
+:global(.priority-not-set) {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+}
+
+:global(.priority-high) {
+  color: #b35000;
+  background-color: #ffe5b4;
+}
+
+:global(.priority-medium) {
+  color: #b38f00;
+  background-color: #fff9cc;
+}
+
+:global(.priority-low) {
+  color: #2e7d32;
+  background-color: #d0f0c0;
+}
+
+:global(.priority-not-set) {
+  color: #9ca3af;
+  background-color: #f3f4f6;
+}
+
+:global(.priority-critical::before),
+:global(.priority-high::before),
+:global(.priority-medium::before),
+:global(.priority-low::before) {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  margin-right: 8px;
+  vertical-align: middle;
+  animation: pulseCircle 1.5s infinite;
+}
+
+/* Status badges - original styling preserved */
+:global(.status-submitted),
+:global(.status-pending),
+:global(.status-open),
+:global(.status-in-progress),
+:global(.status-on-hold),
+:global(.status-resolved),
+:global(.status-closed),
+:global(.status-rejected),
+:global(.status-withdrawn) {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+}
+
+:global(.status-submitted) {
+  color: #0c5cc4;
+  background-color: #bbf7d0;
+}
+
+:global(.status-pending) {
+  color: #b38f00;
+  background-color: #fff9cc;
+}
+
+:global(.status-open) {
+  color: #0284c7;
+  background-color: #a6ccdd;
+}
+
+:global(.status-in-progress) {
+  color: #7c3aed;
+  background-color: #bcbcdf;
+}
+
+:global(.status-on-hold) {
+  color: #b35000;
+  background-color: #ffe5b4;
+}
+
+:global(.status-resolved) {
+  color: #059669;
+  background-color: #bbf7d0;
+}
+
+:global(.status-closed) {
+  color: #16a34a;
+  background-color: #dcfce7;
+}
+
+:global(.status-rejected) {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+:global(.status-withdrawn) {
+  color: #6b7280;
+  background-color: #f3f4f6;
+}
+
+/* PULSING ANIMATION */
+@keyframes pulseCircle {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(0, 0, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+/* === PAGINATION - TABLE === */
+.tablePagination {
+  padding: 0 12px;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Variant utility classes used by the Table component */
+.activeTickets.tablePagination {
+  padding: 0 20px;
+}
+
+.ticketRecords {
+  /* header tweaks for ticket records */
+  padding: 15px 30px;
+}
+
+.ticketRecords h2 {
+  font-size: 1.25rem; /* 20px */
+}
+
+.ticketRecords .tableActions {
+  gap: 16px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .tableHeader {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .tableHeader h2 {
+    font-size: 1.125rem;
+  }
+
+  .tableActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

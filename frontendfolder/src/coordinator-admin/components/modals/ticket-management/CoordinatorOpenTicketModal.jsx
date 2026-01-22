@@ -1,9 +1,9 @@
-import { useForm } from "react-hook-form";
+﻿import { useForm } from "react-hook-form";
 import { useState, useEffect, useMemo } from "react";
 import { ToastContainer, toast } from "react-toastify";
-import ModalWrapper from "../../../shared/modals/ModalWrapper";
-import priorityLevelOptions from "../../../utilities/options/priorityLevelOptions";
-import departmentOptions from "../../../utilities/options/departmentOptions";
+import ModalWrapper from "../../../../shared/modals/ModalWrapper";
+import priorityLevelOptions from "../../../../utilities/options/priorityLevelOptions";
+import departmentOptions from "../../../../utilities/options/departmentOptions";
 import styles from "./CoordinatorOpenTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -39,7 +39,7 @@ const CoordinatorAdminOpenTicketModal = ({ ticket, onClose, onSuccess }) => {
         pauseOnHover: true,
       });
 
-      onSuccess?.(ticket.ticketNumber, "Open"); // ✅ update parent state
+      onSuccess?.(ticket.ticketNumber, "Open"); // Γ£à update parent state
       onClose();
     } catch (err) {
       toast.error("Failed to approve ticket. Please try again.", {

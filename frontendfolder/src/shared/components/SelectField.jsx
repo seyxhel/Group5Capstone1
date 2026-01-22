@@ -54,7 +54,7 @@ const SelectField = ({
         size={multiple ? size : undefined}
         {...props}
       >
-        {!multiple && <option value="">{placeholder}</option>}
+        {!multiple && <option value="" disabled>{placeholder}</option>}
         {options.map((option, index) => (
           <option 
             key={index} 

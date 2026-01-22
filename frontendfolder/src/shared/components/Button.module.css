@@ -13,6 +13,7 @@
   outline: none;
   position: relative;
   box-sizing: border-box;
+  min-width: 0; /* allow flex children to shrink properly */
 }
 
 /* Default icon color - gray for buttons without specific background */
@@ -27,16 +28,16 @@
   outline-offset: 2px;
 }
 
-/* ===== PRIMARY BUTTON (Default) - Red background, white text ===== */
+/* ===== PRIMARY BUTTON (Default) - Blue background, white text ===== */
 .primary {
   background-color: var(--primary-color);
   color: white;
   border-radius: 6px;
-  height: 40px;
-  padding: 12px 16px;
-  font-size: 14px;
+  height: 36px;
+  padding: 10px 12px;
+  font-size: 13px;
   font-weight: 600; /* explicit: make primary buttons bold by default */
-  gap: 5px;
+  gap: 4px;
 }
 
 .primary:hover:not(:disabled) {
@@ -71,10 +72,10 @@
   color: var(--primary-color);
   border: 1px solid var(--primary-color);
   border-radius: 6px;
-  height: 40px;
-  padding: 12px 16px;
-  font-size: 14px;
-  gap: 5px;
+  height: 36px;
+  padding: 10px 12px;
+  font-size: 13px;
+  gap: 4px;
   font-weight: 600; /* explicit: match form action boldness */
 }
 
@@ -148,29 +149,26 @@
   stroke: #666666 !important;
 }
 
-/* ===== CHECK-IN/OUT BUTTONS - Secondary button style (larger and more prominent) ===== */
-.checkin,
-.secondary {
+/* ===== CHECK-IN BUTTON - prominent primary-style used for check-in/out actions ===== */
+.checkin {
   background-color: var(--primary-color);
   color: white;
   border-radius: 8px;
-  height: 48px;
-  padding: 14px 20px;
-  font-size: 16px;
+  height: 40px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: 500;
-  gap: 8px;
-  min-width: 120px;
+  gap: 6px;
+  min-width: 110px;
 }
 
-.checkin:hover:not(:disabled),
-.secondary:hover:not(:disabled) {
+.checkin:hover:not(:disabled) {
   background-color: var(--primary-color-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.checkin:disabled,
-.secondary:disabled {
+.checkin:disabled {
   background-color: #cccccc;
   color: #666666;
   cursor: not-allowed;
@@ -178,8 +176,7 @@
   box-shadow: none;
 }
 
-.checkin svg,
-.secondary svg {
+.checkin svg {
   width: 18px;
   height: 18px;
   color: white !important;
@@ -188,17 +185,59 @@
   flex-shrink: 0;
 }
 
-.checkin:disabled svg,
-.secondary:disabled svg {
+.checkin:disabled svg {
   color: #666666 !important;
   fill: #666666 !important;
 }
 
+/* ===== SECONDARY (PILL) BUTTON - neutral pill-shaped variant for less-prominent actions ===== */
+.secondary {
+  background-color: var(--primary-color);
+  color: white;
+  border: 1px solid var(--primary-color);
+  border-radius: 999px; /* pill */
+  height: 36px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 8px;
+  min-width: unset;
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--primary-color-hover);
+  border-color: var(--primary-color-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.secondary:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  border-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.secondary svg {
+  width: 16px;
+  height: 16px;
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
+  flex-shrink: 0;
+}
+
+.secondary:disabled svg {
+  color: #666666 !important;
+  fill: #666666 !important;
+  stroke: #666666 !important;
+}
+
 /* ===== SIZE VARIANTS ===== */
 .small {
-  height: 32px !important;
-  padding: 8px 12px !important;
-  font-size: 12px !important;
+  height: 28px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
   width: fit-content;
   justify-content: center;
 }
@@ -209,11 +248,11 @@
   color: var(--text-secondary);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
-  height: 40px;
-  padding: 10px 16px;
-  font-size: 14px;
+  height: 36px;
+  padding: 8px 14px;
+  font-size: 13px;
   font-weight: 500;
-  gap: 6px;
+  gap: 5px;
 }
 
 .nav:hover:not(:disabled) {
@@ -246,9 +285,9 @@
 }
 
 .large {
-  height: 48px !important;
-  padding: 16px 24px !important;
-  font-size: 16px !important;
+  height: 40px !important;
+  padding: 12px 18px !important;
+  font-size: 14px !important;
 }
 
 .large svg {
@@ -263,8 +302,7 @@
     min-width: unset;
   }
   
-  .checkin,
-  .secondary {
+  .checkin {
     min-width: unset;
     width: 100%;
   }
@@ -272,10 +310,10 @@
 
 /* ===== FORM ACTION SHARED SIZE ===== */
 .formAction {
-  height: 40px;
-  padding: 12px 16px;
+  height: 36px;
+  padding: 10px 14px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   width: 100%;
   font-weight: 500;
 }

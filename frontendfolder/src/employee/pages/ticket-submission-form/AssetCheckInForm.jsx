@@ -1,3 +1,14 @@
+import { FaBoxOpen } from 'react-icons/fa';
+import InputField from '../../../shared/components/InputField';
+import SelectField from '../../../shared/components/SelectField';
+
+const AssetCheckInMetadata = {
+  categoryName: 'Asset Check In',
+  icon: FaBoxOpen,
+  description: 'Return or check in company assets',
+  subCategories: ['Laptop', 'Printer', 'Projector', 'Mouse', 'Keyboard']
+};
+
 const assetSubCategories = [
   'Laptop',
   'Printer',
@@ -14,16 +25,6 @@ const assetIssueTypes = [
   'Software Issue (e.g., system crash, unable to boot)',
   'Screen/Display Issue (e.g., flickering, dead pixels)',
   'Other'
-];
-
-const locations = [
-  'Main Office - 1st Floor',
-  'Main Office - 2nd Floor',
-  'Main Office - 3rd Floor',
-  'Branch Office - North',
-  'Branch Office - South',
-  'Warehouse',
-  'Remote/Home Office'
 ];
 
 // Mock assets data - this would come from your AMS in production
@@ -54,118 +55,51 @@ const mockAssets = {
 export default function AssetCheckInForm({ formData, onChange, onBlur, errors, FormField }) {
   return (
     <>
-      {/* Sub-Category (Type of Product) */}
-      <FormField
-        id="subCategory"
-        label="Sub-Category (Type of Product)"
-        required
-        error={errors.subCategory}
-        render={() => (
-          <select
-            value={formData.subCategory}
-            onChange={onChange('subCategory')}
-            onBlur={onBlur('subCategory')}
-          >
-            <option value="">Select Product Type</option>
-            {assetSubCategories.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        )}
-      />
+      {/* Sub-Category selection is done in Step 2 and displayed in the banner */}
 
       {/* Asset Name */}
-      <FormField
-        id="assetName"
+      <SelectField
         label="Asset Name"
+        placeholder="Select Asset"
+        value={formData.assetName}
+        onChange={onChange('assetName')}
+        onBlur={onBlur('assetName')}
         required
+        disabled={!formData.subCategory}
         error={errors.assetName}
-        render={() => (
-          <select
-            disabled={!formData.subCategory}
-            value={formData.assetName}
-            onChange={onChange('assetName')}
-            onBlur={onBlur('assetName')}
-          >
-            <option value="">Select Asset</option>
-            {formData.subCategory &&
-              mockAssets[formData.subCategory]?.map(asset => (
-                <option key={asset.name} value={asset.name}>
-                  {asset.name}
-                </option>
-              ))}
-          </select>
-        )}
+        options={formData.subCategory ? mockAssets[formData.subCategory]?.map(asset => ({ value: asset.name, label: asset.name })) || [] : []}
       />
 
       {/* Serial Number (Auto-filled) */}
-      <FormField
-        id="serialNumber"
+      <InputField
+        type="text"
         label="Serial Number"
-        render={() => (
-          <input
-            type="text"
-            placeholder="Auto-filled when asset is selected"
-            readOnly
-            value={formData.serialNumber}
-            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-          />
-        )}
+        placeholder="Auto-filled when asset is selected"
+        value={formData.serialNumber}
+        disabled
+        readOnly
       />
 
-      {/* Location */}
-      <FormField
-        id="location"
-        label="Location"
-        required
-        error={errors.location}
-        render={() => (
-          <select
-            value={formData.location}
-            onChange={onChange('location')}
-            onBlur={onBlur('location')}
-          >
-            <option value="">Select Location</option>
-            {locations.map(location => (
-              <option key={location} value={location}>{location}</option>
-            ))}
-          </select>
-        )}
-      />
-
-      {/* Specify Issue */}
-      <FormField
-        id="issueType"
-        label="Specify Issue"
-        required
+      {/* Issue Type (optional) */}
+      <SelectField
+        label="If there's an issue, please specify (Optional)"
+        placeholder="Select issue"
+        value={formData.issueType}
+        onChange={onChange('issueType')}
+        onBlur={onBlur('issueType')}
+        options={assetIssueTypes.map(i => ({ value: i, label: i }))}
         error={errors.issueType}
-        render={() => (
-          <select
-            value={formData.issueType}
-            onChange={onChange('issueType')}
-            onBlur={onBlur('issueType')}
-          >
-            <option value="">Select Issue Type</option>
-            {assetIssueTypes.map(issue => (
-              <option key={issue} value={issue}>{issue}</option>
-            ))}
-          </select>
-        )}
       />
 
       {/* Other Issue - Shown when "Other" is selected */}
       {formData.issueType === 'Other' && (
-        <FormField
-          id="otherIssue"
+        <InputField
+          type="textarea"
           label="Please Specify Other Issue"
-          render={() => (
-            <textarea
-              rows={3}
-              placeholder="Please describe the issue..."
-              value={formData.otherIssue || ''}
-              onChange={onChange('otherIssue')}
-            />
-          )}
+          placeholder="Please describe the issue..."
+          value={formData.otherIssue || ''}
+          onChange={onChange('otherIssue')}
+          error={errors.otherIssue}
         />
       )}
     </>
@@ -173,4 +107,4 @@ export default function AssetCheckInForm({ formData, onChange, onBlur, errors, F
 }
 
 // Export the mock assets for use in parent component
-export { mockAssets };
+export { mockAssets, AssetCheckInMetadata };

@@ -18,20 +18,20 @@
 .modal-content {
   position: relative;
   z-index: 1001; /* spec: content above overlay */
-  width: fit-content; /* width determined by content, clamped by inline maxWidth */
+  width: 100%; /* fill available width but clamped by inline maxWidth */
   max-width: 95vw;
   background-color: #ffffff; /* spec: white background */
   border: 1px solid #d3d3d3; /* spec: 1px light border */
-  border-radius: 40px; /* spec: 40px */
-  padding: 20px; /* spec: ~20px padding */
+  border-radius: 12px; /* reduced radius for a less circular look */
+  padding: 16px; /* content padding; top spacing provided by top-row */
   box-sizing: border-box; /* ensure padding included in width calculations */
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); /* spec: stronger shadow */
   animation: fadeIn 0.25s ease-in-out;
   display: flex;
   flex-direction: column;
   gap: 20px; /* spacing between stacked elements */
-  max-height: 80vh; /* spec: content should not exceed 80% of viewport */
-  overflow-y: auto; /* scrollable vertically if content is tall */
+  max-height: none; /* allow content to size naturally */
+  overflow-y: visible; /* no scrolling */
 }
 
 /* === Title & Message === */
@@ -49,12 +49,20 @@
 }
 
 /* Close button (top-right) */
+.modal-toprow {
+  height: 10px; /* further reduced gap */
+}
+
+.modal-close-cell {
+  /* empty cell reserved to keep the row layout stable */
+}
+
 .modal-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  position: absolute; /* always anchored top-right */
+  top: 3px;
+  right: 3px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -62,11 +70,21 @@
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: 999px;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   color: #0C0C0C;
 }
 .modal-close:hover { background: rgba(0,0,0,0.04); }
+
+.modal-body {
+  /* center children content within the modal */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px; /* tightened by ~25% */
+}
 
 /* === Button Row === */
 .modal-actions {
@@ -112,16 +130,19 @@
 /* === Responsive Modal Adjustments === */
 @media (max-width: 768px) {
   .modal-content {
-    max-width: 100%; /* full width on mobile */
+    max-width: calc(100% - 32px); /* keep small margins from viewport edges */
     width: 100%;
-    padding: 20px;
+    padding: 12px; /* keep content padding small; top row handles close spacing */
     box-sizing: border-box;
-    border-radius: 16px 16px 0 0; /* bottom-sheet style */
-    max-height: 100vh;
+    border-radius: 8px; /* slightly reduced on small screens */
+    max-height: 90vh; /* leave room for viewport chrome */
+    margin: auto; /* ensure centered placement */
   }
-  /* align overlay items to bottom on small screens for bottom-sheet behaviour */
+  .modal-toprow { height: clamp(8px, 5vh, 22px); }
+  .modal-close { top: 4px; right: 4px; }
+  /* keep modal centered on small screens */
   .modal-overlay {
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     padding: 0;
   }

@@ -2,20 +2,20 @@
 .filterPanel {
   width: 100%;
   /* background-color: var(--white); */
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 /* Toggle Button for Show/Hide Filter */
 .fpShowFilter {
   display: flex;
   justify-content: flex-end;
-  padding: 12px 0;
+  padding: 8px 0;
   background-color: transparent !important;
 }
 
 .fpShowFilter span {
   color: var(--primary-color);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: var(--font-medium);
   cursor: pointer;
   transition: color 0.2s ease;
@@ -29,13 +29,13 @@
 /* Filter Panel Container - Opened State */
 .filterPanelCont {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   align-items: end;
   background-color: var(--white);
   border: 1px solid var(--gray-300);
   border-radius: 4px;
-  padding: 20px;
-  gap: 16px;
+  padding: 16px;
+  gap: 14px;
   margin-top: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
@@ -44,12 +44,12 @@
 .filterGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
 .filterGroup label {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: var(--font-semibold);
   color: var(--text-color);
   font-family: var(--font-family-base);
@@ -60,21 +60,21 @@
 /* Filter Actions (Apply/Reset Buttons) */
 .filterActions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-end;
   justify-content: flex-end;
-  min-width: 180px; /* Minimum width for both buttons */
+  min-width: 140px;
 }
 
 /* Date Input Styling */
 .dateTime {
-  height: 40px;
+  height: 36px;
   padding: 8px 12px;
   border: 1px solid var(--gray-300);
   border-radius: 4px;
   background-color: var(--white);
   color: var(--text-color);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-family: var(--font-family-base);
   width: 100%;
   min-width: 0;
@@ -94,13 +94,13 @@
 
 /* Dropdown Styling */
 .dropdown {
-  height: 40px;
-  padding: 8px 36px 8px 12px;
+  height: 36px;
+  padding: 8px 28px 8px 12px;
   border: 1px solid var(--gray-300);
   border-radius: 4px;
   background-color: var(--white);
   color: var(--text-color);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-family: var(--font-family-base);
   width: 100%;
   min-width: 0;
@@ -111,8 +111,8 @@
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230C0C0C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 14px;
+  background-position: right 8px center;
+  background-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -128,10 +128,40 @@
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15);
 }
 
+/* Button Styling */
+.applyButton,
+.resetButton {
+  padding: 6px 12px;
+  height: 32px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--text-color);
+  font-size: 0.75rem;
+  font-weight: var(--font-medium);
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.applyButton:hover {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+}
+
+.resetButton:hover {
+  background-color: var(--error-color);
+  color: var(--white);
+  border-color: var(--error-color);
+}
+
 /* === RESPONSIVE STYLES === */
 @media (max-width: 1200px) {
   .filterPanelCont {
     grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
   }
   
   .filterActions {
@@ -142,6 +172,7 @@
 @media (max-width: 1024px) {
   .filterPanelCont {
     grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
   }
   
   .filterActions {
@@ -153,16 +184,16 @@
 @media (max-width: 768px) {
   .fpShowFilter {
     justify-content: center;
-    padding: 10px 0;
+    padding: 8px 0;
   }
 
   .fpShowFilter span {
-    font-size: 0.8125rem;
+    font-size: 0.8rem;
   }
 
   .filterPanelCont {
     grid-template-columns: repeat(2, 1fr);
-    padding: 16px;
+    padding: 14px;
     gap: 12px;
   }
 
@@ -174,28 +205,30 @@
     grid-column: span 2;
     width: 100%;
     justify-content: flex-end;
+    gap: 8px;
   }
 
   .applyButton,
   .resetButton {
-    padding: 8px 16px;
-    min-width: 70px;
+    padding: 8px 14px;
+    min-width: 65px;
+    font-size: 0.8rem;
   }
 }
 
 @media (max-width: 480px) {
   .fpShowFilter {
-    padding: 8px 0;
+    padding: 6px 0;
   }
 
   .fpShowFilter span {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
 
   .filterPanelCont {
     grid-template-columns: 1fr;
-    padding: 12px;
-    gap: 10px;
+    padding: 8px;
+    gap: 8px;
   }
 
   .filterGroup {
@@ -206,19 +239,21 @@
     grid-column: 1;
     flex-direction: row;
     width: 100%;
-    gap: 8px;
+    gap: 6px;
     justify-content: stretch;
   }
 
   .applyButton,
   .resetButton {
     flex: 1;
-    height: 40px;
+    height: 32px;
     justify-content: center;
+    font-size: 0.75rem;
   }
 
   .dateTime,
   .dropdown {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
+    height: 30px;
   }
 }

@@ -1,9 +1,3 @@
-.container {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
 .header {
   margin-bottom: 24px;
 }
@@ -179,6 +173,17 @@
 .table {
   width: 100%;
   border-collapse: collapse;
+}
+
+/* Compact table variant used by AMS dashboard to reduce row height */
+.compactTable th {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.compactTable td {
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .table thead {

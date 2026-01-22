@@ -17,6 +17,8 @@ export default function EmployeeTicketFilter({
   onReset,
   initialFilters = {},
   hideToggleButton = true,
+  initialShow = false,
+  preset = "activeTickets",
   // Allow customization for Active Tickets vs Ticket Records
   statusOptions,
   // Can override other options if needed
@@ -71,6 +73,9 @@ export default function EmployeeTicketFilter({
 
   return (
     <FilterPanel
+      // Apply preset for consistent styling
+      preset={preset}
+      initialShow={initialShow}
       // Use base FilterPanel with custom configuration
       hideToggleButton={hideToggleButton}
       onApply={onApply}
@@ -94,6 +99,10 @@ export default function EmployeeTicketFilter({
       
       // Hide SLA Status (Employee doesn't see this)
       showSLAStatus={false}
+      
+      // Explicitly render only these fields to prevent the shared FilterPanel
+      // from showing the `rating` control for employee pages.
+      fields={["status", "priority", "category", "subCategory", "startDate", "endDate"]}
     />
   );
 }

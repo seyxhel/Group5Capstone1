@@ -2,12 +2,9 @@ import React, { useState, useMemo } from 'react';
 import styles from './CoordinatorAMSDashboard.module.css';
 import adminDashboardStyles from '../../dashboard/CoordinatorAdminDashboard.module.css';
 import statusCardStyles from '../../dashboard/CoordinatorAdminDashboardStatusCards.module.css';
-import ticketStyles from '../../ticket-management/CoordinatorAdminTicketManagement.module.css';
-import TablePagination from '../../../../shared/table/TablePagination';
+import Table from '../../../../shared/table/Table';
 import FilterPanel from '../../../../shared/table/FilterPanel';
 import Tabs from '../../../../shared/components/Tabs';
-import InputField from '../../../../shared/components/InputField';
-import { localTicketService } from '../../../../services/local/ticketService';
 
 const CoordinatorAMSDashboard = () => {
 	const [searchTerm, setSearchTerm] = useState('');
@@ -16,36 +13,7 @@ const CoordinatorAMSDashboard = () => {
 	const [activeFilters, setActiveFilters] = useState({});
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(10);
-
-	// Test function to create a "New" asset ticket
-	const handleCreateTestTicket = async () => {
-		try {
-			const result = await localTicketService.forceCreateTicket({
-				employeeId: 1,
-				employeeName: 'Jane Smith',
-				category: 'Asset Check Out',
-				subCategory: 'Projector',
-				status: 'New',
-				priority: 'Medium',
-				subject: 'Projector checkout for presentation',
-				description: 'Need to checkout Epson projector for client presentation',
-				assetName: 'Epson PowerLite 1795F',
-				location: 'Main Office - Room 301',
-				assignedTo: 'Asset Management'
-			});
-			
-			if (result.success) {
-				alert(`✅ Test ticket created successfully!\n\nTicket Number: ${result.data.ticketNumber}\nStatus: ${result.data.status}\n\nCheck console for details.`);
-				console.log('🎫 Created ticket:', result.data);
-				
-				// Reload to see the new ticket
-				window.location.reload();
-			}
-		} catch (error) {
-			console.error('❌ Error creating ticket:', error);
-			alert('Failed to create test ticket. Check console for details.');
-		}
-	};
+	const [isLoading, setIsLoading] = useState(false);
 
 	const assets = useMemo(
 		() => [
@@ -101,8 +69,26 @@ const CoordinatorAMSDashboard = () => {
 		return filtered.slice(start, start + itemsPerPage);
 	}, [filtered, currentPage, itemsPerPage]);
 
+	const FilterComponent = () => (
+		<FilterPanel
+			preset="assetManagement"
+			fields={["status","priority","category","subCategory","slaStatus","startDate","endDate"]}
+			onApply={(f) => { setActiveFilters(f); setCurrentPage(1); }}
+			onReset={() => { setActiveFilters({}); setCurrentPage(1); }}
+			initialFilters={activeFilters}
+			hideToggleButton={true}
+		/>
+	);
+
+	const columns = [
+		{ key: 'name', label: 'ASSET NAME', skeletonWidth: '200px', render: (v) => v || '-' },
+		{ key: 'productType', label: 'PRODUCT TYPE', skeletonWidth: '140px', render: (v) => <span className={styles.productTypeBadge}>{v}</span> },
+		{ key: 'status', label: 'STATUS', skeletonWidth: '100px', render: (v) => <span className={`${styles.statusBadge} ${v === 'Available' ? styles.statusAvailable : styles.statusOutOfStock}`}>{v}</span> },
+		{ key: 'location', label: 'LOCATION', skeletonWidth: '140px', render: (v) => v },
+	];
+
 	return (
-		<div className={ticketStyles.pageContainer}>
+		<div className={styles.container}>
 			<h1 className={adminDashboardStyles.title}>AMS — Inventory</h1>
 
 			{/* Status Cards Section */}
@@ -144,94 +130,36 @@ const CoordinatorAMSDashboard = () => {
 				/>
 			</div>
 
-			{/* Top bar with Show Filter button */}
-			<div className={ticketStyles.topBar}>
-				<button 
-					onClick={handleCreateTestTicket}
-					style={{
-						padding: '8px 16px',
-						backgroundColor: '#4CAF50',
-						color: 'white',
-						border: 'none',
-						borderRadius: '4px',
-						cursor: 'pointer',
-						fontSize: '14px',
-						fontWeight: '500'
-					}}
-				>
-					🧪 Create Test "New" Ticket
-				</button>
-				<button 
-					className={ticketStyles.showFilterButton}
-					onClick={() => setShowFilter(!showFilter)}
-				>
-					{showFilter ? 'Hide Filter' : 'Show Filter'}
-				</button>
-			</div>
+            
 
-			{/* Filter Panel - above table section */}
-			{showFilter && (
-				<FilterPanel
-					preset="assetManagement"
-					fields={['status','priority','category','subCategory','slaStatus','startDate','endDate']}
-					onApply={(f) => { setActiveFilters(f); setCurrentPage(1); }}
-					onReset={() => { setActiveFilters({}); setCurrentPage(1); }}
-					initialFilters={activeFilters}
-					hideToggleButton={true}
+				{/* Table Section */}
+				<Table
+					variant="ticketManagement"
+					data={paginated}
+					columns={[
+						{ key: 'name', label: 'Asset Name', skeletonWidth: '200px', render: (v) => v || '-' },
+						{ key: 'productType', label: 'Product Type', skeletonWidth: '140px', render: (v) => <span className={styles.productTypeBadge}>{v}</span> },
+						{ key: 'status', label: 'Status', skeletonWidth: '100px', render: (v) => <span className={`${styles.statusBadge} ${v === 'Available' ? styles.statusAvailable : styles.statusOutOfStock}`}>{v}</span> },
+						{ key: 'location', label: 'Location', skeletonWidth: '140px', render: (v) => v },
+					]}
+					title="Assets"
+					searchable
+					searchValue={searchTerm}
+					onSearchChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+					filterComponent={FilterComponent}
+					showFilter={showFilter}
+					onShowFilterChange={setShowFilter}
+					currentPage={currentPage}
+					pageSize={itemsPerPage}
+					totalItems={filtered.length}
+					onPageChange={setCurrentPage}
+					onPageSizeChange={setItemsPerPage}
+					isLoading={isLoading}
+					tableClassName={styles.compactTable}
+					emptyMessage="No assets match your criteria."
 				/>
-			)}
-
-			{/* Table Section */}
-			<div className={ticketStyles.tableSection}>
-				<div className={ticketStyles.tableHeader}>
-					<h2>Assets</h2>
-					<div className={ticketStyles.tableActions}>
-						<InputField
-							placeholder="Search assets..."
-							value={searchTerm}
-							onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-							inputStyle={{ width: '260px' }}
-						/>
-					</div>
-				</div>
-				
-				<div className={ticketStyles.tableWrapper}>
-					<table className={ticketStyles.table}>
-						<thead>
-							<tr>
-								<th>ASSET NAME</th>
-								<th>PRODUCT TYPE</th>
-								<th>STATUS</th>
-								<th>LOCATION</th>
-							</tr>
-						</thead>
-						<tbody>
-							{paginated.map((a) => (
-								<tr key={a.id}>
-									<td>{a.name}</td>
-									<td><span className={styles.productTypeBadge}>{a.productType}</span></td>
-									<td><span className={`${styles.statusBadge} ${a.status === 'Available' ? styles.statusAvailable : styles.statusOutOfStock}`}>{a.status}</span></td>
-									<td className={styles.location}>{a.location}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					{filtered.length === 0 && <div className={styles.emptyState}>No assets match your criteria.</div>}
-					<div className={ticketStyles.tablePagination}>
-						<TablePagination
-							currentPage={currentPage}
-							totalItems={filtered.length}
-							initialItemsPerPage={itemsPerPage}
-							onPageChange={(p) => setCurrentPage(p)}
-							onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-							alwaysShow={true}
-						/>
-					</div>
-				</div>
-			</div>
 		</div>
 	);
-
 };
 
 export default CoordinatorAMSDashboard;

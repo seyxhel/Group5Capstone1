@@ -5,8 +5,11 @@ export default function SysAdminArticlesFilter({
   onReset,
   initialFilters = {},
   hideToggleButton = true,
+  // Whether the filter should be visible by default when toggle is shown
+  initialShow = false,
   categoryOptions,
   visibilityOptions,
+  sortOptions,
 }) {
   const defaultVisibilityOptions = [
     { label: "Employee" },
@@ -14,9 +17,24 @@ export default function SysAdminArticlesFilter({
     { label: "System Admin" },
   ];
 
+  const defaultSortOptions = [
+    { label: "Sort Likes", value: "likes_desc" },
+    { label: "Most Dislikes", value: "dislikes_desc" },
+    { label: "Newest", value: "date_desc" },
+  ];
+
   return (
     <FilterPanel
       hideToggleButton={hideToggleButton}
+      initialShow={initialShow}
+      fields={[
+        'category',
+        'status',
+        'sort',
+        'startDate',
+        'endDate',
+      ]}
+      sortOptions={sortOptions || defaultSortOptions}
       onApply={onApply}
       onReset={onReset}
       initialFilters={initialFilters}

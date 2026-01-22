@@ -17,6 +17,18 @@ const TablePagination = ({
     onItemsPerPageChange?.(itemsPerPage);
   }, [itemsPerPage, onItemsPerPageChange]);
 
+  // Ensure current page is valid when totalItems or itemsPerPage change.
+  useEffect(() => {
+    if (!onPageChange) return;
+    // Recompute total pages and clamp current page if necessary
+    const newTotalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    if (currentPage > newTotalPages) {
+      onPageChange(newTotalPages);
+    } else if (currentPage < 1) {
+      onPageChange(1);
+    }
+  }, [totalItems, itemsPerPage, currentPage, onPageChange]);
+
   if (!alwaysShow && totalItems <= itemsPerPage) {
     return null; // hide if everything fits on one page
   }
@@ -34,24 +46,61 @@ const TablePagination = ({
     }
   };
 
+  // When itemsPerPage changes, reset to first page for predictable UX
+  useEffect(() => {
+    if (onPageChange) onPageChange(1);
+  }, [itemsPerPage, onPageChange]);
+
   const renderPageNumbers = () => {
     const pages = [];
 
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(
-        <button
-          key={i}
-          className={`${styles.pageButton} ${i === currentPage ? styles.active : ""}`}
-          onClick={() => handlePageClick(i)}
-          type="button"
-        >
-          {i}
-        </button>
-      );
+    // For large number of pages, show a windowed range with ellipses
+    const maxButtons = 13; // keep UI compact
+    if (totalPages <= maxButtons) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(renderPageButton(i));
+      }
+      return pages;
     }
+
+    // Always show first two and last two pages, and a sliding window around current
+    const createRange = (start, end) => {
+      for (let i = start; i <= end; i++) pages.push(renderPageButton(i));
+    };
+
+    const around = 2; // show current +/- around
+    // first pages
+    createRange(1, 2);
+
+    // left ellipsis
+    const left = Math.max(3, currentPage - around);
+    if (left > 3) pages.push(<span key="l-ellipsis" className={styles.ellipsis}>…</span>);
+
+    // middle range
+    const midStart = Math.max(3, currentPage - around);
+    const midEnd = Math.min(totalPages - 2, currentPage + around);
+    createRange(midStart, midEnd);
+
+    // right ellipsis
+    const right = Math.min(totalPages - 2, currentPage + around);
+    if (right < totalPages - 2) pages.push(<span key="r-ellipsis" className={styles.ellipsis}>…</span>);
+
+    // last pages
+    createRange(totalPages - 1, totalPages);
 
     return pages;
   };
+
+  const renderPageButton = (i) => (
+    <button
+      key={i}
+      className={`${styles.pageButton} ${i === currentPage ? styles.active : ""}`}
+      onClick={() => handlePageClick(i)}
+      type="button"
+    >
+      {i}
+    </button>
+  );
 
   return (
     <div className={styles.paginationContainer}>

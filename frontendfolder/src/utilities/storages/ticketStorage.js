@@ -814,6 +814,8 @@ const normalizeTicket = (t) => {
   return ticket;
 };
 
+import { getEmployeeUsers } from './employeeUserStorage';
+
 // Seed localStorage with normalized tickets only if no tickets exist yet.
 // This avoids overwriting live or backend-driven data on every page load.
 // If you need to force-reset the seeded tickets during development, remove the
@@ -911,44 +913,27 @@ export const addNewEmployeeTicket = createTicket;
 export const updateTicket = (ticketNumber, updates) => {
   const tickets = getEmployeeTickets();
   const index = tickets.findIndex(t => t.ticketNumber === ticketNumber);
-  if (index !== -1) {
-    tickets[index] = {
-      ...tickets[index],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    if (updates.status === "Resolved" && !tickets[index].resolvedAt) {
-      tickets[index].resolvedAt = new Date().toISOString();
-    }
-    if (updates.status === "Closed" && !tickets[index].closedAt) {
-      tickets[index].closedAt = new Date().toISOString();
-    }
-    localStorage.setItem("tickets", JSON.stringify(tickets));
-    return tickets[index];
-  }
-  return null;
+  if (index === -1) return null;
+  tickets[index] = { ...tickets[index], ...updates, updatedAt: new Date().toISOString() };
+  localStorage.setItem('tickets', JSON.stringify(tickets));
+  return tickets[index];
 };
 
 // Append a comment to a ticket (local storage).
 export const addComment = (ticketNumber, comment) => {
   const tickets = getEmployeeTickets();
-  const idx = tickets.findIndex(t => t.ticketNumber === ticketNumber || t.ticket_number === ticketNumber || String(t.id) === String(ticketNumber));
-  if (idx === -1) return null;
-  const ticket = tickets[idx];
-  // Ensure comments array exists
-  ticket.comments = Array.isArray(ticket.comments) ? ticket.comments : (Array.isArray(ticket.comment) ? ticket.comment : []);
-  // Normalize comment shape
-  const c = {
-    id: comment.id ?? Date.now(),
-    comment: comment.comment ?? comment.message ?? comment.body ?? comment.text ?? '',
-    created_at: comment.created_at ?? comment.createdAt ?? new Date().toISOString(),
-    user: comment.user ?? comment.author ?? null,
-    is_internal: comment.is_internal ?? comment.isInternal ?? false,
+  const ticket = tickets.find(t => t.ticketNumber === ticketNumber);
+  if (!ticket) return null;
+  ticket.comments = ticket.comments || [];
+  const newComment = {
+    id: Date.now(),
+    text: comment,
+    createdAt: new Date().toISOString(),
   };
-  ticket.comments.push(c);
+  ticket.comments.push(newComment);
   ticket.updatedAt = new Date().toISOString();
   localStorage.setItem('tickets', JSON.stringify(tickets));
-  return ticket;
+  return newComment;
 };
 
 export const submitCSAT = (ticketNumber, rating, comment) => {

@@ -3,39 +3,43 @@
 .breadcrumbContainer {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Space between breadcrumb and title */
   margin: 0;
-  padding: 80px 38px 0 38px; /* Standard page padding: 80px top, 38px sides, 0 bottom - divider is explicit */
+  padding: 60px 24px 0 24px; /* Reduced padding: 60px top, 24px sides, 0 bottom */
   box-sizing: border-box;
 }
 
 /* Breadcrumb Navigation */
 .breadcrumbNav {
-  margin: 0;
+  margin: 0 0 10px 0; /* Bottom margin for spacing to title */
 }
 
 .breadcrumbList {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+  align-items: center; /* Vertically center all items */
+  gap: 0;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
 .breadcrumbItem {
-  font-size: 0.875rem;        /* 14px - matches small-text from index.css */
+  font-size: 0.75rem;        /* 12px - smaller */
   font-weight: var(--font-regular);
   color: var(--text-muted);   /* #6B7280 - muted gray */
   font-family: var(--font-family-base);
-  line-height: 1.5;
+  line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 .breadcrumbItem + .breadcrumbItem::before {
   content: "/";
-  padding: 0 8px;
+  padding: 0 6px;
   color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .breadcrumbLink {
@@ -43,9 +47,12 @@
   text-decoration: none;
   cursor: pointer;
   transition: color 0.2s ease;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: var(--font-regular);
   font-family: var(--font-family-base);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .breadcrumbLink:hover {
@@ -58,7 +65,8 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
+  margin-bottom: 10px; /* Space before divider */
 }
 
 /* Ensure breadcrumb title H3 matches spec color and weight without touching global H3 */
@@ -66,30 +74,36 @@
   color: #111827;
   font-weight: 500;
   margin: 0;
+  font-size: 1.25rem; /* Reduced from default */
+  line-height: 1.4;
 }
 
 .breadcrumbDivider {
   border-bottom: 1px solid #D1D5DB;
-  margin-bottom: 24px; /* 24px bottom margin after divider before form */
-  width: 100%;
+  margin-bottom: 16px; /* Reduced from 24px */
+  width: 100%; /* Keep divider within container width */
 }
 
 /* Actions Container (for buttons, etc.) */
 .actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .breadcrumbContainer {
-    padding: 60px 20px 20px 20px;
+    padding: 50px 16px 16px 16px;
   }
 
-  .pageTitle {
-    font-size: 1.5rem; /* 24px on mobile */
+  .breadcrumbDivider {
+    width: 100%; /* Keep within container on mobile too */
+  }
+
+  .breadcrumbContainer > .titleSection > h3 {
+    font-size: 1.125rem; /* 18px on mobile */
   }
 
   .titleSection {

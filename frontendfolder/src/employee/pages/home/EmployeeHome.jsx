@@ -63,8 +63,11 @@ const EmployeeHome = () => {
   return (
     <div className={styles.pageContainer}>
       <h1 className={styles.welcomeHeader}>
-        Welcome <span className={styles.welcomeName}>{currentUser?.firstName}</span>,
+        Welcome, <span className={styles.welcomeName}>{currentUser?.firstName}</span>.
+        <p className={styles.welcomeSubtext}>Submit a ticket and we'll help you out.</p>
       </h1>
+
+      
 
       <div className={styles.topSection}>
         <div className={styles.card}>
@@ -87,17 +90,17 @@ const EmployeeHome = () => {
           </div>
         </div>
 
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Notice</h2>
+        <div className={`${styles.card} ${styles.noticeCard}`}>
+          <h2 className={styles.cardTitle}>Notice!</h2>
           <p className={styles.noticeText}>
-            Our support team operates during <span className={styles.workingHours}>8:00 AM - 5:00 PM</span>.
+            Our support team operates during<span className={styles.workingHours}>8:00 AM - 5:00 PM</span> 
           </p>
           <ul className={styles.noticeList}>
             <li className={styles.noticeItem}>
               Tickets will be processed within <strong>1 business day</strong>
             </li>
             <li className={styles.noticeItem}>
-              Urgent requests? Call <span className={styles.phoneNumber}>+63 912 345 6789</span>
+              Urgent requests? Call<span className={styles.phoneNumber}>+63 912 345 6789</span>
             </li>
           </ul>
         </div>
@@ -163,12 +166,6 @@ const EmployeeHome = () => {
                     </div>
                     <div className={styles.ticketDetailsGrid}>
                       <div>
-                        <div className={styles.ticketLabel}>Assigned Agent</div>
-                        <div className={styles.ticketValue}>
-                          {ticket.assignedTo?.name || 'Unassigned'}
-                        </div>
-                      </div>
-                      <div>
                         <div className={styles.ticketLabel}>Subject</div>
                         <div className={styles.ticketValue}>{ticket.subject}</div>
                       </div>
@@ -180,6 +177,12 @@ const EmployeeHome = () => {
                         <div className={styles.ticketLabel}>Category & Sub-category</div>
                         <div className={styles.ticketValue}>
                           {ticket.category} &gt; {ticket.subCategory}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.ticketLabel}>Assigned Agent</div>
+                        <div className={styles.ticketValue}>
+                          {ticket.assignedTo?.name || 'Unassigned'}
                         </div>
                       </div>
                     </div>
@@ -206,6 +209,7 @@ const EmployeeHome = () => {
       </div>
 
       <EmployeeHomeFloatingButtons />
+      {/* Saved to trigger hot-reload after CSS updates */}
     </div>
   );
 };

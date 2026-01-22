@@ -43,27 +43,32 @@ const StatCard = ({ label, count, isHighlight, position, onClick, statusType }) 
   );
 };
 
-const DataTable = ({ title, headers, data }) => (
-  <div className={tableStyles.tableContainer}>
+const DataTable = ({ title, headers, data, onRowClick }) => (
+  <div className={tableStyles.tableSection}>
     <div className={tableStyles.tableHeader}>
-      <h3 className={tableStyles.tableTitle}>{title}</h3>
+      <h2>{title}</h2>
     </div>
 
-    <div className={tableStyles.tableOverflow}>
+    {/* Single table with sticky header inside scrollable wrapper (keeps columns perfectly aligned) */}
+    <div className={tableStyles.tableWrapper}>
       {data.length > 0 ? (
         <table className={tableStyles.table}>
-          <thead className={tableStyles.tableHead}>
+          <thead>
             <tr>
               {headers.map((header, idx) => (
-                <th key={idx} className={tableStyles.tableHeaderCell}>{header}</th>
+                <th key={idx}>{header}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.map((row, i) => (
-              <tr key={i} className={tableStyles.tableRow}>
+              <tr
+                key={i}
+                onClick={() => onRowClick && onRowClick(row)}
+                style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+              >
                 {Object.values(row).map((cell, j) => (
-                  <td key={j} className={tableStyles.tableCell}>
+                  <td key={j}>
                     {typeof cell === 'object' ? (
                       <span className={`${tableStyles.statusBadge} ${tableStyles[cell.statusClass]}`}>
                         {cell.text}
@@ -162,7 +167,7 @@ const StatusPieChart = ({ data, title, activities, pieRange, setPieRange, isAdmi
           ))}
         </div>
 
-        <div style={{ width: '340px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div data-pie-area style={{ width: '320px', height: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100%' }}>
           <Pie data={chartData} options={options} />
         </div>
 
@@ -260,21 +265,25 @@ const TrendLineChart = ({ data, title, isTicketChart = true }) => {
   return (
     <div className={chartStyles.chartContainer}>
       <h3 className={chartStyles.chartTitle}>{title}</h3>
-      <div className={chartStyles.chartContent} style={{ height: '300px' }}>
+      <div className={chartStyles.chartContent} style={{ height: '220px' }}>
         <Line data={chartData} options={options} />
       </div>
     </div>
   );
 };
 
-const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
+const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange, initialTickets = null, visibleStatLabels = null, allowedPieStatuses = null, tableTitle = null }) => {
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
   const [ticketDataState, setTicketDataState] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const activeTicketPaths = visibleStatLabels && Array.isArray(visibleStatLabels)
+    ? visibleStatLabels.map((label, i) => ({ label, path: null, position: i }))
+    : ticketPaths;
+
   const ticketData = ticketDataState || {
-    stats: ticketPaths.map((item, i) => ({
+    stats: activeTicketPaths.map((item, i) => ({
       label: item.label,
       count: 0,
       isHighlight: i >= 7,
@@ -337,7 +346,8 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
     if (s.includes('on hold') || s.includes('on-hold')) return 'On Hold';
     if (s.includes('withdraw')) return 'Withdrawn';
     if (s.includes('rejected')) return 'Rejected';
-    if (s.includes('closed') || s.includes('resolved')) return 'Closed';
+    if (s.includes('resolved')) return 'Resolved';
+    if (s.includes('closed')) return 'Closed';
     return String(raw)
       .split(/\s+/)
       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
@@ -372,6 +382,7 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       'In Progress': 0,
       'On Hold': 0,
       Withdrawn: 0,
+      Resolved: 0,
       Closed: 0,
       Rejected: 0,
     };
@@ -390,6 +401,7 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       'In Progress': '#F59E0B',
       'On Hold': '#EF4444',
       Rejected: '#DC2626',
+      Resolved: '#8B5CF6',
       Closed: '#10B981'
     };
     const displayMap = {
@@ -399,11 +411,16 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       'In Progress': 'In Progress Tickets',
       'On Hold': 'On Hold Tickets',
       Withdrawn: 'Withdrawn',
+      Resolved: 'Resolved',
       Closed: 'Closed',
       Rejected: 'Rejected',
     };
 
-    return Object.keys(buckets).map(name => ({ name: displayMap[name] || name, value: buckets[name], fill: colorMap[name] || '#9CA3AF' }));
+    const full = Object.keys(buckets).map(name => ({ key: name, name: displayMap[name] || name, value: buckets[name], fill: colorMap[name] || '#9CA3AF' }));
+    if (Array.isArray(allowedPieStatuses) && allowedPieStatuses.length > 0) {
+      return full.filter(item => allowedPieStatuses.includes(item.key));
+    }
+    return full;
   };
 
   const formatMonthLabel = (d) => d.toLocaleString(undefined, { month: 'short' });
@@ -459,27 +476,93 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        const all = getAllTickets();
+        const all = initialTickets || getAllTickets();
         const filtered = filterByRole(all);
 
-        const stats = ticketPaths.map(p => ({ label: p.label, count: 0, path: p.path }));
+        // Build stats from the active ticket paths (respect visibleStatLabels when provided)
+        const stats = activeTicketPaths.map((p, i) => ({ label: p.label, count: 0, path: p.path || null, position: i }));
         filtered.forEach(t => {
           const s = computeEffectiveStatus(t);
-          const mapLabel = ticketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
+          const mapLabel = activeTicketPaths.find(p => p.label.toLowerCase().startsWith(s.toLowerCase()));
           if (mapLabel) {
             const target = stats.find(st => st.label === mapLabel.label);
             if (target) target.count += 1;
           }
         });
 
-        const pie = aggregatePie(filtered.concat());
-        const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+            const pie = aggregatePie(filtered.concat());
+            const line = aggregateLine(filtered.concat(), currentUser?.role === 'System Admin' && chartRange === 'yearly' ? 'yearly' : chartRange);
+
+            // Derive activity timeline from the filtered tickets so each tab shows its own logs
+            const deriveActivities = (tickets) => {
+              const rows = (tickets || []).slice().map(t => ({
+                ticketNumber: t.ticketNumber || t.ticket_number || t.id || '',
+                status: computeEffectiveStatus(t),
+                time: t.createdAt || t.dateCreated || t.created_on || t.createdAtTimestamp || null
+              }));
+              rows.sort((a, b) => {
+                const da = a.time ? new Date(a.time).getTime() : 0;
+                const db = b.time ? new Date(b.time).getTime() : 0;
+                return db - da;
+              });
+              return rows.slice(0, 5).map(r => ({ time: r.time ? new Date(r.time).toLocaleString() : '', action: `Ticket ${r.ticketNumber} ${r.status}`, type: 'ticket' }));
+            };
+
+            const activities = deriveActivities(filtered);
+
+        const mapStatusClass = (status) => {
+          const s = (status || '').toString().toLowerCase();
+          if (s.includes('new')) return 'statusNew';
+          if (s.includes('pending')) return 'statusPending';
+          if (s.includes('open')) return 'statusOpen';
+          if (s.includes('in progress') || s.includes('inprogress')) return 'statusInProgress';
+          if (s.includes('on hold') || s.includes('on-hold')) return 'statusOnHold';
+          if (s.includes('withdraw')) return 'statusWithdrawn';
+          if (s.includes('resolved')) return 'statusResolved';
+          if (s.includes('closed')) return 'statusClosed';
+          if (s.includes('rejected')) return 'statusRejected';
+          return 'statusDefault';
+        };
+
+        const toTableRow = (t) => {
+          const statusText = computeEffectiveStatus(t);
+          const date = t.createdAt || t.dateCreated || t.date_created || t.createdOn || null;
+          let dateStr = '';
+          try {
+            const d = date ? new Date(date) : null;
+            dateStr = d && !isNaN(d.getTime()) ? d.toLocaleString() : (date || '');
+          } catch (e) {
+            dateStr = date || '';
+          }
+          return {
+            ticketNumber: t.ticketNumber || t.ticket_number || t.id || '',
+            subject: t.subject || t.title || '',
+            category: t.category || t.ticketCategory || '',
+            subCategory: t.subCategory || t.sub_category || '',
+            status: { text: statusText, statusClass: mapStatusClass(statusText) },
+            dateCreated: dateStr
+          };
+        };
+
+        const onRowClick = (row) => {
+          const id = row.ticketNumber || row.ticket_number || row.id || '';
+          if (!id) return;
+          // If this instance was given initialTickets, assume it's My Tickets and use owned route
+          if (initialTickets) {
+            navigate(`/admin/owned-tickets/${id}`);
+          } else {
+            // Default to ticket tracker/detail route
+            navigate(`/admin/ticket-tracker/${id}`);
+          }
+        };
 
         setTicketDataState({
           stats,
-          tableData: ticketData.tableData,
+          tableData: filtered.map(toTableRow),
           pieData: pie,
-          lineData: line
+          lineData: line,
+          activityTimeline: activities,
+          onRowClick
         });
         setIsLoading(false);
       } catch (err) {
@@ -488,14 +571,10 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [currentUser, chartRange, pieRange]);
+  }, [currentUser, chartRange, pieRange, initialTickets, visibleStatLabels]);
 
-  const activityTimeline = [
-    { time: "10:30 AM", action: "Ticket TX0001 submitted", type: "ticket" },
-    { time: "11:00 AM", action: "Ticket TX0003 assigned to user", type: "ticket" },
-    { time: "02:15 PM", action: "Ticket TX0002 resolved", type: "ticket" },
-    { time: "04:20 PM", action: "Ticket TX0004 approved by Admin", type: "ticket" },
-  ];
+  // activityTimeline is generated per-data and stored in ticketDataState.activityTimeline
+  const activityTimeline = ticketData.activityTimeline || [];
 
   return (
     <>
@@ -510,9 +589,10 @@ const TicketsTab = ({ chartRange, setChartRange, pieRange, setPieRange }) => {
       </div>
 
       <DataTable
-        title="Tickets to Review"
+        title={tableTitle || 'Tickets to Review'}
         headers={['Ticket Number', 'Subject', 'Category', 'Sub-Category', 'Status', 'Date Created']}
         data={ticketData.tableData}
+        onRowClick={ticketData.onRowClick}
       />
 
       <div style={{ position: 'relative', marginTop: 12 }}>

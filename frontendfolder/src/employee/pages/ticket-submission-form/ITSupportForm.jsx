@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { FaLaptop } from 'react-icons/fa';
+import InputField from '../../../shared/components/InputField';
+import SelectField from '../../../shared/components/SelectField';
 
 const itSupportSubCategories = [
   'Technical Assistance',
@@ -13,6 +16,13 @@ const itSupportSubCategories = [
   'Data Backup/Restore'
 ];
 
+const ITSupportMetadata = {
+  categoryName: 'IT Support',
+  icon: FaLaptop,
+  description: 'Technical support, troubleshooting, and IT assistance',
+  subCategories: itSupportSubCategories
+};
+
 const deviceTypes = [
   'Laptop',
   'Printer',
@@ -24,77 +34,44 @@ const deviceTypes = [
 export default function ITSupportForm({ formData, onChange, onBlur, errors, FormField }) {
   return (
     <>
-      {/* Sub-Category */}
-      <FormField
-        id="subCategory"
-        label="Sub-Category"
-        required
-        error={errors.subCategory}
-        render={() => (
-          <select
-            value={formData.subCategory}
-            onChange={onChange('subCategory')}
-            onBlur={onBlur('subCategory')}
-          >
-            <option value="">Select Sub-Category</option>
-            {itSupportSubCategories.map(sub => (
-              <option key={sub} value={sub}>{sub}</option>
-            ))}
-          </select>
-        )}
-      />
+          {/* Sub-Category is chosen in the Category step and shown in the banner */}
 
       {/* Device Type */}
-      <FormField
-        id="deviceType"
+      <SelectField
         label="Device Type"
+        placeholder="Select Device Type"
+        value={formData.deviceType}
+        onChange={onChange('deviceType')}
+        onBlur={onBlur('deviceType')}
         required
         error={errors.deviceType}
-        render={() => (
-          <select
-            value={formData.deviceType}
-            onChange={onChange('deviceType')}
-            onBlur={onBlur('deviceType')}
-          >
-            <option value="">Select Device Type</option>
-            {deviceTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        )}
+        options={deviceTypes.map(type => ({ value: type, label: type }))}
       />
 
       {/* Custom Device Type - Shown when "Other" is selected */}
       {formData.deviceType === 'Other' && (
-        <FormField
-          id="customDeviceType"
+        <InputField
+          type="text"
           label="Please Specify Device Type"
-          render={() => (
-            <input
-              type="text"
-              placeholder="Enter device type"
-              value={formData.customDeviceType || ''}
-              onChange={onChange('customDeviceType')}
-              onBlur={onBlur('customDeviceType')}
-            />
-          )}
+          placeholder="Enter device type"
+          value={formData.customDeviceType || ''}
+          onChange={onChange('customDeviceType')}
+          onBlur={onBlur('customDeviceType')}
+          error={errors.customDeviceType}
         />
       )}
 
       {/* Software Affected */}
-      <FormField
-        id="softwareAffected"
+      <InputField
+        type="text"
         label="Software Affected (Problem inside the device)"
-        render={() => (
-          <input
-            type="text"
-            placeholder="Enter affected software"
-            value={formData.softwareAffected}
-            onChange={onChange('softwareAffected')}
-            onBlur={onBlur('softwareAffected')}
-          />
-        )}
+        placeholder="Enter affected software"
+        value={formData.softwareAffected}
+        onChange={onChange('softwareAffected')}
+        onBlur={onBlur('softwareAffected')}
+        error={errors.softwareAffected}
       />
     </>
   );
 }
+export { ITSupportMetadata };

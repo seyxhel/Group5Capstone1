@@ -2,17 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaEye, FaEdit, FaArchive, FaTimes } from 'react-icons/fa';
 
-import userStyles from '../user-management/CoordinatorAdminUserAccess.module.css';
-import knowledgeStyles from './knowledge.module.css';
-import TablePagination from '../../../shared/table/TablePagination';
-import Button from '../../../shared/components/Button';
-import InputField from '../../../shared/components/InputField';
+import styles from './knowledge.module.css';
+import Table from '../../../shared/table/Table';
+import FilterPanel from '../../../shared/table/FilterPanel';
 import SysAdminArticlesFilter from '../../components/filters/SysAdminArticlesFilter';
 import DeleteConfirmationModal from '../../components/modals/SysAdminDeleteConfirmationModal';
 import ArchiveConfirmationModal from '../../components/modals/SysAdminArchiveConfirmationModal';
 import kbService from '../../../services/kbService';
 import authService from '../../../utilities/service/authService';
-import Skeleton from '../../../shared/components/Skeleton/Skeleton';
 
 const KnowledgeArticles = () => {
   const navigate = useNavigate();
@@ -21,9 +18,12 @@ const KnowledgeArticles = () => {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState({});
+  const [showFilter, setShowFilter] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, article: null, isDeleting: false });
   const [archiveModal, setArchiveModal] = useState({ isOpen: false, article: null, isArchiving: false });
   const [isAuthorized, setIsAuthorized] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Role-based access control - Only System Admin can access
   useEffect(() => {
@@ -35,13 +35,7 @@ const KnowledgeArticles = () => {
       setIsAuthorized(true);
     }
   }, [navigate]);
-
-  // appliedFilters is the source of truth for FilterPanel initial state
-
-  // pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
+  // fetch categories and articles
   const fetch = async () => {
     setLoading(true);
     try {
@@ -179,7 +173,30 @@ const KnowledgeArticles = () => {
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
-  // small components for counts (kept simple)
+  // Prevent rendering if not authorized
+  if (isAuthorized === false) {
+    return null;
+  }
+
+  const FilterComponent = () => (
+    <SysAdminArticlesFilter
+      key={showFilter ? "filter-shown" : "filter-hidden"}
+      hideToggleButton={true}
+      initialShow={showFilter}
+      onApply={(filters) => {
+        setAppliedFilters(filters);
+        setCurrentPage(1);
+      }}
+      onReset={(filters) => {
+        setAppliedFilters(filters);
+        setCurrentPage(1);
+      }}
+      initialFilters={appliedFilters}
+      categoryOptions={(categories || []).map(c => ({ label: c.name }))}
+    />
+  );
+
+  // small component for counts
   const LikesCount = ({ articleId }) => {
     const [count, setCount] = useState(0);
     useEffect(() => {
@@ -206,13 +223,87 @@ const KnowledgeArticles = () => {
     return <span>{count}</span>;
   };
 
-  // Prevent rendering if not authorized
-  if (isAuthorized === false) {
-    return null;
-  }
+  const columns = [
+    {
+      key: 'title',
+      label: 'Article',
+      render: (val, article) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{val}</div>
+          <div style={{ fontSize: '0.85em', color: '#666' }}>{article.author} • {formatArticleDate(article)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'category_id',
+      label: 'Category',
+      render: (val) => getCategoryName(val),
+    },
+    {
+      key: 'tags',
+      label: 'Tags',
+      render: (val) => val && val.length ? val.join(', ') : '',
+    },
+    {
+      key: 'visibility',
+      label: 'Visibility',
+      render: (val) => val,
+    },
+    {
+      key: 'id',
+      label: 'Created',
+      render: (val, article) => formatArticleDate(article),
+    },
+    {
+      key: 'id',
+      label: 'Total Likes',
+      render: (val) => <LikesCount articleId={val} />,
+    },
+    {
+      key: 'id',
+      label: 'Total Dislikes',
+      render: (val) => <DislikesCount articleId={val} />,
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (val, article) => (
+        <>
+          <button
+            title="View"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+            onClick={() => navigate(`/admin/knowledge/view/${article.id}`)}
+          >
+            <FaEye />
+          </button>
+          <button
+            title="Edit"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+            onClick={() => navigate(`/admin/knowledge/edit/${article.id}`)}
+          >
+            <FaEdit />
+          </button>
+          <button
+            title="Archive"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+            onClick={() => handleArchive(article)}
+          >
+            <FaArchive />
+          </button>
+          <button
+            title="Delete"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+            onClick={() => openDeleteModal(article)}
+          >
+            <FaTimes />
+          </button>
+        </>
+      ),
+    },
+  ];
 
   return (
-    <div className={userStyles.pageContainer}>
+    <>
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         isOpen={deleteModal.isOpen}
@@ -233,122 +324,33 @@ const KnowledgeArticles = () => {
         isArchiving={archiveModal.isArchiving}
       />
 
-      {/* Filter panel (outside the table) — use shared FilterPanel for consistent spacing */}
-      <SysAdminArticlesFilter
-        onApply={(filters) => { setAppliedFilters(filters); setCurrentPage(1); }}
-        onReset={(filters) => { setAppliedFilters(filters); setCurrentPage(1); }}
-        initialFilters={appliedFilters}
-        categoryOptions={(categories || []).map(c => ({ label: c.name }))}
+      <Table
+        variant="default"
+        data={filtered
+          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)}
+        columns={columns}
+        title="Knowledge Base Articles"
+        searchable
+        searchValue={query}
+        onSearchChange={(q) => {
+          setQuery(q);
+          setCurrentPage(1);
+        }}
+        filterComponent={FilterComponent}
+        showFilter={showFilter}
+        onShowFilterChange={setShowFilter}
+        currentPage={currentPage}
+        pageSize={itemsPerPage}
+        totalItems={filtered.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(n) => {
+          setItemsPerPage(n);
+          setCurrentPage(1);
+        }}
+        isLoading={loading}
+        emptyMessage="No articles found."
       />
-
-      <div className={userStyles.tableSection}>
-        <div className={userStyles.tableHeader}>
-          <h2>Articles</h2>
-            <div className={userStyles.tableActions}>
-            <InputField
-              type="search"
-              placeholder="Search..."
-              value={query}
-              onChange={e => { setQuery(e.target.value); setCurrentPage(1); }}
-              inputClassName={knowledgeStyles.searchInput}
-            />
-            {authService.getUserRole() === 'System Admin' && (
-              <button
-                className={userStyles.registerButton}
-                onClick={() => navigate('/admin/knowledge/create')}
-              >
-                Create Article
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter is rendered above the table — duplicates removed */}
-
-        <div className={userStyles.tableWrapper}>
-          <table className={userStyles.table}>
-            <thead>
-              <tr>
-                <th className={knowledgeStyles.colArticle}>Article</th>
-                <th className={knowledgeStyles.colCategory}>Category</th>
-                <th className={knowledgeStyles.colTags}>Tags</th>
-                <th className={knowledgeStyles.colVisibility}>Visibility</th>
-                <th className={knowledgeStyles.colCreated}>Created</th>
-                <th className={knowledgeStyles.colLikes}>Total Likes</th>
-                <th className={knowledgeStyles.colDislikes}>Total Dislikes</th>
-                <th className={knowledgeStyles.colActions}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td><Skeleton width="100%" height="40px" /></td>
-                    <td><Skeleton width="100%" height="40px" /></td>
-                    <td><Skeleton width="100%" height="40px" /></td>
-                    <td className={knowledgeStyles.textCenter}><Skeleton width="80px" height="40px" /></td>
-                    <td className={knowledgeStyles.textCenter}><Skeleton width="100px" height="40px" /></td>
-                    <td className={knowledgeStyles.textCenter}><Skeleton width="60px" height="40px" /></td>
-                    <td className={knowledgeStyles.textCenter}><Skeleton width="80px" height="40px" /></td>
-                    <td><Skeleton width="120px" height="40px" /></td>
-                  </tr>
-                ))
-              ) : paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className={knowledgeStyles.emptyState}>
-                    No articles found for this category or search.
-                  </td>
-                </tr>
-              ) : (
-                paginated.map((a, idx) => (
-                  <tr key={a.id || idx}>
-                    <td>
-                      <div className={userStyles.subjectCell}>
-                        <div className={knowledgeStyles.subjectTitle}>{a.title}</div>
-                        <div className={knowledgeStyles.subjectMeta}>{a.author} • {formatArticleDate(a)}</div>
-                      </div>
-                    </td>
-                      <td>{getCategoryName(a.category_id)}</td>
-                      <td>{a.tags && a.tags.length ? a.tags.join(', ') : ''}</td>
-                    <td className={knowledgeStyles.textCenter}>{a.visibility}</td>
-              <td className={knowledgeStyles.textCenter}>{formatArticleDate(a)}</td>
-                    <td className={knowledgeStyles.textCenter}><LikesCount articleId={a.id} /></td>
-                    <td className={knowledgeStyles.textCenter}><DislikesCount articleId={a.id} /></td>
-                    <td>
-                      <div className={userStyles.actionButtonCont}>
-                        <button title="View" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/view/${a.id}`)}>
-                          <FaEye />
-                        </button>
-                        <button title="Edit" className={userStyles.actionButton} onClick={() => navigate(`/admin/knowledge/edit/${a.id}`)}>
-                          <FaEdit />
-                        </button>
-                        <button title="Archive" className={userStyles.actionButton} onClick={() => handleArchive(a)}>
-                          <FaArchive />
-                        </button>
-                        <button title="Delete" className={userStyles.actionButton} onClick={() => openDeleteModal(a)}>
-                          <FaTimes />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className={userStyles.tablePagination}>
-          <TablePagination
-            currentPage={currentPage}
-            totalItems={filtered.length}
-            initialItemsPerPage={itemsPerPage}
-            onPageChange={(p) => setCurrentPage(p)}
-            onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-            alwaysShow={true}
-          />
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 

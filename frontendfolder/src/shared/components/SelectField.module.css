@@ -1,14 +1,14 @@
 .selectFieldContainer {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   width: 100%; /* Full width within container */
 }
 
 .label {
   display: block;
-  font-size: 14px;
+  font-size: 0.7rem; /* ~11.2px - matching select/placeholder/value */
   color: #666;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 
 .required {
@@ -24,13 +24,14 @@
 
 .select {
   width: 100%; /* Full width within container */
-  height: 40px; /* Similar dimensions to input fields */
-  padding: 13px 16px; /* Padding: H: 13px | W: 16px */
-  padding-right: 40px; /* Space for custom arrow */
+  height: 34px; /* Match input height */
+  padding: 10px 12px; /* Match input padding */
+  padding-right: 36px; /* Space for custom arrow */
   border: 1px solid #E0E0E0; /* Border: Gray 300 #E0E0E0 */
-  border-radius: 25px; /* Border-radius: matches input fields */
-  font-size: 14px;
+  border-radius: 18px; /* Match input radius */
+  font-size: 0.7rem; /* ~11.2px - reduced from 0.75rem */
   font-family: inherit;
+  line-height: 1.2; /* Match InputField line-height */
   background-color: #F8F8F8; /* Background: Light #F8F8F8 */
   color: #0C0C0C; /* Text: Base #0C0C0C */
   cursor: pointer;
@@ -40,25 +41,42 @@
   appearance: none; /* Remove default arrow */
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
-  background-position: right 16px center;
-  background-size: 16px;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+
+/* Placeholder styling - match InputField */
+.select option[value=""][disabled] {
+  color: #9ca3af;
+  font-size: 0.8rem; /* increased to match input value size */
+}
+
+/* All options in select - ensure consistent font size */
+.select option {
+  font-size: 0.8rem; /* increased to match input value size */
+  color: #0C0C0C;
+}
+
+/* Style for placeholder-like first option */
+.select:invalid {
+  color: #9ca3af;
 }
 
 /* Multi-select specific styling */
 .multiSelect {
   height: auto; /* Auto height for multi-select */
-  min-height: 120px; /* Minimum height for visibility */
-  max-height: 200px; /* Maximum height with scroll */
+  min-height: 100px; /* Minimum height for visibility (compact) */
+  max-height: 180px; /* Maximum height with scroll */
   overflow-y: auto; /* Scrollable for long lists */
-  padding: 8px; /* Adjusted padding for multi-select */
-  padding-right: 16px; /* Remove extra space since no arrow */
+  padding: 6px; /* Reduced padding for compact layout */
+  padding-right: 12px; /* Remove extra space since no arrow */
   background-image: none; /* Remove arrow for multi-select */
 }
 
 /* Multi-select option styling */
 .multiSelect option {
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
   margin: 2px 0;
   cursor: pointer;
 }
@@ -75,7 +93,7 @@
 
 /* Hover state - Gray 300 */
 .select:hover:not(:disabled) {
-  background-color: #E0E0E0; /* Gray 300 */
+  background-color: #EDEFF1; /* slightly lighter hover for compact look */
   border-color: #D1D5DB;
 }
 
@@ -83,7 +101,7 @@
 .select:focus {
   border-color: #2563EB; /* Primary blue */
   background-color: #ffffff;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Shadow dropdown */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04); /* Slightly softer shadow */
 }
 
 /* Error state */
@@ -115,7 +133,7 @@
 
 /* Dropdown menu styling for long lists */
 .select option {
-  padding: 10px;
+  padding: 8px;
   background-color: #ffffff;
   color: #0C0C0C;
 }

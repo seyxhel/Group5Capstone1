@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
-import ModalWrapper from "../../../shared/modals/ModalWrapper";
+import ModalWrapper from "../../../../shared/modals/ModalWrapper";
 import styles from "./CoordinatorRejectTicketModal.module.css";
 import 'react-toastify/dist/ReactToastify.css';
 

@@ -369,3 +369,389 @@
   font-weight: 600;
 }
 
+/* ========== CoordinatorMyTicketsView Styles ========== */
+
+/* Ticket Section */
+.ticketSection {
+  margin-bottom: 24px;
+}
+
+/* Detail Block */
+.detailBlock {
+  margin-bottom: 20px;
+}
+
+/* Detail Grid */
+.detailGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+}
+
+.detailValue {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Empty Attachments */
+.emptyAttachments {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #dee2e6;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  color: #adb5bd;
+  margin-bottom: 16px;
+}
+
+/* Attachments Container */
+.attachmentsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Requester Message */
+.requesterMessage {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.messageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.requesterName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.requesterLabel {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+.messageDate {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.messageContent {
+  font-size: 14px;
+  color: #495057;
+  line-height: 1.6;
+}
+
+/* Reply Section */
+.replySection {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.replyTo {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+  margin-bottom: 12px;
+}
+
+.messageInput {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+.messageInput:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.messageActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attachButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.attachButton:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.sendButton {
+  padding: 8px 24px;
+  background: #667eea;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sendButton:hover {
+  background: #5a6fd6;
+}
+
+/* Messages Panel */
+.messagesPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.agentMessagesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.agentMessagesTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.connectionStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.agentMessagesContent {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.noMessages {
+  color: #6c757d;
+  font-style: italic;
+  text-align: center;
+  padding: 24px;
+}
+
+.agentMessageInput {
+  padding: 16px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 12px;
+}
+
+.messageTextarea {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: none;
+  font-family: inherit;
+  min-height: 44px;
+}
+
+.messageTextarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.agentSendButton {
+  padding: 12px 24px;
+  background: #667eea;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.agentSendButton:hover {
+  background: #5a6fd6;
+}
+
+/* Info Card */
+.infoCard {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.infoCardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+  padding: 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.infoCardContent {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.infoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.infoLabel {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.infoValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: #212529;
+}
+
+/* Action Log */
+.actionLog {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.logEntry {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.logEntry:last-child {
+  border-bottom: none;
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.logUser {
+  font-size: 13px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.logBadge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.logAction {
+  font-size: 13px;
+  color: #495057;
+}
+
+.logTimestamp {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+.emptyLog {
+  padding: 24px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .messageActions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .attachButton,
+  .sendButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

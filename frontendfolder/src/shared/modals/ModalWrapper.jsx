@@ -5,6 +5,7 @@ import styles from "./ModalWrapper.module.css";
 const SIZE_MAP = {
   sm: '540px',
   md: '720px',
+  mdlg: '820px',
   lg: '980px',
   xl: '1200px',
   full: '100vw',
@@ -62,10 +63,17 @@ const ModalWrapper = ({ children, onClose, className, contentProps = {}, size, m
   return ReactDOM.createPortal(
     <div className={styles["modal-overlay"]} onClick={handleOverlayClick}>
       <div className={contentClass} {...mergedContentProps}>
-        <button aria-label="Close modal" className={styles['modal-close']} onClick={() => onClose?.()}>
-          ×
-        </button>
-        {children}
+        <div className={styles['modal-toprow']}>
+          <div className={styles['modal-close-cell']}>
+            <button aria-label="Close modal" className={styles['modal-close']} onClick={() => onClose?.()}>
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className={styles['modal-body']}>
+          {children}
+        </div>
       </div>
     </div>,
     document.body
